@@ -32,6 +32,22 @@ npm install
 npm run dev
 ```
 
+## Fotos de producto
+
+Los productos pueden tener una foto (al crearlos o agregándola después con
+el ícono de cámara en cada fila). Las imágenes se guardan en **Firebase
+Storage**, un servicio aparte de Firestore. Para activarlo:
+
+```
+firebase deploy --only storage --project=finance-6e127
+```
+
+Si es la primera vez que usas Storage en este proyecto, puede pedirte que
+lo actives primero desde la consola: ve a
+https://console.firebase.google.com/project/finance-6e127/storage y haz
+clic en "Comenzar" (el plan Spark incluye Storage sin costo dentro de su
+cuota gratuita). Luego repite el comando de arriba.
+
 ## Indicador de conexión
 
 Arriba de cada sección verás una pastilla que dice "Sincronizado con

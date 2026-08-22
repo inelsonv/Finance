@@ -1,6 +1,14 @@
-import React, { useMemo, useState } from "react";
-import { Plus, Trash2, Search, X } from "lucide-react";
-import { addProduct, deleteProduct, updateProductPrice, addToList, incrementListQty } from "../lib/db";
+import React, { useMemo, useRef, useState } from "react";
+import { Plus, Trash2, Search, X, Image as ImageIcon, Camera } from "lucide-react";
+import {
+  addProduct,
+  deleteProduct,
+  updateProductPrice,
+  addToList,
+  incrementListQty,
+  uploadProductImage,
+  removeProductImage,
+} from "../lib/db";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
@@ -15,8 +23,13 @@ export default function Catalogo({ products, list }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
+  const [formImage, setFormImage] = useState(null);
+  const [formImagePreview, setFormImagePreview] = useState(null);
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [uploadingId, setUploadingId] = useState(null);
+  const formFileRef = useRef(null);
+  const rowFileRefs = useRef({});
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -26,6 +39,12 @@ export default function Catalogo({ products, list }) {
     );
   }, [products, search]);
 
+  const handleFormImagePick = (file) => {
+    if (!file) return;
+    setFormImage(file);
+    setFormImagePreview(URL.createObjectURL(file));
+  };
+
   const handleAdd = async () => {
     const name = form.name.trim();
     if (!name) return;
@@ -33,18 +52,35 @@ export default function Catalogo({ products, list }) {
     setFormError(null);
     try {
       const price = parseFloat(form.price);
-      await addProduct({
+      const docRef = await addProduct({
         name,
         category: form.category,
         unit: form.unit,
         price: Number.isFinite(price) ? price : 0,
       });
+      if (formImage) {
+        await uploadProductImage(docRef.id, formImage);
+      }
       setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
+      setFormImage(null);
+      setFormImagePreview(null);
       setShowForm(false);
     } catch (err) {
       setFormError(err.message || String(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleRowImagePick = async (id, file) => {
+    if (!file) return;
+    setUploadingId(id);
+    try {
+      await uploadProductImage(id, file);
+    } catch (err) {
+      // el error se ve reflejado si el producto no actualiza su imagen
+    } finally {
+      setUploadingId(null);
     }
   };
 
@@ -104,47 +140,77 @@ export default function Catalogo({ products, list }) {
 
       {showForm && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
-          <div
-            className="despensa-formgrid"
-            style={{ display: "grid", gridTemplateColumns: "2fr 1.3fr 1fr 1fr", gap: 8, marginBottom: 10 }}
-          >
+          <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
             <input
-              autoFocus
-              placeholder="Nombre del producto"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              ref={formFileRef}
+              type="file"
+              accept="image/*"
+              onChange={(e) => handleFormImagePick(e.target.files[0])}
+              style={{ display: "none" }}
             />
-            <select
-              value={form.category}
-              onChange={(e) => setForm({ ...form, category: e.target.value })}
-              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+            <button
+              type="button"
+              onClick={() => formFileRef.current?.click()}
+              title="Agregar foto"
+              style={{
+                width: 56,
+                height: 56,
+                flexShrink: 0,
+                borderRadius: 8,
+                border: "1px dashed var(--line)",
+                background: formImagePreview ? `url(${formImagePreview}) center/cover` : "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--ink-soft)",
+                cursor: "pointer",
+                padding: 0,
+              }}
             >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-            <select
-              value={form.unit}
-              onChange={(e) => setForm({ ...form, unit: e.target.value })}
-              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+              {!formImagePreview && <Camera size={18} />}
+            </button>
+            <div
+              className="despensa-formgrid"
+              style={{ flex: 1, display: "grid", gridTemplateColumns: "2fr 1.3fr 1fr 1fr", gap: 8 }}
             >
-              {UNITS.map((u) => (
-                <option key={u} value={u}>{u}</option>
-              ))}
-            </select>
-            <input
-              className="despensa-mono"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Precio"
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: e.target.value })}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-            />
+              <input
+                autoFocus
+                placeholder="Nombre del producto"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <select
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+              >
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <select
+                value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+              >
+                {UNITS.map((u) => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+              <input
+                className="despensa-mono"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Precio"
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </div>
           </div>
           <button
             onClick={handleAdd}
@@ -190,6 +256,35 @@ export default function Catalogo({ products, list }) {
                 borderTop: i === 0 ? "none" : "1px solid var(--line-soft)",
               }}
             >
+              <input
+                ref={(el) => (rowFileRefs.current[p.id] = el)}
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleRowImagePick(p.id, e.target.files[0])}
+                style={{ display: "none" }}
+              />
+              <button
+                type="button"
+                onClick={() => rowFileRefs.current[p.id]?.click()}
+                title={p.imageUrl ? "Cambiar foto" : "Agregar foto"}
+                style={{
+                  width: 38,
+                  height: 38,
+                  flexShrink: 0,
+                  borderRadius: 7,
+                  border: p.imageUrl ? "none" : "1px dashed var(--line)",
+                  background: p.imageUrl ? `url(${p.imageUrl}) center/cover` : "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--ink-soft)",
+                  cursor: "pointer",
+                  padding: 0,
+                  opacity: uploadingId === p.id ? 0.5 : 1,
+                }}
+              >
+                {!p.imageUrl && <ImageIcon size={15} />}
+              </button>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                   {p.name}
