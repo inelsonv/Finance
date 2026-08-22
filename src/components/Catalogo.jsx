@@ -15,6 +15,8 @@ export default function Catalogo({ products, list }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
+  const [formError, setFormError] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -27,15 +29,23 @@ export default function Catalogo({ products, list }) {
   const handleAdd = async () => {
     const name = form.name.trim();
     if (!name) return;
-    const price = parseFloat(form.price);
-    await addProduct({
-      name,
-      category: form.category,
-      unit: form.unit,
-      price: Number.isFinite(price) ? price : 0,
-    });
-    setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
-    setShowForm(false);
+    setSaving(true);
+    setFormError(null);
+    try {
+      const price = parseFloat(form.price);
+      await addProduct({
+        name,
+        category: form.category,
+        unit: form.unit,
+        price: Number.isFinite(price) ? price : 0,
+      });
+      setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
+      setShowForm(false);
+    } catch (err) {
+      setFormError(err.message || String(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handlePriceBlur = (id, value) => {
@@ -138,7 +148,7 @@ export default function Catalogo({ products, list }) {
           </div>
           <button
             onClick={handleAdd}
-            disabled={!form.name.trim()}
+            disabled={!form.name.trim() || saving}
             style={{
               padding: "7px 16px",
               fontSize: 13,
@@ -147,11 +157,16 @@ export default function Catalogo({ products, list }) {
               color: "#fff",
               border: "none",
               borderRadius: 8,
-              cursor: form.name.trim() ? "pointer" : "not-allowed",
+              cursor: form.name.trim() && !saving ? "pointer" : "not-allowed",
             }}
           >
-            Guardar producto
+            {saving ? "Guardando…" : "Guardar producto"}
           </button>
+          {formError && (
+            <div style={{ marginTop: 10, fontSize: 12, color: "var(--stamp)" }}>
+              No se pudo guardar: {formError}
+            </div>
+          )}
         </div>
       )}
 
