@@ -23,5 +23,8 @@ service cloud.firestore {
     match /movimientos/{doc} {
       allow read, write: if true;
     }
+    match /prestamos/{doc} {
+      allow read, write: if true;
+    }
   }
 }

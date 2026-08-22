@@ -17,6 +17,7 @@ const productsCol = collection(db, "productos");
 const listCol = collection(db, "listaCompra");
 const entidadesCol = collection(db, "entidades");
 const movimientosCol = collection(db, "movimientos");
+const prestamosCol = collection(db, "prestamos");
 
 export function watchConnectionStatus(onChange) {
   return onSnapshot(
@@ -166,4 +167,51 @@ export async function addMovimiento({ type, category, amount, description, date,
 
 export async function deleteMovimiento(id) {
   await deleteDoc(doc(db, "movimientos", id));
+}
+
+export function watchPrestamos(onChange, onError) {
+  return onSnapshot(
+    prestamosCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.numero || "").localeCompare(b.numero || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addPrestamo({
+  numero,
+  entidadId,
+  entidadName,
+  montoAprobado,
+  plazo,
+  plazoUnidad,
+  tasaInteres,
+  fechaInicio,
+  estado,
+  notas,
+}) {
+  await addDoc(prestamosCol, {
+    numero,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    montoAprobado,
+    plazo,
+    plazoUnidad,
+    tasaInteres,
+    fechaInicio,
+    estado,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updatePrestamoEstado(id, estado) {
+  await updateDoc(doc(db, "prestamos", id), { estado });
+}
+
+export async function deletePrestamo(id) {
+  await deleteDoc(doc(db, "prestamos", id));
 }

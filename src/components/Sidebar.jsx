@@ -1,11 +1,12 @@
 import React from "react";
-import { Package, ShoppingCart, Landmark, Wallet } from "lucide-react";
+import { Package, ShoppingCart, Landmark, Wallet, Banknote } from "lucide-react";
 
 const NAV_ITEMS = [
   { id: "presupuesto", label: "Presupuesto", icon: Wallet },
   { id: "catalogo", label: "Catálogo", icon: Package },
   { id: "lista", label: "Lista de compra", icon: ShoppingCart },
   { id: "entidades", label: "Entidades", icon: Landmark },
+  { id: "prestamos", label: "Préstamos", icon: Banknote },
 ];
 
 export default function Sidebar({ tab, setTab, listCount }) {
