@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank } from "lucide-react";
+import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard } from "lucide-react";
 import { addMovimiento, deleteMovimiento } from "../lib/db";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
 const GASTO_CATS = ["Vivienda", "Alimentación", "Transporte", "Servicios", "Entretenimiento", "Salud", "Otro"];
-const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo", ...CUENTA_TIPOS.filter((t) => t !== "Otro")];
+const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
+const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo", "Pago de tarjeta", ...CUENTA_MOVIMIENTO_TIPOS];
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -22,8 +23,6 @@ function formatDateDisplay(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
-
 const emptyForm = () => ({
   tipo: "Ingreso",
   category: INGRESO_CATS[0],
@@ -33,18 +32,21 @@ const emptyForm = () => ({
   entidadId: "",
   prestamoId: "",
   cuentaId: "",
+  tarjetaId: "",
 });
 
-export default function Movimientos({ movimientos, entidades, prestamos, cuentas }) {
+export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const prestamosActivos = prestamos.filter((p) => p.estado === "Activo");
+  const tarjetasActivas = tarjetas.filter((t) => t.estado === "Activa");
   const isCuentaTipo = CUENTA_MOVIMIENTO_TIPOS.includes(form.tipo);
   const cuentasDelTipo = cuentas.filter((c) => c.tipo === form.tipo);
   const selectedCuenta = cuentas.find((c) => c.id === form.cuentaId);
+  const selectedTarjeta = tarjetas.find((t) => t.id === form.tarjetaId);
 
   const setTipo = (tipo) => {
     setForm({
@@ -65,6 +67,15 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
     });
   };
 
+  const handleSelectTarjeta = (tarjetaId) => {
+    const t = tarjetas.find((x) => x.id === tarjetaId);
+    setForm({
+      ...form,
+      tarjetaId,
+      amount: t && t.pagoMinimo != null ? String(t.pagoMinimo) : form.amount,
+    });
+  };
+
   const handleAdd = async () => {
     const amount = parseFloat(form.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -73,6 +84,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
     }
     if (form.tipo === "Pago de préstamo" && !form.prestamoId) {
       setFormError("Selecciona el préstamo que estás pagando");
+      return;
+    }
+    if (form.tipo === "Pago de tarjeta" && !form.tarjetaId) {
+      setFormError("Selecciona la tarjeta que estás pagando");
       return;
     }
     if (isCuentaTipo && !form.cuentaId) {
@@ -84,19 +99,38 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
     try {
       const entidad = entidades.find((e) => e.docId === form.entidadId);
       const prestamo = prestamos.find((p) => p.id === form.prestamoId);
+      const tarjeta = tarjetas.find((t) => t.id === form.tarjetaId);
       const cuenta = cuentas.find((c) => c.id === form.cuentaId);
       await addMovimiento({
         type: form.tipo === "Ingreso" ? "Ingreso" : "Gasto",
-        category: form.tipo === "Pago de préstamo" || isCuentaTipo ? form.tipo : form.category,
+        category: form.tipo === "Pago de préstamo" || form.tipo === "Pago de tarjeta" || isCuentaTipo ? form.tipo : form.category,
         amount,
         description: form.description.trim(),
         date: form.date,
-        entidadId: form.tipo === "Pago de préstamo" ? prestamo?.entidadId || "" : isCuentaTipo ? cuenta?.entidadId || "" : form.entidadId || null,
-        entidadName: form.tipo === "Pago de préstamo" ? prestamo?.entidadName || "" : isCuentaTipo ? cuenta?.entidadName || "" : entidad ? entidad.name : "",
+        entidadId:
+          form.tipo === "Pago de préstamo"
+            ? prestamo?.entidadId || ""
+            : form.tipo === "Pago de tarjeta"
+            ? tarjeta?.entidadId || ""
+            : isCuentaTipo
+            ? cuenta?.entidadId || ""
+            : form.entidadId || null,
+        entidadName:
+          form.tipo === "Pago de préstamo"
+            ? prestamo?.entidadName || ""
+            : form.tipo === "Pago de tarjeta"
+            ? tarjeta?.entidadName || ""
+            : isCuentaTipo
+            ? cuenta?.entidadName || ""
+            : entidad
+            ? entidad.name
+            : "",
         prestamoId: form.tipo === "Pago de préstamo" ? form.prestamoId : null,
         prestamoNumero: form.tipo === "Pago de préstamo" ? prestamo?.numero || "" : "",
         cuentaId: isCuentaTipo ? form.cuentaId : null,
         cuentaNombre: isCuentaTipo ? cuenta?.nombre || "" : "",
+        tarjetaId: form.tipo === "Pago de tarjeta" ? form.tarjetaId : null,
+        tarjetaNombre: form.tipo === "Pago de tarjeta" ? tarjeta?.nombre || "" : "",
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -179,6 +213,34 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   {selectedPrestamo && selectedPrestamo.cuota != null && (
                     <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
                       Cuota registrada: <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 500 }}>{formatMoney(selectedPrestamo.cuota)}</span> (ya la pre-llenamos en el monto, puedes ajustarla)
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : form.tipo === "Pago de tarjeta" ? (
+            <div style={{ marginBottom: 8 }}>
+              {tarjetasActivas.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--stamp)", padding: "8px 0" }}>
+                  No tienes tarjetas activas. Registra una en la sección Tarjetas primero.
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={form.tarjetaId}
+                    onChange={(e) => handleSelectTarjeta(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                  >
+                    <option value="">Selecciona la tarjeta…</option>
+                    {tarjetasActivas.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.nombre}{t.ultimos4 ? ` ····${t.ultimos4}` : ""} · {t.entidadName}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedTarjeta && selectedTarjeta.pagoMinimo != null && (
+                    <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
+                      Pago mínimo: <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 500 }}>{formatMoney(selectedTarjeta.pagoMinimo)}</span> (ya lo pre-llenamos en el monto, puedes ajustarlo)
                     </div>
                   )}
                 </>
@@ -320,6 +382,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
               >
                 {m.category === "Pago de préstamo" ? (
                   <Landmark size={12} />
+                ) : m.category === "Pago de tarjeta" ? (
+                  <CreditCard size={12} />
                 ) : CUENTA_MOVIMIENTO_TIPOS.includes(m.category) ? (
                   <PiggyBank size={12} />
                 ) : m.type === "Ingreso" ? (
@@ -332,6 +396,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                 <div style={{ fontSize: 13.5, fontWeight: 500 }}>
                   {m.category}
                   {m.prestamoNumero && <span className="despensa-mono" style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.prestamoNumero}</span>}
+                  {m.tarjetaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.tarjetaNombre}</span>}
                   {m.description && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.description}</span>}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 1 }}>

@@ -29,5 +29,8 @@ service cloud.firestore {
     match /cuentas/{doc} {
       allow read, write: if true;
     }
+    match /tarjetas/{doc} {
+      allow read, write: if true;
+    }
   }
 }

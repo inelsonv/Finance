@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
@@ -7,6 +7,7 @@ import Presupuesto from "./components/Presupuesto.jsx";
 import Movimientos from "./components/Movimientos.jsx";
 import Prestamos from "./components/Prestamos.jsx";
 import Cuentas from "./components/Cuentas.jsx";
+import Tarjetas from "./components/Tarjetas.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const THEME_KEY = "smart-finance-theme";
@@ -19,6 +20,7 @@ const TITLES = {
   entidades: "Entidades",
   cuentas: "Cuentas",
   prestamos: "Préstamos",
+  tarjetas: "Tarjetas",
 };
 
 function getInitialTheme() {
@@ -42,6 +44,7 @@ export default function App() {
   const [movimientos, setMovimientos] = useState([]);
   const [prestamos, setPrestamos] = useState([]);
   const [cuentas, setCuentas] = useState([]);
+  const [tarjetas, setTarjetas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [synced, setSynced] = useState(null);
@@ -72,6 +75,7 @@ export default function App() {
     const unsubMovimientos = watchMovimientos(setMovimientos, handleError);
     const unsubPrestamos = watchPrestamos(setPrestamos, handleError);
     const unsubCuentas = watchCuentas(setCuentas, handleError);
+    const unsubTarjetas = watchTarjetas(setTarjetas, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -80,6 +84,7 @@ export default function App() {
       unsubMovimientos();
       unsubPrestamos();
       unsubCuentas();
+      unsubTarjetas();
       unsubStatus();
     };
   }, []);
@@ -161,9 +166,10 @@ export default function App() {
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
-        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} />}
+        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} />}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} />}
         {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
+        {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} />}
       </main>
     </div>
   );

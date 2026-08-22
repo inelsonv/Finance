@@ -19,6 +19,7 @@ const entidadesCol = collection(db, "entidades");
 const movimientosCol = collection(db, "movimientos");
 const prestamosCol = collection(db, "prestamos");
 const cuentasCol = collection(db, "cuentas");
+const tarjetasCol = collection(db, "tarjetas");
 
 export function watchConnectionStatus(onChange) {
   return onSnapshot(
@@ -165,6 +166,8 @@ export async function addMovimiento({
   prestamoNumero,
   cuentaId,
   cuentaNombre,
+  tarjetaId,
+  tarjetaNombre,
 }) {
   await addDoc(movimientosCol, {
     type,
@@ -178,6 +181,8 @@ export async function addMovimiento({
     prestamoNumero: prestamoNumero || "",
     cuentaId: cuentaId || null,
     cuentaNombre: cuentaNombre || "",
+    tarjetaId: tarjetaId || null,
+    tarjetaNombre: tarjetaNombre || "",
     createdAt: serverTimestamp(),
   });
 }
@@ -270,4 +275,57 @@ export async function updateCuenta(id, fields) {
 
 export async function deleteCuenta(id) {
   await deleteDoc(doc(db, "cuentas", id));
+}
+
+export function watchTarjetas(onChange, onError) {
+  return onSnapshot(
+    tarjetasCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addTarjeta({
+  nombre,
+  entidadId,
+  entidadName,
+  ultimos4,
+  limiteCredito,
+  tasaInteres,
+  pagoMinimo,
+  fechaCorte,
+  fechaPago,
+  estado,
+  notas,
+}) {
+  await addDoc(tarjetasCol, {
+    nombre,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    ultimos4: ultimos4 || "",
+    limiteCredito: limiteCredito ?? null,
+    tasaInteres: tasaInteres ?? null,
+    pagoMinimo: pagoMinimo ?? null,
+    fechaCorte: fechaCorte ?? null,
+    fechaPago: fechaPago ?? null,
+    estado,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateTarjeta(id, fields) {
+  await updateDoc(doc(db, "tarjetas", id), fields);
+}
+
+export async function updateTarjetaEstado(id, estado) {
+  await updateDoc(doc(db, "tarjetas", id), { estado });
+}
+
+export async function deleteTarjeta(id) {
+  await deleteDoc(doc(db, "tarjetas", id));
 }
