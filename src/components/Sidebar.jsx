@@ -14,7 +14,7 @@ export default function Sidebar({ tab, setTab, listCount }) {
         className="despensa-tab-font"
         style={{ fontSize: 18, fontWeight: 700, padding: "0 4px 1.25rem", letterSpacing: "-0.01em" }}
       >
-        Mi Despensa
+        Smart Finance
       </div>
       <div className="despensa-navlist">
         {NAV_ITEMS.map((item) => {

@@ -1,4 +1,4 @@
-# Mi Despensa
+# Smart Finance
 
 App para gestionar un catálogo de productos de primera necesidad, con precios,
 y armar listas de compra a partir de ese catálogo. Los datos se guardan en

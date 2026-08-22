@@ -43,7 +43,7 @@ export default function App() {
   if (loading) {
     return (
       <div style={{ padding: "3rem 1rem", textAlign: "center", color: "var(--ink-soft)" }}>
-        Cargando tu despensa…
+        Cargando Smart Finance…
       </div>
     );
   }
