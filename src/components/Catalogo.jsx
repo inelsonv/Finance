@@ -13,12 +13,6 @@ import {
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
 
-function formatDate(ts) {
-  if (!ts) return "sin compras registradas";
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  return d.toLocaleDateString("es", { day: "2-digit", month: "short", year: "numeric" });
-}
-
 export default function Catalogo({ products, list }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -243,17 +237,23 @@ export default function Catalogo({ products, list }) {
             : "No hay productos que coincidan con la búsqueda."}
         </div>
       ) : (
-        <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
-          {filtered.map((p, i) => (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {filtered.map((p) => (
             <div
               key={p.id}
-              className="despensa-row"
               style={{
+                background: "var(--card)",
+                border: "1px solid var(--line)",
+                borderRadius: 12,
+                overflow: "hidden",
                 display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "10px 12px",
-                borderTop: i === 0 ? "none" : "1px solid var(--line-soft)",
+                flexDirection: "column",
               }}
             >
               <input
@@ -268,12 +268,11 @@ export default function Catalogo({ products, list }) {
                 onClick={() => rowFileRefs.current[p.id]?.click()}
                 title={p.imageUrl ? "Cambiar foto" : "Agregar foto"}
                 style={{
-                  width: 38,
-                  height: 38,
-                  flexShrink: 0,
-                  borderRadius: 7,
-                  border: p.imageUrl ? "none" : "1px dashed var(--line)",
-                  background: p.imageUrl ? `url(${p.imageUrl}) center/cover` : "#fff",
+                  width: "100%",
+                  aspectRatio: "1 / 1",
+                  border: "none",
+                  borderBottom: "1px solid var(--line-soft)",
+                  background: p.imageUrl ? `url(${p.imageUrl}) center/cover` : "var(--paper)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -283,74 +282,90 @@ export default function Catalogo({ products, list }) {
                   opacity: uploadingId === p.id ? 0.5 : 1,
                 }}
               >
-                {!p.imageUrl && <ImageIcon size={15} />}
+                {!p.imageUrl && <ImageIcon size={26} />}
               </button>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+
+              <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 500,
+                    lineHeight: 1.25,
+                    minHeight: 32,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
                   {p.name}
                 </div>
-                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2 }}>
-                  {p.category} · por {p.unit} · actualizado: {formatDate(p.updatedAt)}
+                <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 2, marginBottom: 8 }}>
+                  {p.category} · por {p.unit}
+                </div>
+
+                <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+                  <div className="despensa-mono" style={{ display: "flex", alignItems: "center", gap: 1, fontSize: 12.5, flex: 1, minWidth: 0 }}>
+                    $
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      defaultValue={Number(p.price || 0).toFixed(2)}
+                      key={p.price}
+                      onBlur={(e) => handlePriceBlur(p.id, e.target.value)}
+                      style={{
+                        width: "100%",
+                        minWidth: 0,
+                        padding: "4px 5px",
+                        border: "1px solid var(--line)",
+                        borderRadius: 6,
+                        fontSize: 12.5,
+                        fontFamily: "IBM Plex Mono, monospace",
+                        textAlign: "right",
+                      }}
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleAddToList(p.id)}
+                    title="Agregar a la lista de compra"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 28,
+                      height: 28,
+                      flexShrink: 0,
+                      background: "var(--sage-bg)",
+                      color: "var(--sage)",
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Plus size={14} />
+                  </button>
+                  <button
+                    onClick={() => deleteProduct(p.id)}
+                    title="Eliminar producto"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 28,
+                      height: 28,
+                      flexShrink: 0,
+                      background: "transparent",
+                      color: "var(--stamp)",
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
-              <div className="despensa-mono" style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 13 }}>
-                $
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  defaultValue={Number(p.price || 0).toFixed(2)}
-                  key={p.price}
-                  onBlur={(e) => handlePriceBlur(p.id, e.target.value)}
-                  style={{
-                    width: 64,
-                    padding: "5px 6px",
-                    border: "1px solid var(--line)",
-                    borderRadius: 6,
-                    fontSize: 13,
-                    fontFamily: "IBM Plex Mono, monospace",
-                    textAlign: "right",
-                  }}
-                />
-              </div>
-              <button
-                onClick={() => handleAddToList(p.id)}
-                title="Agregar a la lista de compra"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 30,
-                  height: 30,
-                  background: "var(--sage-bg)",
-                  color: "var(--sage)",
-                  border: "none",
-                  borderRadius: 7,
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                <Plus size={15} />
-              </button>
-              <button
-                onClick={() => deleteProduct(p.id)}
-                title="Eliminar producto"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 30,
-                  height: 30,
-                  background: "transparent",
-                  color: "var(--stamp)",
-                  border: "none",
-                  borderRadius: 7,
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                <Trash2 size={15} />
-              </button>
             </div>
           ))}
         </div>
