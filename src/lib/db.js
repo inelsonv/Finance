@@ -15,17 +15,21 @@ import { db } from "../firebase";
 const productsCol = collection(db, "productos");
 const listCol = collection(db, "listaCompra");
 
-export function watchProducts(onChange) {
+export function watchProducts(onChange, onError) {
   const q = query(productsCol, orderBy("name"));
-  return onSnapshot(q, (snap) => {
-    onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  });
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
 }
 
-export function watchList(onChange) {
-  return onSnapshot(listCol, (snap) => {
-    onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  });
+export function watchList(onChange, onError) {
+  return onSnapshot(
+    listCol,
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
 }
 
 export async function addProduct({ name, category, unit, price }) {
