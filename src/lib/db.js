@@ -15,6 +15,7 @@ import { db, storage } from "../firebase";
 
 const productsCol = collection(db, "productos");
 const listCol = collection(db, "listaCompra");
+const entidadesCol = collection(db, "entidades");
 const movimientosCol = collection(db, "movimientos");
 
 export function watchConnectionStatus(onChange) {
