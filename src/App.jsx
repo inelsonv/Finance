@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { Package, ShoppingCart } from "lucide-react";
-import { watchProducts, watchList } from "./lib/db";
+import { watchProducts, watchList, watchEntidades } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
+import Entidades from "./components/Entidades.jsx";
+import Sidebar from "./components/Sidebar.jsx";
+
+const TITLES = {
+  catalogo: "Catálogo",
+  lista: "Lista de compra",
+  entidades: "Entidades",
+};
 
 export default function App() {
   const [tab, setTab] = useState("catalogo");
   const [products, setProducts] = useState([]);
   const [list, setList] = useState([]);
+  const [entidades, setEntidades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -21,9 +29,11 @@ export default function App() {
       setLoading(false);
     }, handleError);
     const unsubList = watchList(setList, handleError);
+    const unsubEntidades = watchEntidades(setEntidades, handleError);
     return () => {
       unsubProducts();
       unsubList();
+      unsubEntidades();
     };
   }, []);
 
@@ -52,69 +62,29 @@ export default function App() {
   }
 
   return (
-    <div style={{ maxWidth: 640, margin: "0 auto", padding: "1.5rem 1rem" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: 8 }}>
-        <h1 className="despensa-tab-font" style={{ fontSize: 24, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
-          Mi Despensa
-        </h1>
-        <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-          {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
-        </span>
-      </div>
+    <div className="despensa-shell">
+      <Sidebar tab={tab} setTab={setTab} listCount={list.length} />
+      <main className="despensa-main">
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: 8 }}>
+          <h1 className="despensa-tab-font" style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
+            {TITLES[tab]}
+          </h1>
+          {tab === "catalogo" && (
+            <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+              {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
+            </span>
+          )}
+          {tab === "entidades" && (
+            <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+              {entidades.length} entidad{entidades.length !== 1 ? "es" : ""} registrada{entidades.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
 
-      <div style={{ display: "flex", gap: 4, marginBottom: "1.5rem", borderBottom: "1px solid var(--line)" }}>
-        {[
-          { id: "catalogo", label: "Catálogo", icon: Package },
-          { id: "lista", label: "Lista de compra", icon: ShoppingCart },
-        ].map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              className="despensa-tab-font"
-              onClick={() => setTab(t.id)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 14px",
-                fontSize: 14,
-                fontWeight: 500,
-                background: "transparent",
-                border: "none",
-                borderBottom: active ? "2px solid var(--stamp)" : "2px solid transparent",
-                color: active ? "var(--stamp)" : "var(--ink-soft)",
-                cursor: "pointer",
-                marginBottom: -1,
-              }}
-            >
-              <Icon size={15} />
-              {t.label}
-              {t.id === "lista" && list.length > 0 && (
-                <span
-                  className="despensa-mono"
-                  style={{
-                    background: active ? "var(--stamp)" : "var(--line)",
-                    color: active ? "var(--stamp-bg)" : "var(--ink)",
-                    borderRadius: 10,
-                    fontSize: 11,
-                    padding: "1px 6px",
-                  }}
-                >
-                  {list.length}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {tab === "catalogo" ? (
-        <Catalogo products={products} list={list} />
-      ) : (
-        <ListaCompra products={products} list={list} />
-      )}
+        {tab === "catalogo" && <Catalogo products={products} list={list} />}
+        {tab === "lista" && <ListaCompra products={products} list={list} />}
+        {tab === "entidades" && <Entidades entidades={entidades} />}
+      </main>
     </div>
   );
 }

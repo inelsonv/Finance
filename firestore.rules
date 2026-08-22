@@ -17,5 +17,11 @@ service cloud.firestore {
     match /listaCompra/{doc} {
       allow read, write: if true;
     }
+    match /entidades/{doc} {
+      allow read, write: if true;
+    }
+    match /counters/{doc} {
+      allow read, write: if true;
+    }
   }
 }

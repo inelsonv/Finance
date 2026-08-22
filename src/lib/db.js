@@ -6,6 +6,7 @@ import {
   onSnapshot,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -14,6 +15,8 @@ import { db } from "../firebase";
 
 const productsCol = collection(db, "productos");
 const listCol = collection(db, "listaCompra");
+const entidadesCol = collection(db, "entidades");
+const counterRef = doc(db, "counters", "entidades");
 
 export function watchProducts(onChange, onError) {
   const q = query(productsCol, orderBy("name"));
@@ -71,4 +74,39 @@ export async function removeFromList(productId) {
 
 export async function incrementListQty(productId, current, delta) {
   await updateDoc(doc(db, "listaCompra", productId), { qty: Math.max(1, current + delta) });
+}
+
+export function watchEntidades(onChange, onError) {
+  const q = query(entidadesCol, orderBy("id"));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => ({ docId: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addEntidad({ name, type, address, phone, notes }) {
+  await runTransaction(db, async (tx) => {
+    const counterSnap = await tx.get(counterRef);
+    const nextId = counterSnap.exists() ? (counterSnap.data().value || 0) + 1 : 1;
+    tx.set(counterRef, { value: nextId }, { merge: true });
+    const newDocRef = doc(entidadesCol, String(nextId));
+    tx.set(newDocRef, {
+      id: nextId,
+      name,
+      type,
+      address: address || "",
+      phone: phone || "",
+      notes: notes || "",
+      createdAt: serverTimestamp(),
+    });
+  });
+}
+
+export async function updateEntidad(docId, fields) {
+  await updateDoc(doc(db, "entidades", docId), fields);
+}
+
+export async function deleteEntidad(docId) {
+  await deleteDoc(doc(db, "entidades", docId));
 }
