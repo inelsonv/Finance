@@ -58,6 +58,29 @@ npm run build
 firebase deploy --only hosting
 ```
 
+## Publicar en GitHub Pages
+
+El repo incluye `.github/workflows/deploy.yml`: cada push a `main` construye
+la app y la publica en GitHub Pages automáticamente. Pasos únicos para
+activarlo:
+
+1. En GitHub, ve a **Settings → Pages → Build and deployment → Source** y
+   selecciona **GitHub Actions**.
+2. En **Settings → Secrets and variables → Actions → New repository secret**,
+   crea estos 6 secrets con los mismos valores de tu `.env`:
+   `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
+   `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`,
+   `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`.
+3. Haz push a `main` (o entra a la pestaña **Actions** del repo y corre el
+   workflow manualmente con "Run workflow").
+
+Cuando termine, la app queda disponible en:
+`https://inelsonv.github.io/Finance/`
+
+`vite.config.js` ya tiene `base: "/Finance/"` configurado para que las rutas
+funcionen correctamente en esa dirección (GitHub Pages sirve el sitio dentro
+de una subcarpeta con el nombre del repo).
+
 ## Próximos pasos
 
 - Escaneo de facturas para actualizar precios automáticamente (cada producto
