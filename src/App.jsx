@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
@@ -9,6 +9,7 @@ import Prestamos from "./components/Prestamos.jsx";
 import Cuentas from "./components/Cuentas.jsx";
 import Tarjetas from "./components/Tarjetas.jsx";
 import Membresias from "./components/Membresias.jsx";
+import FuentesIngreso from "./components/FuentesIngreso.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const THEME_KEY = "smart-finance-theme";
@@ -24,6 +25,7 @@ const TITLES = {
   prestamos: "Préstamos",
   tarjetas: "Tarjetas",
   membresias: "Membresías",
+  ingresos: "Ingresos",
 };
 
 function getInitialTheme() {
@@ -57,6 +59,7 @@ export default function App() {
   const [cuentas, setCuentas] = useState([]);
   const [tarjetas, setTarjetas] = useState([]);
   const [membresias, setMembresias] = useState([]);
+  const [fuentesIngreso, setFuentesIngreso] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [synced, setSynced] = useState(null);
@@ -99,6 +102,7 @@ export default function App() {
     const unsubCuentas = watchCuentas(setCuentas, handleError);
     const unsubTarjetas = watchTarjetas(setTarjetas, handleError);
     const unsubMembresias = watchMembresias(setMembresias, handleError);
+    const unsubFuentesIngreso = watchFuentesIngreso(setFuentesIngreso, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -109,6 +113,7 @@ export default function App() {
       unsubCuentas();
       unsubTarjetas();
       unsubMembresias();
+      unsubFuentesIngreso();
       unsubStatus();
     };
   }, []);
@@ -198,11 +203,12 @@ export default function App() {
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
-        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} membresias={membresias} />}
+        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} membresias={membresias} fuentesIngreso={fuentesIngreso} />}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} />}
         {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
         {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} />}
         {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
+        {tab === "ingresos" && <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} />}
       </main>
     </div>
   );

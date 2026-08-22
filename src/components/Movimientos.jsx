@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket } from "lucide-react";
+import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase } from "lucide-react";
 import { addMovimiento, deleteMovimiento } from "../lib/db";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
 
@@ -34,9 +34,10 @@ const emptyForm = () => ({
   cuentaId: "",
   tarjetaId: "",
   membresiaId: "",
+  fuenteIngresoId: "",
 });
 
-export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas, membresias }) {
+export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas, membresias, fuentesIngreso }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -45,11 +46,13 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const prestamosActivos = prestamos.filter((p) => p.estado === "Activo");
   const tarjetasActivas = tarjetas.filter((t) => t.estado === "Activa");
   const membresiasActivas = membresias.filter((m) => m.estado === "Activa");
+  const fuentesIngresoActivas = fuentesIngreso.filter((f) => f.estado === "Activo");
   const isCuentaTipo = CUENTA_MOVIMIENTO_TIPOS.includes(form.tipo);
   const cuentasDelTipo = cuentas.filter((c) => c.tipo === form.tipo);
   const selectedCuenta = cuentas.find((c) => c.id === form.cuentaId);
   const selectedTarjeta = tarjetas.find((t) => t.id === form.tarjetaId);
   const selectedMembresia = membresias.find((m) => m.id === form.membresiaId);
+  const selectedFuente = fuentesIngreso.find((f) => f.id === form.fuenteIngresoId);
 
   const setTipo = (tipo) => {
     setForm({
@@ -88,6 +91,17 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
     });
   };
 
+  const handleSelectFuente = (fuenteIngresoId) => {
+    const f = fuentesIngreso.find((x) => x.id === fuenteIngresoId);
+    setForm({
+      ...form,
+      fuenteIngresoId,
+      category: f ? f.tipo : form.category,
+      entidadId: f && f.entidadId ? f.entidadId : form.entidadId,
+      amount: f && f.montoEsperado != null ? String(f.montoEsperado) : form.amount,
+    });
+  };
+
   const handleAdd = async () => {
     const amount = parseFloat(form.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -117,6 +131,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       const prestamo = prestamos.find((p) => p.id === form.prestamoId);
       const tarjeta = tarjetas.find((t) => t.id === form.tarjetaId);
       const membresia = membresias.find((m) => m.id === form.membresiaId);
+      const fuente = fuentesIngreso.find((f) => f.id === form.fuenteIngresoId);
       const cuenta = cuentas.find((c) => c.id === form.cuentaId);
       await addMovimiento({
         type: form.tipo === "Ingreso" ? "Ingreso" : "Gasto",
@@ -157,6 +172,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         tarjetaNombre: form.tipo === "Pago de tarjeta" ? tarjeta?.nombre || "" : "",
         membresiaId: form.tipo === "Pago de membresía" ? form.membresiaId : null,
         membresiaNombre: form.tipo === "Pago de membresía" ? membresia?.nombre || "" : "",
+        fuenteIngresoId: form.tipo === "Ingreso" ? form.fuenteIngresoId || null : null,
+        fuenteIngresoNombre: form.tipo === "Ingreso" ? fuente?.nombre || "" : "",
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -330,26 +347,49 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
               )}
             </div>
           ) : (
-            <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-              <select
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
-              >
-                {(form.tipo === "Ingreso" ? INGRESO_CATS : GASTO_CATS).map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <select
-                value={form.entidadId}
-                onChange={(e) => setForm({ ...form, entidadId: e.target.value })}
-                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
-              >
-                <option value="">Entidad (opcional)</option>
-                {entidades.map((e) => (
-                  <option key={e.docId} value={e.docId}>{e.name}</option>
-                ))}
-              </select>
+            <div style={{ marginBottom: 8 }}>
+              {form.tipo === "Ingreso" && fuentesIngresoActivas.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <select
+                    value={form.fuenteIngresoId}
+                    onChange={(e) => handleSelectFuente(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                  >
+                    <option value="">Fuente de ingreso (opcional)…</option>
+                    {fuentesIngresoActivas.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.nombre} · {f.frecuencia}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedFuente && selectedFuente.montoEsperado != null && (
+                    <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
+                      Monto habitual: <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 500 }}>{formatMoney(selectedFuente.montoEsperado)}</span> (ya lo pre-llenamos en el monto, puedes ajustarlo)
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <select
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                >
+                  {(form.tipo === "Ingreso" ? INGRESO_CATS : GASTO_CATS).map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <select
+                  value={form.entidadId}
+                  onChange={(e) => setForm({ ...form, entidadId: e.target.value })}
+                  style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                >
+                  <option value="">Entidad (opcional)</option>
+                  {entidades.map((e) => (
+                    <option key={e.docId} value={e.docId}>{e.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
 
@@ -440,6 +480,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   <CreditCard size={12} />
                 ) : m.category === "Pago de membresía" ? (
                   <Ticket size={12} />
+                ) : m.fuenteIngresoNombre ? (
+                  <Briefcase size={12} />
                 ) : CUENTA_MOVIMIENTO_TIPOS.includes(m.category) ? (
                   <PiggyBank size={12} />
                 ) : m.type === "Ingreso" ? (
@@ -454,6 +496,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   {m.prestamoNumero && <span className="despensa-mono" style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.prestamoNumero}</span>}
                   {m.tarjetaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.tarjetaNombre}</span>}
                   {m.membresiaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.membresiaNombre}</span>}
+                  {m.fuenteIngresoNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.fuenteIngresoNombre}</span>}
                   {m.description && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.description}</span>}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 1 }}>

@@ -21,6 +21,7 @@ const prestamosCol = collection(db, "prestamos");
 const cuentasCol = collection(db, "cuentas");
 const tarjetasCol = collection(db, "tarjetas");
 const membresiasCol = collection(db, "membresias");
+const fuentesIngresoCol = collection(db, "fuentesIngreso");
 
 export function watchConnectionStatus(onChange) {
   return onSnapshot(
@@ -171,6 +172,8 @@ export async function addMovimiento({
   tarjetaNombre,
   membresiaId,
   membresiaNombre,
+  fuenteIngresoId,
+  fuenteIngresoNombre,
 }) {
   await addDoc(movimientosCol, {
     type,
@@ -188,6 +191,8 @@ export async function addMovimiento({
     tarjetaNombre: tarjetaNombre || "",
     membresiaId: membresiaId || null,
     membresiaNombre: membresiaNombre || "",
+    fuenteIngresoId: fuenteIngresoId || null,
+    fuenteIngresoNombre: fuenteIngresoNombre || "",
     createdAt: serverTimestamp(),
   });
 }
@@ -384,4 +389,53 @@ export async function updateMembresiaEstado(id, estado) {
 
 export async function deleteMembresia(id) {
   await deleteDoc(doc(db, "membresias", id));
+}
+
+export function watchFuentesIngreso(onChange, onError) {
+  return onSnapshot(
+    fuentesIngresoCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addFuenteIngreso({
+  nombre,
+  tipo,
+  entidadId,
+  entidadName,
+  montoEsperado,
+  frecuencia,
+  diaPago,
+  estado,
+  notas,
+}) {
+  await addDoc(fuentesIngresoCol, {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    montoEsperado: montoEsperado ?? null,
+    frecuencia,
+    diaPago: diaPago || "",
+    estado,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateFuenteIngreso(id, fields) {
+  await updateDoc(doc(db, "fuentesIngreso", id), fields);
+}
+
+export async function updateFuenteIngresoEstado(id, estado) {
+  await updateDoc(doc(db, "fuentesIngreso", id), { estado });
+}
+
+export async function deleteFuenteIngreso(id) {
+  await deleteDoc(doc(db, "fuentesIngreso", id));
 }

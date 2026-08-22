@@ -35,5 +35,8 @@ service cloud.firestore {
     match /membresias/{doc} {
       allow read, write: if true;
     }
+    match /fuentesIngreso/{doc} {
+      allow read, write: if true;
+    }
   }
 }
