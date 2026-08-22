@@ -131,7 +131,7 @@ export default function Movimientos({ movimientos, entidades, prestamos }) {
                   fontWeight: 500,
                   borderRadius: 8,
                   border: "1px solid var(--line)",
-                  background: form.tipo === t ? "var(--sage-bg)" : "#fff",
+                  background: form.tipo === t ? "var(--sage-bg)" : "var(--card)",
                   color: form.tipo === t ? "var(--sage)" : "var(--ink-soft)",
                   cursor: "pointer",
                 }}
@@ -152,7 +152,7 @@ export default function Movimientos({ movimientos, entidades, prestamos }) {
                   <select
                     value={form.prestamoId}
                     onChange={(e) => handleSelectPrestamo(e.target.value)}
-                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
                   >
                     <option value="">Selecciona el préstamo…</option>
                     {prestamosActivos.map((p) => (
@@ -174,7 +174,7 @@ export default function Movimientos({ movimientos, entidades, prestamos }) {
               <select
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
-                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
               >
                 {(form.tipo === "Ingreso" ? INGRESO_CATS : GASTO_CATS).map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -183,7 +183,7 @@ export default function Movimientos({ movimientos, entidades, prestamos }) {
               <select
                 value={form.entidadId}
                 onChange={(e) => setForm({ ...form, entidadId: e.target.value })}
-                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
               >
                 <option value="">Entidad (opcional)</option>
                 {entidades.map((e) => (

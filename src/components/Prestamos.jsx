@@ -224,7 +224,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
             <select
               value={form.entidadId}
               onChange={(e) => setForm({ ...form, entidadId: e.target.value })}
-              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
             >
               <option value="">Entidad prestamista…</option>
               {entidades.map((e) => (
@@ -258,7 +258,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
               <select
                 value={form.plazoUnidad}
                 onChange={(e) => setForm({ ...form, plazoUnidad: e.target.value })}
-                style={{ padding: "8px 4px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12, background: "#fff" }}
+                style={{ padding: "8px 4px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12, background: "var(--card)" }}
               >
                 {PLAZO_UNIDADES.map((u) => (
                   <option key={u} value={u}>{u}</option>
@@ -292,7 +292,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
             <select
               value={form.estado}
               onChange={(e) => setForm({ ...form, estado: e.target.value })}
-              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
             >
               {ESTADOS.map((e) => (
                 <option key={e} value={e}>{e}</option>
@@ -359,7 +359,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                     <select
                       value={editForm.entidadId}
                       onChange={(e) => setEditForm({ ...editForm, entidadId: e.target.value })}
-                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
                     >
                       <option value="">Entidad prestamista…</option>
                       {entidades.map((e) => (
@@ -393,7 +393,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                       <select
                         value={editForm.plazoUnidad}
                         onChange={(e) => setEditForm({ ...editForm, plazoUnidad: e.target.value })}
-                        style={{ padding: "8px 4px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12, background: "#fff" }}
+                        style={{ padding: "8px 4px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12, background: "var(--card)" }}
                       >
                         {PLAZO_UNIDADES.map((u) => (
                           <option key={u} value={u}>{u}</option>
@@ -425,7 +425,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                     <select
                       value={editForm.estado}
                       onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}
-                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
                     >
                       {ESTADOS.map((e) => (
                         <option key={e} value={e}>{e}</option>
@@ -479,7 +479,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                         padding: "7px 14px",
                         fontSize: 13,
                         fontWeight: 500,
-                        background: "#fff",
+                        background: "var(--card)",
                         color: "var(--ink-soft)",
                         border: "1px solid var(--line)",
                         borderRadius: 8,

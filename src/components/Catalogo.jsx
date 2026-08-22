@@ -152,7 +152,7 @@ export default function Catalogo({ products, list }) {
                 flexShrink: 0,
                 borderRadius: 8,
                 border: "1px dashed var(--line)",
-                background: formImagePreview ? `url(${formImagePreview}) center/cover` : "#fff",
+                background: formImagePreview ? `url(${formImagePreview}) center/cover` : "var(--card)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -178,7 +178,7 @@ export default function Catalogo({ products, list }) {
               <select
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
-                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
               >
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -187,7 +187,7 @@ export default function Catalogo({ products, list }) {
               <select
                 value={form.unit}
                 onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
               >
                 {UNITS.map((u) => (
                   <option key={u} value={u}>{u}</option>

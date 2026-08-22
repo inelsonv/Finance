@@ -14,6 +14,24 @@
   --muted-line: #b4ac93;
 }
 
+:root[data-theme="dark"] {
+  --paper: #1c1a17;
+  --ink: #ece7da;
+  --ink-soft: #a39b86;
+  --stamp: #e0796a;
+  --stamp-bg: #3a211d;
+  --sage: #8fb08f;
+  --sage-bg: #263326;
+  --line: #3a362e;
+  --line-soft: #2c2924;
+  --card: #242119;
+  --muted-line: #5c574a;
+}
+
+body {
+  transition: background-color 0.15s ease;
+}
+
 * {
   box-sizing: border-box;
 }

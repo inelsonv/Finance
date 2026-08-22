@@ -132,14 +132,14 @@ export default function ListaCompra({ products, list }) {
               <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                 <button
                   onClick={() => incrementListQty(r.id, r.qty, -1)}
-                  style={{ width: 20, height: 20, border: "1px solid var(--line)", background: "#fff", borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  style={{ width: 20, height: 20, border: "1px solid var(--line)", background: "var(--card)", borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
                 >
                   <Minus size={11} />
                 </button>
                 <span className="despensa-mono" style={{ fontSize: 12, width: 18, textAlign: "center" }}>{r.qty}</span>
                 <button
                   onClick={() => incrementListQty(r.id, r.qty, 1)}
-                  style={{ width: 20, height: 20, border: "1px solid var(--line)", background: "#fff", borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  style={{ width: 20, height: 20, border: "1px solid var(--line)", background: "var(--card)", borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
                 >
                   <Plus size={11} />
                 </button>
@@ -167,7 +167,7 @@ export default function ListaCompra({ products, list }) {
         <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
           <button
             onClick={clearChecked}
-            style={{ fontSize: 12, padding: "6px 12px", border: "1px solid var(--line)", background: "#fff", borderRadius: 7, cursor: "pointer", color: "var(--ink-soft)" }}
+            style={{ fontSize: 12, padding: "6px 12px", border: "1px solid var(--line)", background: "var(--card)", borderRadius: 7, cursor: "pointer", color: "var(--ink-soft)" }}
           >
             Quitar comprados
           </button>
@@ -181,7 +181,7 @@ export default function ListaCompra({ products, list }) {
           ) : (
             <button
               onClick={() => setConfirmReset(true)}
-              style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", border: "1px solid var(--line)", background: "#fff", borderRadius: 7, cursor: "pointer", color: "var(--ink-soft)" }}
+              style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, padding: "6px 12px", border: "1px solid var(--line)", background: "var(--card)", borderRadius: 7, cursor: "pointer", color: "var(--ink-soft)" }}
             >
               <RotateCcw size={12} /> Vaciar lista
             </button>

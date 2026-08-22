@@ -8,6 +8,8 @@ import Movimientos from "./components/Movimientos.jsx";
 import Prestamos from "./components/Prestamos.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
+const THEME_KEY = "smart-finance-theme";
+
 const TITLES = {
   presupuesto: "Presupuesto",
   movimientos: "Movimientos",
@@ -16,6 +18,19 @@ const TITLES = {
   entidades: "Entidades",
   prestamos: "Préstamos",
 };
+
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "dark" || saved === "light") return saved;
+  } catch (e) {
+    // localStorage no disponible, seguimos con el valor por defecto
+  }
+  if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    return "dark";
+  }
+  return "light";
+}
 
 export default function App() {
   const [tab, setTab] = useState("presupuesto");
@@ -27,6 +42,18 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [synced, setSynced] = useState(null);
+  const [theme, setTheme] = useState(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch (e) {
+      // si falla el guardado, el tema sigue funcionando solo en esta sesión
+    }
+  }, [theme]);
+
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
   useEffect(() => {
     const handleError = (err) => {
@@ -78,7 +105,7 @@ export default function App() {
 
   return (
     <div className="despensa-shell">
-      <Sidebar tab={tab} setTab={setTab} listCount={list.length} />
+      <Sidebar tab={tab} setTab={setTab} listCount={list.length} theme={theme} onToggleTheme={toggleTheme} />
       <main className="despensa-main">
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <h1 className="despensa-tab-font" style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>

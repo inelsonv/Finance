@@ -103,7 +103,7 @@ export default function Entidades({ entidades }) {
             <select
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value })}
-              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
             >
               {TYPES.map((t) => (
                 <option key={t} value={t}>{t}</option>
