@@ -10,8 +10,7 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { db, storage } from "../firebase";
+import { db } from "../firebase";
 
 const productsCol = collection(db, "productos");
 const listCol = collection(db, "listaCompra");
@@ -55,20 +54,11 @@ export async function addProduct({ name, category, unit, price }) {
   return docRef;
 }
 
-export async function uploadProductImage(id, file) {
-  const imgRef = ref(storage, `productos/${id}`);
-  await uploadBytes(imgRef, file, { contentType: file.type });
-  const url = await getDownloadURL(imgRef);
-  await updateDoc(doc(db, "productos", id), { imageUrl: url });
-  return url;
+export async function setProductImage(id, dataUri) {
+  await updateDoc(doc(db, "productos", id), { imageUrl: dataUri });
 }
 
 export async function removeProductImage(id) {
-  try {
-    await deleteObject(ref(storage, `productos/${id}`));
-  } catch (err) {
-    // si el archivo ya no existe, seguimos igual
-  }
   await updateDoc(doc(db, "productos", id), { imageUrl: null });
 }
 
