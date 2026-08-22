@@ -14,22 +14,32 @@ Firestore (Firebase).
 
 ## Configurar Firebase
 
-1. Crea un proyecto en https://console.firebase.google.com
-2. Dentro del proyecto, activa **Firestore Database** (modo de producción o de prueba).
-3. Ve a *Configuración del proyecto → General → Tus apps* y crea una app web.
-   Copia los valores del `firebaseConfig` que te muestra.
-4. Copia `.env.example` a `.env` y completa cada valor:
+La configuración de Firebase (`src/firebase.js`) ya viene con los valores del
+proyecto `finance-6e127`. No es información sensible: para apps web, estos
+valores quedan visibles en el navegador de todas formas (la seguridad real
+la dan las reglas de Firestore, no ocultar esto), así que no dependemos de
+variables de entorno ni de GitHub Secrets — un cambio menos que puede fallar.
 
-   ```
-   cp .env.example .env
-   ```
+Si en algún momento quieres apuntar la app a otro proyecto de Firebase,
+edita directamente el objeto `firebaseConfig` en `src/firebase.js` con los
+valores nuevos (Firebase Console → Configuración del proyecto → General →
+Tus apps → el ícono web `</>`).
 
-5. Instala las dependencias y corre el proyecto:
+Para correr la app en local:
 
-   ```
-   npm install
-   npm run dev
-   ```
+```
+npm install
+npm run dev
+```
+
+## Indicador de conexión
+
+Arriba de cada sección verás una pastilla que dice "Sincronizado con
+Firebase" (verde) o "Sin conexión con Firebase — guardando solo en este
+navegador" (roja). Si ves la roja, los datos que agregues solo quedan en la
+memoria de esa pestaña y se pierden al recargar — revisa tu conexión a
+internet o si algo (ej. un bloqueador de anuncios) está bloqueando
+`firestore.googleapis.com`.
 
 ## Reglas de seguridad (importante)
 
@@ -66,12 +76,7 @@ activarlo:
 
 1. En GitHub, ve a **Settings → Pages → Build and deployment → Source** y
    selecciona **GitHub Actions**.
-2. En **Settings → Secrets and variables → Actions → New repository secret**,
-   crea estos 6 secrets con los mismos valores de tu `.env`:
-   `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
-   `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`,
-   `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`.
-3. Haz push a `main` (o entra a la pestaña **Actions** del repo y corre el
+2. Haz push a `main` (o entra a la pestaña **Actions** del repo y corre el
    workflow manualmente con "Run workflow").
 
 Cuando termine, la app queda disponible en:

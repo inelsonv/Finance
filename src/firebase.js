@@ -1,13 +1,18 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
+// Config de Firebase del proyecto "Finance". No es información sensible:
+// para apps web, estos valores quedan visibles en el navegador de todas
+// formas (la seguridad real la dan las reglas de Firestore, no ocultar esto).
+// La ponemos directo aquí, sin depender de variables de entorno ni de
+// GitHub Actions secrets, para eliminar una fuente de fallos silenciosos.
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  apiKey: "AIzaSyAPyDC2kc_vgDjhLoA1EkI-Wljw8XQJwMw",
+  authDomain: "finance-6e127.firebaseapp.com",
+  projectId: "finance-6e127",
+  storageBucket: "finance-6e127.firebasestorage.app",
+  messagingSenderId: "10299682336",
+  appId: "1:10299682336:web:671a87e670b3f038c49645",
 };
 
 export const app = initializeApp(firebaseConfig);

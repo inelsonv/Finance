@@ -16,6 +16,15 @@ const productsCol = collection(db, "productos");
 const listCol = collection(db, "listaCompra");
 const entidadesCol = collection(db, "entidades");
 
+export function watchConnectionStatus(onChange) {
+  return onSnapshot(
+    productsCol,
+    { includeMetadataChanges: true },
+    (snap) => onChange(!snap.metadata.fromCache),
+    () => onChange(false)
+  );
+}
+
 export function watchProducts(onChange, onError) {
   const q = query(productsCol, orderBy("name"));
   return onSnapshot(

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { watchProducts, watchList, watchEntidades } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
@@ -18,6 +18,7 @@ export default function App() {
   const [entidades, setEntidades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [synced, setSynced] = useState(null);
 
   useEffect(() => {
     const handleError = (err) => {
@@ -30,10 +31,12 @@ export default function App() {
     }, handleError);
     const unsubList = watchList(setList, handleError);
     const unsubEntidades = watchEntidades(setEntidades, handleError);
+    const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
       unsubList();
       unsubEntidades();
+      unsubStatus();
     };
   }, []);
 
@@ -65,7 +68,7 @@ export default function App() {
     <div className="despensa-shell">
       <Sidebar tab={tab} setTab={setTab} listCount={list.length} />
       <main className="despensa-main">
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <h1 className="despensa-tab-font" style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
             {TITLES[tab]}
           </h1>
@@ -79,6 +82,35 @@ export default function App() {
               {entidades.length} entidad{entidades.length !== 1 ? "es" : ""} registrada{entidades.length !== 1 ? "s" : ""}
             </span>
           )}
+        </div>
+
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            fontSize: 11,
+            padding: "3px 9px",
+            borderRadius: 20,
+            marginBottom: "1.25rem",
+            background: synced ? "var(--sage-bg)" : "var(--stamp-bg)",
+            color: synced ? "var(--sage)" : "var(--stamp)",
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "currentColor",
+              flexShrink: 0,
+            }}
+          />
+          {synced === null
+            ? "Conectando con Firebase…"
+            : synced
+            ? "Sincronizado con Firebase"
+            : "Sin conexión con Firebase — guardando solo en este navegador"}
         </div>
 
         {tab === "catalogo" && <Catalogo products={products} list={list} />}
