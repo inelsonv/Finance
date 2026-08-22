@@ -11,6 +11,7 @@ import Tarjetas from "./components/Tarjetas.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const THEME_KEY = "smart-finance-theme";
+const SIDEBAR_KEY = "smart-finance-sidebar-collapsed";
 
 const TITLES = {
   presupuesto: "Presupuesto",
@@ -36,6 +37,14 @@ function getInitialTheme() {
   return "light";
 }
 
+function getInitialCollapsed() {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === "1";
+  } catch (e) {
+    return false;
+  }
+}
+
 export default function App() {
   const [tab, setTab] = useState("presupuesto");
   const [products, setProducts] = useState([]);
@@ -49,6 +58,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [synced, setSynced] = useState(null);
   const [theme, setTheme] = useState(getInitialTheme);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialCollapsed);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -59,7 +69,16 @@ export default function App() {
     }
   }, [theme]);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? "1" : "0");
+    } catch (e) {
+      // si falla el guardado, la preferencia sigue funcionando solo en esta sesión
+    }
+  }, [sidebarCollapsed]);
+
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const toggleSidebar = () => setSidebarCollapsed((c) => !c);
 
   useEffect(() => {
     const handleError = (err) => {
@@ -115,7 +134,15 @@ export default function App() {
 
   return (
     <div className="despensa-shell">
-      <Sidebar tab={tab} setTab={setTab} listCount={list.length} theme={theme} onToggleTheme={toggleTheme} />
+      <Sidebar
+        tab={tab}
+        setTab={setTab}
+        listCount={list.length}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebar}
+      />
       <main className="despensa-main">
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <h1 className="despensa-tab-font" style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
