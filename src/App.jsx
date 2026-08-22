@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
@@ -8,6 +8,7 @@ import Movimientos from "./components/Movimientos.jsx";
 import Prestamos from "./components/Prestamos.jsx";
 import Cuentas from "./components/Cuentas.jsx";
 import Tarjetas from "./components/Tarjetas.jsx";
+import Membresias from "./components/Membresias.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const THEME_KEY = "smart-finance-theme";
@@ -22,6 +23,7 @@ const TITLES = {
   cuentas: "Cuentas",
   prestamos: "Préstamos",
   tarjetas: "Tarjetas",
+  membresias: "Membresías",
 };
 
 function getInitialTheme() {
@@ -54,6 +56,7 @@ export default function App() {
   const [prestamos, setPrestamos] = useState([]);
   const [cuentas, setCuentas] = useState([]);
   const [tarjetas, setTarjetas] = useState([]);
+  const [membresias, setMembresias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [synced, setSynced] = useState(null);
@@ -95,6 +98,7 @@ export default function App() {
     const unsubPrestamos = watchPrestamos(setPrestamos, handleError);
     const unsubCuentas = watchCuentas(setCuentas, handleError);
     const unsubTarjetas = watchTarjetas(setTarjetas, handleError);
+    const unsubMembresias = watchMembresias(setMembresias, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -104,6 +108,7 @@ export default function App() {
       unsubPrestamos();
       unsubCuentas();
       unsubTarjetas();
+      unsubMembresias();
       unsubStatus();
     };
   }, []);
@@ -193,10 +198,11 @@ export default function App() {
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
-        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} />}
+        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} membresias={membresias} />}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} />}
         {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
         {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} />}
+        {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
       </main>
     </div>
   );

@@ -12,6 +12,7 @@ import {
   CreditCard,
   PanelLeftClose,
   PanelLeftOpen,
+  Ticket,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { id: "cuentas", label: "Cuentas", icon: PiggyBank },
   { id: "prestamos", label: "Préstamos", icon: Banknote },
   { id: "tarjetas", label: "Tarjetas", icon: CreditCard },
+  { id: "membresias", label: "Membresías", icon: Ticket },
 ];
 
 export default function Sidebar({ tab, setTab, listCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {

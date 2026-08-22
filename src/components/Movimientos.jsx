@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard } from "lucide-react";
+import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket } from "lucide-react";
 import { addMovimiento, deleteMovimiento } from "../lib/db";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
 const GASTO_CATS = ["Vivienda", "Alimentación", "Transporte", "Servicios", "Entretenimiento", "Salud", "Otro"];
 const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
-const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo", "Pago de tarjeta", ...CUENTA_MOVIMIENTO_TIPOS];
+const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo", "Pago de tarjeta", "Pago de membresía", ...CUENTA_MOVIMIENTO_TIPOS];
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -33,9 +33,10 @@ const emptyForm = () => ({
   prestamoId: "",
   cuentaId: "",
   tarjetaId: "",
+  membresiaId: "",
 });
 
-export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas }) {
+export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas, membresias }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -43,10 +44,12 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
 
   const prestamosActivos = prestamos.filter((p) => p.estado === "Activo");
   const tarjetasActivas = tarjetas.filter((t) => t.estado === "Activa");
+  const membresiasActivas = membresias.filter((m) => m.estado === "Activa");
   const isCuentaTipo = CUENTA_MOVIMIENTO_TIPOS.includes(form.tipo);
   const cuentasDelTipo = cuentas.filter((c) => c.tipo === form.tipo);
   const selectedCuenta = cuentas.find((c) => c.id === form.cuentaId);
   const selectedTarjeta = tarjetas.find((t) => t.id === form.tarjetaId);
+  const selectedMembresia = membresias.find((m) => m.id === form.membresiaId);
 
   const setTipo = (tipo) => {
     setForm({
@@ -76,6 +79,15 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
     });
   };
 
+  const handleSelectMembresia = (membresiaId) => {
+    const m = membresias.find((x) => x.id === membresiaId);
+    setForm({
+      ...form,
+      membresiaId,
+      amount: m && m.costo != null ? String(m.costo) : form.amount,
+    });
+  };
+
   const handleAdd = async () => {
     const amount = parseFloat(form.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -90,6 +102,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       setFormError("Selecciona la tarjeta que estás pagando");
       return;
     }
+    if (form.tipo === "Pago de membresía" && !form.membresiaId) {
+      setFormError("Selecciona la membresía que estás pagando");
+      return;
+    }
     if (isCuentaTipo && !form.cuentaId) {
       setFormError(`Selecciona la cuenta de ${form.tipo.toLowerCase()}`);
       return;
@@ -100,10 +116,14 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       const entidad = entidades.find((e) => e.docId === form.entidadId);
       const prestamo = prestamos.find((p) => p.id === form.prestamoId);
       const tarjeta = tarjetas.find((t) => t.id === form.tarjetaId);
+      const membresia = membresias.find((m) => m.id === form.membresiaId);
       const cuenta = cuentas.find((c) => c.id === form.cuentaId);
       await addMovimiento({
         type: form.tipo === "Ingreso" ? "Ingreso" : "Gasto",
-        category: form.tipo === "Pago de préstamo" || form.tipo === "Pago de tarjeta" || isCuentaTipo ? form.tipo : form.category,
+        category:
+          form.tipo === "Pago de préstamo" || form.tipo === "Pago de tarjeta" || form.tipo === "Pago de membresía" || isCuentaTipo
+            ? form.tipo
+            : form.category,
         amount,
         description: form.description.trim(),
         date: form.date,
@@ -112,6 +132,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
             ? prestamo?.entidadId || ""
             : form.tipo === "Pago de tarjeta"
             ? tarjeta?.entidadId || ""
+            : form.tipo === "Pago de membresía"
+            ? membresia?.entidadId || ""
             : isCuentaTipo
             ? cuenta?.entidadId || ""
             : form.entidadId || null,
@@ -120,6 +142,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
             ? prestamo?.entidadName || ""
             : form.tipo === "Pago de tarjeta"
             ? tarjeta?.entidadName || ""
+            : form.tipo === "Pago de membresía"
+            ? membresia?.entidadName || ""
             : isCuentaTipo
             ? cuenta?.entidadName || ""
             : entidad
@@ -131,6 +155,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         cuentaNombre: isCuentaTipo ? cuenta?.nombre || "" : "",
         tarjetaId: form.tipo === "Pago de tarjeta" ? form.tarjetaId : null,
         tarjetaNombre: form.tipo === "Pago de tarjeta" ? tarjeta?.nombre || "" : "",
+        membresiaId: form.tipo === "Pago de membresía" ? form.membresiaId : null,
+        membresiaNombre: form.tipo === "Pago de membresía" ? membresia?.nombre || "" : "",
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -241,6 +267,34 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   {selectedTarjeta && selectedTarjeta.pagoMinimo != null && (
                     <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
                       Pago mínimo: <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 500 }}>{formatMoney(selectedTarjeta.pagoMinimo)}</span> (ya lo pre-llenamos en el monto, puedes ajustarlo)
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : form.tipo === "Pago de membresía" ? (
+            <div style={{ marginBottom: 8 }}>
+              {membresiasActivas.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--stamp)", padding: "8px 0" }}>
+                  No tienes membresías activas. Registra una en la sección Membresías primero.
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={form.membresiaId}
+                    onChange={(e) => handleSelectMembresia(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                  >
+                    <option value="">Selecciona la membresía…</option>
+                    {membresiasActivas.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.nombre} · {m.tipo}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedMembresia && selectedMembresia.costo != null && (
+                    <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
+                      Costo: <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 500 }}>{formatMoney(selectedMembresia.costo)}</span> (ya lo pre-llenamos en el monto, puedes ajustarlo)
                     </div>
                   )}
                 </>
@@ -384,6 +438,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   <Landmark size={12} />
                 ) : m.category === "Pago de tarjeta" ? (
                   <CreditCard size={12} />
+                ) : m.category === "Pago de membresía" ? (
+                  <Ticket size={12} />
                 ) : CUENTA_MOVIMIENTO_TIPOS.includes(m.category) ? (
                   <PiggyBank size={12} />
                 ) : m.type === "Ingreso" ? (
@@ -397,6 +453,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   {m.category}
                   {m.prestamoNumero && <span className="despensa-mono" style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.prestamoNumero}</span>}
                   {m.tarjetaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.tarjetaNombre}</span>}
+                  {m.membresiaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.membresiaNombre}</span>}
                   {m.description && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.description}</span>}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 1 }}>

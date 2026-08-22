@@ -32,5 +32,8 @@ service cloud.firestore {
     match /tarjetas/{doc} {
       allow read, write: if true;
     }
+    match /membresias/{doc} {
+      allow read, write: if true;
+    }
   }
 }

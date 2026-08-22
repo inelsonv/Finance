@@ -20,6 +20,7 @@ const movimientosCol = collection(db, "movimientos");
 const prestamosCol = collection(db, "prestamos");
 const cuentasCol = collection(db, "cuentas");
 const tarjetasCol = collection(db, "tarjetas");
+const membresiasCol = collection(db, "membresias");
 
 export function watchConnectionStatus(onChange) {
   return onSnapshot(
@@ -168,6 +169,8 @@ export async function addMovimiento({
   cuentaNombre,
   tarjetaId,
   tarjetaNombre,
+  membresiaId,
+  membresiaNombre,
 }) {
   await addDoc(movimientosCol, {
     type,
@@ -183,6 +186,8 @@ export async function addMovimiento({
     cuentaNombre: cuentaNombre || "",
     tarjetaId: tarjetaId || null,
     tarjetaNombre: tarjetaNombre || "",
+    membresiaId: membresiaId || null,
+    membresiaNombre: membresiaNombre || "",
     createdAt: serverTimestamp(),
   });
 }
@@ -328,4 +333,55 @@ export async function updateTarjetaEstado(id, estado) {
 
 export async function deleteTarjeta(id) {
   await deleteDoc(doc(db, "tarjetas", id));
+}
+
+export function watchMembresias(onChange, onError) {
+  return onSnapshot(
+    membresiasCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addMembresia({
+  nombre,
+  tipo,
+  entidadId,
+  entidadName,
+  costo,
+  frecuencia,
+  diaPago,
+  fechaInicio,
+  estado,
+  notas,
+}) {
+  await addDoc(membresiasCol, {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    costo: costo ?? null,
+    frecuencia,
+    diaPago: diaPago ?? null,
+    fechaInicio: fechaInicio || null,
+    estado,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateMembresia(id, fields) {
+  await updateDoc(doc(db, "membresias", id), fields);
+}
+
+export async function updateMembresiaEstado(id, estado) {
+  await updateDoc(doc(db, "membresias", id), { estado });
+}
+
+export async function deleteMembresia(id) {
+  await deleteDoc(doc(db, "membresias", id));
 }
