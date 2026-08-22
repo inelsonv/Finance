@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
 import Presupuesto from "./components/Presupuesto.jsx";
 import Movimientos from "./components/Movimientos.jsx";
 import Prestamos from "./components/Prestamos.jsx";
+import Cuentas from "./components/Cuentas.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const THEME_KEY = "smart-finance-theme";
@@ -16,6 +17,7 @@ const TITLES = {
   catalogo: "Catálogo",
   lista: "Lista de compra",
   entidades: "Entidades",
+  cuentas: "Cuentas",
   prestamos: "Préstamos",
 };
 
@@ -39,6 +41,7 @@ export default function App() {
   const [entidades, setEntidades] = useState([]);
   const [movimientos, setMovimientos] = useState([]);
   const [prestamos, setPrestamos] = useState([]);
+  const [cuentas, setCuentas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [synced, setSynced] = useState(null);
@@ -68,6 +71,7 @@ export default function App() {
     const unsubEntidades = watchEntidades(setEntidades, handleError);
     const unsubMovimientos = watchMovimientos(setMovimientos, handleError);
     const unsubPrestamos = watchPrestamos(setPrestamos, handleError);
+    const unsubCuentas = watchCuentas(setCuentas, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -75,6 +79,7 @@ export default function App() {
       unsubEntidades();
       unsubMovimientos();
       unsubPrestamos();
+      unsubCuentas();
       unsubStatus();
     };
   }, []);
@@ -156,8 +161,9 @@ export default function App() {
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
-        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} />}
+        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} />}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} />}
+        {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
       </main>
     </div>
   );

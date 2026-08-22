@@ -18,6 +18,7 @@ const listCol = collection(db, "listaCompra");
 const entidadesCol = collection(db, "entidades");
 const movimientosCol = collection(db, "movimientos");
 const prestamosCol = collection(db, "prestamos");
+const cuentasCol = collection(db, "cuentas");
 
 export function watchConnectionStatus(onChange) {
   return onSnapshot(
@@ -162,6 +163,8 @@ export async function addMovimiento({
   entidadName,
   prestamoId,
   prestamoNumero,
+  cuentaId,
+  cuentaNombre,
 }) {
   await addDoc(movimientosCol, {
     type,
@@ -173,6 +176,8 @@ export async function addMovimiento({
     entidadName: entidadName || "",
     prestamoId: prestamoId || null,
     prestamoNumero: prestamoNumero || "",
+    cuentaId: cuentaId || null,
+    cuentaNombre: cuentaNombre || "",
     createdAt: serverTimestamp(),
   });
 }
@@ -232,4 +237,37 @@ export async function updatePrestamo(id, fields) {
 
 export async function deletePrestamo(id) {
   await deleteDoc(doc(db, "prestamos", id));
+}
+
+export function watchCuentas(onChange, onError) {
+  return onSnapshot(
+    cuentasCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addCuenta({ nombre, tipo, entidadId, entidadName, numeroCuenta, saldoInicial, notas }) {
+  await addDoc(cuentasCol, {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    numeroCuenta: numeroCuenta || "",
+    saldoInicial: saldoInicial ?? null,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateCuenta(id, fields) {
+  await updateDoc(doc(db, "cuentas", id), fields);
+}
+
+export async function deleteCuenta(id) {
+  await deleteDoc(doc(db, "cuentas", id));
 }

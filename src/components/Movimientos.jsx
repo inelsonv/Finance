@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark } from "lucide-react";
+import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank } from "lucide-react";
 import { addMovimiento, deleteMovimiento } from "../lib/db";
+import { CUENTA_TIPOS } from "./Cuentas.jsx";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
 const GASTO_CATS = ["Vivienda", "Alimentación", "Transporte", "Servicios", "Entretenimiento", "Salud", "Otro"];
-const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo"];
+const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo", ...CUENTA_TIPOS.filter((t) => t !== "Otro")];
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -21,6 +22,8 @@ function formatDateDisplay(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
+const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
+
 const emptyForm = () => ({
   tipo: "Ingreso",
   category: INGRESO_CATS[0],
@@ -29,21 +32,25 @@ const emptyForm = () => ({
   date: todayStr(),
   entidadId: "",
   prestamoId: "",
+  cuentaId: "",
 });
 
-export default function Movimientos({ movimientos, entidades, prestamos }) {
+export default function Movimientos({ movimientos, entidades, prestamos, cuentas }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const prestamosActivos = prestamos.filter((p) => p.estado === "Activo");
+  const isCuentaTipo = CUENTA_MOVIMIENTO_TIPOS.includes(form.tipo);
+  const cuentasDelTipo = cuentas.filter((c) => c.tipo === form.tipo);
+  const selectedCuenta = cuentas.find((c) => c.id === form.cuentaId);
 
   const setTipo = (tipo) => {
     setForm({
       ...emptyForm(),
       tipo,
-      category: tipo === "Ingreso" ? INGRESO_CATS[0] : tipo === "Gasto" ? GASTO_CATS[0] : "Pago de préstamo",
+      category: tipo === "Ingreso" ? INGRESO_CATS[0] : tipo === "Gasto" ? GASTO_CATS[0] : tipo,
     });
   };
 
@@ -68,21 +75,28 @@ export default function Movimientos({ movimientos, entidades, prestamos }) {
       setFormError("Selecciona el préstamo que estás pagando");
       return;
     }
+    if (isCuentaTipo && !form.cuentaId) {
+      setFormError(`Selecciona la cuenta de ${form.tipo.toLowerCase()}`);
+      return;
+    }
     setSaving(true);
     setFormError(null);
     try {
       const entidad = entidades.find((e) => e.docId === form.entidadId);
       const prestamo = prestamos.find((p) => p.id === form.prestamoId);
+      const cuenta = cuentas.find((c) => c.id === form.cuentaId);
       await addMovimiento({
         type: form.tipo === "Ingreso" ? "Ingreso" : "Gasto",
-        category: form.tipo === "Pago de préstamo" ? "Pago de préstamo" : form.category,
+        category: form.tipo === "Pago de préstamo" || isCuentaTipo ? form.tipo : form.category,
         amount,
         description: form.description.trim(),
         date: form.date,
-        entidadId: form.tipo === "Pago de préstamo" ? prestamo?.entidadId || "" : form.entidadId || null,
-        entidadName: form.tipo === "Pago de préstamo" ? prestamo?.entidadName || "" : entidad ? entidad.name : "",
+        entidadId: form.tipo === "Pago de préstamo" ? prestamo?.entidadId || "" : isCuentaTipo ? cuenta?.entidadId || "" : form.entidadId || null,
+        entidadName: form.tipo === "Pago de préstamo" ? prestamo?.entidadName || "" : isCuentaTipo ? cuenta?.entidadName || "" : entidad ? entidad.name : "",
         prestamoId: form.tipo === "Pago de préstamo" ? form.prestamoId : null,
         prestamoNumero: form.tipo === "Pago de préstamo" ? prestamo?.numero || "" : "",
+        cuentaId: isCuentaTipo ? form.cuentaId : null,
+        cuentaNombre: isCuentaTipo ? cuenta?.nombre || "" : "",
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -119,14 +133,15 @@ export default function Movimientos({ movimientos, entidades, prestamos }) {
 
       {showForm && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
-          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
             {TIPOS.map((t) => (
               <button
                 key={t}
                 onClick={() => setTipo(t)}
                 style={{
-                  flex: 1,
-                  padding: "8px 4px",
+                  flex: "1 1 auto",
+                  minWidth: 90,
+                  padding: "8px 6px",
                   fontSize: 12.5,
                   fontWeight: 500,
                   borderRadius: 8,
@@ -164,6 +179,35 @@ export default function Movimientos({ movimientos, entidades, prestamos }) {
                   {selectedPrestamo && selectedPrestamo.cuota != null && (
                     <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
                       Cuota registrada: <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 500 }}>{formatMoney(selectedPrestamo.cuota)}</span> (ya la pre-llenamos en el monto, puedes ajustarla)
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ) : isCuentaTipo ? (
+            <div style={{ marginBottom: 8 }}>
+              {cuentasDelTipo.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--stamp)", padding: "8px 0" }}>
+                  No tienes cuentas de tipo "{form.tipo}". Registra una en la sección Cuentas primero.
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={form.cuentaId}
+                    onChange={(e) => setForm({ ...form, cuentaId: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                  >
+                    <option value="">Selecciona la cuenta de {form.tipo.toLowerCase()}…</option>
+                    {cuentasDelTipo.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre} · {c.entidadName}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedCuenta && (
+                    <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
+                      {selectedCuenta.numeroCuenta && <>Cuenta {selectedCuenta.numeroCuenta} · </>}
+                      {selectedCuenta.entidadName}
                     </div>
                   )}
                 </>
@@ -276,6 +320,8 @@ export default function Movimientos({ movimientos, entidades, prestamos }) {
               >
                 {m.category === "Pago de préstamo" ? (
                   <Landmark size={12} />
+                ) : CUENTA_MOVIMIENTO_TIPOS.includes(m.category) ? (
+                  <PiggyBank size={12} />
                 ) : m.type === "Ingreso" ? (
                   <TrendingUp size={13} />
                 ) : (

@@ -26,5 +26,8 @@ service cloud.firestore {
     match /prestamos/{doc} {
       allow read, write: if true;
     }
+    match /cuentas/{doc} {
+      allow read, write: if true;
+    }
   }
 }
