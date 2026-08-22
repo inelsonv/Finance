@@ -15,7 +15,7 @@ import { db, storage } from "../firebase";
 
 const productsCol = collection(db, "productos");
 const listCol = collection(db, "listaCompra");
-const entidadesCol = collection(db, "entidades");
+const movimientosCol = collection(db, "movimientos");
 
 export function watchConnectionStatus(onChange) {
   return onSnapshot(
@@ -136,4 +136,33 @@ export async function updateEntidad(docId, fields) {
 
 export async function deleteEntidad(docId) {
   await deleteDoc(doc(db, "entidades", docId));
+}
+
+export function watchMovimientos(onChange, onError) {
+  return onSnapshot(
+    movimientosCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addMovimiento({ type, category, amount, description, date, entidadId, entidadName }) {
+  await addDoc(movimientosCol, {
+    type,
+    category,
+    amount,
+    description: description || "",
+    date,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteMovimiento(id) {
+  await deleteDoc(doc(db, "movimientos", id));
 }

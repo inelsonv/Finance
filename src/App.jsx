@@ -1,21 +1,24 @@
 import React, { useEffect, useState } from "react";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
+import Presupuesto from "./components/Presupuesto.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const TITLES = {
+  presupuesto: "Presupuesto",
   catalogo: "Catálogo",
   lista: "Lista de compra",
   entidades: "Entidades",
 };
 
 export default function App() {
-  const [tab, setTab] = useState("catalogo");
+  const [tab, setTab] = useState("presupuesto");
   const [products, setProducts] = useState([]);
   const [list, setList] = useState([]);
   const [entidades, setEntidades] = useState([]);
+  const [movimientos, setMovimientos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [synced, setSynced] = useState(null);
@@ -31,11 +34,13 @@ export default function App() {
     }, handleError);
     const unsubList = watchList(setList, handleError);
     const unsubEntidades = watchEntidades(setEntidades, handleError);
+    const unsubMovimientos = watchMovimientos(setMovimientos, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
       unsubList();
       unsubEntidades();
+      unsubMovimientos();
       unsubStatus();
     };
   }, []);
@@ -116,6 +121,7 @@ export default function App() {
         {tab === "catalogo" && <Catalogo products={products} list={list} />}
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}
+        {tab === "presupuesto" && <Presupuesto movimientos={movimientos} entidades={entidades} />}
       </main>
     </div>
   );
