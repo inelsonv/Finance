@@ -6,9 +6,9 @@ import {
   updateProductPrice,
   addToList,
   incrementListQty,
-  setProductImage,
+  uploadProductImage,
+  removeProductImage,
 } from "../lib/db";
-import { compressImageFile } from "../lib/image";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
@@ -39,16 +39,10 @@ export default function Catalogo({ products, list }) {
     );
   }, [products, search]);
 
-  const handleFormImagePick = async (file) => {
+  const handleFormImagePick = (file) => {
     if (!file) return;
-    setFormError(null);
-    try {
-      const dataUri = await compressImageFile(file);
-      setFormImage(dataUri);
-      setFormImagePreview(dataUri);
-    } catch (err) {
-      setFormError(err.message || String(err));
-    }
+    setFormImage(file);
+    setFormImagePreview(URL.createObjectURL(file));
   };
 
   const handleAdd = async () => {
@@ -65,7 +59,7 @@ export default function Catalogo({ products, list }) {
         price: Number.isFinite(price) ? price : 0,
       });
       if (formImage) {
-        await setProductImage(docRef.id, formImage);
+        await uploadProductImage(docRef.id, formImage);
       }
       setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
       setFormImage(null);
@@ -82,8 +76,7 @@ export default function Catalogo({ products, list }) {
     if (!file) return;
     setUploadingId(id);
     try {
-      const dataUri = await compressImageFile(file);
-      await setProductImage(id, dataUri);
+      await uploadProductImage(id, file);
     } catch (err) {
       // el error se ve reflejado si el producto no actualiza su imagen
     } finally {
