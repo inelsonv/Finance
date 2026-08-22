@@ -10,6 +10,7 @@ import Cuentas from "./components/Cuentas.jsx";
 import Tarjetas from "./components/Tarjetas.jsx";
 import Membresias from "./components/Membresias.jsx";
 import FuentesIngreso from "./components/FuentesIngreso.jsx";
+import CategoriaGasto from "./components/CategoriaGasto.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const THEME_KEY = "smart-finance-theme";
@@ -26,6 +27,7 @@ const TITLES = {
   tarjetas: "Tarjetas",
   membresias: "Membresías",
   ingresos: "Ingresos",
+  "presupuesto-categoria-gasto": "Categoría de gasto",
 };
 
 function getInitialTheme() {
@@ -209,6 +211,7 @@ export default function App() {
         {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} />}
         {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
         {tab === "ingresos" && <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} />}
+        {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} />}
       </main>
     </div>
   );

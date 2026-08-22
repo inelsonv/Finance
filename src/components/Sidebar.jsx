@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Package,
   ShoppingCart,
@@ -14,10 +14,17 @@ import {
   PanelLeftOpen,
   Ticket,
   Briefcase,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { id: "presupuesto", label: "Presupuesto", icon: Wallet },
+  {
+    id: "presupuesto",
+    label: "Presupuesto",
+    icon: Wallet,
+    children: [{ id: "presupuesto-categoria-gasto", label: "Categoría de gasto" }],
+  },
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "ingresos", label: "Ingresos", icon: Briefcase },
   { id: "catalogo", label: "Catálogo", icon: Package },
@@ -30,6 +37,8 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar({ tab, setTab, listCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {
+  const [expandedId, setExpandedId] = useState(null);
+
   return (
     <nav className={`despensa-sidebar${collapsed ? " despensa-sidebar--collapsed" : ""}`}>
       <div
@@ -98,49 +107,89 @@ export default function Sidebar({ tab, setTab, listCount, theme, onToggleTheme, 
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
+          const hasChildren = !collapsed && item.children && item.children.length > 0;
+          const expanded = hasChildren && expandedId === item.id;
           return (
-            <button
-              key={item.id}
-              onClick={() => setTab(item.id)}
-              title={collapsed ? item.label : undefined}
-              className="despensa-tab-font despensa-navitem"
-              style={{
-                background: active ? "var(--sage-bg)" : "transparent",
-                color: active ? "var(--sage)" : "var(--ink)",
-                justifyContent: collapsed ? "center" : "flex-start",
-              }}
-            >
-              <Icon size={16} />
-              {!collapsed && <span className="despensa-navlabel">{item.label}</span>}
-              {!collapsed && item.id === "lista" && listCount > 0 && (
-                <span
-                  className="despensa-mono"
-                  style={{
-                    marginLeft: "auto",
-                    background: active ? "var(--sage)" : "var(--line)",
-                    color: active ? "#fff" : "var(--ink)",
-                    borderRadius: 10,
-                    fontSize: 11,
-                    padding: "1px 6px",
-                  }}
-                >
-                  {listCount}
-                </span>
+            <div key={item.id}>
+              <button
+                onClick={() => setTab(item.id)}
+                onDoubleClick={hasChildren ? () => setExpandedId(expanded ? null : item.id) : undefined}
+                title={collapsed ? item.label : hasChildren ? `${item.label} (doble clic para ver subcategorías)` : undefined}
+                className="despensa-tab-font despensa-navitem"
+                style={{
+                  background: active ? "var(--sage-bg)" : "transparent",
+                  color: active ? "var(--sage)" : "var(--ink)",
+                  justifyContent: collapsed ? "center" : "flex-start",
+                }}
+              >
+                <Icon size={16} />
+                {!collapsed && <span className="despensa-navlabel">{item.label}</span>}
+                {!collapsed && item.id === "lista" && listCount > 0 && (
+                  <span
+                    className="despensa-mono"
+                    style={{
+                      marginLeft: "auto",
+                      background: active ? "var(--sage)" : "var(--line)",
+                      color: active ? "#fff" : "var(--ink)",
+                      borderRadius: 10,
+                      fontSize: 11,
+                      padding: "1px 6px",
+                    }}
+                  >
+                    {listCount}
+                  </span>
+                )}
+                {collapsed && item.id === "lista" && listCount > 0 && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 4,
+                      right: 4,
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "var(--stamp)",
+                    }}
+                  />
+                )}
+                {hasChildren && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedId(expanded ? null : item.id);
+                    }}
+                    style={{ marginLeft: "auto", display: "flex", color: "var(--ink-soft)" }}
+                  >
+                    {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                  </span>
+                )}
+              </button>
+
+              {expanded && (
+                <div className="despensa-submenu" style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 1 }}>
+                  {item.children.map((child) => {
+                    const childActive = tab === child.id;
+                    return (
+                      <button
+                        key={child.id}
+                        onClick={() => setTab(child.id)}
+                        className="despensa-tab-font despensa-navitem"
+                        style={{
+                          background: childActive ? "var(--sage-bg)" : "transparent",
+                          color: childActive ? "var(--sage)" : "var(--ink-soft)",
+                          justifyContent: "flex-start",
+                          paddingLeft: 30,
+                          fontSize: 12.5,
+                        }}
+                      >
+                        <span style={{ width: 4, height: 4, borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
+                        <span className="despensa-navlabel">{child.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-              {collapsed && item.id === "lista" && listCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: 4,
-                    right: 4,
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: "var(--stamp)",
-                  }}
-                />
-              )}
-            </button>
+            </div>
           );
         })}
       </div>
