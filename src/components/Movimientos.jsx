@@ -47,6 +47,17 @@ export default function Movimientos({ movimientos, entidades, prestamos }) {
     });
   };
 
+  const selectedPrestamo = prestamos.find((p) => p.id === form.prestamoId);
+
+  const handleSelectPrestamo = (prestamoId) => {
+    const p = prestamos.find((x) => x.id === prestamoId);
+    setForm({
+      ...form,
+      prestamoId,
+      amount: p && p.cuota != null ? String(p.cuota) : form.amount,
+    });
+  };
+
   const handleAdd = async () => {
     const amount = parseFloat(form.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -137,18 +148,25 @@ export default function Movimientos({ movimientos, entidades, prestamos }) {
                   No tienes préstamos activos. Registra uno en la sección Préstamos primero.
                 </div>
               ) : (
-                <select
-                  value={form.prestamoId}
-                  onChange={(e) => setForm({ ...form, prestamoId: e.target.value })}
-                  style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
-                >
-                  <option value="">Selecciona el préstamo…</option>
-                  {prestamosActivos.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.numero} · {p.entidadName} · {formatMoney(p.montoAprobado)}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    value={form.prestamoId}
+                    onChange={(e) => handleSelectPrestamo(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                  >
+                    <option value="">Selecciona el préstamo…</option>
+                    {prestamosActivos.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.numero} · {p.entidadName} · {formatMoney(p.montoAprobado)}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedPrestamo && selectedPrestamo.cuota != null && (
+                    <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
+                      Cuota registrada: <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 500 }}>{formatMoney(selectedPrestamo.cuota)}</span> (ya la pre-llenamos en el monto, puedes ajustarla)
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ) : (

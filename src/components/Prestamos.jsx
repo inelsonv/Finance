@@ -36,6 +36,7 @@ const emptyForm = (numero) => ({
   plazo: "",
   plazoUnidad: "meses",
   tasaInteres: "",
+  cuota: "",
   fechaInicio: todayStr(),
   estado: "Activo",
   notas: "",
@@ -88,6 +89,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
     setFormError(null);
     try {
       const entidad = entidades.find((e) => e.docId === form.entidadId);
+      const cuota = parseFloat(form.cuota);
       await addPrestamo({
         numero: form.numero,
         entidadId: form.entidadId,
@@ -96,6 +98,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
         plazo: Number.isFinite(plazo) ? plazo : null,
         plazoUnidad: form.plazoUnidad,
         tasaInteres: Number.isFinite(tasa) ? tasa : null,
+        cuota: Number.isFinite(cuota) ? cuota : null,
         fechaInicio: form.fechaInicio,
         estado: form.estado,
         notas: form.notas.trim(),
@@ -234,6 +237,19 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
             </select>
           </div>
 
+          <div style={{ marginBottom: 8 }}>
+            <input
+              className="despensa-mono"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Cuota mensual"
+              value={form.cuota}
+              onChange={(e) => setForm({ ...form, cuota: e.target.value })}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+
           <input
             placeholder="Notas (opcional)"
             value={form.notas}
@@ -307,6 +323,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
 
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
                 <Field label="Monto aprobado" value={formatMoney(p.montoAprobado)} />
+                <Field label="Cuota mensual" value={p.cuota != null ? formatMoney(p.cuota) : "—"} />
                 <Field label="Plazo" value={p.plazo ? `${p.plazo} ${p.plazoUnidad || "meses"}` : "—"} />
                 <Field label="Tasa interés" value={p.tasaInteres != null ? `${p.tasaInteres}%` : "—"} />
                 <Field
