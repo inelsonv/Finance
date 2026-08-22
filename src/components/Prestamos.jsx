@@ -41,7 +41,7 @@ const emptyForm = (numero) => ({
   notas: "",
 });
 
-export default function Prestamos({ prestamos, entidades }) {
+export default function Prestamos({ prestamos, entidades, movimientos }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => emptyForm(nextNumero(prestamos)));
   const [formError, setFormError] = useState(null);
@@ -62,6 +62,15 @@ export default function Prestamos({ prestamos, entidades }) {
     }
     return { aprobado, activos, total: prestamos.length };
   }, [prestamos]);
+
+  const pagadoPorPrestamo = useMemo(() => {
+    const map = {};
+    for (const m of movimientos) {
+      if (m.category !== "Pago de préstamo" || !m.prestamoId) continue;
+      map[m.prestamoId] = (map[m.prestamoId] || 0) + (Number(m.amount) || 0);
+    }
+    return map;
+  }, [movimientos]);
 
   const handleAdd = async () => {
     const monto = parseFloat(form.montoAprobado);
@@ -309,6 +318,23 @@ export default function Prestamos({ prestamos, entidades }) {
                   }
                 />
               </div>
+
+              {(() => {
+                const pagado = pagadoPorPrestamo[p.id] || 0;
+                const pendiente = Math.max((Number(p.montoAprobado) || 0) - pagado, 0);
+                const pct = p.montoAprobado ? Math.min(100, Math.round((pagado / p.montoAprobado) * 100)) : 0;
+                return (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 6 }}>
+                      <Field label="Pagado" value={<span style={{ color: "var(--sage)" }}>{formatMoney(pagado)}</span>} />
+                      <Field label="Falta por pagar" value={<span style={{ color: pendiente > 0 ? "var(--stamp)" : "var(--sage)" }}>{formatMoney(pendiente)}</span>} />
+                    </div>
+                    <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: "var(--sage)", borderRadius: 4 }} />
+                    </div>
+                  </div>
+                );
+              })()}
               {p.notas && (
                 <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 8, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
                   {p.notas}

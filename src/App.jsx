@@ -4,11 +4,13 @@ import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
 import Presupuesto from "./components/Presupuesto.jsx";
+import Movimientos from "./components/Movimientos.jsx";
 import Prestamos from "./components/Prestamos.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const TITLES = {
   presupuesto: "Presupuesto",
+  movimientos: "Movimientos",
   catalogo: "Catálogo",
   lista: "Lista de compra",
   entidades: "Entidades",
@@ -126,8 +128,9 @@ export default function App() {
         {tab === "catalogo" && <Catalogo products={products} list={list} />}
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}
-        {tab === "presupuesto" && <Presupuesto movimientos={movimientos} entidades={entidades} />}
-        {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} />}
+        {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
+        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} />}
+        {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} />}
       </main>
     </div>
   );

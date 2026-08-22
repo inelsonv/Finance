@@ -1,8 +1,9 @@
 import React from "react";
-import { Package, ShoppingCart, Landmark, Wallet, Banknote } from "lucide-react";
+import { Package, ShoppingCart, Landmark, Wallet, Banknote, ArrowLeftRight } from "lucide-react";
 
 const NAV_ITEMS = [
   { id: "presupuesto", label: "Presupuesto", icon: Wallet },
+  { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "catalogo", label: "Catálogo", icon: Package },
   { id: "lista", label: "Lista de compra", icon: ShoppingCart },
   { id: "entidades", label: "Entidades", icon: Landmark },

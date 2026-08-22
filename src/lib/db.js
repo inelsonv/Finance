@@ -152,7 +152,17 @@ export function watchMovimientos(onChange, onError) {
   );
 }
 
-export async function addMovimiento({ type, category, amount, description, date, entidadId, entidadName }) {
+export async function addMovimiento({
+  type,
+  category,
+  amount,
+  description,
+  date,
+  entidadId,
+  entidadName,
+  prestamoId,
+  prestamoNumero,
+}) {
   await addDoc(movimientosCol, {
     type,
     category,
@@ -161,6 +171,8 @@ export async function addMovimiento({ type, category, amount, description, date,
     date,
     entidadId: entidadId || null,
     entidadName: entidadName || "",
+    prestamoId: prestamoId || null,
+    prestamoNumero: prestamoNumero || "",
     createdAt: serverTimestamp(),
   });
 }
