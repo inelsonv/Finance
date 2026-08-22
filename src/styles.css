@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --paper: #f6f1e4;
+  --ink: #26241f;
+  --ink-soft: #6f6a5e;
+  --stamp: #a23e2e;
+  --stamp-bg: #fbefe9;
+  --sage: #5b7a5b;
+  --sage-bg: #eaf0e6;
+  --line: #dcd2bb;
+  --line-soft: #efe9d8;
+  --card: #fffefc;
+  --muted-line: #b4ac93;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.despensa-tab-font {
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.despensa-mono {
+  font-family: "IBM Plex Mono", monospace;
+}
+
+input:focus,
+select:focus {
+  outline: 2px solid var(--sage);
+  outline-offset: 1px;
+}
+
+button {
+  font-family: inherit;
+}
+
+button:hover {
+  opacity: 0.85;
+}
+
+.despensa-row:hover {
+  background: #fbf8f0;
+}
+
+@media (max-width: 520px) {
+  .despensa-formgrid {
+    grid-template-columns: 1fr !important;
+  }
+}

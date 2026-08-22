@@ -1,0 +1,21 @@
+rules_version = '2';
+
+// ATENCIÓN: reglas abiertas solo para desarrollo/pruebas.
+// Cualquiera con tu configuración de Firebase puede leer y escribir estos datos.
+// Antes de usar la app con datos reales o compartir el proyecto, agrega
+// autenticación y reemplaza estas reglas por algo como:
+//
+// match /productos/{doc} {
+//   allow read, write: if request.auth != null;
+// }
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /productos/{doc} {
+      allow read, write: if true;
+    }
+    match /listaCompra/{doc} {
+      allow read, write: if true;
+    }
+  }
+}
