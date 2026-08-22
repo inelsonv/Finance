@@ -4,7 +4,8 @@ import { addMovimiento, deleteMovimiento } from "../lib/db";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
-const GASTO_CATS = ["Vivienda", "Alimentación", "Transporte", "Servicios", "Entretenimiento", "Salud", "Otro"];
+const GASTO_CATS_FIJO = ["Vivienda", "Servicios", "Seguro de vehículo", "Otro fijo"];
+const GASTO_CATS_VARIABLE = ["Alimentación", "Transporte", "Combustible", "Estacionamiento", "Entretenimiento", "Salud", "Compras", "Otro variable"];
 const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
 const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo", "Pago de tarjeta", "Pago de membresía", ...CUENTA_MOVIMIENTO_TIPOS];
 
@@ -25,6 +26,7 @@ function formatDateDisplay(dateStr) {
 
 const emptyForm = () => ({
   tipo: "Ingreso",
+  clasificacion: "Variable",
   category: INGRESO_CATS[0],
   amount: "",
   description: "",
@@ -58,7 +60,15 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
     setForm({
       ...emptyForm(),
       tipo,
-      category: tipo === "Ingreso" ? INGRESO_CATS[0] : tipo === "Gasto" ? GASTO_CATS[0] : tipo,
+      category: tipo === "Ingreso" ? INGRESO_CATS[0] : tipo === "Gasto" ? GASTO_CATS_VARIABLE[0] : tipo,
+    });
+  };
+
+  const setClasificacion = (clasificacion) => {
+    setForm({
+      ...form,
+      clasificacion,
+      category: clasificacion === "Fijo" ? GASTO_CATS_FIJO[0] : GASTO_CATS_VARIABLE[0],
     });
   };
 
@@ -142,6 +152,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         amount,
         description: form.description.trim(),
         date: form.date,
+        clasificacion: form.tipo === "Gasto" ? form.clasificacion : null,
         entidadId:
           form.tipo === "Pago de préstamo"
             ? prestamo?.entidadId || ""
@@ -348,6 +359,30 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
             </div>
           ) : (
             <div style={{ marginBottom: 8 }}>
+              {form.tipo === "Gasto" && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                  {["Variable", "Fijo"].map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setClasificacion(c)}
+                      style={{
+                        flex: 1,
+                        padding: "6px 4px",
+                        fontSize: 12,
+                        fontWeight: 500,
+                        borderRadius: 7,
+                        border: "1px solid var(--line)",
+                        background: form.clasificacion === c ? "var(--stamp-bg)" : "var(--card)",
+                        color: form.clasificacion === c ? "var(--stamp)" : "var(--ink-soft)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {c === "Fijo" ? "Gasto fijo" : "Gasto variable"}
+                    </button>
+                  ))}
+                </div>
+              )}
               {form.tipo === "Ingreso" && fuentesIngresoActivas.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
                   <select
@@ -375,7 +410,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                   style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
                 >
-                  {(form.tipo === "Ingreso" ? INGRESO_CATS : GASTO_CATS).map((c) => (
+                  {(form.tipo === "Ingreso" ? INGRESO_CATS : form.clasificacion === "Fijo" ? GASTO_CATS_FIJO : GASTO_CATS_VARIABLE).map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
@@ -502,6 +537,21 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                 <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 1 }}>
                   {formatDateDisplay(m.date)}
                   {m.entidadName && <> · {m.entidadName}</>}
+                  {m.clasificacion && (
+                    <span
+                      className="despensa-mono"
+                      style={{
+                        marginLeft: 6,
+                        fontSize: 10,
+                        padding: "1px 6px",
+                        borderRadius: 10,
+                        background: m.clasificacion === "Fijo" ? "var(--stamp-bg)" : "var(--sage-bg)",
+                        color: m.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)",
+                      }}
+                    >
+                      {m.clasificacion}
+                    </span>
+                  )}
                 </div>
               </div>
               <span

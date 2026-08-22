@@ -5,6 +5,9 @@ const FLOW_COLORS = [
   "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a",
 ];
 
+const CUENTA_TIPOS_SET = new Set(["Ahorro", "Corriente", "Inversión", "Corretaje"]);
+const FIJO_IMPLICITO = new Set(["Pago de préstamo", "Pago de tarjeta", "Pago de membresía"]);
+
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -20,6 +23,18 @@ export default function Presupuesto({ movimientos, onOpenMovimientos }) {
       else gastos += amt;
     }
     return { ingresos, gastos, balance: ingresos - gastos };
+  }, [movimientos]);
+
+  const fijoVsVariable = useMemo(() => {
+    let fijo = 0;
+    let variable = 0;
+    for (const m of movimientos) {
+      if (m.type !== "Gasto" || CUENTA_TIPOS_SET.has(m.category)) continue;
+      const amt = Number(m.amount) || 0;
+      if (m.clasificacion === "Fijo" || FIJO_IMPLICITO.has(m.category)) fijo += amt;
+      else if (m.clasificacion === "Variable") variable += amt;
+    }
+    return { fijo, variable, total: fijo + variable };
   }, [movimientos]);
 
   const gastosPorCategoria = useMemo(() => {
@@ -51,6 +66,31 @@ export default function Presupuesto({ movimientos, onOpenMovimientos }) {
       ) : (
         <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
           Todavía no hay movimientos registrados. Ve a Movimientos para agregar tu primer ingreso o gasto.
+        </div>
+      )}
+
+      {fijoVsVariable.total > 0 && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px", marginTop: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 8 }}>
+            <span>
+              <span style={{ color: "var(--stamp)", fontWeight: 500 }}>Fijo</span>{" "}
+              <span className="despensa-mono" style={{ color: "var(--ink-soft)" }}>
+                {formatMoney(fijoVsVariable.fijo)} ({Math.round((fijoVsVariable.fijo / fijoVsVariable.total) * 100)}%)
+              </span>
+            </span>
+            <span>
+              <span style={{ color: "var(--sage)", fontWeight: 500 }}>Variable</span>{" "}
+              <span className="despensa-mono" style={{ color: "var(--ink-soft)" }}>
+                {formatMoney(fijoVsVariable.variable)} ({Math.round((fijoVsVariable.variable / fijoVsVariable.total) * 100)}%)
+              </span>
+            </span>
+          </div>
+          <div style={{ height: 8, borderRadius: 4, background: "var(--sage-bg)", overflow: "hidden", display: "flex" }}>
+            <div style={{ width: `${(fijoVsVariable.fijo / fijoVsVariable.total) * 100}%`, background: "var(--stamp)" }} />
+          </div>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6 }}>
+            Mientras más bajo el % fijo, más flexibilidad tienes ante un imprevisto.
+          </div>
         </div>
       )}
 
