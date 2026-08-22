@@ -184,7 +184,7 @@ export default function Entidades({ entidades }) {
                 className="despensa-mono"
                 style={{ fontSize: 11, color: "var(--ink-soft)", width: 28, flexShrink: 0 }}
               >
-                #{e.id}
+                #{e.num}
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{e.name}</div>

@@ -20,8 +20,5 @@ service cloud.firestore {
     match /entidades/{doc} {
       allow read, write: if true;
     }
-    match /counters/{doc} {
-      allow read, write: if true;
-    }
   }
 }
