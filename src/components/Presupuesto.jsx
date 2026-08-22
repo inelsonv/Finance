@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 
 const FLOW_COLORS = [
@@ -14,6 +14,7 @@ function formatMoney(n) {
 }
 
 export default function Presupuesto({ movimientos, onOpenMovimientos }) {
+  const [showGastoDesglose, setShowGastoDesglose] = useState(false);
   const totals = useMemo(() => {
     let ingresos = 0;
     let gastos = 0;
@@ -51,15 +52,52 @@ export default function Presupuesto({ movimientos, onOpenMovimientos }) {
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 6 }}>
         <SummaryCard label="Ingresos" value={totals.ingresos} color="var(--sage)" />
-        <SummaryCard label="Gastos" value={totals.gastos} color="var(--stamp)" />
+        <SummaryCard
+          label="Gastos"
+          value={totals.gastos}
+          color="var(--stamp)"
+          onDoubleClick={() => setShowGastoDesglose((s) => !s)}
+          expandable
+          expanded={showGastoDesglose}
+        />
         <SummaryCard
           label="Balance"
           value={totals.balance}
           color={totals.balance >= 0 ? "var(--sage)" : "var(--stamp)"}
         />
       </div>
+
+      {showGastoDesglose && gastosPorCategoria.length > 0 && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
+          <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 8 }}>
+            Categoría gasto
+          </div>
+          {gastosPorCategoria.map((g, i) => (
+            <div
+              key={g.category}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "5px 0",
+                borderTop: i === 0 ? "none" : "1px solid var(--line-soft)",
+                fontSize: 12.5,
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: FLOW_COLORS[i % FLOW_COLORS.length], flexShrink: 0 }} />
+                {g.category}
+              </span>
+              <span className="despensa-mono" style={{ color: "var(--ink-soft)" }}>
+                {formatMoney(g.amount)} ({Math.round((g.amount / totals.gastos) * 100)}%)
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ marginBottom: 12 }} />
 
       {totals.ingresos > 0 || totals.gastos > 0 ? (
         <FlowDiagram totals={totals} gastosPorCategoria={gastosPorCategoria} />
@@ -118,10 +156,26 @@ export default function Presupuesto({ movimientos, onOpenMovimientos }) {
   );
 }
 
-function SummaryCard({ label, value, color }) {
+function SummaryCard({ label, value, color, onDoubleClick, expandable, expanded }) {
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
-      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 2 }}>{label}</div>
+    <div
+      onDoubleClick={onDoubleClick}
+      title={expandable ? "Doble clic para ver el desglose por categoría" : undefined}
+      style={{
+        background: "var(--card)",
+        border: expandable && expanded ? "1px solid var(--stamp)" : "1px solid var(--line)",
+        borderRadius: 10,
+        padding: "10px 12px",
+        cursor: expandable ? "pointer" : "default",
+        userSelect: expandable ? "none" : "auto",
+      }}
+    >
+      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 2, display: "flex", alignItems: "center", gap: 4 }}>
+        {label}
+        {expandable && (
+          <span style={{ fontSize: 9, opacity: 0.6 }}>{expanded ? "▲" : "▼"}</span>
+        )}
+      </div>
       <div className="despensa-mono" style={{ fontSize: 16, fontWeight: 600, color }}>
         {formatMoney(value)}
       </div>
