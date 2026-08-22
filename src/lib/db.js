@@ -226,6 +226,10 @@ export async function updatePrestamoEstado(id, estado) {
   await updateDoc(doc(db, "prestamos", id), { estado });
 }
 
+export async function updatePrestamo(id, fields) {
+  await updateDoc(doc(db, "prestamos", id), fields);
+}
+
 export async function deletePrestamo(id) {
   await deleteDoc(doc(db, "prestamos", id));
 }

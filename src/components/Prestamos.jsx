@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, Calendar, Percent } from "lucide-react";
-import { addPrestamo, deletePrestamo, updatePrestamoEstado } from "../lib/db";
+import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check } from "lucide-react";
+import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 
 const PLAZO_UNIDADES = ["meses", "años"];
 const ESTADOS = ["Activo", "Pagado", "En mora"];
@@ -47,11 +47,74 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
   const [form, setForm] = useState(() => emptyForm(nextNumero(prestamos)));
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [editError, setEditError] = useState(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const openForm = () => {
     setForm(emptyForm(nextNumero(prestamos)));
     setFormError(null);
     setShowForm(true);
+  };
+
+  const startEdit = (p) => {
+    setEditingId(p.id);
+    setEditError(null);
+    setEditForm({
+      entidadId: p.entidadId || "",
+      montoAprobado: p.montoAprobado != null ? String(p.montoAprobado) : "",
+      plazo: p.plazo != null ? String(p.plazo) : "",
+      plazoUnidad: p.plazoUnidad || "meses",
+      tasaInteres: p.tasaInteres != null ? String(p.tasaInteres) : "",
+      cuota: p.cuota != null ? String(p.cuota) : "",
+      fechaInicio: p.fechaInicio || todayStr(),
+      estado: p.estado || "Activo",
+      notas: p.notas || "",
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm(null);
+    setEditError(null);
+  };
+
+  const saveEdit = async () => {
+    const monto = parseFloat(editForm.montoAprobado);
+    if (!editForm.entidadId) {
+      setEditError("Selecciona la entidad prestamista");
+      return;
+    }
+    if (!Number.isFinite(monto) || monto <= 0) {
+      setEditError("Ingresa un monto aprobado válido");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const entidad = entidades.find((e) => e.docId === editForm.entidadId);
+      const plazo = parseFloat(editForm.plazo);
+      const tasa = parseFloat(editForm.tasaInteres);
+      const cuota = parseFloat(editForm.cuota);
+      await updatePrestamo(editingId, {
+        entidadId: editForm.entidadId,
+        entidadName: entidad ? entidad.name : "",
+        montoAprobado: monto,
+        plazo: Number.isFinite(plazo) ? plazo : null,
+        plazoUnidad: editForm.plazoUnidad,
+        tasaInteres: Number.isFinite(tasa) ? tasa : null,
+        cuota: Number.isFinite(cuota) ? cuota : null,
+        fechaInicio: editForm.fechaInicio,
+        estado: editForm.estado,
+        notas: editForm.notas.trim(),
+      });
+      cancelEdit();
+    } catch (err) {
+      setEditError(err.message || String(err));
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const totals = useMemo(() => {
@@ -287,75 +350,241 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {prestamos.map((p) => (
             <div key={p.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+              {editingId === p.id ? (
                 <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="despensa-mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--stamp)" }}>
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "0.8fr 1.5fr", gap: 8, marginBottom: 8 }}>
+                    <div className="despensa-mono" style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--paper)", color: "var(--ink-soft)" }}>
                       {p.numero}
-                    </span>
-                    <EstadoBadge estado={p.estado} onChange={(estado) => updatePrestamoEstado(p.id, estado)} />
-                  </div>
-                  <div style={{ fontSize: 14, fontWeight: 500, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
-                    <Landmark size={13} style={{ color: "var(--ink-soft)" }} />
-                    {p.entidadName || "Entidad no especificada"}
-                  </div>
-                </div>
-                <button
-                  onClick={() => deletePrestamo(p.id)}
-                  title="Eliminar préstamo"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 28,
-                    height: 28,
-                    background: "transparent",
-                    color: "var(--stamp)",
-                    border: "none",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
-                <Field label="Monto aprobado" value={formatMoney(p.montoAprobado)} />
-                <Field label="Cuota mensual" value={p.cuota != null ? formatMoney(p.cuota) : "—"} />
-                <Field label="Plazo" value={p.plazo ? `${p.plazo} ${p.plazoUnidad || "meses"}` : "—"} />
-                <Field label="Tasa interés" value={p.tasaInteres != null ? `${p.tasaInteres}%` : "—"} />
-                <Field
-                  label="Inicio"
-                  value={
-                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <Calendar size={11} /> {formatDateDisplay(p.fechaInicio)}
-                    </span>
-                  }
-                />
-              </div>
-
-              {(() => {
-                const pagado = pagadoPorPrestamo[p.id] || 0;
-                const pendiente = Math.max((Number(p.montoAprobado) || 0) - pagado, 0);
-                const pct = p.montoAprobado ? Math.min(100, Math.round((pagado / p.montoAprobado) * 100)) : 0;
-                return (
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 6 }}>
-                      <Field label="Pagado" value={<span style={{ color: "var(--sage)" }}>{formatMoney(pagado)}</span>} />
-                      <Field label="Falta por pagar" value={<span style={{ color: pendiente > 0 ? "var(--stamp)" : "var(--sage)" }}>{formatMoney(pendiente)}</span>} />
                     </div>
-                    <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${pct}%`, background: "var(--sage)", borderRadius: 4 }} />
+                    <select
+                      value={editForm.entidadId}
+                      onChange={(e) => setEditForm({ ...editForm, entidadId: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                    >
+                      <option value="">Entidad prestamista…</option>
+                      {entidades.map((e) => (
+                        <option key={e.docId} value={e.docId}>{e.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Monto aprobado"
+                      value={editForm.montoAprobado}
+                      onChange={(e) => setEditForm({ ...editForm, montoAprobado: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <input
+                        className="despensa-mono"
+                        type="number"
+                        step="1"
+                        min="0"
+                        placeholder="Plazo"
+                        value={editForm.plazo}
+                        onChange={(e) => setEditForm({ ...editForm, plazo: e.target.value })}
+                        style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                      />
+                      <select
+                        value={editForm.plazoUnidad}
+                        onChange={(e) => setEditForm({ ...editForm, plazoUnidad: e.target.value })}
+                        style={{ padding: "8px 4px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12, background: "#fff" }}
+                      >
+                        {PLAZO_UNIDADES.map((u) => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        className="despensa-mono"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Tasa interés"
+                        value={editForm.tasaInteres}
+                        onChange={(e) => setEditForm({ ...editForm, tasaInteres: e.target.value })}
+                        style={{ width: "100%", padding: "8px 22px 8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                      />
+                      <Percent size={12} style={{ position: "absolute", right: 8, top: 11, color: "var(--ink-soft)" }} />
                     </div>
                   </div>
-                );
-              })()}
-              {p.notas && (
-                <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 8, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
-                  {p.notas}
+
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <input
+                      type="date"
+                      value={editForm.fechaInicio}
+                      onChange={(e) => setEditForm({ ...editForm, fechaInicio: e.target.value })}
+                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                    <select
+                      value={editForm.estado}
+                      onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "#fff" }}
+                    >
+                      {ESTADOS.map((e) => (
+                        <option key={e} value={e}>{e}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: 8 }}>
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Cuota mensual"
+                      value={editForm.cuota}
+                      onChange={(e) => setEditForm({ ...editForm, cuota: e.target.value })}
+                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                  </div>
+
+                  <input
+                    placeholder="Notas (opcional)"
+                    value={editForm.notas}
+                    onChange={(e) => setEditForm({ ...editForm, notas: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
+                  />
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={saveEdit}
+                      disabled={editSaving}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "7px 14px",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        background: "var(--sage)",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 8,
+                        cursor: editSaving ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <Check size={14} /> {editSaving ? "Guardando…" : "Guardar cambios"}
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      style={{
+                        padding: "7px 14px",
+                        fontSize: 13,
+                        fontWeight: 500,
+                        background: "#fff",
+                        color: "var(--ink-soft)",
+                        border: "1px solid var(--line)",
+                        borderRadius: 8,
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                  {editError && (
+                    <div style={{ marginTop: 10, fontSize: 12, color: "var(--stamp)" }}>{editError}</div>
+                  )}
                 </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span className="despensa-mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--stamp)" }}>
+                          {p.numero}
+                        </span>
+                        <EstadoBadge estado={p.estado} onChange={(estado) => updatePrestamoEstado(p.id, estado)} />
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 500, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
+                        <Landmark size={13} style={{ color: "var(--ink-soft)" }} />
+                        {p.entidadName || "Entidad no especificada"}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                      <button
+                        onClick={() => startEdit(p)}
+                        title="Editar préstamo"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 28,
+                          height: 28,
+                          background: "transparent",
+                          color: "var(--ink-soft)",
+                          border: "none",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => deletePrestamo(p.id)}
+                        title="Eliminar préstamo"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 28,
+                          height: 28,
+                          background: "transparent",
+                          color: "var(--stamp)",
+                          border: "none",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
+                    <Field label="Monto aprobado" value={formatMoney(p.montoAprobado)} />
+                    <Field label="Cuota mensual" value={p.cuota != null ? formatMoney(p.cuota) : "—"} />
+                    <Field label="Plazo" value={p.plazo ? `${p.plazo} ${p.plazoUnidad || "meses"}` : "—"} />
+                    <Field label="Tasa interés" value={p.tasaInteres != null ? `${p.tasaInteres}%` : "—"} />
+                    <Field
+                      label="Inicio"
+                      value={
+                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <Calendar size={11} /> {formatDateDisplay(p.fechaInicio)}
+                        </span>
+                      }
+                    />
+                  </div>
+
+                  {(() => {
+                    const pagado = pagadoPorPrestamo[p.id] || 0;
+                    const pendiente = Math.max((Number(p.montoAprobado) || 0) - pagado, 0);
+                    const pct = p.montoAprobado ? Math.min(100, Math.round((pagado / p.montoAprobado) * 100)) : 0;
+                    return (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 6 }}>
+                          <Field label="Pagado" value={<span style={{ color: "var(--sage)" }}>{formatMoney(pagado)}</span>} />
+                          <Field label="Falta por pagar" value={<span style={{ color: pendiente > 0 ? "var(--stamp)" : "var(--sage)" }}>{formatMoney(pendiente)}</span>} />
+                        </div>
+                        <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: "var(--sage)", borderRadius: 4 }} />
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {p.notas && (
+                    <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 8, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
+                      {p.notas}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}
