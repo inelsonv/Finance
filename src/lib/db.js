@@ -75,10 +75,17 @@ export async function incrementListQty(productId, current, delta) {
 }
 
 export function watchEntidades(onChange, onError) {
-  const q = query(entidadesCol, orderBy("createdAt", "asc"));
   return onSnapshot(
-    q,
-    (snap) => onChange(snap.docs.map((d, i) => ({ docId: d.id, num: i + 1, ...d.data() }))),
+    entidadesCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ docId: d.id, ...d.data() }));
+      docs.sort((a, b) => {
+        const ta = a.createdAt ? a.createdAt.toMillis() : Infinity;
+        const tb = b.createdAt ? b.createdAt.toMillis() : Infinity;
+        return ta - tb;
+      });
+      onChange(docs.map((d, i) => ({ ...d, num: i + 1 })));
+    },
     (err) => onError && onError(err)
   );
 }
