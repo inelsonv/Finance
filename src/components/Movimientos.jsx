@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap } from "lucide-react";
+import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check } from "lucide-react";
 import { addMovimiento, deleteMovimiento } from "../lib/db";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
 import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
@@ -7,6 +7,14 @@ import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
 const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
 const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo", "Pago de tarjeta", "Pago de membresía", "Pago de servicio", ...CUENTA_MOVIMIENTO_TIPOS];
+
+const PAGO_EXPRES = [
+  { category: "Combustible", icon: Fuel },
+  { category: "Estacionamiento", icon: SquareParking },
+  { category: "Alimentación", icon: UtensilsCrossed },
+  { category: "Otro variable", label: "Café/varios", icon: Coffee },
+  { category: "Compras", icon: ShoppingBag },
+];
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -44,6 +52,38 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [expresCategory, setExpresCategory] = useState(null);
+  const [expresAmount, setExpresAmount] = useState("");
+  const [expresSaving, setExpresSaving] = useState(false);
+
+  const openExpres = (category) => {
+    setExpresCategory(category);
+    setExpresAmount("");
+  };
+
+  const cancelExpres = () => {
+    setExpresCategory(null);
+    setExpresAmount("");
+  };
+
+  const saveExpres = async () => {
+    const amount = parseFloat(expresAmount);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    setExpresSaving(true);
+    try {
+      await addMovimiento({
+        type: "Gasto",
+        category: expresCategory,
+        amount,
+        description: "",
+        date: todayStr(),
+        clasificacion: "Variable",
+      });
+      cancelExpres();
+    } finally {
+      setExpresSaving(false);
+    }
+  };
 
   const prestamosActivos = prestamos.filter((p) => p.estado === "Activo");
   const tarjetasActivas = tarjetas.filter((t) => t.estado === "Activa");
@@ -223,6 +263,85 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
 
   return (
     <div>
+      <div style={{ marginBottom: 16 }}>
+        <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 8 }}>
+          Pago exprés
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {PAGO_EXPRES.map((p) => {
+            const Icon = p.icon;
+            const active = expresCategory === p.category;
+            return (
+              <button
+                key={p.category}
+                onClick={() => (active ? cancelExpres() : openExpres(p.category))}
+                title={p.category}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 4,
+                  padding: "10px 14px",
+                  minWidth: 76,
+                  border: `1px solid ${active ? "var(--stamp)" : "var(--line)"}`,
+                  borderRadius: 10,
+                  background: active ? "var(--stamp-bg)" : "var(--card)",
+                  color: active ? "var(--stamp)" : "var(--ink)",
+                  cursor: "pointer",
+                }}
+              >
+                <Icon size={18} />
+                <span style={{ fontSize: 10.5, fontWeight: 500, textAlign: "center" }}>{p.label || p.category}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {expresCategory && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
+            <span style={{ fontSize: 12.5, fontWeight: 500, whiteSpace: "nowrap" }}>{expresCategory}:</span>
+            <input
+              autoFocus
+              className="despensa-mono"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Monto"
+              value={expresAmount}
+              onChange={(e) => setExpresAmount(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && saveExpres()}
+              style={{ flex: 1, minWidth: 80, padding: "6px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13 }}
+            />
+            <button
+              onClick={saveExpres}
+              disabled={expresSaving || !expresAmount}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "6px 12px",
+                fontSize: 12.5,
+                fontWeight: 500,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 7,
+                cursor: expresSaving || !expresAmount ? "not-allowed" : "pointer",
+                opacity: expresSaving || !expresAmount ? 0.6 : 1,
+              }}
+            >
+              <Check size={13} /> {expresSaving ? "…" : "Guardar"}
+            </button>
+            <button
+              onClick={cancelExpres}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer" }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+      </div>
+
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
         <button
           onClick={() => setShowForm((s) => !s)}
