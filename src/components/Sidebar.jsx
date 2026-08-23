@@ -29,6 +29,7 @@ const NAV_ITEMS = [
     children: [
       { id: "presupuesto-categoria-gasto", label: "Categoría de gasto" },
       { id: "presupuesto-mensual", label: "Presupuesto mensual" },
+      { id: "presupuesto-flujo", label: "Editor de flujo" },
     ],
   },
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
@@ -14,6 +14,7 @@ import CategoriaGasto from "./components/CategoriaGasto.jsx";
 import Inicio from "./components/Inicio.jsx";
 import PresupuestoAnual from "./components/PresupuestoAnual.jsx";
 import Contratos from "./components/Contratos.jsx";
+import FlujoEditor from "./components/FlujoEditor.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const THEME_KEY = "smart-finance-theme";
@@ -34,6 +35,7 @@ const TITLES = {
   ingresos: "Ingresos",
   "presupuesto-categoria-gasto": "Categoría de gasto",
   "presupuesto-mensual": "Presupuesto mensual",
+  "presupuesto-flujo": "Editor de flujo",
 };
 
 function getInitialTheme() {
@@ -71,6 +73,7 @@ export default function App() {
   const [categoriasGasto, setCategoriasGasto] = useState([]);
   const [presupuestoAnual, setPresupuestoAnual] = useState({});
   const [contratos, setContratos] = useState([]);
+  const [flujo, setFlujo] = useState(undefined);
   const currentYear = new Date().getFullYear();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -118,6 +121,7 @@ export default function App() {
     const unsubCategoriasGasto = watchCategoriasGasto(setCategoriasGasto, handleError);
     const unsubPresupuestoAnual = watchPresupuestoAnual(currentYear, setPresupuestoAnual, handleError);
     const unsubContratos = watchContratos(setContratos, handleError);
+    const unsubFlujo = watchFlujo(setFlujo, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -132,6 +136,7 @@ export default function App() {
       unsubCategoriasGasto();
       unsubPresupuestoAnual();
       unsubContratos();
+      unsubFlujo();
       unsubStatus();
     };
   }, []);
@@ -231,6 +236,7 @@ export default function App() {
         {tab === "ingresos" && <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} />}
         {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} categoriasPersonalizadas={categoriasGasto} />}
         {tab === "presupuesto-mensual" && <PresupuestoAnual presupuesto={presupuestoAnual} categoriasPersonalizadas={categoriasGasto} year={currentYear} />}
+        {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} />}
       </main>
     </div>
   );

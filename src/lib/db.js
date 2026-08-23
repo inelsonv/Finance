@@ -540,3 +540,15 @@ export async function updateContratoEstado(id, estado) {
 export async function deleteContrato(id) {
   await deleteDoc(doc(db, "contratos", id));
 }
+
+export function watchFlujo(onChange, onError) {
+  return onSnapshot(
+    doc(db, "flujo", "diagrama"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveFlujo(nodes, edges) {
+  await setDoc(doc(db, "flujo", "diagrama"), { nodes, edges, updatedAt: serverTimestamp() });
+}

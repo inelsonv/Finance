@@ -47,5 +47,8 @@ service cloud.firestore {
     match /contratos/{doc} {
       allow read, write: if true;
     }
+    match /flujo/{doc} {
+      allow read, write: if true;
+    }
   }
 }
