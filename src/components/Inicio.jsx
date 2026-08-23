@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Banknote, CreditCard, Briefcase, AlertTriangle } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp } from "lucide-react";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -79,7 +79,119 @@ function GaugeChart({ pct }) {
   );
 }
 
-export default function Inicio({ prestamos, tarjetas, fuentesIngreso }) {
+const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+const LINE_COLORS = [
+  "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a", "#4a8a8a",
+];
+
+function GastosPorMesChart({ movimientos }) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // 1-12
+
+  const { series, maxVal } = useMemo(() => {
+    const byCategory = {};
+    for (const m of movimientos) {
+      if (m.type !== "Gasto" || !m.date) continue;
+      const [y, mo] = m.date.split("-").map(Number);
+      if (y !== year || mo > currentMonth) continue;
+      const cat = m.category || "Otro";
+      if (!byCategory[cat]) byCategory[cat] = Array(currentMonth).fill(0);
+      byCategory[cat][mo - 1] += Number(m.amount) || 0;
+    }
+    const list = Object.entries(byCategory)
+      .map(([category, values]) => ({ category, values, total: values.reduce((s, v) => s + v, 0) }))
+      .sort((a, b) => b.total - a.total);
+    let max = 0;
+    for (const s of list) for (const v of s.values) max = Math.max(max, v);
+    return { series: list, maxVal: max || 1 };
+  }, [movimientos, year, currentMonth]);
+
+  if (series.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
+        Todavía no hay gastos registrados este año. Ve a Movimientos para agregar el primero.
+      </div>
+    );
+  }
+
+  const width = 640;
+  const height = 260;
+  const padL = 50;
+  const padR = 16;
+  const padT = 16;
+  const padB = 30;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+
+  const xFor = (i) => padL + (i / Math.max(currentMonth - 1, 1)) * plotW;
+  const yFor = (v) => padT + plotH - (v / maxVal) * plotH;
+
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", minWidth: 480, display: "block" }}>
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+          <line
+            key={f}
+            x1={padL}
+            x2={width - padR}
+            y1={padT + plotH * (1 - f)}
+            y2={padT + plotH * (1 - f)}
+            stroke="var(--line-soft)"
+            strokeWidth={1}
+          />
+        ))}
+        {[0, 0.25, 0.5, 0.75, 1].map((f) => (
+          <text
+            key={f}
+            x={padL - 6}
+            y={padT + plotH * (1 - f) + 3}
+            textAnchor="end"
+            fontSize="9"
+            fill="var(--ink-soft)"
+            fontFamily="IBM Plex Mono, monospace"
+          >
+            {Math.round(maxVal * f)}
+          </text>
+        ))}
+        {Array.from({ length: currentMonth }).map((_, i) => (
+          <text
+            key={i}
+            x={xFor(i)}
+            y={height - padB + 14}
+            textAnchor="middle"
+            fontSize="9.5"
+            fill="var(--ink-soft)"
+          >
+            {MESES[i]}
+          </text>
+        ))}
+        {series.map((s, si) => {
+          const color = LINE_COLORS[si % LINE_COLORS.length];
+          const points = s.values.map((v, i) => `${xFor(i)},${yFor(v)}`).join(" ");
+          return (
+            <g key={s.category}>
+              <polyline points={points} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+              {s.values.map((v, i) => (
+                <circle key={i} cx={xFor(i)} cy={yFor(v)} r={2.5} fill={color} />
+              ))}
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 10, justifyContent: "center" }}>
+        {series.map((s, si) => (
+          <span key={s.category} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--ink-soft)" }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: LINE_COLORS[si % LINE_COLORS.length], flexShrink: 0 }} />
+            {s.category}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos }) {
   const cuotaPrestamos = useMemo(
     () => prestamos.filter((p) => p.estado === "Activo").reduce((s, p) => s + (Number(p.cuota) || 0), 0),
     [prestamos]
@@ -141,6 +253,14 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso }) {
             </div>
           </>
         )}
+      </div>
+
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", marginTop: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por mes y categoría</span>
+        </div>
+        <GastosPorMesChart movimientos={movimientos} />
       </div>
     </div>
   );

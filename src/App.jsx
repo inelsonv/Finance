@@ -212,7 +212,7 @@ export default function App() {
             : "Sin conexión con Firebase — guardando solo en este navegador"}
         </div>
 
-        {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} />}
+        {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} movimientos={movimientos} />}
         {tab === "catalogo" && <Catalogo products={products} list={list} />}
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}
