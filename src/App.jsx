@@ -11,12 +11,14 @@ import Tarjetas from "./components/Tarjetas.jsx";
 import Membresias from "./components/Membresias.jsx";
 import FuentesIngreso from "./components/FuentesIngreso.jsx";
 import CategoriaGasto from "./components/CategoriaGasto.jsx";
+import Inicio from "./components/Inicio.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const THEME_KEY = "smart-finance-theme";
 const SIDEBAR_KEY = "smart-finance-sidebar-collapsed";
 
 const TITLES = {
+  inicio: "Inicio",
   presupuesto: "Presupuesto",
   movimientos: "Movimientos",
   catalogo: "Catálogo",
@@ -52,7 +54,7 @@ function getInitialCollapsed() {
 }
 
 export default function App() {
-  const [tab, setTab] = useState("presupuesto");
+  const [tab, setTab] = useState("inicio");
   const [products, setProducts] = useState([]);
   const [list, setList] = useState([]);
   const [entidades, setEntidades] = useState([]);
@@ -204,6 +206,7 @@ export default function App() {
             : "Sin conexión con Firebase — guardando solo en este navegador"}
         </div>
 
+        {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} />}
         {tab === "catalogo" && <Catalogo products={products} list={list} />}
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}

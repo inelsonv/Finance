@@ -16,9 +16,11 @@ import {
   Briefcase,
   ChevronDown,
   ChevronRight,
+  Home,
 } from "lucide-react";
 
 const NAV_ITEMS = [
+  { id: "inicio", label: "Inicio", icon: Home },
   {
     id: "presupuesto",
     label: "Presupuesto",
