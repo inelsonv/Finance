@@ -50,5 +50,11 @@ service cloud.firestore {
     match /flujo/{doc} {
       allow read, write: if true;
     }
+    match /acciones/{doc} {
+      allow read, write: if true;
+    }
+    match /config/{doc} {
+      allow read, write: if true;
+    }
   }
 }

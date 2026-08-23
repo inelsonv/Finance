@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, DollarSign, RefreshCw } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X } from "lucide-react";
+import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig } from "../lib/db";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -271,6 +272,201 @@ function DolarCard() {
   );
 }
 
+function StocksCard() {
+  const [acciones, setAcciones] = useState([]);
+  const [config, setConfig] = useState(undefined);
+  const [prices, setPrices] = useState({});
+  const [loadingPrices, setLoadingPrices] = useState(false);
+  const [showConfig, setShowConfig] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [newSymbol, setNewSymbol] = useState("");
+  const [newNombre, setNewNombre] = useState("");
+  const [addError, setAddError] = useState(null);
+
+  useEffect(() => {
+    const unsubA = watchAcciones(setAcciones, () => {});
+    const unsubC = watchAccionesConfig(setConfig, () => {});
+    return () => {
+      unsubA();
+      unsubC();
+    };
+  }, []);
+
+  const apiKey = config?.apiKey;
+
+  const fetchPrices = async () => {
+    if (!apiKey || acciones.length === 0) return;
+    setLoadingPrices(true);
+    try {
+      const results = await Promise.all(
+        acciones.map(async (a) => {
+          try {
+            const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(a.symbol)}&token=${apiKey}`);
+            if (!res.ok) throw new Error("bad response");
+            const data = await res.json();
+            return [a.symbol, { price: data.c, change: data.dp }];
+          } catch {
+            return [a.symbol, null];
+          }
+        })
+      );
+      setPrices(Object.fromEntries(results));
+    } finally {
+      setLoadingPrices(false);
+    }
+  };
+
+  useEffect(() => {
+    if (apiKey && acciones.length > 0) fetchPrices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey, acciones.length]);
+
+  const handleSaveKey = async () => {
+    if (!apiKeyInput.trim()) return;
+    await saveAccionesConfig(apiKeyInput.trim());
+    setShowConfig(false);
+  };
+
+  const handleAddAccion = async () => {
+    const symbol = newSymbol.trim().toUpperCase();
+    if (!symbol) {
+      setAddError("Escribe un símbolo, ej. AAPL");
+      return;
+    }
+    setAddError(null);
+    await addAccion({ symbol, nombre: newNombre.trim() });
+    setNewSymbol("");
+    setNewNombre("");
+  };
+
+  return (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", marginTop: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <LineChart size={16} style={{ color: "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Acciones</span>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {apiKey && acciones.length > 0 && (
+            <button
+              onClick={fetchPrices}
+              title="Actualizar"
+              disabled={loadingPrices}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-soft)", cursor: loadingPrices ? "default" : "pointer" }}
+            >
+              <RefreshCw size={13} style={{ animation: loadingPrices ? "spin 0.9s linear infinite" : "none" }} />
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setApiKeyInput(apiKey || "");
+              setShowConfig((s) => !s);
+            }}
+            title="Configurar clave de API"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-soft)", cursor: "pointer" }}
+          >
+            <Settings size={13} />
+          </button>
+        </div>
+      </div>
+
+      {showConfig && (
+        <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 12, marginBottom: 14, fontSize: 12.5 }}>
+          <div style={{ marginBottom: 8, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+            Necesitas una clave gratuita de{" "}
+            <a href="https://finnhub.io/register" target="_blank" rel="noreferrer" style={{ color: "var(--sage)" }}>
+              finnhub.io/register
+            </a>{" "}
+            (plan gratis, sin tarjeta). Cópiala desde tu dashboard y pégala aquí.
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              value={apiKeyInput}
+              onChange={(e) => setApiKeyInput(e.target.value)}
+              placeholder="Tu API key de Finnhub"
+              style={{ flex: 1, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+            />
+            <button onClick={handleSaveKey} style={{ padding: "7px 14px", fontSize: 12.5, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}>
+              Guardar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!apiKey ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "8px 0" }}>
+          <AlertTriangle size={15} />
+          Configura tu clave de Finnhub (ícono de engranaje arriba) para ver precios de acciones.
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            <input
+              value={newSymbol}
+              onChange={(e) => setNewSymbol(e.target.value)}
+              placeholder="Símbolo, ej. AAPL"
+              onKeyDown={(e) => e.key === "Enter" && handleAddAccion()}
+              style={{ width: 100, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+            />
+            <input
+              value={newNombre}
+              onChange={(e) => setNewNombre(e.target.value)}
+              placeholder="Nombre (opcional), ej. Apple"
+              onKeyDown={(e) => e.key === "Enter" && handleAddAccion()}
+              style={{ flex: 1, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+            />
+            <button onClick={handleAddAccion} style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 12px", fontSize: 12.5, fontWeight: 500, background: "var(--ink)", color: "var(--paper)", border: "none", borderRadius: 7, cursor: "pointer" }}>
+              <Plus size={13} /> Agregar
+            </button>
+          </div>
+          {addError && <div style={{ fontSize: 11.5, color: "var(--stamp)", marginBottom: 10 }}>{addError}</div>}
+
+          {acciones.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: "var(--ink-soft)", padding: "8px 0" }}>
+              Agrega una empresa por su símbolo bursátil, ej. <span className="despensa-mono">AAPL</span> para Apple,{" "}
+              <span className="despensa-mono">MSFT</span> para Microsoft.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {acciones.map((a) => {
+                const p = prices[a.symbol];
+                const up = p && p.change >= 0;
+                return (
+                  <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "var(--paper)", borderRadius: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="despensa-mono" style={{ fontSize: 13, fontWeight: 600 }}>{a.symbol}</div>
+                      {a.nombre && <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>{a.nombre}</div>}
+                    </div>
+                    {p && p.price != null ? (
+                      <div style={{ textAlign: "right" }}>
+                        <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 600 }}>${p.price.toFixed(2)}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "flex-end", fontSize: 11, color: up ? "var(--sage)" : "var(--stamp)" }}>
+                          {up ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                          {p.change != null ? `${p.change.toFixed(2)}%` : ""}
+                        </div>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>{loadingPrices ? "…" : "—"}</span>
+                    )}
+                    <button
+                      onClick={() => deleteAccion(a.id)}
+                      title="Quitar"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer" }}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos }) {
   const cuotaPrestamos = useMemo(
     () => prestamos.filter((p) => p.estado === "Activo").reduce((s, p) => s + (Number(p.cuota) || 0), 0),
@@ -334,6 +530,8 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
           </>
         )}
       </div>
+
+      <StocksCard />
 
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", marginTop: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>

@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Home,
   Zap,
+  LineChart,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   },
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "ingresos", label: "Ingresos", icon: Briefcase },
+  { id: "inversion", label: "Inversión", icon: LineChart },
   { id: "catalogo", label: "Catálogo", icon: Package },
   { id: "lista", label: "Lista de compra", icon: ShoppingCart },
   { id: "entidades", label: "Entidades", icon: Landmark },

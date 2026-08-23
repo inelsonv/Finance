@@ -556,3 +556,37 @@ export function watchFlujo(onChange, onError) {
 export async function saveFlujo(nodes, edges) {
   await setDoc(doc(db, "flujo", "diagrama"), { nodes, edges, updatedAt: serverTimestamp() });
 }
+
+const accionesCol = collection(db, "acciones");
+
+export function watchAcciones(onChange, onError) {
+  return onSnapshot(
+    accionesCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.symbol || "").localeCompare(b.symbol || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addAccion({ symbol, nombre }) {
+  await addDoc(accionesCol, { symbol: symbol.toUpperCase(), nombre: nombre || "", createdAt: serverTimestamp() });
+}
+
+export async function deleteAccion(id) {
+  await deleteDoc(doc(db, "acciones", id));
+}
+
+export function watchAccionesConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "acciones"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveAccionesConfig(apiKey) {
+  await setDoc(doc(db, "config", "acciones"), { apiKey });
+}
