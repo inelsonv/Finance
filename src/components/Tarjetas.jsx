@@ -90,6 +90,7 @@ const emptyForm = () => ({
   notas: "",
   color: "azul",
   marca: "Visa",
+  saldoActual: "",
 });
 
 function toEditForm(t) {
@@ -106,6 +107,7 @@ function toEditForm(t) {
     notas: t.notas || "",
     color: t.color || "azul",
     marca: t.marca || "Visa",
+    saldoActual: t.saldoActual != null ? String(t.saldoActual) : "",
   };
 }
 
@@ -168,6 +170,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         notas: form.notas.trim(),
         color: form.color,
         marca: form.marca,
+        saldoActual: parseFloat(form.saldoActual) || null,
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -200,6 +203,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         notas: editForm.notas.trim(),
         color: editForm.color,
         marca: editForm.marca,
+        saldoActual: parseFloat(editForm.saldoActual) || null,
       });
       cancelEdit();
     } catch (err) {
@@ -322,6 +326,19 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
               value={form.pagoMinimo}
               onChange={(e) => setForm({ ...form, pagoMinimo: e.target.value })}
               style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <input
+              className="despensa-mono"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Saldo actual (lo que debes hoy, opcional)"
+              value={form.saldoActual}
+              onChange={(e) => setForm({ ...form, saldoActual: e.target.value })}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
             />
           </div>
 
@@ -467,6 +484,18 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                       style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                     />
                   </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Saldo actual (lo que debes hoy, opcional)"
+                      value={editForm.saldoActual}
+                      onChange={(e) => setEditForm({ ...editForm, saldoActual: e.target.value })}
+                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                  </div>
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <input
                       className="despensa-mono"
@@ -555,6 +584,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
 
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
                     <Field label="Límite de crédito" value={t.limiteCredito != null ? formatMoney(t.limiteCredito) : "—"} />
+                    <Field label="Saldo actual" value={t.saldoActual != null ? <span style={{ color: "var(--stamp)" }}>{formatMoney(t.saldoActual)}</span> : "—"} />
                     <Field label="Pago mínimo" value={t.pagoMinimo != null ? formatMoney(t.pagoMinimo) : "—"} />
                     <Field label="Tasa interés" value={t.tasaInteres != null ? `${t.tasaInteres}%` : "—"} />
                     <Field label="Corte / Pago" value={t.fechaCorte || t.fechaPago ? `${t.fechaCorte || "—"} / ${t.fechaPago || "—"}` : "—"} />

@@ -327,6 +327,7 @@ export async function addTarjeta({
   notas,
   color,
   marca,
+  saldoActual,
 }) {
   await addDoc(tarjetasCol, {
     nombre,
@@ -342,6 +343,7 @@ export async function addTarjeta({
     notas: notas || "",
     color: color || "azul",
     marca: marca || "Otra",
+    saldoActual: saldoActual ?? null,
     createdAt: serverTimestamp(),
   });
 }

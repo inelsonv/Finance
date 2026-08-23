@@ -19,6 +19,7 @@ import {
   Home,
   Zap,
   LineChart,
+  Swords,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "ingresos", label: "Ingresos", icon: Briefcase },
   { id: "inversion", label: "Inversión", icon: LineChart },
+  { id: "estrategia-deudas", label: "Estrategia de deudas", icon: Swords },
   { id: "catalogo", label: "Catálogo", icon: Package },
   { id: "lista", label: "Lista de compra", icon: ShoppingCart },
   { id: "entidades", label: "Entidades", icon: Landmark },

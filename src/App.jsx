@@ -16,6 +16,7 @@ import PresupuestoAnual from "./components/PresupuestoAnual.jsx";
 import Contratos from "./components/Contratos.jsx";
 import FlujoEditor from "./components/FlujoEditor.jsx";
 import Inversion from "./components/Inversion.jsx";
+import EstrategiaDeudas from "./components/EstrategiaDeudas.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
@@ -39,6 +40,7 @@ const TITLES = {
   "presupuesto-mensual": "Presupuesto mensual",
   "presupuesto-flujo": "Editor de flujo",
   inversion: "Inversión",
+  "estrategia-deudas": "Estrategia de deudas",
 };
 
 function getInitialTheme() {
@@ -255,6 +257,7 @@ export default function App() {
         {tab === "presupuesto-mensual" && <PresupuestoAnual presupuesto={presupuestoAnual} categoriasPersonalizadas={categoriasGasto} year={currentYear} />}
         {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
+        {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} />}
       </main>
     </div>
   );
