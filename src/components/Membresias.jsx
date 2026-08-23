@@ -1,10 +1,82 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Ticket, Pencil, Check, Calendar } from "lucide-react";
+import { Plus, Trash2, X, Pencil, Check, Calendar, Sparkles } from "lucide-react";
 import { addMembresia, deleteMembresia, updateMembresiaEstado, updateMembresia } from "../lib/db";
 
 export const MEMBRESIA_TIPOS = ["Gimnasio", "Club de compras", "Streaming", "Software", "Salud", "Otro"];
 const FRECUENCIAS = ["Mensual", "Trimestral", "Semestral", "Anual"];
 const ESTADOS = ["Activa", "Pausada", "Cancelada"];
+
+const COLORES = {
+  azul: { label: "Azul", bg: "linear-gradient(135deg, #2f5fa8 0%, #17325e 100%)", text: "#f2f6fc" },
+  gold: { label: "Oro", bg: "linear-gradient(135deg, #ecd49a 0%, #c9a256 45%, #8a6a1f 100%)", text: "#3d2b05" },
+  negro: { label: "Negro", bg: "linear-gradient(135deg, #3a3a3a 0%, #141414 100%)", text: "#f2f2f2" },
+  verde: { label: "Verde", bg: "linear-gradient(135deg, #6f9a63 0%, #33501f 100%)", text: "#f2f7ee" },
+  rojo: { label: "Rojo", bg: "linear-gradient(135deg, #c1594a 0%, #7a2418 100%)", text: "#fbf0ee" },
+  morado: { label: "Morado", bg: "linear-gradient(135deg, #7a5ba0 0%, #402a5e 100%)", text: "#f5f0fa" },
+};
+
+function MembershipCard({ membresia }) {
+  const c = COLORES[membresia.color] || COLORES.azul;
+  return (
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 300,
+        aspectRatio: "1.586 / 1",
+        borderRadius: 14,
+        background: c.bg,
+        color: c.text,
+        padding: "16px 18px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        boxShadow: "0 6px 16px rgba(0,0,0,0.18)",
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.25)",
+            border: "1px solid rgba(255,255,255,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <Sparkles size={13} />
+        </div>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.1 }}>{membresia.nombre}</div>
+          <div style={{ fontSize: 9.5, opacity: 0.85, letterSpacing: "0.06em", textTransform: "uppercase" }}>Membership</div>
+        </div>
+      </div>
+      <div>
+        {membresia.nivel && (
+          <div
+            style={{
+              display: "inline-block",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+              padding: "3px 10px",
+              borderRadius: 20,
+              background: "rgba(255,255,255,0.2)",
+              border: "1px solid rgba(255,255,255,0.35)",
+            }}
+          >
+            {membresia.nivel}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -31,6 +103,8 @@ const emptyForm = () => ({
   fechaInicio: todayStr(),
   estado: "Activa",
   notas: "",
+  color: "azul",
+  nivel: "",
 });
 
 function toEditForm(m) {
@@ -44,6 +118,8 @@ function toEditForm(m) {
     fechaInicio: m.fechaInicio || todayStr(),
     estado: m.estado || "Activa",
     notas: m.notas || "",
+    color: m.color || "azul",
+    nivel: m.nivel || "",
   };
 }
 
@@ -109,6 +185,8 @@ export default function Membresias({ membresias, entidades, movimientos }) {
         fechaInicio: form.fechaInicio,
         estado: form.estado,
         notas: form.notas.trim(),
+        color: form.color,
+        nivel: form.nivel.trim(),
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -134,6 +212,8 @@ export default function Membresias({ membresias, entidades, movimientos }) {
         fechaInicio: editForm.fechaInicio,
         estado: editForm.estado,
         notas: editForm.notas.trim(),
+        color: editForm.color,
+        nivel: editForm.nivel.trim(),
       });
       cancelEdit();
     } catch (err) {
@@ -193,6 +273,24 @@ export default function Membresias({ membresias, entidades, movimientos }) {
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
+          </div>
+
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <select
+              value={form.color}
+              onChange={(e) => setForm({ ...form, color: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              {Object.entries(COLORES).map(([key, c]) => (
+                <option key={key} value={key}>{c.label}</option>
+              ))}
+            </select>
+            <input
+              placeholder="Nivel, ej. Diamond, Gold"
+              value={form.nivel}
+              onChange={(e) => setForm({ ...form, nivel: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
           </div>
 
           <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
@@ -290,6 +388,23 @@ export default function Membresias({ membresias, entidades, movimientos }) {
                 <div>
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <select
+                      value={editForm.color}
+                      onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      {Object.entries(COLORES).map(([key, c]) => (
+                        <option key={key} value={key}>{c.label}</option>
+                      ))}
+                    </select>
+                    <input
+                      placeholder="Nivel, ej. Diamond, Gold"
+                      value={editForm.nivel}
+                      onChange={(e) => setEditForm({ ...editForm, nivel: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                  </div>
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <select
                       value={editForm.tipo}
                       onChange={(e) => setEditForm({ ...editForm, tipo: e.target.value })}
                       style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
@@ -381,32 +496,32 @@ export default function Membresias({ membresias, entidades, movimientos }) {
                 </div>
               ) : (
                 <>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <Ticket size={14} style={{ color: "var(--ink-soft)" }} />
+                  <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 12 }}>
+                    <MembershipCard membresia={m} />
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 14, fontWeight: 500 }}>{m.nombre}</span>
                         <EstadoBadge estado={m.estado} onChange={(estado) => updateMembresiaEstado(m.id, estado)} />
                       </div>
                       <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 3 }}>
                         {m.tipo}{m.entidadName && <> · {m.entidadName}</>}
                       </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                      <button
-                        onClick={() => startEdit(m)}
-                        title="Editar membresía"
-                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--ink-soft)", border: "none", borderRadius: 6, cursor: "pointer" }}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => deleteMembresia(m.id)}
-                        title="Eliminar membresía"
-                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                        <button
+                          onClick={() => startEdit(m)}
+                          title="Editar membresía"
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "var(--paper)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => deleteMembresia(m.id)}
+                          title="Eliminar membresía"
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "var(--paper)", color: "var(--stamp)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 

@@ -375,6 +375,8 @@ export async function addMembresia({
   fechaInicio,
   estado,
   notas,
+  color,
+  nivel,
 }) {
   await addDoc(membresiasCol, {
     nombre,
@@ -385,6 +387,8 @@ export async function addMembresia({
     frecuencia,
     diaPago: diaPago ?? null,
     fechaInicio: fechaInicio || null,
+    color: color || "azul",
+    nivel: nivel || "",
     estado,
     notas: notas || "",
     createdAt: serverTimestamp(),
