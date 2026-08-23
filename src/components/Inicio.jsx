@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig } from "../lib/db";
 
 function formatMoney(n) {
@@ -16,6 +16,18 @@ function clasificarEndeudamiento(pct) {
   return { label: "Crítico", color: "#8a2a1d", bg: "var(--stamp-bg)" };
 }
 
+const ZONES_FONDO = [
+  { from: 0, to: 3, color: "#8a2a1d" },
+  { from: 3, to: 6, color: "#c99a3f" },
+  { from: 6, to: 12, color: "var(--sage)" },
+];
+
+function clasificarFondoEmergencia(meses) {
+  if (meses < 3) return { label: "Bajo", color: "#8a2a1d", bg: "var(--stamp-bg)" };
+  if (meses < 6) return { label: "Moderado", color: "#b8892b", bg: "#fbf1de" };
+  return { label: "Saludable", color: "var(--sage)", bg: "var(--sage-bg)" };
+}
+
 function polarToCartesian(cx, cy, r, angleDeg) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
@@ -30,35 +42,35 @@ function arcPath(cx, cy, r, pct1, pct2) {
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
 }
 
-const ZONES = [
+const ZONES_DEUDA = [
   { from: 0, to: 20, color: "var(--sage)" },
   { from: 20, to: 35, color: "#c99a3f" },
   { from: 35, to: 50, color: "var(--stamp)" },
   { from: 50, to: 100, color: "#8a2a1d" },
 ];
 
-function GaugeChart({ pct }) {
+function GaugeChart({ value, maxValue, zones, marks }) {
   const cx = 110;
   const cy = 108;
   const r = 88;
-  const needlePct = Math.max(0, Math.min(pct, 100));
-  const needleAngle = -90 + needlePct * 1.8;
+  const toPct = (v) => Math.max(0, Math.min((v / maxValue) * 100, 100));
+  const needleAngle = -90 + toPct(value) * 1.8;
   const needleTip = polarToCartesian(cx, cy, r - 22, needleAngle);
 
   return (
-    <svg viewBox="0 0 220 128" style={{ width: "100%", maxWidth: 320, display: "block", margin: "0 auto" }}>
-      {ZONES.map((z) => (
+    <svg viewBox="0 0 220 128" style={{ width: "100%", maxWidth: 280, display: "block", margin: "0 auto" }}>
+      {zones.map((z) => (
         <path
           key={z.from}
-          d={arcPath(cx, cy, r, z.from, z.to)}
+          d={arcPath(cx, cy, r, toPct(z.from), toPct(z.to))}
           fill="none"
           stroke={z.color}
           strokeWidth={16}
           strokeLinecap="butt"
         />
       ))}
-      {[0, 20, 35, 50, 100].map((mark) => {
-        const p = polarToCartesian(cx, cy, r + 14, -90 + mark * 1.8);
+      {marks.map((mark) => {
+        const p = polarToCartesian(cx, cy, r + 14, -90 + toPct(mark) * 1.8);
         return (
           <text key={mark} x={p.x} y={p.y} fontSize="8.5" textAnchor="middle" fill="var(--ink-soft)" fontFamily="IBM Plex Mono, monospace">
             {mark}
@@ -469,7 +481,7 @@ function StocksCard() {
   );
 }
 
-export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos }) {
+export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas }) {
   const cuotaPrestamos = useMemo(
     () => prestamos.filter((p) => p.estado === "Activo").reduce((s, p) => s + (Number(p.cuota) || 0), 0),
     [prestamos]
@@ -493,44 +505,112 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const pct = ingresoMensual > 0 ? (deudaMensual / ingresoMensual) * 100 : null;
   const clasificacion = pct != null ? clasificarEndeudamiento(pct) : null;
 
+  const ahorroTotal = useMemo(() => {
+    if (!cuentas) return 0;
+    const cuentasAhorro = cuentas.filter((c) => c.tipo === "Ahorro");
+    let total = 0;
+    for (const c of cuentasAhorro) {
+      total += c.saldoInicial || 0;
+      for (const m of movimientos) {
+        if (m.category === "Ahorro" && m.cuentaId === c.id) total += Number(m.amount) || 0;
+      }
+    }
+    return total;
+  }, [cuentas, movimientos]);
+
+  const gastoMensualPromedio = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    let total = 0;
+    for (const m of movimientos) {
+      if (m.type !== "Gasto" || !m.date) continue;
+      const [y] = m.date.split("-").map(Number);
+      if (y !== year) continue;
+      total += Number(m.amount) || 0;
+    }
+    return total / Math.max(currentMonth, 1);
+  }, [movimientos]);
+
+  const mesesCobertura = gastoMensualPromedio > 0 ? ahorroTotal / gastoMensualPromedio : null;
+  const clasificacionFondo = mesesCobertura != null ? clasificarFondoEmergencia(mesesCobertura) : null;
+
   return (
     <div>
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center" }}>
-        <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Nivel de endeudamiento</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center" }}>
+          <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Nivel de endeudamiento</div>
 
-        {ingresoMensual === 0 ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0" }}>
-            <AlertTriangle size={15} />
-            Configura al menos una fuente de ingreso activa (sección Ingresos) para calcular este KPI.
-          </div>
-        ) : (
-          <>
-            <GaugeChart pct={pct} />
-            <div style={{ marginTop: -18, marginBottom: 6 }}>
-              <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacion.color }}>
-                {pct.toFixed(1)}%
+          {ingresoMensual === 0 ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0" }}>
+              <AlertTriangle size={15} />
+              Configura al menos una fuente de ingreso activa (sección Ingresos) para calcular este KPI.
+            </div>
+          ) : (
+            <>
+              <GaugeChart value={pct} maxValue={100} zones={ZONES_DEUDA} marks={[0, 20, 35, 50, 100]} />
+              <div style={{ marginTop: -18, marginBottom: 6 }}>
+                <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacion.color }}>
+                  {pct.toFixed(1)}%
+                </span>
+              </div>
+              <span
+                className="despensa-tab-font"
+                style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacion.bg, color: clasificacion.color }}
+              >
+                {clasificacion.label}
               </span>
-            </div>
-            <span
-              className="despensa-tab-font"
-              style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacion.bg, color: clasificacion.color }}
-            >
-              {clasificacion.label}
-            </span>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
-              <MiniStat icon={Briefcase} label="Ingreso mensual" value={formatMoney(ingresoMensual)} color="var(--sage)" />
-              <MiniStat icon={Banknote} label="Cuotas de préstamos" value={formatMoney(cuotaPrestamos)} color="var(--stamp)" />
-              <MiniStat icon={CreditCard} label="Pago mín. tarjetas" value={formatMoney(pagoTarjetas)} color="var(--stamp)" />
-            </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
+                <MiniStat icon={Briefcase} label="Ingreso mensual" value={formatMoney(ingresoMensual)} color="var(--sage)" />
+                <MiniStat icon={Banknote} label="Cuotas préstamos" value={formatMoney(cuotaPrestamos)} color="var(--stamp)" />
+                <MiniStat icon={CreditCard} label="Pago mín. tarjetas" value={formatMoney(pagoTarjetas)} color="var(--stamp)" />
+              </div>
 
-            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 14, lineHeight: 1.5, textAlign: "left" }}>
-              Se calcula como (cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso
-              mensual estimado. Los expertos suelen considerar saludable un nivel por debajo del 35-40%.
-              No incluye membresías ni gastos variables — solo compromisos de deuda.
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 14, lineHeight: 1.5, textAlign: "left" }}>
+                (Cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso mensual estimado.
+                Saludable por debajo del 35-40%. No incluye membresías ni gastos variables.
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center" }}>
+          <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Fondo de emergencia</div>
+
+          {mesesCobertura == null ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0", textAlign: "left" }}>
+              <AlertTriangle size={15} />
+              Registra gastos en Movimientos para calcular tu gasto mensual promedio y activar este KPI.
             </div>
-          </>
-        )}
+          ) : (
+            <>
+              <GaugeChart value={mesesCobertura} maxValue={12} zones={ZONES_FONDO} marks={[0, 3, 6, 9, 12]} />
+              <div style={{ marginTop: -18, marginBottom: 6 }}>
+                <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacionFondo.color }}>
+                  {mesesCobertura.toFixed(1)}
+                </span>
+                <span style={{ fontSize: 13, color: "var(--ink-soft)" }}> meses</span>
+              </div>
+              <span
+                className="despensa-tab-font"
+                style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacionFondo.bg, color: clasificacionFondo.color }}
+              >
+                {clasificacionFondo.label}
+              </span>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
+                <MiniStat icon={PiggyBank} label="En cuentas de ahorro" value={formatMoney(ahorroTotal)} color="var(--sage)" />
+                <MiniStat icon={Banknote} label="Gasto mensual prom." value={formatMoney(gastoMensualPromedio)} color="var(--stamp)" />
+              </div>
+
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 14, lineHeight: 1.5, textAlign: "left" }}>
+                Saldo en cuentas de Ahorro ÷ gasto mensual promedio de este año. Los expertos recomiendan tener
+                entre 3 y 6 meses de gastos cubiertos.
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <StocksCard />
