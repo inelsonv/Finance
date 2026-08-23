@@ -252,6 +252,12 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         contratoId: form.tipo === "Pago de servicio" ? form.contratoId : null,
         contratoNombre: form.tipo === "Pago de servicio" ? contrato?.nombre || "" : "",
       });
+
+      if (form.tipo === "Pago de préstamo" && prestamo?.notificarWhatsapp && prestamo?.telefonoWhatsapp) {
+        const mensaje = `Pago registrado: préstamo ${prestamo.numero} (${prestamo.entidadName || "sin entidad"}), monto ${formatMoney(amount)}, fecha ${form.date}.`;
+        window.open(`https://wa.me/${prestamo.telefonoWhatsapp}?text=${encodeURIComponent(mensaje)}`, "_blank");
+      }
+
       setForm(emptyForm());
       setShowForm(false);
     } catch (err) {

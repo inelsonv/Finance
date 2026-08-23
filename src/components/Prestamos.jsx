@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check } from "lucide-react";
+import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle } from "lucide-react";
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 
 const PLAZO_UNIDADES = ["meses", "años"];
@@ -40,6 +40,8 @@ const emptyForm = (numero) => ({
   fechaInicio: todayStr(),
   estado: "Activo",
   notas: "",
+  notificarWhatsapp: false,
+  telefonoWhatsapp: "",
 });
 
 export default function Prestamos({ prestamos, entidades, movimientos }) {
@@ -71,6 +73,8 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
       fechaInicio: p.fechaInicio || todayStr(),
       estado: p.estado || "Activo",
       notas: p.notas || "",
+      notificarWhatsapp: !!p.notificarWhatsapp,
+      telefonoWhatsapp: p.telefonoWhatsapp || "",
     });
   };
 
@@ -108,6 +112,8 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
         fechaInicio: editForm.fechaInicio,
         estado: editForm.estado,
         notas: editForm.notas.trim(),
+        notificarWhatsapp: editForm.notificarWhatsapp,
+        telefonoWhatsapp: editForm.notificarWhatsapp ? editForm.telefonoWhatsapp.replace(/\D/g, "") : "",
       });
       cancelEdit();
     } catch (err) {
@@ -165,6 +171,8 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
         fechaInicio: form.fechaInicio,
         estado: form.estado,
         notas: form.notas.trim(),
+        notificarWhatsapp: form.notificarWhatsapp,
+        telefonoWhatsapp: form.notificarWhatsapp ? form.telefonoWhatsapp.replace(/\D/g, "") : "",
       });
       setShowForm(false);
     } catch (err) {
@@ -320,6 +328,23 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
             style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
           />
 
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginBottom: 8, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={form.notificarWhatsapp}
+              onChange={(e) => setForm({ ...form, notificarWhatsapp: e.target.checked })}
+            />
+            Notificar pagos de este préstamo por WhatsApp
+          </label>
+          {form.notificarWhatsapp && (
+            <input
+              placeholder="Número con código de país, ej. 18091234567"
+              value={form.telefonoWhatsapp}
+              onChange={(e) => setForm({ ...form, telefonoWhatsapp: e.target.value })}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
+            />
+          )}
+
           <button
             onClick={handleAdd}
             disabled={saving}
@@ -453,6 +478,23 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                     style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
                   />
 
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginBottom: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={editForm.notificarWhatsapp}
+                      onChange={(e) => setEditForm({ ...editForm, notificarWhatsapp: e.target.checked })}
+                    />
+                    Notificar pagos de este préstamo por WhatsApp
+                  </label>
+                  {editForm.notificarWhatsapp && (
+                    <input
+                      placeholder="Número con código de país, ej. 18091234567"
+                      value={editForm.telefonoWhatsapp}
+                      onChange={(e) => setEditForm({ ...editForm, telefonoWhatsapp: e.target.value })}
+                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
+                    />
+                  )}
+
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       onClick={saveEdit}
@@ -502,6 +544,11 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                           {p.numero}
                         </span>
                         <EstadoBadge estado={p.estado} onChange={(estado) => updatePrestamoEstado(p.id, estado)} />
+                        {p.notificarWhatsapp && p.telefonoWhatsapp && (
+                          <span title={`Notifica pagos a +${p.telefonoWhatsapp}`} style={{ display: "flex", alignItems: "center", color: "var(--sage)" }}>
+                            <MessageCircle size={13} />
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: 14, fontWeight: 500, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
                         <Landmark size={13} style={{ color: "var(--ink-soft)" }} />
