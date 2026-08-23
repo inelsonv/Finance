@@ -205,19 +205,23 @@ function GastosPorMesChart({ movimientos }) {
 }
 
 function DolarCard() {
-  const [rate, setRate] = useState(null);
+  const [rates, setRates] = useState({ USD: null, EUR: null });
   const [updatedAt, setUpdatedAt] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ok | error
 
-  const fetchRate = async () => {
+  const fetchRates = async () => {
     setStatus("loading");
     try {
-      const res = await fetch("https://open.er-api.com/v6/latest/USD");
-      if (!res.ok) throw new Error("Respuesta no válida");
-      const data = await res.json();
-      const dop = data?.rates?.DOP;
-      if (!Number.isFinite(dop)) throw new Error("No se encontró la tasa DOP");
-      setRate(dop);
+      const [resUsd, resEur] = await Promise.all([
+        fetch("https://open.er-api.com/v6/latest/USD"),
+        fetch("https://open.er-api.com/v6/latest/EUR"),
+      ]);
+      if (!resUsd.ok || !resEur.ok) throw new Error("Respuesta no válida");
+      const [dataUsd, dataEur] = await Promise.all([resUsd.json(), resEur.json()]);
+      const dopUsd = dataUsd?.rates?.DOP;
+      const dopEur = dataEur?.rates?.DOP;
+      if (!Number.isFinite(dopUsd) || !Number.isFinite(dopEur)) throw new Error("No se encontró la tasa DOP");
+      setRates({ USD: dopUsd, EUR: dopEur });
       setUpdatedAt(new Date());
       setStatus("ok");
     } catch (err) {
@@ -226,7 +230,7 @@ function DolarCard() {
   };
 
   useEffect(() => {
-    fetchRate();
+    fetchRates();
   }, []);
 
   return (
@@ -237,7 +241,7 @@ function DolarCard() {
           <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Tipo de cambio</span>
         </div>
         <button
-          onClick={fetchRate}
+          onClick={fetchRates}
           title="Actualizar"
           disabled={status === "loading"}
           style={{
@@ -265,17 +269,30 @@ function DolarCard() {
       )}
 
       {status !== "error" && (
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>1 USD =</span>
-          <span className="despensa-mono" style={{ fontSize: 28, fontWeight: 700, color: "var(--sage)" }}>
-            {rate != null ? rate.toFixed(2) : "—"}
-          </span>
-          <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>DOP</span>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>1 USD =</span>
+              <span className="despensa-mono" style={{ fontSize: 24, fontWeight: 700, color: "var(--sage)" }}>
+                {rates.USD != null ? rates.USD.toFixed(2) : "—"}
+              </span>
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>DOP</span>
+            </div>
+          </div>
+          <div style={{ borderLeft: "1px solid var(--line-soft)", paddingLeft: 16 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>1 EUR =</span>
+              <span className="despensa-mono" style={{ fontSize: 24, fontWeight: 700, color: "var(--sage)" }}>
+                {rates.EUR != null ? rates.EUR.toFixed(2) : "—"}
+              </span>
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>DOP</span>
+            </div>
+          </div>
         </div>
       )}
 
       {updatedAt && (
-        <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
+        <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
           Actualizado {updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
         </div>
       )}
