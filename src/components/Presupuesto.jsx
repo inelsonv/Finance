@@ -6,7 +6,7 @@ const FLOW_COLORS = [
 ];
 
 const CUENTA_TIPOS_SET = new Set(["Ahorro", "Corriente", "Inversión", "Corretaje"]);
-const FIJO_IMPLICITO = new Set(["Pago de préstamo", "Pago de tarjeta", "Pago de membresía"]);
+const FIJO_IMPLICITO = new Set(["Pago de préstamo", "Pago de tarjeta", "Pago de membresía", "Pago de servicio"]);
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;

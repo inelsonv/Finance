@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronRight,
   Home,
+  Zap,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { id: "prestamos", label: "Préstamos", icon: Banknote },
   { id: "tarjetas", label: "Tarjetas", icon: CreditCard },
   { id: "membresias", label: "Membresías", icon: Ticket },
+  { id: "contratos", label: "Contratos", icon: Zap },
 ];
 
 export default function Sidebar({ tab, setTab, listCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {

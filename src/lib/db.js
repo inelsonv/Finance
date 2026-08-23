@@ -23,6 +23,7 @@ const tarjetasCol = collection(db, "tarjetas");
 const membresiasCol = collection(db, "membresias");
 const fuentesIngresoCol = collection(db, "fuentesIngreso");
 const categoriasGastoCol = collection(db, "categoriasGasto");
+const contratosCol = collection(db, "contratos");
 
 export function watchConnectionStatus(onChange) {
   return onSnapshot(
@@ -176,6 +177,8 @@ export async function addMovimiento({
   membresiaNombre,
   fuenteIngresoId,
   fuenteIngresoNombre,
+  contratoId,
+  contratoNombre,
 }) {
   await addDoc(movimientosCol, {
     type,
@@ -196,6 +199,8 @@ export async function addMovimiento({
     membresiaNombre: membresiaNombre || "",
     fuenteIngresoId: fuenteIngresoId || null,
     fuenteIngresoNombre: fuenteIngresoNombre || "",
+    contratoId: contratoId || null,
+    contratoNombre: contratoNombre || "",
     createdAt: serverTimestamp(),
   });
 }
@@ -481,4 +486,53 @@ export async function setPresupuestoCelda(year, category, month, quincena, amoun
     { [category]: { [String(month)]: { [quincena]: amount } } },
     { merge: true }
   );
+}
+
+export function watchContratos(onChange, onError) {
+  return onSnapshot(
+    contratosCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addContrato({
+  nombre,
+  tipo,
+  entidadId,
+  entidadName,
+  numeroContrato,
+  montoEstimado,
+  diaPago,
+  estado,
+  notas,
+}) {
+  await addDoc(contratosCol, {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    numeroContrato: numeroContrato || "",
+    montoEstimado: montoEstimado ?? null,
+    diaPago: diaPago ?? null,
+    estado,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateContrato(id, fields) {
+  await updateDoc(doc(db, "contratos", id), fields);
+}
+
+export async function updateContratoEstado(id, estado) {
+  await updateDoc(doc(db, "contratos", id), { estado });
+}
+
+export async function deleteContrato(id) {
+  await deleteDoc(doc(db, "contratos", id));
 }

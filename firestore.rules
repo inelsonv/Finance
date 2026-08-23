@@ -44,5 +44,8 @@ service cloud.firestore {
     match /presupuestos/{doc} {
       allow read, write: if true;
     }
+    match /contratos/{doc} {
+      allow read, write: if true;
+    }
   }
 }

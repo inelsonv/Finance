@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
@@ -13,6 +13,7 @@ import FuentesIngreso from "./components/FuentesIngreso.jsx";
 import CategoriaGasto from "./components/CategoriaGasto.jsx";
 import Inicio from "./components/Inicio.jsx";
 import PresupuestoAnual from "./components/PresupuestoAnual.jsx";
+import Contratos from "./components/Contratos.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const THEME_KEY = "smart-finance-theme";
@@ -29,6 +30,7 @@ const TITLES = {
   prestamos: "Préstamos",
   tarjetas: "Tarjetas",
   membresias: "Membresías",
+  contratos: "Contratos",
   ingresos: "Ingresos",
   "presupuesto-categoria-gasto": "Categoría de gasto",
   "presupuesto-mensual": "Presupuesto mensual",
@@ -68,6 +70,7 @@ export default function App() {
   const [fuentesIngreso, setFuentesIngreso] = useState([]);
   const [categoriasGasto, setCategoriasGasto] = useState([]);
   const [presupuestoAnual, setPresupuestoAnual] = useState({});
+  const [contratos, setContratos] = useState([]);
   const currentYear = new Date().getFullYear();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -114,6 +117,7 @@ export default function App() {
     const unsubFuentesIngreso = watchFuentesIngreso(setFuentesIngreso, handleError);
     const unsubCategoriasGasto = watchCategoriasGasto(setCategoriasGasto, handleError);
     const unsubPresupuestoAnual = watchPresupuestoAnual(currentYear, setPresupuestoAnual, handleError);
+    const unsubContratos = watchContratos(setContratos, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -127,6 +131,7 @@ export default function App() {
       unsubFuentesIngreso();
       unsubCategoriasGasto();
       unsubPresupuestoAnual();
+      unsubContratos();
       unsubStatus();
     };
   }, []);
@@ -217,11 +222,12 @@ export default function App() {
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
-        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} membresias={membresias} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} />}
+        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} membresias={membresias} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} contratos={contratos} />}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} />}
         {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
         {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} />}
         {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
+        {tab === "contratos" && <Contratos contratos={contratos} entidades={entidades} movimientos={movimientos} />}
         {tab === "ingresos" && <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} />}
         {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} categoriasPersonalizadas={categoriasGasto} />}
         {tab === "presupuesto-mensual" && <PresupuestoAnual presupuesto={presupuestoAnual} categoriasPersonalizadas={categoriasGasto} year={currentYear} />}
