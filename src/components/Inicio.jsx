@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, DollarSign, RefreshCw } from "lucide-react";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -191,6 +191,86 @@ function GastosPorMesChart({ movimientos }) {
   );
 }
 
+function DolarCard() {
+  const [rate, setRate] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
+  const [status, setStatus] = useState("loading"); // loading | ok | error
+
+  const fetchRate = async () => {
+    setStatus("loading");
+    try {
+      const res = await fetch("https://open.er-api.com/v6/latest/USD");
+      if (!res.ok) throw new Error("Respuesta no válida");
+      const data = await res.json();
+      const dop = data?.rates?.DOP;
+      if (!Number.isFinite(dop)) throw new Error("No se encontró la tasa DOP");
+      setRate(dop);
+      setUpdatedAt(new Date());
+      setStatus("ok");
+    } catch (err) {
+      setStatus("error");
+    }
+  };
+
+  useEffect(() => {
+    fetchRate();
+  }, []);
+
+  return (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", marginTop: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <DollarSign size={16} style={{ color: "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Tipo de cambio</span>
+        </div>
+        <button
+          onClick={fetchRate}
+          title="Actualizar"
+          disabled={status === "loading"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 26,
+            height: 26,
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            background: "var(--paper)",
+            color: "var(--ink-soft)",
+            cursor: status === "loading" ? "default" : "pointer",
+          }}
+        >
+          <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
+        </button>
+      </div>
+
+      {status === "error" && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
+          <AlertTriangle size={15} />
+          No se pudo obtener el tipo de cambio ahora. Intenta de nuevo en un momento.
+        </div>
+      )}
+
+      {status !== "error" && (
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>1 USD =</span>
+          <span className="despensa-mono" style={{ fontSize: 28, fontWeight: 700, color: "var(--sage)" }}>
+            {rate != null ? rate.toFixed(2) : "—"}
+          </span>
+          <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>DOP</span>
+        </div>
+      )}
+
+      {updatedAt && (
+        <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
+          Actualizado {updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+        </div>
+      )}
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos }) {
   const cuotaPrestamos = useMemo(
     () => prestamos.filter((p) => p.estado === "Activo").reduce((s, p) => s + (Number(p.cuota) || 0), 0),
@@ -262,6 +342,8 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
         </div>
         <GastosPorMesChart movimientos={movimientos} />
       </div>
+
+      <DolarCard />
     </div>
   );
 }
