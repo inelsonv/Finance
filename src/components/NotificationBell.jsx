@@ -1,0 +1,274 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock } from "lucide-react";
+
+const UMBRAL_DIAS = 7;
+
+function todayInfo() {
+  const now = new Date();
+  return { year: now.getFullYear(), month: now.getMonth() + 1, day: now.getDate() };
+}
+
+function ymPrefix(year, month) {
+  return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+function diasHasta(diaPago, today) {
+  const { year, month, day } = today;
+  const daysInThisMonth = new Date(year, month, 0).getDate();
+  const targetDay = Math.min(diaPago, daysInThisMonth);
+  let diff = targetDay - day;
+  if (diff < 0) {
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
+    const daysInNextMonth = new Date(nextYear, nextMonth, 0).getDate();
+    const nextTargetDay = Math.min(diaPago, daysInNextMonth);
+    const msPerDay = 24 * 60 * 60 * 1000;
+    diff = Math.round((new Date(nextYear, nextMonth - 1, nextTargetDay) - new Date(year, month - 1, day)) / msPerDay);
+  }
+  return diff;
+}
+
+function yaPagadoEsteMes(movimientos, category, idField, id, today) {
+  const prefix = ymPrefix(today.year, today.month);
+  return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
+}
+
+function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos }) {
+  return useMemo(() => {
+    const today = todayInfo();
+    const list = [];
+
+    for (const p of prestamos) {
+      if (p.estado !== "Activo" || !p.fechaInicio) continue;
+      const diaPago = parseInt(p.fechaInicio.split("-")[2], 10);
+      if (!diaPago) continue;
+      if (yaPagadoEsteMes(movimientos, "Pago de préstamo", "prestamoId", p.id, today)) continue;
+      const dias = diasHasta(diaPago, today);
+      if (dias <= UMBRAL_DIAS) {
+        list.push({
+          id: `p-${p.id}`,
+          icon: Landmark,
+          titulo: `Cuota de préstamo ${p.numero}`,
+          subtitulo: p.entidadName || "Sin entidad",
+          dias,
+          tab: "prestamos",
+        });
+      }
+    }
+
+    for (const t of tarjetas) {
+      if (t.estado !== "Activa" || !t.fechaPago) continue;
+      if (yaPagadoEsteMes(movimientos, "Pago de tarjeta", "tarjetaId", t.id, today)) continue;
+      const dias = diasHasta(t.fechaPago, today);
+      if (dias <= UMBRAL_DIAS) {
+        list.push({
+          id: `t-${t.id}`,
+          icon: CreditCard,
+          titulo: `Pago de tarjeta ${t.nombre}`,
+          subtitulo: t.entidadName || "Sin entidad",
+          dias,
+          tab: "tarjetas",
+        });
+      }
+    }
+
+    for (const m of membresias) {
+      if (m.estado !== "Activa" || !m.diaPago) continue;
+      if (yaPagadoEsteMes(movimientos, "Pago de membresía", "membresiaId", m.id, today)) continue;
+      const dias = diasHasta(m.diaPago, today);
+      if (dias <= UMBRAL_DIAS) {
+        list.push({
+          id: `m-${m.id}`,
+          icon: Ticket,
+          titulo: `Renovación de ${m.nombre}`,
+          subtitulo: m.tipo || "Membresía",
+          dias,
+          tab: "membresias",
+        });
+      }
+    }
+
+    for (const c of contratos) {
+      if (c.estado !== "Activo" || !c.diaPago) continue;
+      if (yaPagadoEsteMes(movimientos, "Pago de servicio", "contratoId", c.id, today)) continue;
+      const dias = diasHasta(c.diaPago, today);
+      if (dias <= UMBRAL_DIAS) {
+        list.push({
+          id: `c-${c.id}`,
+          icon: Zap,
+          titulo: `Pago de ${c.nombre}`,
+          subtitulo: c.tipo || "Contrato",
+          dias,
+          tab: "contratos",
+        });
+      }
+    }
+
+    return list.sort((a, b) => a.dias - b.dias);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos]);
+}
+
+function etiquetaDias(dias) {
+  if (dias <= 0) return { label: "Hoy", color: "var(--stamp)", bg: "var(--stamp-bg)" };
+  if (dias === 1) return { label: "Mañana", color: "var(--stamp)", bg: "var(--stamp-bg)" };
+  if (dias <= 3) return { label: `En ${dias} días`, color: "#b8892b", bg: "#fbf1de" };
+  return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
+}
+
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, onNavigate }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos });
+
+  useEffect(() => {
+    const onClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="Notificaciones"
+        style={{
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 34,
+          height: 34,
+          border: "1px solid var(--line)",
+          borderRadius: 8,
+          background: "var(--card)",
+          color: "var(--ink-soft)",
+          cursor: "pointer",
+        }}
+      >
+        <Bell size={16} />
+        {notificaciones.length > 0 && (
+          <span
+            className="despensa-mono"
+            style={{
+              position: "absolute",
+              top: -4,
+              right: -4,
+              minWidth: 16,
+              height: 16,
+              padding: "0 3px",
+              borderRadius: 10,
+              background: "var(--stamp)",
+              color: "#fff",
+              fontSize: 9.5,
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {notificaciones.length}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            right: 0,
+            width: 300,
+            maxHeight: 380,
+            overflowY: "auto",
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            zIndex: 50,
+          }}
+        >
+          <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--line-soft)", fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+            <Bell size={13} /> Notificaciones
+          </div>
+
+          {notificaciones.length === 0 ? (
+            <div style={{ padding: "24px 14px", textAlign: "center", fontSize: 12.5, color: "var(--ink-soft)" }}>
+              No tienes alertas próximas en los siguientes {UMBRAL_DIAS} días.
+            </div>
+          ) : (
+            notificaciones.map((n) => {
+              const Icon = n.icon;
+              const etiqueta = etiquetaDias(n.dias);
+              return (
+                <button
+                  key={n.id}
+                  onClick={() => {
+                    onNavigate(n.tab);
+                    setOpen(false);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderTop: "1px solid var(--line-soft)",
+                    background: "transparent",
+                    border: "none",
+                    borderTopWidth: 1,
+                    borderTopStyle: "solid",
+                    borderTopColor: "var(--line-soft)",
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: "50%",
+                      background: etiqueta.bg,
+                      color: etiqueta.color,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {n.dias <= 0 ? <AlertCircle size={14} /> : <Icon size={14} />}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {n.titulo}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>{n.subtitulo}</div>
+                  </div>
+                  <span
+                    className="despensa-mono"
+                    style={{
+                      fontSize: 9.5,
+                      fontWeight: 600,
+                      padding: "2px 6px",
+                      borderRadius: 10,
+                      background: etiqueta.bg,
+                      color: etiqueta.color,
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 3,
+                    }}
+                  >
+                    <Clock size={9} /> {etiqueta.label}
+                  </span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

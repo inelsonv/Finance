@@ -16,6 +16,7 @@ import PresupuestoAnual from "./components/PresupuestoAnual.jsx";
 import Contratos from "./components/Contratos.jsx";
 import FlujoEditor from "./components/FlujoEditor.jsx";
 import Inversion from "./components/Inversion.jsx";
+import NotificationBell from "./components/NotificationBell.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
 const THEME_KEY = "smart-finance-theme";
@@ -183,16 +184,26 @@ export default function App() {
           <h1 className="despensa-tab-font" style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
             {TITLES[tab]}
           </h1>
-          {tab === "catalogo" && (
-            <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-              {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
-            </span>
-          )}
-          {tab === "entidades" && (
-            <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-              {entidades.length} entidad{entidades.length !== 1 ? "es" : ""} registrada{entidades.length !== 1 ? "s" : ""}
-            </span>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {tab === "catalogo" && (
+              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
+              </span>
+            )}
+            {tab === "entidades" && (
+              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                {entidades.length} entidad{entidades.length !== 1 ? "es" : ""} registrada{entidades.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            <NotificationBell
+              prestamos={prestamos}
+              tarjetas={tarjetas}
+              membresias={membresias}
+              contratos={contratos}
+              movimientos={movimientos}
+              onNavigate={setTab}
+            />
+          </div>
         </div>
 
         <div
