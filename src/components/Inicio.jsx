@@ -11,7 +11,7 @@ const FRECUENCIA_FACTOR = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1
 
 function clasificarEndeudamiento(pct) {
   if (pct <= 20) return { label: "Saludable", color: "var(--sage)", bg: "var(--sage-bg)" };
-  if (pct <= 35) return { label: "Moderado", color: "#b8892b", bg: "#fbf1de" };
+  if (pct <= 35) return { label: "Moderado", color: "var(--amber)", bg: "var(--amber-bg)" };
   if (pct <= 50) return { label: "Alto", color: "var(--stamp)", bg: "var(--stamp-bg)" };
   return { label: "Crítico", color: "#8a2a1d", bg: "var(--stamp-bg)" };
 }
@@ -24,7 +24,7 @@ const ZONES_FONDO = [
 
 function clasificarFondoEmergencia(meses) {
   if (meses < 3) return { label: "Bajo", color: "#8a2a1d", bg: "var(--stamp-bg)" };
-  if (meses < 6) return { label: "Moderado", color: "#b8892b", bg: "#fbf1de" };
+  if (meses < 6) return { label: "Moderado", color: "var(--amber)", bg: "var(--amber-bg)" };
   return { label: "Saludable", color: "var(--sage)", bg: "var(--sage-bg)" };
 }
 

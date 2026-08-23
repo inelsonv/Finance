@@ -129,7 +129,7 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
 function etiquetaDias(dias) {
   if (dias <= 0) return { label: "Hoy", color: "var(--stamp)", bg: "var(--stamp-bg)" };
   if (dias === 1) return { label: "Mañana", color: "var(--stamp)", bg: "var(--stamp-bg)" };
-  if (dias <= 3) return { label: `En ${dias} días`, color: "#b8892b", bg: "#fbf1de" };
+  if (dias <= 3) return { label: `En ${dias} días`, color: "var(--amber)", bg: "var(--amber-bg)" };
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
