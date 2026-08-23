@@ -5,7 +5,9 @@ import {
   incrementListQty,
   setListChecked,
   removeFromList,
+  updateProducto,
 } from "../lib/db";
+import { registrarReposicion } from "../lib/inventario";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -34,6 +36,15 @@ export default function ListaCompra({ products, list }) {
       await incrementListQty(id, existing.qty || 1, 1);
     } else {
       await addToList(id);
+    }
+  };
+
+  const handleToggleChecked = async (row) => {
+    const marcandoComoComprado = !row.checked;
+    await setListChecked(row.id, marcandoComoComprado);
+    if (marcandoComoComprado && row.product.seguimiento) {
+      const cambios = registrarReposicion(row.product, row.qty || 1);
+      await updateProducto(row.product.id, cambios);
     }
   };
 
@@ -95,7 +106,7 @@ export default function ListaCompra({ products, list }) {
           {rows.map((r) => (
             <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0" }}>
               <button
-                onClick={() => setListChecked(r.id, !r.checked)}
+                onClick={() => handleToggleChecked(r)}
                 title={r.checked ? "Marcar como pendiente" : "Marcar como comprado"}
                 style={{
                   width: 18,

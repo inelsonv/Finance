@@ -1,14 +1,16 @@
 import React, { useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Search, X, Image as ImageIcon, Camera } from "lucide-react";
+import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock } from "lucide-react";
 import {
   addProduct,
   deleteProduct,
   updateProductPrice,
+  updateProducto,
   addToList,
   incrementListQty,
   uploadProductImage,
   removeProductImage,
 } from "../lib/db";
+import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
@@ -22,6 +24,9 @@ export default function Catalogo({ products, list }) {
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploadingId, setUploadingId] = useState(null);
+  const [configuringId, setConfiguringId] = useState(null);
+  const [configForm, setConfigForm] = useState(null);
+  const [configSaving, setConfigSaving] = useState(false);
   const formFileRef = useRef(null);
   const rowFileRefs = useRef({});
 
@@ -89,6 +94,51 @@ export default function Catalogo({ products, list }) {
       await incrementListQty(id, existing.qty || 1, 1);
     } else {
       await addToList(id);
+    }
+  };
+
+  const openConfig = (p) => {
+    setConfiguringId(p.id);
+    setConfigForm({
+      seguimiento: !!p.seguimiento,
+      unidadesPorPaquete: p.unidadesPorPaquete != null ? String(p.unidadesPorPaquete) : "30",
+      consumoDiario: p.consumoDiario != null ? String(p.consumoDiario) : "1",
+      diasAviso: p.diasAviso != null ? String(p.diasAviso) : "5",
+      cajasReponer: "",
+    });
+  };
+
+  const closeConfig = () => {
+    setConfiguringId(null);
+    setConfigForm(null);
+  };
+
+  const saveConfig = async () => {
+    const producto = products.find((p) => p.id === configuringId);
+    if (!producto) return;
+    setConfigSaving(true);
+    try {
+      const unidadesPorPaquete = parseFloat(configForm.unidadesPorPaquete) || 1;
+      const consumoDiario = parseFloat(configForm.consumoDiario) || 1;
+      const diasAviso = parseInt(configForm.diasAviso, 10) || 5;
+      const cajas = parseFloat(configForm.cajasReponer);
+
+      const fields = {
+        seguimiento: configForm.seguimiento,
+        unidadesPorPaquete,
+        consumoDiario,
+        diasAviso,
+      };
+
+      if (configForm.seguimiento && Number.isFinite(cajas) && cajas > 0) {
+        const productoActualizado = { ...producto, unidadesPorPaquete, consumoDiario };
+        Object.assign(fields, registrarReposicion(productoActualizado, cajas));
+      }
+
+      await updateProducto(configuringId, fields);
+      closeConfig();
+    } finally {
+      setConfigSaving(false);
     }
   };
 
@@ -304,7 +354,7 @@ export default function Catalogo({ products, list }) {
                   {p.category} · por {p.unit}
                 </div>
 
-                <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 5 }}>
                   <div className="despensa-mono" style={{ display: "flex", alignItems: "center", gap: 1, fontSize: 12.5, flex: 1, minWidth: 0 }}>
                     $
                     <input
@@ -327,14 +377,33 @@ export default function Catalogo({ products, list }) {
                     />
                   </div>
                   <button
+                    onClick={() => openConfig(p)}
+                    title="Seguimiento de inventario"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 26,
+                      height: 26,
+                      flexShrink: 0,
+                      background: p.seguimiento ? "var(--sage-bg)" : "transparent",
+                      color: p.seguimiento ? "var(--sage)" : "var(--ink-soft)",
+                      border: p.seguimiento ? "none" : "1px solid var(--line)",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Package size={13} />
+                  </button>
+                  <button
                     onClick={() => handleAddToList(p.id)}
                     title="Agregar a la lista de compra"
                     style={{
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      width: 28,
-                      height: 28,
+                      width: 26,
+                      height: 26,
                       flexShrink: 0,
                       background: "var(--sage-bg)",
                       color: "var(--sage)",
@@ -352,8 +421,8 @@ export default function Catalogo({ products, list }) {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      width: 28,
-                      height: 28,
+                      width: 26,
+                      height: 26,
                       flexShrink: 0,
                       background: "transparent",
                       color: "var(--stamp)",
@@ -365,9 +434,132 @@ export default function Catalogo({ products, list }) {
                     <Trash2 size={14} />
                   </button>
                 </div>
+                {p.seguimiento && (() => {
+                  const dias = diasRestantesProducto(p);
+                  if (dias == null) return null;
+                  const bajo = dias <= (p.diasAviso ?? 5);
+                  return (
+                    <div
+                      style={{
+                        marginTop: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 10,
+                        color: bajo ? "var(--stamp)" : "var(--ink-soft)",
+                      }}
+                    >
+                      <Clock size={10} />
+                      {dias <= 0 ? "Se acabó" : `${dias} día${dias !== 1 ? "s" : ""} restantes`}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {configuringId && configForm && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--stamp)", borderRadius: 10, padding: 14, marginTop: 16 }}>
+          <div className="despensa-tab-font" style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
+            Seguimiento de inventario: {products.find((p) => p.id === configuringId)?.name}
+          </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginBottom: 10, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={configForm.seguimiento}
+              onChange={(e) => setConfigForm({ ...configForm, seguimiento: e.target.checked })}
+            />
+            Avisarme cuando se esté por acabar
+          </label>
+
+          {configForm.seguimiento && (
+            <>
+              <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Unidades por paquete</div>
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    min="1"
+                    value={configForm.unidadesPorPaquete}
+                    onChange={(e) => setConfigForm({ ...configForm, unidadesPorPaquete: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Consumo diario</div>
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    min="1"
+                    value={configForm.consumoDiario}
+                    onChange={(e) => setConfigForm({ ...configForm, consumoDiario: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Avisar con (días)</div>
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    min="1"
+                    value={configForm.diasAviso}
+                    onChange={(e) => setConfigForm({ ...configForm, diasAviso: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                </div>
+              </div>
+
+              {(() => {
+                const producto = products.find((p) => p.id === configuringId);
+                const dias = producto ? diasRestantesProducto(producto) : null;
+                return (
+                  <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 10 }}>
+                    {dias == null
+                      ? "Aún no has registrado ninguna compra — dile cuántos paquetes acabas de comprar abajo."
+                      : dias <= 0
+                      ? "Según lo registrado, ya se debería haber acabado."
+                      : `Quedan aproximadamente ${dias} día${dias !== 1 ? "s" : ""} de inventario.`}
+                  </div>
+                );
+              })()}
+
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>
+                  ¿Compraste paquetes ahora? Escribe cuántos para sumarlos al inventario
+                </div>
+                <input
+                  className="despensa-mono"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Ej. 2"
+                  value={configForm.cajasReponer}
+                  onChange={(e) => setConfigForm({ ...configForm, cajasReponer: e.target.value })}
+                  style={{ width: 120, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
+              </div>
+            </>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={saveConfig}
+              disabled={configSaving}
+              style={{ padding: "7px 16px", fontSize: 13, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: configSaving ? "not-allowed" : "pointer" }}
+            >
+              {configSaving ? "Guardando…" : "Guardar"}
+            </button>
+            <button
+              onClick={closeConfig}
+              style={{ padding: "7px 16px", fontSize: 13, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -87,6 +87,10 @@ export async function updateProductPrice(id, price) {
   });
 }
 
+export async function updateProducto(id, fields) {
+  await updateDoc(doc(db, "productos", id), fields);
+}
+
 export async function deleteProduct(id) {
   await deleteDoc(doc(db, "productos", id));
 }

@@ -201,6 +201,7 @@ export default function App() {
               membresias={membresias}
               contratos={contratos}
               movimientos={movimientos}
+              products={products}
               onNavigate={setTab}
             />
           </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package } from "lucide-react";
+import { diasRestantesProducto } from "../lib/inventario";
 
 const UMBRAL_DIAS = 7;
 
@@ -33,7 +34,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos }) {
+function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -104,8 +105,23 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
       }
     }
 
+    for (const p of products || []) {
+      const dias = diasRestantesProducto(p);
+      if (dias == null) continue;
+      if (dias <= (p.diasAviso ?? 5)) {
+        list.push({
+          id: `prod-${p.id}`,
+          icon: Package,
+          titulo: dias <= 0 ? `Se acabó: ${p.name}` : `Se acaba pronto: ${p.name}`,
+          subtitulo: p.category || "Producto",
+          dias,
+          tab: "catalogo",
+        });
+      }
+    }
+
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products]);
 }
 
 function etiquetaDias(dias) {
@@ -115,10 +131,10 @@ function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, onNavigate }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, onNavigate }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products });
 
   useEffect(() => {
     const onClickOutside = (e) => {
