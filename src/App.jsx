@@ -236,7 +236,7 @@ export default function App() {
         {tab === "ingresos" && <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} />}
         {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} categoriasPersonalizadas={categoriasGasto} />}
         {tab === "presupuesto-mensual" && <PresupuestoAnual presupuesto={presupuestoAnual} categoriasPersonalizadas={categoriasGasto} year={currentYear} />}
-        {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} />}
+        {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
       </main>
     </div>
   );

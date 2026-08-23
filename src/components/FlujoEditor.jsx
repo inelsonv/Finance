@@ -1,25 +1,68 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactFlow, {
   Background,
   Controls,
   MiniMap,
+  Handle,
+  Position,
   addEdge,
   applyNodeChanges,
   applyEdgeChanges,
   MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Plus, Save, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Save, Trash2, RotateCcw, Check, X } from "lucide-react";
 import { saveFlujo } from "../lib/db";
 
 const PALETTE = ["#5b7a5b", "#a23e2e", "#b8892b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a"];
+const FRECUENCIA_FACTOR = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1 / 12, Único: 0 };
+
+function formatMoney(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function ingresoMensualCalculado(fuentesIngreso) {
+  let total = 0;
+  for (const f of fuentesIngreso || []) {
+    if (f.estado !== "Activo" || f.montoEsperado == null) continue;
+    total += f.montoEsperado * (FRECUENCIA_FACTOR[f.frecuencia] ?? 1);
+  }
+  return total;
+}
+
+function ActivityFlowNode({ data }) {
+  const color = data.color || "#5b7a5b";
+  return (
+    <div
+      style={{
+        background: "var(--card)",
+        color: "var(--ink)",
+        border: `2px solid ${color}`,
+        borderRadius: 8,
+        padding: "8px 14px",
+        fontFamily: "Inter, sans-serif",
+        minWidth: 130,
+      }}
+    >
+      <Handle type="target" position={Position.Left} style={{ background: color }} />
+      <div style={{ fontSize: 12.5, fontWeight: 600 }}>{data.label}</div>
+      <div className="despensa-mono" style={{ fontSize: 11, color, fontWeight: 600, marginTop: 2 }}>
+        {data.amount != null ? formatMoney(data.amount) : "Sin monto"}
+      </div>
+      <Handle type="source" position={Position.Right} style={{ background: color }} />
+    </div>
+  );
+}
+
+const nodeTypes = { activity: ActivityFlowNode };
 
 function defaultNodes() {
   return [
-    { id: "n1", position: { x: 40, y: 140 }, data: { label: "Ingreso" }, style: nodeStyle(PALETTE[0]) },
-    { id: "n2", position: { x: 320, y: 40 }, data: { label: "Ahorro" }, style: nodeStyle(PALETTE[3]) },
-    { id: "n3", position: { x: 320, y: 140 }, data: { label: "Gastos fijos" }, style: nodeStyle(PALETTE[1]) },
-    { id: "n4", position: { x: 320, y: 240 }, data: { label: "Gastos variables" }, style: nodeStyle(PALETTE[2]) },
+    { id: "n1", type: "activity", position: { x: 40, y: 140 }, data: { label: "Ingreso", amount: null, color: PALETTE[0], role: "ingreso" } },
+    { id: "n2", type: "activity", position: { x: 340, y: 20 }, data: { label: "Ahorro", amount: null, color: PALETTE[3] } },
+    { id: "n3", type: "activity", position: { x: 340, y: 140 }, data: { label: "Gastos fijos", amount: null, color: PALETTE[1] } },
+    { id: "n4", type: "activity", position: { x: 340, y: 260 }, data: { label: "Gastos variables", amount: null, color: PALETTE[2] } },
   ];
 }
 
@@ -29,19 +72,6 @@ function defaultEdges() {
     { id: "e2", source: "n1", target: "n3", ...edgeStyle(PALETTE[1]) },
     { id: "e3", source: "n1", target: "n4", ...edgeStyle(PALETTE[2]) },
   ];
-}
-
-function nodeStyle(color) {
-  return {
-    background: "var(--card)",
-    color: "var(--ink)",
-    border: `2px solid ${color}`,
-    borderRadius: 8,
-    padding: "8px 14px",
-    fontSize: 12.5,
-    fontWeight: 500,
-    fontFamily: "Inter, sans-serif",
-  };
 }
 
 function edgeStyle(color) {
@@ -57,13 +87,18 @@ function nextId() {
   return `n${idCounter}`;
 }
 
-export default function FlujoEditor({ flujo }) {
+export default function FlujoEditor({ flujo, fuentesIngreso }) {
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
   const [colorIndex, setColorIndex] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editAmount, setEditAmount] = useState("");
   const loadedOnce = useRef(false);
+
+  const ingresoSugerido = useMemo(() => ingresoMensualCalculado(fuentesIngreso), [fuentesIngreso]);
 
   useEffect(() => {
     if (loadedOnce.current) return;
@@ -96,21 +131,51 @@ export default function FlujoEditor({ flujo }) {
   }, []);
 
   const addNode = () => {
-    const color = PALETTE[nodes.length % PALETTE.length];
-    const label = window.prompt("Nombre de la actividad (ej. Inversión, Fondo de emergencia)");
+    const label = window.prompt("Nombre de la actividad (ej. Pago préstamo, Inversión)");
     if (!label || !label.trim()) return;
+    const color = PALETTE[nodes.length % PALETTE.length];
     const id = nextId();
     setNodes((nds) => [
       ...nds,
       {
         id,
-        position: { x: 120 + (nds.length % 4) * 60, y: 60 + Math.floor(nds.length / 4) * 90 },
-        data: { label: label.trim() },
-        style: nodeStyle(color),
+        type: "activity",
+        position: { x: 120 + (nds.length % 4) * 60, y: 60 + Math.floor(nds.length / 4) * 100 },
+        data: { label: label.trim(), amount: null, color },
       },
     ]);
     setDirty(true);
+    setEditingId(id);
+    setEditLabel(label.trim());
+    setEditAmount("");
   };
+
+  const openEdit = (node) => {
+    setEditingId(node.id);
+    setEditLabel(node.data.label);
+    setEditAmount(node.data.amount != null ? String(node.data.amount) : "");
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditLabel("");
+    setEditAmount("");
+  };
+
+  const applyEdit = () => {
+    const num = parseFloat(editAmount);
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === editingId
+          ? { ...n, data: { ...n.data, label: editLabel.trim() || n.data.label, amount: Number.isFinite(num) && editAmount !== "" ? num : null } }
+          : n
+      )
+    );
+    setDirty(true);
+    cancelEdit();
+  };
+
+  const useIngresoSugerido = () => setEditAmount(String(ingresoSugerido.toFixed(2)));
 
   const clearAll = () => {
     if (!window.confirm("¿Vaciar el lienzo y empezar de cero?")) return;
@@ -129,7 +194,7 @@ export default function FlujoEditor({ flujo }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const cleanNodes = nodes.map((n) => ({ id: n.id, position: n.position, data: n.data, style: n.style }));
+      const cleanNodes = nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data }));
       const cleanEdges = edges.map((e) => ({ id: e.id, source: e.source, target: e.target, style: e.style, markerEnd: e.markerEnd }));
       await saveFlujo(cleanNodes, cleanEdges);
       setDirty(false);
@@ -138,8 +203,35 @@ export default function FlujoEditor({ flujo }) {
     }
   };
 
+  const resumen = useMemo(() => {
+    const ingresoNode = nodes.find((n) => n.data.role === "ingreso");
+    const ingresoMonto = ingresoNode?.data.amount ?? 0;
+    let asignado = 0;
+    for (const n of nodes) {
+      if (n.data.role === "ingreso") continue;
+      asignado += Number(n.data.amount) || 0;
+    }
+    return { ingresoMonto, asignado, restante: ingresoMonto - asignado };
+  }, [nodes]);
+
+  const editingNode = nodes.find((n) => n.id === editingId);
+  const isIngresoNode = editingNode?.data.role === "ingreso";
+
   return (
     <div>
+      {resumen.ingresoMonto > 0 && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginBottom: 10, display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12 }}>
+          <span>Ingreso del nodo: <strong className="despensa-mono">{formatMoney(resumen.ingresoMonto)}</strong></span>
+          <span>Asignado: <strong className="despensa-mono" style={{ color: "var(--stamp)" }}>{formatMoney(resumen.asignado)}</strong></span>
+          <span>
+            Sin asignar:{" "}
+            <strong className="despensa-mono" style={{ color: resumen.restante >= 0 ? "var(--sage)" : "var(--stamp)" }}>
+              {formatMoney(resumen.restante)}
+            </strong>
+          </span>
+        </div>
+      )}
+
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10, alignItems: "center" }}>
         <button onClick={addNode} style={btnStyle("var(--ink)", "var(--paper)")}>
           <Plus size={14} /> Agregar actividad
@@ -154,14 +246,48 @@ export default function FlujoEditor({ flujo }) {
           <Trash2 size={14} /> Vaciar
         </button>
         <span style={{ fontSize: 11.5, color: "var(--ink-soft)", marginLeft: "auto" }}>
-          Arrastra los nodos · Conecta desde el borde de un nodo hacia otro · Doble clic en una conexión para borrarla
+          Arrastra para mover · Conecta desde el borde de un nodo · Doble clic en un nodo para editar monto
         </span>
       </div>
 
-      <div style={{ height: 480, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
+      {editingId && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--stamp)", borderRadius: 10, padding: 12, marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <input
+            value={editLabel}
+            onChange={(e) => setEditLabel(e.target.value)}
+            placeholder="Nombre"
+            style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, flex: "1 1 140px" }}
+          />
+          <input
+            className="despensa-mono"
+            type="number"
+            step="0.01"
+            min="0"
+            value={editAmount}
+            onChange={(e) => setEditAmount(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyEdit()}
+            placeholder="Monto"
+            style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, width: 120 }}
+          />
+          {isIngresoNode && ingresoSugerido > 0 && (
+            <button onClick={useIngresoSugerido} style={btnStyle("var(--sage-bg)", "var(--sage)", false, false)}>
+              Usar ingreso mensual: {formatMoney(ingresoSugerido)}
+            </button>
+          )}
+          <button onClick={applyEdit} style={btnStyle("var(--sage)", "#fff")}>
+            <Check size={14} /> Aplicar
+          </button>
+          <button onClick={cancelEdit} style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}>
+            <X size={14} /> Cancelar
+          </button>
+        </div>
+      )}
+
+      <div style={{ height: 460, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
@@ -169,13 +295,7 @@ export default function FlujoEditor({ flujo }) {
             setEdges((eds) => eds.filter((e) => e.id !== edge.id));
             setDirty(true);
           }}
-          onNodeDoubleClick={(_, node) => {
-            const label = window.prompt("Renombrar actividad", node.data.label);
-            if (label && label.trim()) {
-              setNodes((nds) => nds.map((n) => (n.id === node.id ? { ...n, data: { ...n.data, label: label.trim() } } : n)));
-              setDirty(true);
-            }
-          }}
+          onNodeDoubleClick={(_, node) => openEdit(node)}
           fitView
           deleteKeyCode={["Backspace", "Delete"]}
         >
@@ -186,7 +306,8 @@ export default function FlujoEditor({ flujo }) {
       </div>
 
       <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8 }}>
-        Doble clic en un nodo para renombrarlo. Selecciona un nodo o conexión y presiona Suprimir/Backspace para eliminarlo.
+        El nodo "Ingreso" original toma como referencia tu ingreso mensual calculado en la sección Ingresos. Selecciona un
+        nodo o conexión y presiona Suprimir/Backspace para eliminarlo.
       </div>
     </div>
   );
@@ -206,5 +327,6 @@ function btnStyle(bg, color, disabled, outline) {
     borderRadius: 8,
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.6 : 1,
+    whiteSpace: "nowrap",
   };
 }
