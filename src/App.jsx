@@ -174,6 +174,7 @@ export default function App() {
         tab={tab}
         setTab={setTab}
         listCount={list.length}
+        prestamosActivosCount={prestamos.filter((p) => p.estado === "Activo").length}
         theme={theme}
         onToggleTheme={toggleTheme}
         collapsed={sidebarCollapsed}

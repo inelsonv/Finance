@@ -46,8 +46,9 @@ const NAV_ITEMS = [
   { id: "contratos", label: "Contratos", icon: Zap },
 ];
 
-export default function Sidebar({ tab, setTab, listCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {
+export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {
   const [expandedId, setExpandedId] = useState(null);
+  const badgeCounts = { lista: listCount, prestamos: prestamosActivosCount };
 
   return (
     <nav className={`despensa-sidebar${collapsed ? " despensa-sidebar--collapsed" : ""}`}>
@@ -119,6 +120,7 @@ export default function Sidebar({ tab, setTab, listCount, theme, onToggleTheme, 
           const active = tab === item.id;
           const hasChildren = !collapsed && item.children && item.children.length > 0;
           const expanded = hasChildren && expandedId === item.id;
+          const count = badgeCounts[item.id];
           return (
             <div key={item.id}>
               <button
@@ -134,7 +136,7 @@ export default function Sidebar({ tab, setTab, listCount, theme, onToggleTheme, 
               >
                 <Icon size={16} />
                 {!collapsed && <span className="despensa-navlabel">{item.label}</span>}
-                {!collapsed && item.id === "lista" && listCount > 0 && (
+                {!collapsed && count > 0 && (
                   <span
                     className="despensa-mono"
                     style={{
@@ -146,10 +148,10 @@ export default function Sidebar({ tab, setTab, listCount, theme, onToggleTheme, 
                       padding: "1px 6px",
                     }}
                   >
-                    {listCount}
+                    {count}
                   </span>
                 )}
-                {collapsed && item.id === "lista" && listCount > 0 && (
+                {collapsed && count > 0 && (
                   <span
                     style={{
                       position: "absolute",
