@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, TrendingUp, Landmark, CreditCard, Ticket, Zap, PiggyBank, Tag, Workflow } from "lucide-react";
 
 const FLOW_COLORS = [
   "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a",
@@ -18,12 +18,15 @@ export default function Presupuesto({ movimientos, onOpenMovimientos }) {
   const totals = useMemo(() => {
     let ingresos = 0;
     let gastos = 0;
+    let ingresosCount = 0;
     for (const m of movimientos) {
       const amt = Number(m.amount) || 0;
-      if (m.type === "Ingreso") ingresos += amt;
-      else gastos += amt;
+      if (m.type === "Ingreso") {
+        ingresos += amt;
+        ingresosCount += 1;
+      } else gastos += amt;
     }
-    return { ingresos, gastos, balance: ingresos - gastos };
+    return { ingresos, gastos, balance: ingresos - gastos, ingresosCount };
   }, [movimientos]);
 
   const fijoVsVariable = useMemo(() => {
@@ -129,6 +132,16 @@ export default function Presupuesto({ movimientos, onOpenMovimientos }) {
           <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6 }}>
             Mientras más bajo el % fijo, más flexibilidad tienes ante un imprevisto.
           </div>
+        </div>
+      )}
+
+      {(totals.ingresos > 0 || totals.gastos > 0) && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "16px 14px", marginTop: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <Workflow size={15} style={{ color: "var(--ink-soft)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 13, fontWeight: 600 }}>Flujo de actividades</span>
+          </div>
+          <NodeFlow totals={totals} gastosPorCategoria={gastosPorCategoria} />
         </div>
       )}
 
@@ -250,6 +263,127 @@ function FlowDiagram({ totals, gastosPorCategoria }) {
           </g>
         ))}
       </svg>
+    </div>
+  );
+}
+
+const ACTIVITY_ICONS = {
+  "Pago de préstamo": Landmark,
+  "Pago de tarjeta": CreditCard,
+  "Pago de membresía": Ticket,
+  "Pago de servicio": Zap,
+  Ahorro: PiggyBank,
+  Inversión: PiggyBank,
+  Corretaje: PiggyBank,
+  Corriente: PiggyBank,
+  Disponible: TrendingUp,
+};
+
+function iconForActivity(label) {
+  return ACTIVITY_ICONS[label] || Tag;
+}
+
+function NodeFlow({ totals, gastosPorCategoria }) {
+  const nodes = useMemo(() => {
+    const list = [
+      ...gastosPorCategoria.map((g, i) => ({ label: g.category, amount: g.amount, color: FLOW_COLORS[i % FLOW_COLORS.length] })),
+    ];
+    if (totals.balance > 0) list.push({ label: "Disponible", amount: totals.balance, color: "var(--sage)" });
+    return list;
+  }, [gastosPorCategoria, totals.balance]);
+
+  const H = 58;
+  const G = 12;
+  const cardW = 168;
+  const midGap = 64;
+  const totalHeight = Math.max(H, nodes.length * H + (nodes.length - 1) * G);
+  const srcY = totalHeight / 2;
+  const svgW = cardW * 2 + midGap;
+
+  if (nodes.length === 0) return null;
+
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <div style={{ position: "relative", width: svgW, height: totalHeight, minWidth: svgW }}>
+        <svg width={svgW} height={totalHeight} style={{ position: "absolute", top: 0, left: 0 }}>
+          {nodes.map((n, i) => {
+            const destY = i * (H + G) + H / 2;
+            const midX = cardW + midGap / 2;
+            const path = `M ${cardW} ${srcY} L ${midX} ${srcY} L ${midX} ${destY} L ${svgW - cardW} ${destY}`;
+            return <path key={n.label} d={path} fill="none" stroke={n.color} strokeWidth={1.75} opacity={0.55} />;
+          })}
+        </svg>
+
+        <div style={{ position: "absolute", left: 0, top: srcY - H / 2, width: cardW, height: H }}>
+          <ActivityNode
+            icon={TrendingUp}
+            title="Ingreso"
+            subtitle={`${totals.ingresosCount} movimiento${totals.ingresosCount !== 1 ? "s" : ""}`}
+            amount={formatMoney(totals.ingresos)}
+            color="var(--sage)"
+          />
+        </div>
+
+        {nodes.map((n, i) => (
+          <div key={n.label} style={{ position: "absolute", left: svgW - cardW, top: i * (H + G), width: cardW, height: H }}>
+            <ActivityNode icon={iconForActivity(n.label)} title={n.label} subtitle="Actividad" amount={formatMoney(n.amount)} color={n.color} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActivityNode({ icon: Icon, title, subtitle, amount, color }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "stretch",
+        height: "100%",
+        background: "var(--card)",
+        border: "1px solid var(--line)",
+        borderRadius: 8,
+        overflow: "hidden",
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+      }}
+    >
+      <div style={{ width: 4, background: color, flexShrink: 0 }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", minWidth: 0, flex: 1 }}>
+        <div
+          style={{
+            width: 26,
+            height: 26,
+            borderRadius: 6,
+            flexShrink: 0,
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div style={{ position: "absolute", inset: 0, background: color, opacity: 0.15, borderRadius: 6 }} />
+          <Icon size={13} style={{ color, position: "relative" }} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--ink)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {title}
+          </div>
+          <div style={{ fontSize: 9.5, color: "var(--ink-soft)", marginTop: 1 }}>{subtitle}</div>
+          <div className="despensa-mono" style={{ fontSize: 11, color, marginTop: 2, fontWeight: 600 }}>
+            {amount}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
