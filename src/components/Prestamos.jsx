@@ -41,7 +41,6 @@ const emptyForm = (numero) => ({
   estado: "Activo",
   notas: "",
   notificarWhatsapp: false,
-  telefonoWhatsapp: "",
 });
 
 export default function Prestamos({ prestamos, entidades, movimientos }) {
@@ -74,7 +73,6 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
       estado: p.estado || "Activo",
       notas: p.notas || "",
       notificarWhatsapp: !!p.notificarWhatsapp,
-      telefonoWhatsapp: p.telefonoWhatsapp || "",
     });
   };
 
@@ -113,7 +111,6 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
         estado: editForm.estado,
         notas: editForm.notas.trim(),
         notificarWhatsapp: editForm.notificarWhatsapp,
-        telefonoWhatsapp: editForm.notificarWhatsapp ? editForm.telefonoWhatsapp.replace(/\D/g, "") : "",
       });
       cancelEdit();
     } catch (err) {
@@ -172,7 +169,6 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
         estado: form.estado,
         notas: form.notas.trim(),
         notificarWhatsapp: form.notificarWhatsapp,
-        telefonoWhatsapp: form.notificarWhatsapp ? form.telefonoWhatsapp.replace(/\D/g, "") : "",
       });
       setShowForm(false);
     } catch (err) {
@@ -337,12 +333,11 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
             Notificar pagos de este préstamo por WhatsApp
           </label>
           {form.notificarWhatsapp && (
-            <input
-              placeholder="Número con código de país, ej. 18091234567"
-              value={form.telefonoWhatsapp}
-              onChange={(e) => setForm({ ...form, telefonoWhatsapp: e.target.value })}
-              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
-            />
+            <div style={{ fontSize: 11.5, color: entidades.find((e) => e.docId === form.entidadId)?.phone ? "var(--ink-soft)" : "var(--stamp)", marginBottom: 10 }}>
+              {entidades.find((e) => e.docId === form.entidadId)?.phone
+                ? `Se enviará al teléfono de la entidad: ${entidades.find((e) => e.docId === form.entidadId).phone}`
+                : "La entidad seleccionada no tiene teléfono registrado — agrégalo en Entidades para que la notificación funcione."}
+            </div>
           )}
 
           <button
@@ -487,12 +482,11 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                     Notificar pagos de este préstamo por WhatsApp
                   </label>
                   {editForm.notificarWhatsapp && (
-                    <input
-                      placeholder="Número con código de país, ej. 18091234567"
-                      value={editForm.telefonoWhatsapp}
-                      onChange={(e) => setEditForm({ ...editForm, telefonoWhatsapp: e.target.value })}
-                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
-                    />
+                    <div style={{ fontSize: 11.5, color: entidades.find((e) => e.docId === editForm.entidadId)?.phone ? "var(--ink-soft)" : "var(--stamp)", marginBottom: 10 }}>
+                      {entidades.find((e) => e.docId === editForm.entidadId)?.phone
+                        ? `Se enviará al teléfono de la entidad: ${entidades.find((e) => e.docId === editForm.entidadId).phone}`
+                        : "La entidad seleccionada no tiene teléfono registrado — agrégalo en Entidades para que la notificación funcione."}
+                    </div>
                   )}
 
                   <div style={{ display: "flex", gap: 8 }}>
@@ -544,8 +538,15 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                           {p.numero}
                         </span>
                         <EstadoBadge estado={p.estado} onChange={(estado) => updatePrestamoEstado(p.id, estado)} />
-                        {p.notificarWhatsapp && p.telefonoWhatsapp && (
-                          <span title={`Notifica pagos a +${p.telefonoWhatsapp}`} style={{ display: "flex", alignItems: "center", color: "var(--sage)" }}>
+                        {p.notificarWhatsapp && (
+                          <span
+                            title={
+                              entidades.find((e) => e.docId === p.entidadId)?.phone
+                                ? `Notifica pagos a ${entidades.find((e) => e.docId === p.entidadId).phone}`
+                                : "Notificación activa, pero la entidad no tiene teléfono registrado"
+                            }
+                            style={{ display: "flex", alignItems: "center", color: entidades.find((e) => e.docId === p.entidadId)?.phone ? "var(--sage)" : "var(--stamp)" }}
+                          >
                             <MessageCircle size={13} />
                           </span>
                         )}

@@ -253,9 +253,13 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         contratoNombre: form.tipo === "Pago de servicio" ? contrato?.nombre || "" : "",
       });
 
-      if (form.tipo === "Pago de préstamo" && prestamo?.notificarWhatsapp && prestamo?.telefonoWhatsapp) {
-        const mensaje = `Pago registrado: préstamo ${prestamo.numero} (${prestamo.entidadName || "sin entidad"}), monto ${formatMoney(amount)}, fecha ${form.date}.`;
-        window.open(`https://wa.me/${prestamo.telefonoWhatsapp}?text=${encodeURIComponent(mensaje)}`, "_blank");
+      if (form.tipo === "Pago de préstamo" && prestamo?.notificarWhatsapp) {
+        const entidadPrestamo = entidades.find((e) => e.docId === prestamo.entidadId);
+        const telefono = entidadPrestamo?.phone?.replace(/\D/g, "");
+        if (telefono) {
+          const mensaje = `Pago registrado: préstamo ${prestamo.numero} (${prestamo.entidadName || "sin entidad"}), monto ${formatMoney(amount)}, fecha ${form.date}.`;
+          window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`, "_blank");
+        }
       }
 
       setForm(emptyForm());

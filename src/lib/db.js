@@ -234,7 +234,6 @@ export async function addPrestamo({
   estado,
   notas,
   notificarWhatsapp,
-  telefonoWhatsapp,
 }) {
   await addDoc(prestamosCol, {
     numero,
@@ -249,7 +248,6 @@ export async function addPrestamo({
     estado,
     notas: notas || "",
     notificarWhatsapp: !!notificarWhatsapp,
-    telefonoWhatsapp: telefonoWhatsapp || "",
     createdAt: serverTimestamp(),
   });
 }
