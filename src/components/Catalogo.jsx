@@ -15,7 +15,7 @@ import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
 
-export default function Catalogo({ products, list }) {
+export default function Catalogo({ products, list, entidades }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
@@ -105,6 +105,7 @@ export default function Catalogo({ products, list }) {
       consumoDiario: p.consumoDiario != null ? String(p.consumoDiario) : "1",
       diasAviso: p.diasAviso != null ? String(p.diasAviso) : "5",
       cajasReponer: "",
+      entidadId: p.entidadId || "",
     });
   };
 
@@ -128,6 +129,8 @@ export default function Catalogo({ products, list }) {
         unidadesPorPaquete,
         consumoDiario,
         diasAviso,
+        entidadId: configForm.entidadId || null,
+        entidadName: entidades.find((e) => e.docId === configForm.entidadId)?.name || "",
       };
 
       if (configForm.seguimiento && Number.isFinite(cajas) && cajas > 0) {
@@ -511,6 +514,27 @@ export default function Catalogo({ products, list }) {
                     style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                   />
                 </div>
+              </div>
+
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>
+                  Comprado en (para poder pedir por WhatsApp desde la notificación)
+                </div>
+                <select
+                  value={configForm.entidadId}
+                  onChange={(e) => setConfigForm({ ...configForm, entidadId: e.target.value })}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                >
+                  <option value="">Sin entidad (opcional)</option>
+                  {entidades.map((e) => (
+                    <option key={e.docId} value={e.docId}>{e.name}</option>
+                  ))}
+                </select>
+                {configForm.entidadId && !entidades.find((e) => e.docId === configForm.entidadId)?.phone && (
+                  <div style={{ fontSize: 11, color: "var(--stamp)", marginTop: 4 }}>
+                    Esa entidad no tiene teléfono registrado — agrégalo en Entidades para poder pedir por WhatsApp.
+                  </div>
+                )}
               </div>
 
               {(() => {

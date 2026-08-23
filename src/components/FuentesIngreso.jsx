@@ -20,6 +20,7 @@ const emptyForm = () => ({
   diaPago: "",
   estado: "Activo",
   notas: "",
+  codigoEmpleado: "",
 });
 
 function toEditForm(f) {
@@ -32,6 +33,7 @@ function toEditForm(f) {
     diaPago: f.diaPago || "",
     estado: f.estado || "Activo",
     notas: f.notas || "",
+    codigoEmpleado: f.codigoEmpleado || "",
   };
 }
 
@@ -96,6 +98,7 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
         diaPago: form.diaPago.trim(),
         estado: form.estado,
         notas: form.notas.trim(),
+        codigoEmpleado: form.codigoEmpleado.trim(),
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -120,6 +123,7 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
         diaPago: editForm.diaPago.trim(),
         estado: editForm.estado,
         notas: editForm.notas.trim(),
+        codigoEmpleado: editForm.codigoEmpleado.trim(),
       });
       cancelEdit();
     } catch (err) {
@@ -232,6 +236,13 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
           </div>
 
           <input
+            placeholder="Código de empleado (opcional)"
+            value={form.codigoEmpleado}
+            onChange={(e) => setForm({ ...form, codigoEmpleado: e.target.value })}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+          />
+
+          <input
             placeholder="Notas (opcional)"
             value={form.notas}
             onChange={(e) => setForm({ ...form, notas: e.target.value })}
@@ -329,6 +340,12 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
                     </select>
                   </div>
                   <input
+                    placeholder="Código de empleado (opcional)"
+                    value={editForm.codigoEmpleado}
+                    onChange={(e) => setEditForm({ ...editForm, codigoEmpleado: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+                  />
+                  <input
                     placeholder="Notas (opcional)"
                     value={editForm.notas}
                     onChange={(e) => setEditForm({ ...editForm, notas: e.target.value })}
@@ -391,6 +408,7 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
                     <Field label="Monto por pago" value={f.montoEsperado != null ? formatMoney(f.montoEsperado) : "—"} />
                     <Field label="Frecuencia" value={f.frecuencia || "—"} />
                     <Field label="Día(s) de pago" value={f.diaPago || "—"} />
+                    {f.codigoEmpleado && <Field label="Código de empleado" value={f.codigoEmpleado} />}
                   </div>
 
                   {recibidoPorFuente[f.id] > 0 && (

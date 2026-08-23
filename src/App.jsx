@@ -202,6 +202,8 @@ export default function App() {
               contratos={contratos}
               movimientos={movimientos}
               products={products}
+              entidades={entidades}
+              fuentesIngreso={fuentesIngreso}
               onNavigate={setTab}
             />
           </div>
@@ -237,7 +239,7 @@ export default function App() {
         </div>
 
         {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} movimientos={movimientos} cuentas={cuentas} />}
-        {tab === "catalogo" && <Catalogo products={products} list={list} />}
+        {tab === "catalogo" && <Catalogo products={products} list={list} entidades={entidades} />}
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}

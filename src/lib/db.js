@@ -435,6 +435,7 @@ export async function addFuenteIngreso({
   diaPago,
   estado,
   notas,
+  codigoEmpleado,
 }) {
   await addDoc(fuentesIngresoCol, {
     nombre,
@@ -446,6 +447,7 @@ export async function addFuenteIngreso({
     diaPago: diaPago || "",
     estado,
     notas: notas || "",
+    codigoEmpleado: codigoEmpleado || "",
     createdAt: serverTimestamp(),
   });
 }

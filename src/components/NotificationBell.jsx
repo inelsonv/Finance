@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle } from "lucide-react";
 import { diasRestantesProducto } from "../lib/inventario";
 
 const UMBRAL_DIAS = 7;
@@ -34,7 +34,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products }) {
+function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -109,19 +109,21 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
       const dias = diasRestantesProducto(p);
       if (dias == null) continue;
       if (dias <= (p.diasAviso ?? 5)) {
+        const entidad = p.entidadId ? (entidades || []).find((e) => e.docId === p.entidadId) : null;
         list.push({
           id: `prod-${p.id}`,
           icon: Package,
           titulo: dias <= 0 ? `Se acabó: ${p.name}` : `Se acaba pronto: ${p.name}`,
-          subtitulo: p.category || "Producto",
+          subtitulo: entidad ? `Comprado en ${entidad.name}` : p.category || "Producto",
           dias,
           tab: "catalogo",
+          whatsapp: entidad?.phone ? { telefono: entidad.phone, producto: p.name, entidadNombre: entidad.name } : null,
         });
       }
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades]);
 }
 
 function etiquetaDias(dias) {
@@ -131,10 +133,20 @@ function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, onNavigate }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, onNavigate }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades });
+
+  const codigoEmpleado = (fuentesIngreso || []).find((f) => f.estado === "Activo" && f.codigoEmpleado)?.codigoEmpleado || "";
+
+  const pedirPorWhatsapp = (n, e) => {
+    e.stopPropagation();
+    const telefono = n.whatsapp.telefono.replace(/\D/g, "");
+    const partes = [`Hola, quisiera pedir: ${n.whatsapp.producto}.`];
+    if (codigoEmpleado) partes.push(`Código de empleado: ${codigoEmpleado}.`);
+    window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(partes.join(" "))}`, "_blank");
+  };
 
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -218,11 +230,19 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
               const Icon = n.icon;
               const etiqueta = etiquetaDias(n.dias);
               return (
-                <button
+                <div
                   key={n.id}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => {
                     onNavigate(n.tab);
                     setOpen(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      onNavigate(n.tab);
+                      setOpen(false);
+                    }
                   }}
                   style={{
                     display: "flex",
@@ -230,12 +250,9 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
                     gap: 10,
                     width: "100%",
                     padding: "10px 12px",
-                    borderTop: "1px solid var(--line-soft)",
                     background: "transparent",
                     border: "none",
-                    borderTopWidth: 1,
-                    borderTopStyle: "solid",
-                    borderTopColor: "var(--line-soft)",
+                    borderTop: "1px solid var(--line-soft)",
                     cursor: "pointer",
                     textAlign: "left",
                   }}
@@ -261,6 +278,27 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
                     </div>
                     <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>{n.subtitulo}</div>
                   </div>
+                  {n.whatsapp && (
+                    <button
+                      onClick={(e) => pedirPorWhatsapp(n, e)}
+                      title="Pedir por WhatsApp"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 26,
+                        height: 26,
+                        flexShrink: 0,
+                        background: "var(--sage-bg)",
+                        color: "var(--sage)",
+                        border: "none",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <MessageCircle size={13} />
+                    </button>
+                  )}
                   <span
                     className="despensa-mono"
                     style={{
@@ -279,7 +317,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
                   >
                     <Clock size={9} /> {etiqueta.label}
                   </span>
-                </button>
+                </div>
               );
             })
           )}
