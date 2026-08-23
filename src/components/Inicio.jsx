@@ -379,7 +379,7 @@ function StocksCard() {
             </a>{" "}
             (plan gratis, sin tarjeta). Cópiala desde tu dashboard y pégala aquí.
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: apiKey ? 14 : 0 }}>
             <input
               value={apiKeyInput}
               onChange={(e) => setApiKeyInput(e.target.value)}
@@ -390,6 +390,31 @@ function StocksCard() {
               Guardar
             </button>
           </div>
+
+          {apiKey && (
+            <>
+              <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12, display: "flex", gap: 6 }}>
+                <input
+                  value={newSymbol}
+                  onChange={(e) => setNewSymbol(e.target.value)}
+                  placeholder="Símbolo, ej. AAPL"
+                  onKeyDown={(e) => e.key === "Enter" && handleAddAccion()}
+                  style={{ width: 100, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+                />
+                <input
+                  value={newNombre}
+                  onChange={(e) => setNewNombre(e.target.value)}
+                  placeholder="Nombre (opcional), ej. Apple"
+                  onKeyDown={(e) => e.key === "Enter" && handleAddAccion()}
+                  style={{ flex: 1, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+                />
+                <button onClick={handleAddAccion} style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 12px", fontSize: 12.5, fontWeight: 500, background: "var(--ink)", color: "var(--paper)", border: "none", borderRadius: 7, cursor: "pointer" }}>
+                  <Plus size={13} /> Agregar
+                </button>
+              </div>
+              {addError && <div style={{ fontSize: 11.5, color: "var(--stamp)", marginTop: 8 }}>{addError}</div>}
+            </>
+          )}
         </div>
       )}
 
@@ -398,69 +423,46 @@ function StocksCard() {
           <AlertTriangle size={15} />
           Configura tu clave de Finnhub (ícono de engranaje arriba) para ver precios de acciones.
         </div>
+      ) : acciones.length === 0 ? (
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", padding: "8px 0" }}>
+          Todavía no agregaste ninguna empresa. Haz clic en el engranaje arriba para agregar una por su símbolo
+          bursátil, ej. <span className="despensa-mono">AAPL</span> para Apple.
+        </div>
       ) : (
-        <>
-          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-            <input
-              value={newSymbol}
-              onChange={(e) => setNewSymbol(e.target.value)}
-              placeholder="Símbolo, ej. AAPL"
-              onKeyDown={(e) => e.key === "Enter" && handleAddAccion()}
-              style={{ width: 100, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
-            />
-            <input
-              value={newNombre}
-              onChange={(e) => setNewNombre(e.target.value)}
-              placeholder="Nombre (opcional), ej. Apple"
-              onKeyDown={(e) => e.key === "Enter" && handleAddAccion()}
-              style={{ flex: 1, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
-            />
-            <button onClick={handleAddAccion} style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 12px", fontSize: 12.5, fontWeight: 500, background: "var(--ink)", color: "var(--paper)", border: "none", borderRadius: 7, cursor: "pointer" }}>
-              <Plus size={13} /> Agregar
-            </button>
-          </div>
-          {addError && <div style={{ fontSize: 11.5, color: "var(--stamp)", marginBottom: 10 }}>{addError}</div>}
-
-          {acciones.length === 0 ? (
-            <div style={{ fontSize: 12.5, color: "var(--ink-soft)", padding: "8px 0" }}>
-              Agrega una empresa por su símbolo bursátil, ej. <span className="despensa-mono">AAPL</span> para Apple,{" "}
-              <span className="despensa-mono">MSFT</span> para Microsoft.
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {acciones.map((a) => {
-                const p = prices[a.symbol];
-                const up = p && p.change >= 0;
-                return (
-                  <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "var(--paper)", borderRadius: 8 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div className="despensa-mono" style={{ fontSize: 13, fontWeight: 600 }}>{a.symbol}</div>
-                      {a.nombre && <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>{a.nombre}</div>}
-                    </div>
-                    {p && p.price != null ? (
-                      <div style={{ textAlign: "right" }}>
-                        <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 600 }}>${p.price.toFixed(2)}</div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "flex-end", fontSize: 11, color: up ? "var(--sage)" : "var(--stamp)" }}>
-                          {up ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                          {p.change != null ? `${p.change.toFixed(2)}%` : ""}
-                        </div>
-                      </div>
-                    ) : (
-                      <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>{loadingPrices ? "…" : "—"}</span>
-                    )}
-                    <button
-                      onClick={() => deleteAccion(a.id)}
-                      title="Quitar"
-                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer" }}
-                    >
-                      <X size={13} />
-                    </button>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+          {acciones.map((a) => {
+            const p = prices[a.symbol];
+            const up = p && p.change >= 0;
+            return (
+              <div key={a.id} style={{ position: "relative", padding: "10px 10px 8px", background: "var(--paper)", borderRadius: 8, border: "1px solid var(--line-soft)" }}>
+                <button
+                  onClick={() => deleteAccion(a.id)}
+                  title="Quitar"
+                  style={{ position: "absolute", top: 4, right: 4, display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer" }}
+                >
+                  <X size={11} />
+                </button>
+                <div className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 700 }}>{a.symbol}</div>
+                {a.nombre && (
+                  <div style={{ fontSize: 10, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {a.nombre}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </>
+                )}
+                {p && p.price != null ? (
+                  <>
+                    <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, marginTop: 6 }}>${p.price.toFixed(2)}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: up ? "var(--sage)" : "var(--stamp)", marginTop: 1 }}>
+                      {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                      {p.change != null ? `${p.change.toFixed(2)}%` : ""}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6 }}>{loadingPrices ? "…" : "—"}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
