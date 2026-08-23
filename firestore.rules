@@ -41,5 +41,8 @@ service cloud.firestore {
     match /categoriasGasto/{doc} {
       allow read, write: if true;
     }
+    match /presupuestos/{doc} {
+      allow read, write: if true;
+    }
   }
 }

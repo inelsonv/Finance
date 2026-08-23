@@ -25,7 +25,10 @@ const NAV_ITEMS = [
     id: "presupuesto",
     label: "Presupuesto",
     icon: Wallet,
-    children: [{ id: "presupuesto-categoria-gasto", label: "Categoría de gasto" }],
+    children: [
+      { id: "presupuesto-categoria-gasto", label: "Categoría de gasto" },
+      { id: "presupuesto-mensual", label: "Presupuesto mensual" },
+    ],
   },
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "ingresos", label: "Ingresos", icon: Briefcase },

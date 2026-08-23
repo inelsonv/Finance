@@ -2,10 +2,9 @@ import React, { useState } from "react";
 import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase } from "lucide-react";
 import { addMovimiento, deleteMovimiento } from "../lib/db";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
+import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
-const GASTO_CATS_FIJO = ["Vivienda", "Servicios", "Seguro de vehículo", "Otro fijo"];
-const GASTO_CATS_VARIABLE = ["Alimentación", "Transporte", "Combustible", "Estacionamiento", "Entretenimiento", "Salud", "Compras", "Otro variable"];
 const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
 const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo", "Pago de tarjeta", "Pago de membresía", ...CUENTA_MOVIMIENTO_TIPOS];
 

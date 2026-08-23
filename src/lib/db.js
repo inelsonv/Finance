@@ -466,3 +466,19 @@ export async function addCategoriaGasto({ nombre, clasificacion }) {
 export async function deleteCategoriaGasto(id) {
   await deleteDoc(doc(db, "categoriasGasto", id));
 }
+
+export function watchPresupuestoAnual(year, onChange, onError) {
+  return onSnapshot(
+    doc(db, "presupuestos", String(year)),
+    (snap) => onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function setPresupuestoCelda(year, category, month, amount) {
+  await setDoc(
+    doc(db, "presupuestos", String(year)),
+    { [category]: { [String(month)]: amount } },
+    { merge: true }
+  );
+}
