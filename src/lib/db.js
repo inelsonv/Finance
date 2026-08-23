@@ -475,10 +475,10 @@ export function watchPresupuestoAnual(year, onChange, onError) {
   );
 }
 
-export async function setPresupuestoCelda(year, category, month, amount) {
+export async function setPresupuestoCelda(year, category, month, quincena, amount) {
   await setDoc(
     doc(db, "presupuestos", String(year)),
-    { [category]: { [String(month)]: amount } },
+    { [category]: { [String(month)]: { [quincena]: amount } } },
     { merge: true }
   );
 }
