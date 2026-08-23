@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, Search, X, MapPin, Phone } from "lucide-react";
-import { addEntidad, deleteEntidad } from "../lib/db";
+import { Plus, Trash2, Search, X, MapPin, Phone, Pencil, Check } from "lucide-react";
+import { addEntidad, deleteEntidad, updateEntidad } from "../lib/db";
 
 const TYPES = [
   "Banco",
@@ -18,6 +18,10 @@ export default function Entidades({ entidades }) {
   const [form, setForm] = useState({ name: "", type: TYPES[0], address: "", phone: "", notes: "" });
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [editError, setEditError] = useState(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -43,6 +47,36 @@ export default function Entidades({ entidades }) {
       setFormError(err.message || String(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const startEdit = (e) => {
+    setEditingId(e.docId);
+    setEditForm({ name: e.name || "", type: e.type || TYPES[0], address: e.address || "", phone: e.phone || "", notes: e.notes || "" });
+    setEditError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm(null);
+    setEditError(null);
+  };
+
+  const saveEdit = async () => {
+    const name = editForm.name.trim();
+    if (!name) {
+      setEditError("El nombre no puede estar vacío");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      await updateEntidad(editingId, { ...editForm, name });
+      cancelEdit();
+    } catch (err) {
+      setEditError(err.message || String(err));
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -173,54 +207,130 @@ export default function Entidades({ entidades }) {
               key={e.docId}
               className="despensa-row"
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
                 padding: "10px 12px",
                 borderTop: i === 0 ? "none" : "1px solid var(--line-soft)",
               }}
             >
-              <span
-                className="despensa-mono"
-                style={{ fontSize: 11, color: "var(--ink-soft)", width: 28, flexShrink: 0 }}
-              >
-                #{e.num}
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 500 }}>{e.name}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <span>{e.type}</span>
-                  {e.address && (
-                    <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                      <MapPin size={11} /> {e.address}
-                    </span>
-                  )}
-                  {e.phone && (
-                    <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                      <Phone size={11} /> {e.phone}
-                    </span>
-                  )}
+              {editingId === e.docId ? (
+                <div>
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <input
+                      autoFocus
+                      value={editForm.name}
+                      onChange={(ev) => setEditForm({ ...editForm, name: ev.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                    <select
+                      value={editForm.type}
+                      onChange={(ev) => setEditForm({ ...editForm, type: ev.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      {TYPES.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <input
+                      placeholder="Dirección (opcional)"
+                      value={editForm.address}
+                      onChange={(ev) => setEditForm({ ...editForm, address: ev.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                    <input
+                      placeholder="Teléfono (opcional)"
+                      value={editForm.phone}
+                      onChange={(ev) => setEditForm({ ...editForm, phone: ev.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                  </div>
+                  <input
+                    placeholder="Notas (opcional)"
+                    value={editForm.notes}
+                    onChange={(ev) => setEditForm({ ...editForm, notes: ev.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={saveEdit}
+                      disabled={editSaving}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", fontSize: 13, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: editSaving ? "not-allowed" : "pointer" }}
+                    >
+                      <Check size={14} /> {editSaving ? "Guardando…" : "Guardar cambios"}
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      style={{ padding: "7px 14px", fontSize: 13, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                  {editError && <div style={{ marginTop: 10, fontSize: 12, color: "var(--stamp)" }}>{editError}</div>}
                 </div>
-              </div>
-              <button
-                onClick={() => deleteEntidad(e.docId)}
-                title="Eliminar entidad"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 30,
-                  height: 30,
-                  background: "transparent",
-                  color: "var(--stamp)",
-                  border: "none",
-                  borderRadius: 7,
-                  cursor: "pointer",
-                  flexShrink: 0,
-                }}
-              >
-                <Trash2 size={15} />
-              </button>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span
+                    className="despensa-mono"
+                    style={{ fontSize: 11, color: "var(--ink-soft)", width: 28, flexShrink: 0 }}
+                  >
+                    #{e.num}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500 }}>{e.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <span>{e.type}</span>
+                      {e.address && (
+                        <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                          <MapPin size={11} /> {e.address}
+                        </span>
+                      )}
+                      {e.phone && (
+                        <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                          <Phone size={11} /> {e.phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => startEdit(e)}
+                    title="Editar entidad"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 30,
+                      height: 30,
+                      background: "transparent",
+                      color: "var(--ink-soft)",
+                      border: "none",
+                      borderRadius: 7,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    onClick={() => deleteEntidad(e.docId)}
+                    title="Eliminar entidad"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 30,
+                      height: 30,
+                      background: "transparent",
+                      color: "var(--stamp)",
+                      border: "none",
+                      borderRadius: 7,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
