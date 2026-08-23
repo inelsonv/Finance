@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import { setPresupuestoCelda } from "../lib/db";
-import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
@@ -14,10 +13,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const [savingKey, setSavingKey] = useState(null);
 
   const categorias = useMemo(() => {
-    const fijas = GASTO_CATS_FIJO.map((nombre) => ({ nombre, clasificacion: "Fijo" }));
-    const variables = GASTO_CATS_VARIABLE.map((nombre) => ({ nombre, clasificacion: "Variable" }));
-    const personalizadas = categoriasPersonalizadas.map((c) => ({ nombre: c.nombre, clasificacion: c.clasificacion }));
-    return [...fijas, ...variables, ...personalizadas];
+    return categoriasPersonalizadas.map((c) => ({ nombre: c.nombre, clasificacion: c.clasificacion }));
   }, [categoriasPersonalizadas]);
 
   const getCelda = (categoria, mes) => {
@@ -42,6 +38,16 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   };
 
   const totalAnual = totalPorMes.reduce((s, v) => s + v, 0);
+
+  if (categorias.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
+        Todavía no has creado ninguna categoría propia. Ve a{" "}
+        <strong style={{ color: "var(--ink)" }}>Presupuesto → Categoría de gasto</strong> y usa "Nueva
+        categoría" para agregar las que quieras presupuestar aquí.
+      </div>
+    );
+  }
 
   const handleBlur = async (categoria, mes, value) => {
     const key = `${categoria}-${mes}`;
