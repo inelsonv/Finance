@@ -19,7 +19,6 @@ import {
   Home,
   Zap,
   LineChart,
-  Swords,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -32,12 +31,12 @@ const NAV_ITEMS = [
       { id: "presupuesto-categoria-gasto", label: "Categoría de gasto" },
       { id: "presupuesto-mensual", label: "Presupuesto mensual" },
       { id: "presupuesto-flujo", label: "Editor de flujo" },
+      { id: "estrategia-deudas", label: "Estrategia de deudas" },
     ],
   },
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "ingresos", label: "Ingresos", icon: Briefcase },
   { id: "inversion", label: "Inversión", icon: LineChart },
-  { id: "estrategia-deudas", label: "Estrategia de deudas", icon: Swords },
   { id: "catalogo", label: "Catálogo", icon: Package },
   { id: "lista", label: "Lista de compra", icon: ShoppingCart },
   { id: "entidades", label: "Entidades", icon: Landmark },
