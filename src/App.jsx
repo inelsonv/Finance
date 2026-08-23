@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
@@ -62,6 +62,7 @@ export default function App() {
   const [tarjetas, setTarjetas] = useState([]);
   const [membresias, setMembresias] = useState([]);
   const [fuentesIngreso, setFuentesIngreso] = useState([]);
+  const [categoriasGasto, setCategoriasGasto] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [synced, setSynced] = useState(null);
@@ -105,6 +106,7 @@ export default function App() {
     const unsubTarjetas = watchTarjetas(setTarjetas, handleError);
     const unsubMembresias = watchMembresias(setMembresias, handleError);
     const unsubFuentesIngreso = watchFuentesIngreso(setFuentesIngreso, handleError);
+    const unsubCategoriasGasto = watchCategoriasGasto(setCategoriasGasto, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -116,6 +118,7 @@ export default function App() {
       unsubTarjetas();
       unsubMembresias();
       unsubFuentesIngreso();
+      unsubCategoriasGasto();
       unsubStatus();
     };
   }, []);
@@ -205,13 +208,13 @@ export default function App() {
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
-        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} membresias={membresias} fuentesIngreso={fuentesIngreso} />}
+        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} membresias={membresias} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} />}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} />}
         {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
         {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} />}
         {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
         {tab === "ingresos" && <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} />}
-        {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} />}
+        {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} categoriasPersonalizadas={categoriasGasto} />}
       </main>
     </div>
   );

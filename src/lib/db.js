@@ -22,6 +22,7 @@ const cuentasCol = collection(db, "cuentas");
 const tarjetasCol = collection(db, "tarjetas");
 const membresiasCol = collection(db, "membresias");
 const fuentesIngresoCol = collection(db, "fuentesIngreso");
+const categoriasGastoCol = collection(db, "categoriasGasto");
 
 export function watchConnectionStatus(onChange) {
   return onSnapshot(
@@ -440,4 +441,28 @@ export async function updateFuenteIngresoEstado(id, estado) {
 
 export async function deleteFuenteIngreso(id) {
   await deleteDoc(doc(db, "fuentesIngreso", id));
+}
+
+export function watchCategoriasGasto(onChange, onError) {
+  return onSnapshot(
+    categoriasGastoCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addCategoriaGasto({ nombre, clasificacion }) {
+  await addDoc(categoriasGastoCol, {
+    nombre,
+    clasificacion,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteCategoriaGasto(id) {
+  await deleteDoc(doc(db, "categoriasGasto", id));
 }

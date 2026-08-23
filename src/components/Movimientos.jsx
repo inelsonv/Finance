@@ -39,7 +39,7 @@ const emptyForm = () => ({
   fuenteIngresoId: "",
 });
 
-export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas, membresias, fuentesIngreso }) {
+export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas, membresias, fuentesIngreso, categoriasGasto }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -410,7 +410,13 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                   style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
                 >
-                  {(form.tipo === "Ingreso" ? INGRESO_CATS : form.clasificacion === "Fijo" ? GASTO_CATS_FIJO : GASTO_CATS_VARIABLE).map((c) => (
+                  {(form.tipo === "Ingreso"
+                    ? INGRESO_CATS
+                    : [
+                        ...(form.clasificacion === "Fijo" ? GASTO_CATS_FIJO : GASTO_CATS_VARIABLE),
+                        ...categoriasGasto.filter((c) => c.clasificacion === form.clasificacion).map((c) => c.nombre),
+                      ]
+                  ).map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
