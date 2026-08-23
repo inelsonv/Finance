@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail } from "lucide-react";
+import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { diasRestantesProducto } from "../lib/inventario";
 
 const UMBRAL_DIAS = 7;
@@ -135,8 +136,28 @@ function etiquetaDias(dias) {
 
 export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, onNavigate }) {
   const [open, setOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [emailConfig, setEmailConfig] = useState(undefined);
+  const [emailInput, setEmailInput] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
   const ref = useRef(null);
   const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades });
+
+  useEffect(() => {
+    const unsub = watchNotifConfig(setEmailConfig, () => {});
+    return () => unsub();
+  }, []);
+
+  const handleSaveEmail = async () => {
+    if (!emailInput.trim()) return;
+    setSavingEmail(true);
+    try {
+      await saveNotifConfig(emailInput.trim());
+      setShowSettings(false);
+    } finally {
+      setSavingEmail(false);
+    }
+  };
 
   const codigoEmpleado = (fuentesIngreso || []).find((f) => f.estado === "Activo" && f.codigoEmpleado)?.codigoEmpleado || "";
 
@@ -217,9 +238,45 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
             zIndex: 50,
           }}
         >
-          <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--line-soft)", fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-            <Bell size={13} /> Notificaciones
+          <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--line-soft)", fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Bell size={13} /> Notificaciones
+            </span>
+            <button
+              onClick={() => {
+                setEmailInput(emailConfig?.email || "");
+                setShowSettings((s) => !s);
+              }}
+              title="Configurar aviso diario por correo"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer" }}
+            >
+              <Settings size={13} />
+            </button>
           </div>
+
+          {showSettings && (
+            <div style={{ padding: 12, borderBottom: "1px solid var(--line-soft)", background: "var(--paper)" }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+                <Mail size={12} /> Recibe un resumen diario de estas alertas por correo
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="email"
+                  value={emailInput}
+                  onChange={(e) => setEmailInput(e.target.value)}
+                  placeholder="tu@correo.com"
+                  style={{ flex: 1, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12 }}
+                />
+                <button
+                  onClick={handleSaveEmail}
+                  disabled={savingEmail}
+                  style={{ padding: "6px 10px", fontSize: 12, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
+                >
+                  {savingEmail ? "…" : "Guardar"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {notificaciones.length === 0 ? (
             <div style={{ padding: "24px 14px", textAlign: "center", fontSize: 12.5, color: "var(--ink-soft)" }}>

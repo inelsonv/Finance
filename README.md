@@ -48,6 +48,64 @@ https://console.firebase.google.com/project/finance-6e127/storage y haz
 clic en "Comenzar" (el plan Spark incluye Storage sin costo dentro de su
 cuota gratuita). Luego repite el comando de arriba.
 
+## Aviso diario de alertas por correo (opcional)
+
+El repo incluye una Cloud Function (`functions/avisoDiarioAlertas`) que corre
+sola todos los días a las 8:00 AM (hora de Santo Domingo) y te envía un
+correo con el resumen de alertas próximas (pagos, membresías, contratos,
+productos por agotarse), usando la misma lógica que la campana de
+notificaciones de la app.
+
+### 1. Configura tu correo destino en la app
+
+Abre la campana 🔔 → ícono de engranaje ⚙️ → escribe tu correo → Guardar.
+Esto lo guarda en Firestore (`config/notificaciones`).
+
+### 2. Instala la extensión oficial "Trigger Email" de Firebase
+
+Desde Cloud Shell:
+
+```
+firebase ext:install firebase/firestore-send-email --project=finance-6e127
+```
+
+Te va a pedir varios datos durante la instalación:
+
+- **Collection path**: escribe `mail` (así se llama la colección que usa
+  nuestra función).
+- **SMTP connection URI**: usa Gmail con una "contraseña de aplicación"
+  (no tu contraseña normal de Gmail):
+  1. Ve a https://myaccount.google.com/apppasswords (necesitas verificación
+     en dos pasos activada en tu cuenta de Google).
+  2. Genera una contraseña de aplicación para "Correo".
+  3. La URI queda así:
+     `smtps://TUCORREO@gmail.com:CONTRASEÑA_DE_APP@smtp.gmail.com:465`
+     (reemplaza espacios de la contraseña de app, si los tiene, sin espacios).
+- **Default FROM address**: tu mismo correo de Gmail.
+
+### 3. Despliega la Cloud Function
+
+```
+cd ~/Finance/functions
+npm install
+cd ..
+firebase deploy --only functions --project=finance-6e127
+```
+
+La primera vez puede pedirte habilitar las APIs de Cloud Build, Cloud
+Functions y Artifact Registry — acepta, son necesarias para poder ejecutar
+código en la nube (esto es lo que permite que el aviso llegue solo, sin
+que tengas que abrir la app).
+
+### Probarlo sin esperar al día siguiente
+
+```
+firebase functions:shell --project=finance-6e127
+```
+
+Dentro de la shell interactiva, escribe `avisoDiarioAlertas()` y presiona
+Enter para forzar una ejecución de prueba.
+
 ## Indicador de conexión
 
 Arriba de cada sección verás una pastilla que dice "Sincronizado con

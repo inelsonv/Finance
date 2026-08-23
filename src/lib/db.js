@@ -598,3 +598,15 @@ export function watchAccionesConfig(onChange, onError) {
 export async function saveAccionesConfig(apiKey) {
   await setDoc(doc(db, "config", "acciones"), { apiKey });
 }
+
+export function watchNotifConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "notificaciones"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveNotifConfig(email) {
+  await setDoc(doc(db, "config", "notificaciones"), { email });
+}
