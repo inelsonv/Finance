@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad } from "./lib/db";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
@@ -78,6 +78,7 @@ export default function App() {
   const [categoriasGasto, setCategoriasGasto] = useState([]);
   const [presupuestoAnual, setPresupuestoAnual] = useState({});
   const [contratos, setContratos] = useState([]);
+  const [tiposEntidad, setTiposEntidad] = useState([]);
   const [flujo, setFlujo] = useState(undefined);
   const currentYear = new Date().getFullYear();
   const [loading, setLoading] = useState(true);
@@ -126,6 +127,7 @@ export default function App() {
     const unsubCategoriasGasto = watchCategoriasGasto(setCategoriasGasto, handleError);
     const unsubPresupuestoAnual = watchPresupuestoAnual(currentYear, setPresupuestoAnual, handleError);
     const unsubContratos = watchContratos(setContratos, handleError);
+    const unsubTiposEntidad = watchTiposEntidad(setTiposEntidad, handleError);
     const unsubFlujo = watchFlujo(setFlujo, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
@@ -141,6 +143,7 @@ export default function App() {
       unsubCategoriasGasto();
       unsubPresupuestoAnual();
       unsubContratos();
+      unsubTiposEntidad();
       unsubFlujo();
       unsubStatus();
     };
@@ -244,7 +247,7 @@ export default function App() {
         {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} movimientos={movimientos} cuentas={cuentas} />}
         {tab === "catalogo" && <Catalogo products={products} list={list} entidades={entidades} />}
         {tab === "lista" && <ListaCompra products={products} list={list} />}
-        {tab === "entidades" && <Entidades entidades={entidades} />}
+        {tab === "entidades" && <Entidades entidades={entidades} tiposPersonalizados={tiposEntidad} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
         {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} membresias={membresias} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} contratos={contratos} />}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} />}

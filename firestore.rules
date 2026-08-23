@@ -56,5 +56,8 @@ service cloud.firestore {
     match /config/{doc} {
       allow read, write: if true;
     }
+    match /tiposEntidad/{doc} {
+      allow read, write: if true;
+    }
   }
 }

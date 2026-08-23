@@ -1,27 +1,60 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, Search, X, MapPin, Phone, Pencil, Check } from "lucide-react";
-import { addEntidad, deleteEntidad, updateEntidad } from "../lib/db";
+import { addEntidad, deleteEntidad, updateEntidad, addTipoEntidad } from "../lib/db";
 
-const TYPES = [
+const TYPES_BASE = [
   "Banco",
   "Supermercado",
   "Farmacia",
   "Institución de gobierno",
   "Ferretería",
   "Aseguradora",
+  "Puesto de Bolsa",
   "Otro",
 ];
 
-export default function Entidades({ entidades }) {
+const NUEVO_TIPO = "__nuevo__";
+
+export default function Entidades({ entidades, tiposPersonalizados }) {
+  const TYPES = useMemo(() => {
+    const personalizados = (tiposPersonalizados || []).map((t) => t.nombre);
+    return [...TYPES_BASE.filter((t) => t !== "Otro"), ...personalizados, "Otro"];
+  }, [tiposPersonalizados]);
+
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", type: TYPES[0], address: "", phone: "", notes: "" });
+  const [form, setForm] = useState({ name: "", type: TYPES_BASE[0], address: "", phone: "", notes: "" });
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [nuevoTipoNombre, setNuevoTipoNombre] = useState("");
+  const [nuevoTipoTarget, setNuevoTipoTarget] = useState(null); // "form" | "edit" | null
+
+  const handleTypeSelect = (value, target) => {
+    if (value === NUEVO_TIPO) {
+      setNuevoTipoTarget(target);
+      setNuevoTipoNombre("");
+      return;
+    }
+    if (target === "form") setForm({ ...form, type: value });
+    else setEditForm({ ...editForm, type: value });
+  };
+
+  const confirmarNuevoTipo = async () => {
+    const nombre = nuevoTipoNombre.trim();
+    if (!nombre) return;
+    const yaExiste = TYPES.some((t) => t.toLowerCase() === nombre.toLowerCase());
+    if (!yaExiste) {
+      await addTipoEntidad(nombre);
+    }
+    if (nuevoTipoTarget === "form") setForm({ ...form, type: nombre });
+    else setEditForm({ ...editForm, type: nombre });
+    setNuevoTipoTarget(null);
+    setNuevoTipoNombre("");
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -41,7 +74,7 @@ export default function Entidades({ entidades }) {
     setFormError(null);
     try {
       await addEntidad({ ...form, name });
-      setForm({ name: "", type: TYPES[0], address: "", phone: "", notes: "" });
+      setForm({ name: "", type: TYPES_BASE[0], address: "", phone: "", notes: "" });
       setShowForm(false);
     } catch (err) {
       setFormError(err.message || String(err));
@@ -136,14 +169,40 @@ export default function Entidades({ entidades }) {
             />
             <select
               value={form.type}
-              onChange={(e) => setForm({ ...form, type: e.target.value })}
+              onChange={(e) => handleTypeSelect(e.target.value, "form")}
               style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
             >
               {TYPES.map((t) => (
                 <option key={t} value={t}>{t}</option>
               ))}
+              <option value={NUEVO_TIPO}>+ Agregar nuevo tipo…</option>
             </select>
           </div>
+
+          {nuevoTipoTarget === "form" && (
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              <input
+                autoFocus
+                placeholder="Nombre del nuevo tipo, ej. Puesto de Bolsa"
+                value={nuevoTipoNombre}
+                onChange={(e) => setNuevoTipoNombre(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && confirmarNuevoTipo()}
+                style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <button
+                onClick={confirmarNuevoTipo}
+                style={{ padding: "8px 14px", fontSize: 13, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+              >
+                Usar
+              </button>
+              <button
+                onClick={() => setNuevoTipoTarget(null)}
+                style={{ padding: "8px 10px", fontSize: 13, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
           <div
             className="despensa-formgrid"
             style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}
@@ -222,14 +281,40 @@ export default function Entidades({ entidades }) {
                     />
                     <select
                       value={editForm.type}
-                      onChange={(ev) => setEditForm({ ...editForm, type: ev.target.value })}
+                      onChange={(ev) => handleTypeSelect(ev.target.value, "edit")}
                       style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
                     >
                       {TYPES.map((t) => (
                         <option key={t} value={t}>{t}</option>
                       ))}
+                      <option value={NUEVO_TIPO}>+ Agregar nuevo tipo…</option>
                     </select>
                   </div>
+
+                  {nuevoTipoTarget === "edit" && (
+                    <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                      <input
+                        autoFocus
+                        placeholder="Nombre del nuevo tipo, ej. Puesto de Bolsa"
+                        value={nuevoTipoNombre}
+                        onChange={(e) => setNuevoTipoNombre(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && confirmarNuevoTipo()}
+                        style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                      />
+                      <button
+                        onClick={confirmarNuevoTipo}
+                        style={{ padding: "8px 14px", fontSize: 13, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+                      >
+                        Usar
+                      </button>
+                      <button
+                        onClick={() => setNuevoTipoTarget(null)}
+                        style={{ padding: "8px 10px", fontSize: 13, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
                     <input
                       placeholder="Dirección (opcional)"

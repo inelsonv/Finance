@@ -150,6 +150,28 @@ export async function deleteEntidad(docId) {
   await deleteDoc(doc(db, "entidades", docId));
 }
 
+const tiposEntidadCol = collection(db, "tiposEntidad");
+
+export function watchTiposEntidad(onChange, onError) {
+  return onSnapshot(
+    tiposEntidadCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addTipoEntidad(nombre) {
+  await addDoc(tiposEntidadCol, { nombre, createdAt: serverTimestamp() });
+}
+
+export async function deleteTipoEntidad(id) {
+  await deleteDoc(doc(db, "tiposEntidad", id));
+}
+
 export function watchMovimientos(onChange, onError) {
   return onSnapshot(
     movimientosCol,
