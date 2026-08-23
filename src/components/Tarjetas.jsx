@@ -1,8 +1,76 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, CreditCard, Pencil, Check } from "lucide-react";
+import { Plus, Trash2, X, Landmark, Pencil, Check } from "lucide-react";
 import { addTarjeta, deleteTarjeta, updateTarjetaEstado, updateTarjeta } from "../lib/db";
 
 const ESTADOS = ["Activa", "Bloqueada", "Cancelada"];
+const MARCAS = ["Visa", "Mastercard", "Amex", "Otra"];
+
+const COLORES = {
+  gold: { label: "Oro", bg: "linear-gradient(135deg, #ecd49a 0%, #c9a256 45%, #8a6a1f 100%)", text: "#3d2b05" },
+  platino: { label: "Platino", bg: "linear-gradient(135deg, #eef1f3 0%, #b7bec4 50%, #8b929a 100%)", text: "#2a2e33" },
+  negro: { label: "Negro", bg: "linear-gradient(135deg, #3a3a3a 0%, #141414 100%)", text: "#f2f2f2" },
+  azul: { label: "Azul", bg: "linear-gradient(135deg, #4a7fb5 0%, #1f3a5c 100%)", text: "#f2f6fa" },
+  rojo: { label: "Rojo", bg: "linear-gradient(135deg, #c1594a 0%, #7a2418 100%)", text: "#fbf0ee" },
+  verde: { label: "Verde", bg: "linear-gradient(135deg, #7a9d6f 0%, #3e5a35 100%)", text: "#f2f7ef" },
+};
+
+function CardVisual({ tarjeta }) {
+  const c = COLORES[tarjeta.color] || COLORES.azul;
+  return (
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 300,
+        aspectRatio: "1.586 / 1",
+        borderRadius: 14,
+        background: c.bg,
+        color: c.text,
+        padding: "16px 18px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        boxShadow: "0 6px 16px rgba(0,0,0,0.18)",
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", opacity: 0.85 }}>
+          {tarjeta.entidadName || "Banco"}
+        </span>
+        <div style={{ width: 30, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.4)" }} />
+      </div>
+      <div>
+        <div className="despensa-mono" style={{ fontSize: 14.5, letterSpacing: "0.1em", marginBottom: 6 }}>
+          •••• •••• •••• {tarjeta.ultimos4 || "••••"}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+          {tarjeta.nombre}
+        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <MarcaLogo marca={tarjeta.marca} />
+      </div>
+    </div>
+  );
+}
+
+function MarcaLogo({ marca }) {
+  if (marca === "Mastercard") {
+    return (
+      <div style={{ display: "flex" }}>
+        <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#eb5b2d", opacity: 0.92 }} />
+        <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#f2a900", opacity: 0.92, marginLeft: -9 }} />
+      </div>
+    );
+  }
+  if (marca === "Visa") {
+    return <span style={{ fontStyle: "italic", fontWeight: 700, fontSize: 17 }}>VISA</span>;
+  }
+  if (marca === "Amex") {
+    return <span style={{ fontWeight: 700, fontSize: 12, letterSpacing: "0.03em" }}>AMEX</span>;
+  }
+  return null;
+}
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -20,6 +88,8 @@ const emptyForm = () => ({
   fechaPago: "",
   estado: "Activa",
   notas: "",
+  color: "azul",
+  marca: "Visa",
 });
 
 function toEditForm(t) {
@@ -34,6 +104,8 @@ function toEditForm(t) {
     fechaPago: t.fechaPago != null ? String(t.fechaPago) : "",
     estado: t.estado || "Activa",
     notas: t.notas || "",
+    color: t.color || "azul",
+    marca: t.marca || "Visa",
   };
 }
 
@@ -94,6 +166,8 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         fechaPago: parseInt(form.fechaPago, 10) || null,
         estado: form.estado,
         notas: form.notas.trim(),
+        color: form.color,
+        marca: form.marca,
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -124,6 +198,8 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         fechaPago: parseInt(editForm.fechaPago, 10) || null,
         estado: editForm.estado,
         notas: editForm.notas.trim(),
+        color: editForm.color,
+        marca: editForm.marca,
       });
       cancelEdit();
     } catch (err) {
@@ -193,6 +269,27 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
               onChange={(e) => setForm({ ...form, ultimos4: e.target.value.replace(/\D/g, "") })}
               style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
             />
+          </div>
+
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <select
+              value={form.color}
+              onChange={(e) => setForm({ ...form, color: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              {Object.entries(COLORES).map(([key, c]) => (
+                <option key={key} value={key}>{c.label}</option>
+              ))}
+            </select>
+            <select
+              value={form.marca}
+              onChange={(e) => setForm({ ...form, marca: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              {MARCAS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
           </div>
 
           <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
@@ -321,6 +418,26 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                       style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                     />
                   </div>
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <select
+                      value={editForm.color}
+                      onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      {Object.entries(COLORES).map(([key, c]) => (
+                        <option key={key} value={key}>{c.label}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={editForm.marca}
+                      onChange={(e) => setEditForm({ ...editForm, marca: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      {MARCAS.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <input
                       className="despensa-mono"
@@ -406,34 +523,33 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                 </div>
               ) : (
                 <>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <CreditCard size={14} style={{ color: "var(--ink-soft)" }} />
+                  <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 12 }}>
+                    <CardVisual tarjeta={t} />
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 14, fontWeight: 500 }}>{t.nombre}</span>
-                        {t.ultimos4 && <span className="despensa-mono" style={{ fontSize: 12, color: "var(--ink-soft)" }}>····{t.ultimos4}</span>}
                         <EstadoBadge estado={t.estado} onChange={(estado) => updateTarjetaEstado(t.id, estado)} />
                       </div>
                       <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
                         <Landmark size={11} />
                         {t.entidadName || "Entidad no especificada"}
                       </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                      <button
-                        onClick={() => startEdit(t)}
-                        title="Editar tarjeta"
-                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--ink-soft)", border: "none", borderRadius: 6, cursor: "pointer" }}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => deleteTarjeta(t.id)}
-                        title="Eliminar tarjeta"
-                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                        <button
+                          onClick={() => startEdit(t)}
+                          title="Editar tarjeta"
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "var(--paper)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => deleteTarjeta(t.id)}
+                          title="Eliminar tarjeta"
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "var(--paper)", color: "var(--stamp)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
