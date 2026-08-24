@@ -8,3 +8,11 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <App />
   </React.StrictMode>
 );
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/Finance/sw.js").catch(() => {
+      // si falla el registro, la app sigue funcionando normal, solo sin caché offline
+    });
+  });
+}

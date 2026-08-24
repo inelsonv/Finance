@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
@@ -113,6 +113,13 @@ export default function App() {
   const toggleSidebar = () => setSidebarCollapsed((c) => !c);
 
   useEffect(() => {
+    getRedirectResult(auth).catch((err) => {
+      try {
+        sessionStorage.setItem("smart-finance-auth-error", err.message || String(err));
+      } catch (e) {
+        // sessionStorage no disponible, el error simplemente no se muestra
+      }
+    });
     const unsub = onAuthStateChanged(auth, (user) => setAuthUser(user));
     return () => unsub();
   }, []);

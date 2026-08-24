@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { signInWithPopup, signOut } from "firebase/auth";
+import React, { useEffect, useState } from "react";
+import { signInWithRedirect, signOut } from "firebase/auth";
 import { LogIn, LogOut, ShieldAlert, Wallet } from "lucide-react";
 import { auth, googleProvider, ALLOWED_EMAIL } from "../firebase";
 
@@ -7,14 +7,25 @@ export function LoginScreen() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    try {
+      const savedError = sessionStorage.getItem("smart-finance-auth-error");
+      if (savedError) {
+        setError(savedError);
+        sessionStorage.removeItem("smart-finance-auth-error");
+      }
+    } catch (e) {
+      // sessionStorage no disponible, seguimos sin mostrar error previo
+    }
+  }, []);
+
   const handleLogin = async () => {
     setLoading(true);
     setError(null);
     try {
-      await signInWithPopup(auth, googleProvider);
+      await signInWithRedirect(auth, googleProvider);
     } catch (err) {
       setError(err.message || String(err));
-    } finally {
       setLoading(false);
     }
   };

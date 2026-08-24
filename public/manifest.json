@@ -1,0 +1,25 @@
+{
+  "name": "Smart Finance",
+  "short_name": "Smart Finance",
+  "description": "Gestión de finanzas personales: presupuesto, movimientos, préstamos, tarjetas y más.",
+  "start_url": "/Finance/",
+  "scope": "/Finance/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f6f1e4",
+  "theme_color": "#5b7a5b",
+  "icons": [
+    {
+      "src": "/Finance/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/Finance/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
