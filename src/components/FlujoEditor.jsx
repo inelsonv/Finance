@@ -11,11 +11,40 @@ import ReactFlow, {
   MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Plus, Save, Trash2, RotateCcw, Check, X } from "lucide-react";
+import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt } from "lucide-react";
 import { saveFlujo } from "../lib/db";
 
 const PALETTE = ["#5b7a5b", "#a23e2e", "#b8892b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a"];
 const FRECUENCIA_FACTOR = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1 / 12, Único: 0 };
+
+const ICONOS = {
+  trendingUp: TrendingUp,
+  piggyBank: PiggyBank,
+  lineChart: LineChart,
+  landmark: Landmark,
+  creditCard: CreditCard,
+  ticket: Ticket,
+  zap: Zap,
+  home: Home,
+  shoppingBag: ShoppingBag,
+  utensils: Utensils,
+  car: Car,
+  fuel: Fuel,
+  heartPulse: HeartPulse,
+  film: Film,
+  briefcase: Briefcase,
+  wallet: Wallet,
+  coins: Coins,
+  receipt: Receipt,
+  dollarSign: DollarSign,
+};
+
+const ICONO_DEFAULT = "dollarSign";
+
+function IconoNodo({ nombre, size = 13 }) {
+  const Icon = ICONOS[nombre] || ICONOS[ICONO_DEFAULT];
+  return <Icon size={size} />;
+}
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -46,7 +75,12 @@ function ActivityFlowNode({ data }) {
       }}
     >
       <Handle type="target" position={Position.Left} style={{ background: color }} />
-      <div style={{ fontSize: 12.5, fontWeight: 600 }}>{data.label}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ color, display: "flex" }}>
+          <IconoNodo nombre={data.icon} />
+        </span>
+        <span style={{ fontSize: 12.5, fontWeight: 600 }}>{data.label}</span>
+      </div>
       <div className="despensa-mono" style={{ fontSize: 11, color, fontWeight: 600, marginTop: 2 }}>
         {data.amount != null ? formatMoney(data.amount) : "Sin monto"}
       </div>
@@ -59,10 +93,10 @@ const nodeTypes = { activity: ActivityFlowNode };
 
 function defaultNodes() {
   return [
-    { id: "n1", type: "activity", position: { x: 40, y: 140 }, data: { label: "Ingreso", amount: null, color: PALETTE[0], role: "ingreso" } },
-    { id: "n2", type: "activity", position: { x: 340, y: 20 }, data: { label: "Ahorro", amount: null, color: PALETTE[3] } },
-    { id: "n3", type: "activity", position: { x: 340, y: 140 }, data: { label: "Gastos fijos", amount: null, color: PALETTE[1] } },
-    { id: "n4", type: "activity", position: { x: 340, y: 260 }, data: { label: "Gastos variables", amount: null, color: PALETTE[2] } },
+    { id: "n1", type: "activity", position: { x: 40, y: 140 }, data: { label: "Ingreso", amount: null, color: PALETTE[0], role: "ingreso", icon: "trendingUp" } },
+    { id: "n2", type: "activity", position: { x: 340, y: 20 }, data: { label: "Ahorro", amount: null, color: PALETTE[3], icon: "piggyBank" } },
+    { id: "n3", type: "activity", position: { x: 340, y: 140 }, data: { label: "Gastos fijos", amount: null, color: PALETTE[1], icon: "receipt" } },
+    { id: "n4", type: "activity", position: { x: 340, y: 260 }, data: { label: "Gastos variables", amount: null, color: PALETTE[2], icon: "shoppingBag" } },
   ];
 }
 
@@ -97,6 +131,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
   const [editingId, setEditingId] = useState(null);
   const [editLabel, setEditLabel] = useState("");
   const [editAmount, setEditAmount] = useState("");
+  const [editIcon, setEditIcon] = useState(ICONO_DEFAULT);
   const loadedOnce = useRef(false);
 
   const ingresoSugerido = useMemo(() => ingresoMensualCalculado(fuentesIngreso), [fuentesIngreso]);
@@ -142,25 +177,28 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
         id,
         type: "activity",
         position: { x: 120 + (nds.length % 4) * 60, y: 60 + Math.floor(nds.length / 4) * 100 },
-        data: { label: label.trim(), amount: null, color },
+        data: { label: label.trim(), amount: null, color, icon: ICONO_DEFAULT },
       },
     ]);
     setDirty(true);
     setEditingId(id);
     setEditLabel(label.trim());
     setEditAmount("");
+    setEditIcon(ICONO_DEFAULT);
   };
 
   const openEdit = (node) => {
     setEditingId(node.id);
     setEditLabel(node.data.label);
     setEditAmount(node.data.amount != null ? String(node.data.amount) : "");
+    setEditIcon(node.data.icon || ICONO_DEFAULT);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditLabel("");
     setEditAmount("");
+    setEditIcon(ICONO_DEFAULT);
   };
 
   const applyEdit = () => {
@@ -168,7 +206,15 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     setNodes((nds) =>
       nds.map((n) =>
         n.id === editingId
-          ? { ...n, data: { ...n.data, label: editLabel.trim() || n.data.label, amount: Number.isFinite(num) && editAmount !== "" ? num : null } }
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                label: editLabel.trim() || n.data.label,
+                amount: Number.isFinite(num) && editAmount !== "" ? num : null,
+                icon: editIcon,
+              },
+            }
           : n
       )
     );
@@ -252,35 +298,65 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
       </div>
 
       {editingId && (
-        <div style={{ background: "var(--card)", border: "1px solid var(--stamp)", borderRadius: 10, padding: 12, marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-          <input
-            value={editLabel}
-            onChange={(e) => setEditLabel(e.target.value)}
-            placeholder="Nombre"
-            style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, flex: "1 1 140px" }}
-          />
-          <input
-            className="despensa-mono"
-            type="number"
-            step="0.01"
-            min="0"
-            value={editAmount}
-            onChange={(e) => setEditAmount(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && applyEdit()}
-            placeholder="Monto"
-            style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, width: 120 }}
-          />
-          {isIngresoNode && ingresoSugerido > 0 && (
-            <button onClick={useIngresoSugerido} style={btnStyle("var(--sage-bg)", "var(--sage)", false, false)}>
-              Usar ingreso mensual: {formatMoney(ingresoSugerido)}
+        <div style={{ background: "var(--card)", border: "1px solid var(--stamp)", borderRadius: 10, padding: 12, marginBottom: 10 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 10 }}>
+            <input
+              value={editLabel}
+              onChange={(e) => setEditLabel(e.target.value)}
+              placeholder="Nombre"
+              style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, flex: "1 1 140px" }}
+            />
+            <input
+              className="despensa-mono"
+              type="number"
+              step="0.01"
+              min="0"
+              value={editAmount}
+              onChange={(e) => setEditAmount(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyEdit()}
+              placeholder="Monto"
+              style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, width: 120 }}
+            />
+            {isIngresoNode && ingresoSugerido > 0 && (
+              <button onClick={useIngresoSugerido} style={btnStyle("var(--sage-bg)", "var(--sage)", false, false)}>
+                Usar ingreso mensual: {formatMoney(ingresoSugerido)}
+              </button>
+            )}
+          </div>
+
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Ícono</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+            {Object.keys(ICONOS).map((key) => (
+              <button
+                key={key}
+                onClick={() => setEditIcon(key)}
+                title={key}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 30,
+                  height: 30,
+                  borderRadius: 7,
+                  border: editIcon === key ? "2px solid var(--sage)" : "1px solid var(--line)",
+                  background: editIcon === key ? "var(--sage-bg)" : "var(--card)",
+                  color: editIcon === key ? "var(--sage)" : "var(--ink-soft)",
+                  cursor: "pointer",
+                }}
+              >
+                <IconoNodo nombre={key} size={14} />
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={applyEdit} style={btnStyle("var(--sage)", "#fff")}>
+              <Check size={14} /> Aplicar
             </button>
-          )}
-          <button onClick={applyEdit} style={btnStyle("var(--sage)", "#fff")}>
-            <Check size={14} /> Aplicar
-          </button>
-          <button onClick={cancelEdit} style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}>
-            <X size={14} /> Cancelar
-          </button>
+            <button onClick={cancelEdit} style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}>
+              <X size={14} /> Cancelar
+            </button>
+          </div>
         </div>
       )}
 
