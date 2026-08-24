@@ -19,7 +19,6 @@ import {
   Home,
   Zap,
   LineChart,
-  LogOut,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -48,7 +47,7 @@ const NAV_ITEMS = [
   { id: "contratos", label: "Contratos", icon: Zap },
 ];
 
-export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed, onSignOut, userEmail }) {
+export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {
   const [expandedId, setExpandedId] = useState(null);
   const badgeCounts = { lista: listCount, prestamos: prestamosActivosCount };
 
@@ -207,22 +206,6 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
           );
         })}
       </div>
-
-      {!collapsed && userEmail && (
-        <div style={{ fontSize: 10, color: "var(--ink-soft)", padding: "8px 4px 4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={userEmail}>
-          {userEmail}
-        </div>
-      )}
-      <button
-        onClick={() => {
-          if (window.confirm("¿Cerrar sesión?")) onSignOut();
-        }}
-        title="Cerrar sesión"
-        className="despensa-collapse-btn"
-      >
-        <LogOut size={16} />
-        {!collapsed && <span>Cerrar sesión</span>}
-      </button>
 
       <button
         onClick={onToggleCollapsed}

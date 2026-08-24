@@ -213,8 +213,6 @@ export default function App() {
         onToggleTheme={toggleTheme}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
-        onSignOut={() => signOut(auth)}
-        userEmail={authUser.email}
       />
       <main className="despensa-main">
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
