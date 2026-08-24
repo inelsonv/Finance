@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { signInWithRedirect, signOut } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { LogIn, LogOut, ShieldAlert, Wallet } from "lucide-react";
 import { auth, googleProvider, ALLOWED_EMAIL } from "../firebase";
 
@@ -23,9 +23,20 @@ export function LoginScreen() {
     setLoading(true);
     setError(null);
     try {
-      await signInWithRedirect(auth, googleProvider);
+      await signInWithPopup(auth, googleProvider);
     } catch (err) {
-      setError(err.message || String(err));
+      const fallbackCodes = ["auth/popup-blocked", "auth/operation-not-supported-in-this-environment"];
+      if (fallbackCodes.includes(err.code)) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (err2) {
+          setError(err2.message || String(err2));
+        }
+      } else if (err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request") {
+        setError(err.message || String(err));
+      }
+    } finally {
       setLoading(false);
     }
   };
