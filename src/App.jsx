@@ -231,6 +231,22 @@ export default function App() {
                 {entidades.length} entidad{entidades.length !== 1 ? "es" : ""} registrada{entidades.length !== 1 ? "s" : ""}
               </span>
             )}
+            {authUser.photoURL && (
+              <img
+                src={authUser.photoURL}
+                alt={authUser.displayName || authUser.email}
+                title={authUser.displayName || authUser.email}
+                referrerPolicy="no-referrer"
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  border: "1px solid var(--line)",
+                  objectFit: "cover",
+                  flexShrink: 0,
+                }}
+              />
+            )}
             <NotificationBell
               prestamos={prestamos}
               tarjetas={tarjetas}
