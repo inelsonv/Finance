@@ -76,7 +76,7 @@ function defaultEdges() {
 
 function edgeStyle(color) {
   return {
-    type: "straight",
+    type: "step",
     style: { stroke: color, strokeWidth: 2 },
     markerEnd: { type: MarkerType.ArrowClosed, color },
   };
@@ -105,7 +105,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     if (loadedOnce.current) return;
     if (flujo) {
       setNodes(flujo.nodes && flujo.nodes.length ? flujo.nodes : defaultNodes());
-      setEdges((flujo.edges || defaultEdges()).map((e) => ({ type: "straight", ...e })));
+      setEdges((flujo.edges || defaultEdges()).map((e) => ({ ...e, type: "step" })));
       loadedOnce.current = true;
     } else if (flujo === null) {
       loadedOnce.current = true;
