@@ -62,27 +62,51 @@ function ingresoMensualCalculado(fuentesIngreso) {
 
 function ActivityFlowNode({ data }) {
   const color = data.color || "#5b7a5b";
+  const esIngreso = data.tipo === "ingreso";
   return (
     <div
       style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
         background: "var(--card)",
         color: "var(--ink)",
         border: `2px solid ${color}`,
-        borderRadius: 8,
-        padding: "8px 14px",
+        borderRadius: 10,
+        padding: "8px 12px",
         fontFamily: "Inter, sans-serif",
-        minWidth: 130,
+        minWidth: 150,
       }}
     >
       <Handle type="target" position={Position.Left} style={{ background: color }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ color, display: "flex" }}>
-          <IconoNodo nombre={data.icon} />
-        </span>
-        <span style={{ fontSize: 12.5, fontWeight: 600 }}>{data.label}</span>
+      <div
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: "50%",
+          background: color,
+          opacity: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          color: "#fff",
+        }}
+      >
+        <IconoNodo nombre={data.icon} size={16} />
       </div>
-      <div className="despensa-mono" style={{ fontSize: 11, color, fontWeight: 600, marginTop: 2 }}>
-        {data.amount != null ? formatMoney(data.amount) : "Sin monto"}
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>{data.label}</div>
+        {esIngreso && (
+          <div className="despensa-mono" style={{ fontSize: 11, color, fontWeight: 600, marginTop: 2 }}>
+            {data.amount != null ? formatMoney(data.amount) : "Sin monto"}
+          </div>
+        )}
+        {!esIngreso && data.amount != null && (
+          <div className="despensa-mono" style={{ fontSize: 11, color, fontWeight: 600, marginTop: 2 }}>
+            {formatMoney(data.amount)}
+          </div>
+        )}
       </div>
       <Handle type="source" position={Position.Right} style={{ background: color }} />
     </div>
@@ -93,10 +117,10 @@ const nodeTypes = { activity: ActivityFlowNode };
 
 function defaultNodes() {
   return [
-    { id: "n1", type: "activity", position: { x: 40, y: 140 }, data: { label: "Ingreso", amount: null, color: PALETTE[0], role: "ingreso", icon: "trendingUp" } },
-    { id: "n2", type: "activity", position: { x: 340, y: 20 }, data: { label: "Ahorro", amount: null, color: PALETTE[3], icon: "piggyBank" } },
-    { id: "n3", type: "activity", position: { x: 340, y: 140 }, data: { label: "Gastos fijos", amount: null, color: PALETTE[1], icon: "receipt" } },
-    { id: "n4", type: "activity", position: { x: 340, y: 260 }, data: { label: "Gastos variables", amount: null, color: PALETTE[2], icon: "shoppingBag" } },
+    { id: "n1", type: "activity", position: { x: 40, y: 200 }, data: { label: "Ingreso", amount: null, color: PALETTE[0], role: "ingreso", tipo: "ingreso", icon: "trendingUp" } },
+    { id: "n2", type: "activity", position: { x: 380, y: 40 }, data: { label: "Ahorro", amount: null, color: PALETTE[3], tipo: "categoria", icon: "piggyBank" } },
+    { id: "n3", type: "activity", position: { x: 380, y: 200 }, data: { label: "Gastos fijos", amount: null, color: PALETTE[1], tipo: "categoria", icon: "receipt" } },
+    { id: "n4", type: "activity", position: { x: 380, y: 360 }, data: { label: "Gastos variables", amount: null, color: PALETTE[2], tipo: "categoria", icon: "shoppingBag" } },
   ];
 }
 
@@ -132,6 +156,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
   const [editLabel, setEditLabel] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editIcon, setEditIcon] = useState(ICONO_DEFAULT);
+  const [editTipo, setEditTipo] = useState("categoria");
   const loadedOnce = useRef(false);
 
   const ingresoSugerido = useMemo(() => ingresoMensualCalculado(fuentesIngreso), [fuentesIngreso]);
@@ -177,7 +202,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
         id,
         type: "activity",
         position: { x: 120 + (nds.length % 4) * 60, y: 60 + Math.floor(nds.length / 4) * 100 },
-        data: { label: label.trim(), amount: null, color, icon: ICONO_DEFAULT },
+        data: { label: label.trim(), amount: null, color, icon: ICONO_DEFAULT, tipo: "categoria" },
       },
     ]);
     setDirty(true);
@@ -185,6 +210,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     setEditLabel(label.trim());
     setEditAmount("");
     setEditIcon(ICONO_DEFAULT);
+    setEditTipo("categoria");
   };
 
   const openEdit = (node) => {
@@ -192,6 +218,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     setEditLabel(node.data.label);
     setEditAmount(node.data.amount != null ? String(node.data.amount) : "");
     setEditIcon(node.data.icon || ICONO_DEFAULT);
+    setEditTipo(node.data.tipo || (node.data.role === "ingreso" ? "ingreso" : "categoria"));
   };
 
   const cancelEdit = () => {
@@ -199,6 +226,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     setEditLabel("");
     setEditAmount("");
     setEditIcon(ICONO_DEFAULT);
+    setEditTipo("categoria");
   };
 
   const applyEdit = () => {
@@ -213,6 +241,8 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
                 label: editLabel.trim() || n.data.label,
                 amount: Number.isFinite(num) && editAmount !== "" ? num : null,
                 icon: editIcon,
+                tipo: editTipo,
+                role: editTipo === "ingreso" ? "ingreso" : undefined,
               },
             }
           : n
@@ -251,18 +281,17 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
   };
 
   const resumen = useMemo(() => {
-    const ingresoNode = nodes.find((n) => n.data.role === "ingreso");
-    const ingresoMonto = ingresoNode?.data.amount ?? 0;
+    const esIngresoNodo = (n) => n.data.tipo === "ingreso" || n.data.role === "ingreso";
+    let ingresoMonto = 0;
     let asignado = 0;
     for (const n of nodes) {
-      if (n.data.role === "ingreso") continue;
-      asignado += Number(n.data.amount) || 0;
+      if (esIngresoNodo(n)) ingresoMonto += Number(n.data.amount) || 0;
+      else asignado += Number(n.data.amount) || 0;
     }
     return { ingresoMonto, asignado, restante: ingresoMonto - asignado };
   }, [nodes]);
 
-  const editingNode = nodes.find((n) => n.id === editingId);
-  const isIngresoNode = editingNode?.data.role === "ingreso";
+  const isIngresoNode = editTipo === "ingreso";
 
   return (
     <div>
@@ -299,6 +328,41 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
 
       {editingId && (
         <div style={{ background: "var(--card)", border: "1px solid var(--stamp)", borderRadius: 10, padding: 12, marginBottom: 10 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            <button
+              onClick={() => setEditTipo("ingreso")}
+              style={{
+                flex: 1,
+                padding: "7px 8px",
+                fontSize: 12.5,
+                fontWeight: 500,
+                borderRadius: 7,
+                border: "1px solid var(--line)",
+                background: editTipo === "ingreso" ? "var(--sage-bg)" : "var(--card)",
+                color: editTipo === "ingreso" ? "var(--sage)" : "var(--ink-soft)",
+                cursor: "pointer",
+              }}
+            >
+              Nodo de Ingreso
+            </button>
+            <button
+              onClick={() => setEditTipo("categoria")}
+              style={{
+                flex: 1,
+                padding: "7px 8px",
+                fontSize: 12.5,
+                fontWeight: 500,
+                borderRadius: 7,
+                border: "1px solid var(--line)",
+                background: editTipo === "categoria" ? "var(--sage-bg)" : "var(--card)",
+                color: editTipo === "categoria" ? "var(--sage)" : "var(--ink-soft)",
+                cursor: "pointer",
+              }}
+            >
+              Categoría / destino
+            </button>
+          </div>
+
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 10 }}>
             <input
               value={editLabel}
@@ -314,8 +378,8 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
               value={editAmount}
               onChange={(e) => setEditAmount(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && applyEdit()}
-              placeholder="Monto"
-              style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, width: 120 }}
+              placeholder={isIngresoNode ? "Monto de ingreso" : "Monto (opcional)"}
+              style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, width: 140 }}
             />
             {isIngresoNode && ingresoSugerido > 0 && (
               <button onClick={useIngresoSugerido} style={btnStyle("var(--sage-bg)", "var(--sage)", false, false)}>
@@ -360,7 +424,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
         </div>
       )}
 
-      <div style={{ height: 460, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
+      <div style={{ height: 680, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
