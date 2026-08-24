@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
+import AccountMenu from "./components/AccountMenu.jsx";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
@@ -231,22 +232,6 @@ export default function App() {
                 {entidades.length} entidad{entidades.length !== 1 ? "es" : ""} registrada{entidades.length !== 1 ? "s" : ""}
               </span>
             )}
-            {authUser.photoURL && (
-              <img
-                src={authUser.photoURL}
-                alt={authUser.displayName || authUser.email}
-                title={authUser.displayName || authUser.email}
-                referrerPolicy="no-referrer"
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: "50%",
-                  border: "1px solid var(--line)",
-                  objectFit: "cover",
-                  flexShrink: 0,
-                }}
-              />
-            )}
             <NotificationBell
               prestamos={prestamos}
               tarjetas={tarjetas}
@@ -258,6 +243,7 @@ export default function App() {
               fuentesIngreso={fuentesIngreso}
               onNavigate={setTab}
             />
+            <AccountMenu user={authUser} onSignOut={() => signOut(auth)} />
           </div>
         </div>
 
