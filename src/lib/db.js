@@ -634,3 +634,15 @@ export function watchNotifConfig(onChange, onError) {
 export async function saveNotifConfig(email) {
   await setDoc(doc(db, "config", "notificaciones"), { email });
 }
+
+export function watchCombustibleConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "combustible"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveCombustibleConfig(precios) {
+  await setDoc(doc(db, "config", "combustible"), { precios, updatedAt: serverTimestamp() });
+}

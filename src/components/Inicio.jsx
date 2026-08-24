@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank } from "lucide-react";
-import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig } from "../lib/db";
+import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchCombustibleConfig, saveCombustibleConfig } from "../lib/db";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;

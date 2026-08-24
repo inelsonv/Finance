@@ -76,6 +76,7 @@ function defaultEdges() {
 
 function edgeStyle(color) {
   return {
+    type: "straight",
     style: { stroke: color, strokeWidth: 2 },
     markerEnd: { type: MarkerType.ArrowClosed, color },
   };
@@ -104,7 +105,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     if (loadedOnce.current) return;
     if (flujo) {
       setNodes(flujo.nodes && flujo.nodes.length ? flujo.nodes : defaultNodes());
-      setEdges(flujo.edges || defaultEdges());
+      setEdges((flujo.edges || defaultEdges()).map((e) => ({ type: "straight", ...e })));
       loadedOnce.current = true;
     } else if (flujo === null) {
       loadedOnce.current = true;
@@ -195,7 +196,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     setSaving(true);
     try {
       const cleanNodes = nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data }));
-      const cleanEdges = edges.map((e) => ({ id: e.id, source: e.source, target: e.target, style: e.style, markerEnd: e.markerEnd }));
+      const cleanEdges = edges.map((e) => ({ id: e.id, source: e.source, target: e.target, type: e.type || "straight", style: e.style, markerEnd: e.markerEnd }));
       await saveFlujo(cleanNodes, cleanEdges);
       setDirty(false);
     } finally {
