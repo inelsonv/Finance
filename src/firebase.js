@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
 // Config de Firebase del proyecto "Finance". No es información sensible:
@@ -18,4 +19,8 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+
+export const ALLOWED_EMAIL = "iventuramena@gmail.com";
 export const storage = getStorage(app);

@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad } from "./lib/db";
+import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import Catalogo from "./components/Catalogo.jsx";
 import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
@@ -65,6 +68,7 @@ function getInitialCollapsed() {
 }
 
 export default function App() {
+  const [authUser, setAuthUser] = useState(undefined); // undefined = cargando, null = sin sesión
   const [tab, setTab] = useState("inicio");
   const [products, setProducts] = useState([]);
   const [list, setList] = useState([]);
@@ -108,6 +112,14 @@ export default function App() {
   const toggleSidebar = () => setSidebarCollapsed((c) => !c);
 
   useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => setAuthUser(user));
+    return () => unsub();
+  }, []);
+
+  const authorized = authUser && authUser.email === ALLOWED_EMAIL;
+
+  useEffect(() => {
+    if (!authorized) return;
     const handleError = (err) => {
       setError(err.message || String(err));
       setLoading(false);
@@ -147,7 +159,23 @@ export default function App() {
       unsubFlujo();
       unsubStatus();
     };
-  }, []);
+  }, [authorized]);
+
+  if (authUser === undefined) {
+    return (
+      <div style={{ padding: "3rem 1rem", textAlign: "center", color: "var(--ink-soft)" }}>
+        Verificando sesión…
+      </div>
+    );
+  }
+
+  if (authUser === null) {
+    return <LoginScreen />;
+  }
+
+  if (!authorized) {
+    return <AccessDeniedScreen user={authUser} />;
+  }
 
   if (loading) {
     return (
@@ -184,6 +212,8 @@ export default function App() {
         onToggleTheme={toggleTheme}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
+        onSignOut={() => signOut(auth)}
+        userEmail={authUser.email}
       />
       <main className="despensa-main">
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>

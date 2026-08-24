@@ -1,63 +1,61 @@
 rules_version = '2';
 
-// ATENCIÓN: reglas abiertas solo para desarrollo/pruebas.
-// Cualquiera con tu configuración de Firebase puede leer y escribir estos datos.
-// Antes de usar la app con datos reales o compartir el proyecto, agrega
-// autenticación y reemplaza estas reglas por algo como:
-//
-// match /productos/{doc} {
-//   allow read, write: if request.auth != null;
-// }
+// Solo la cuenta de Google iventuramena@gmail.com puede leer o escribir
+// cualquier dato de esta app. Todas las demás peticiones se rechazan.
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function esPropietario() {
+      return request.auth != null && request.auth.token.email == "iventuramena@gmail.com";
+    }
+
     match /productos/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /listaCompra/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /entidades/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /movimientos/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /prestamos/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /cuentas/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /tarjetas/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /membresias/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /fuentesIngreso/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /categoriasGasto/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /presupuestos/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /contratos/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /flujo/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /acciones/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /config/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
     match /tiposEntidad/{doc} {
-      allow read, write: if true;
+      allow read, write: if esPropietario();
     }
   }
 }
