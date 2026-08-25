@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank } from "lucide-react";
-import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchCombustibleConfig, saveCombustibleConfig } from "../lib/db";
+import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig } from "../lib/db";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -304,6 +304,7 @@ function DolarCard() {
 function StocksCard() {
   const [acciones, setAcciones] = useState([]);
   const [config, setConfig] = useState(undefined);
+  const [cache, setCache] = useState(undefined);
   const [prices, setPrices] = useState({});
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
@@ -311,13 +312,16 @@ function StocksCard() {
   const [newSymbol, setNewSymbol] = useState("");
   const [newNombre, setNewNombre] = useState("");
   const [addError, setAddError] = useState(null);
+  const [updatedAt, setUpdatedAt] = useState(null);
 
   useEffect(() => {
     const unsubA = watchAcciones(setAcciones, () => {});
     const unsubC = watchAccionesConfig(setConfig, () => {});
+    const unsubP = watchAccionesPrecios(setCache, () => {});
     return () => {
       unsubA();
       unsubC();
+      unsubP();
     };
   }, []);
 
@@ -339,16 +343,40 @@ function StocksCard() {
           }
         })
       );
-      setPrices(Object.fromEntries(results));
+      const nuevosPrecios = Object.fromEntries(results);
+      setPrices(nuevosPrecios);
+      setUpdatedAt(new Date());
+      const symbolsOrdenados = acciones.map((a) => a.symbol).sort();
+      saveAccionesPrecios(nuevosPrecios, symbolsOrdenados);
     } finally {
       setLoadingPrices(false);
     }
   };
 
+  // Al cargar la caché de Firestore, la usamos directo sin volver a llamar la API.
+  // Solo se consulta la API de nuevo si la lista de símbolos cambió (agregaste/quitaste
+  // una empresa) o si el usuario le da clic manual a "Actualizar".
+  const symbolsKey = acciones.map((a) => a.symbol).sort().join(",");
+
   useEffect(() => {
-    if (apiKey && acciones.length > 0) fetchPrices();
+    if (cache === undefined) return; // aún cargando
+    const symbolsActuales = acciones.map((a) => a.symbol).sort();
+    if (cache && cache.prices) {
+      const symbolsCacheados = cache.symbols || [];
+      const mismosSimbolos =
+        symbolsActuales.length === symbolsCacheados.length &&
+        symbolsActuales.every((s, i) => s === symbolsCacheados[i]);
+      setPrices(cache.prices);
+      if (cache.fetchedAt?.toDate) setUpdatedAt(cache.fetchedAt.toDate());
+      if (!mismosSimbolos && apiKey && acciones.length > 0) {
+        fetchPrices();
+      }
+    } else if (apiKey && acciones.length > 0) {
+      fetchPrices();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiKey, acciones.length]);
+  }, [cache, apiKey, symbolsKey]);
+
 
   const handleSaveKey = async () => {
     if (!apiKeyInput.trim()) return;
@@ -374,6 +402,11 @@ function StocksCard() {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <LineChart size={16} style={{ color: "var(--ink-soft)" }} />
           <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Acciones</span>
+          {updatedAt && (
+            <span style={{ fontSize: 10, color: "var(--ink-soft)" }}>
+              · actualizado {updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           {apiKey && acciones.length > 0 && (

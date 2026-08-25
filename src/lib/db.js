@@ -625,6 +625,22 @@ export async function saveAccionesConfig(apiKey) {
   await setDoc(doc(db, "config", "acciones"), { apiKey });
 }
 
+export function watchAccionesPrecios(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "accionesPrecios"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveAccionesPrecios(prices, symbols) {
+  await setDoc(doc(db, "config", "accionesPrecios"), {
+    prices,
+    symbols,
+    fetchedAt: serverTimestamp(),
+  });
+}
+
 export function watchNotifConfig(onChange, onError) {
   return onSnapshot(
     doc(db, "config", "notificaciones"),
