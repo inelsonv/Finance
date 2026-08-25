@@ -203,8 +203,31 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
   const [emailConfig, setEmailConfig] = useState(undefined);
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
+  const [leidas, setLeidas] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("smart-finance-notif-leidas") || "[]"));
+    } catch (e) {
+      return new Set();
+    }
+  });
   const ref = useRef(null);
   const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear });
+
+  const firma = (n) => `${n.id}:${n.dias}`;
+  const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));
+
+  const marcarLeida = (n) => {
+    setLeidas((prev) => {
+      const nuevo = new Set(prev);
+      nuevo.add(firma(n));
+      try {
+        localStorage.setItem("smart-finance-notif-leidas", JSON.stringify([...nuevo]));
+      } catch (e) {
+        // localStorage no disponible, la marca solo dura esta sesión
+      }
+      return nuevo;
+    });
+  };
 
   useEffect(() => {
     const unsub = watchNotifConfig(setEmailConfig, () => {});
@@ -260,7 +283,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
         }}
       >
         <Bell size={16} />
-        {notificaciones.length > 0 && (
+        {noLeidas.length > 0 && (
           <span
             className="despensa-mono"
             style={{
@@ -280,7 +303,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
               justifyContent: "center",
             }}
           >
-            {notificaciones.length}
+            {noLeidas.length}
           </span>
         )}
       </button>
@@ -349,17 +372,20 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
             notificaciones.map((n) => {
               const Icon = n.icon;
               const etiqueta = etiquetaDias(n.dias);
+              const yaLeida = leidas.has(firma(n));
               return (
                 <div
                   key={n.id}
                   role="button"
                   tabIndex={0}
                   onClick={() => {
+                    marcarLeida(n);
                     onNavigate(n.tab);
                     setOpen(false);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
+                      marcarLeida(n);
                       onNavigate(n.tab);
                       setOpen(false);
                     }
@@ -375,6 +401,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
                     borderTop: "1px solid var(--line-soft)",
                     cursor: "pointer",
                     textAlign: "left",
+                    opacity: yaLeida ? 0.5 : 1,
                   }}
                 >
                   <div
