@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check } from "lucide-react";
+import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle } from "lucide-react";
 import { addMovimiento, deleteMovimiento } from "../lib/db";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
 import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
+import { quincenaDeFecha, consumoPresupuesto } from "../lib/presupuestoConsumo";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
 const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
@@ -47,7 +48,7 @@ const emptyForm = () => ({
   contratoId: "",
 });
 
-export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas, membresias, fuentesIngreso, categoriasGasto, contratos }) {
+export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas, membresias, fuentesIngreso, categoriasGasto, contratos, presupuesto, presupuestoYear }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -55,10 +56,26 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const [expresCategory, setExpresCategory] = useState(null);
   const [expresAmount, setExpresAmount] = useState("");
   const [expresSaving, setExpresSaving] = useState(false);
+  const [alertaPresupuesto, setAlertaPresupuesto] = useState(null);
 
   const openExpres = (category) => {
     setExpresCategory(category);
     setExpresAmount("");
+  };
+
+  const checkPresupuesto = (category, dateStr, amount) => {
+    if (!presupuesto || !presupuestoYear) return;
+    const q = quincenaDeFecha(dateStr);
+    if (!q || q.year !== presupuestoYear) return;
+    const resultado = consumoPresupuesto({ presupuesto, movimientos, categoria: category, year: q.year, month: q.month, quincena: q.quincena });
+    if (!resultado) return;
+    const gastadoConNuevo = resultado.gastado + amount;
+    const pct = (gastadoConNuevo / resultado.presupuestado) * 100;
+    if (pct >= 50) {
+      setAlertaPresupuesto({ categoria: category, pct, critico: pct >= 90 });
+    } else {
+      setAlertaPresupuesto(null);
+    }
   };
 
   const cancelExpres = () => {
@@ -79,6 +96,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         date: todayStr(),
         clasificacion: "Variable",
       });
+      checkPresupuesto(expresCategory, todayStr(), amount);
       cancelExpres();
     } finally {
       setExpresSaving(false);
@@ -262,6 +280,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         }
       }
 
+      if (form.tipo === "Gasto") {
+        checkPresupuesto(form.category, form.date, amount);
+      }
+
       setForm(emptyForm());
       setShowForm(false);
     } catch (err) {
@@ -273,6 +295,34 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
 
   return (
     <div>
+      {alertaPresupuesto && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            background: alertaPresupuesto.critico ? "var(--stamp-bg)" : "var(--amber-bg)",
+            border: `1px solid ${alertaPresupuesto.critico ? "var(--stamp)" : "var(--amber)"}`,
+            borderRadius: 10,
+            padding: "10px 12px",
+            marginBottom: 16,
+          }}
+        >
+          <AlertTriangle size={16} style={{ color: alertaPresupuesto.critico ? "var(--stamp)" : "var(--amber)", flexShrink: 0 }} />
+          <div style={{ flex: 1, fontSize: 12.5, color: alertaPresupuesto.critico ? "var(--stamp)" : "var(--amber)" }}>
+            {alertaPresupuesto.critico ? "¡Presupuesto casi agotado! " : "Vas por la mitad del presupuesto: "}
+            <strong>{alertaPresupuesto.categoria}</strong> ya lleva{" "}
+            <strong>{Math.round(alertaPresupuesto.pct)}%</strong> de lo presupuestado para esta quincena.
+          </div>
+          <button
+            onClick={() => setAlertaPresupuesto(null)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, background: "transparent", color: alertaPresupuesto.critico ? "var(--stamp)" : "var(--amber)", border: "none", cursor: "pointer", flexShrink: 0 }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       <div style={{ marginBottom: 16 }}>
         <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 8 }}>
           Pago exprés

@@ -263,6 +263,8 @@ export default function App() {
                 entidades={entidades}
                 fuentesIngreso={fuentesIngreso}
                 eventos={eventos}
+                presupuesto={presupuestoAnual}
+                presupuestoYear={currentYear}
                 onNavigate={setTab}
               />
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} />
@@ -307,7 +309,21 @@ export default function App() {
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} tiposPersonalizados={tiposEntidad} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
-        {tab === "movimientos" && <Movimientos movimientos={movimientos} entidades={entidades} prestamos={prestamos} cuentas={cuentas} tarjetas={tarjetas} membresias={membresias} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} contratos={contratos} />}
+        {tab === "movimientos" && (
+          <Movimientos
+            movimientos={movimientos}
+            entidades={entidades}
+            prestamos={prestamos}
+            cuentas={cuentas}
+            tarjetas={tarjetas}
+            membresias={membresias}
+            fuentesIngreso={fuentesIngreso}
+            categoriasGasto={categoriasGasto}
+            contratos={contratos}
+            presupuesto={presupuestoAnual}
+            presupuestoYear={currentYear}
+          />
+        )}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} />}
         {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
         {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} />}

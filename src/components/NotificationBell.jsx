@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
+import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { diasRestantesProducto } from "../lib/inventario";
 
 const UMBRAL_DIAS = 7;
@@ -35,7 +36,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso }) {
+function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -163,8 +164,30 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
       }
     }
 
+    if (presupuesto && presupuestoYear) {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = today.getMonth() + 1;
+      const quincena = today.getDate() <= 15 ? "Q1" : "Q2";
+      if (year === presupuestoYear) {
+        for (const categoria of Object.keys(presupuesto)) {
+          const resultado = consumoPresupuesto({ presupuesto, movimientos, categoria, year, month, quincena });
+          if (!resultado || resultado.pct < 50) continue;
+          const critico = resultado.pct >= 90;
+          list.push({
+            id: `presupuesto-${categoria}`,
+            icon: critico ? AlertCircle : Wallet,
+            titulo: `${categoria}: ${Math.round(resultado.pct)}% del presupuesto usado`,
+            subtitulo: critico ? "¡Crítico! Ya casi se agota esta quincena" : "Vas por la mitad o más de lo presupuestado",
+            dias: critico ? -1 : 0,
+            tab: "presupuesto-mensual",
+          });
+        }
+      }
+    }
+
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear]);
 }
 
 function etiquetaDias(dias) {
@@ -174,14 +197,14 @@ function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, onNavigate }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, onNavigate }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear });
 
   useEffect(() => {
     const unsub = watchNotifConfig(setEmailConfig, () => {});
