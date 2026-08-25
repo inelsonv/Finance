@@ -7,7 +7,7 @@ import { quincenaDeFecha, consumoPresupuesto } from "../lib/presupuestoConsumo";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
 const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
-const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo", "Pago de tarjeta", "Pago de membresía", "Pago de servicio", ...CUENTA_MOVIMIENTO_TIPOS];
+const TIPOS = ["Ingreso", "Gasto", "Pago de préstamo", "Pago de tarjeta", "Compra con tarjeta", "Pago de membresía", "Pago de servicio", ...CUENTA_MOVIMIENTO_TIPOS];
 
 const PAGO_EXPRES = [
   { category: "Combustible", icon: Fuel },
@@ -195,6 +195,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       setFormError("Selecciona la tarjeta que estás pagando");
       return;
     }
+    if (form.tipo === "Compra con tarjeta" && !form.tarjetaId) {
+      setFormError("Selecciona la tarjeta con la que compraste");
+      return;
+    }
     if (form.tipo === "Pago de membresía" && !form.membresiaId) {
       setFormError("Selecciona la membresía que estás pagando");
       return;
@@ -222,6 +226,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         category:
           form.tipo === "Pago de préstamo" ||
           form.tipo === "Pago de tarjeta" ||
+          form.tipo === "Compra con tarjeta" ||
           form.tipo === "Pago de membresía" ||
           form.tipo === "Pago de servicio" ||
           isCuentaTipo
@@ -234,7 +239,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         entidadId:
           form.tipo === "Pago de préstamo"
             ? prestamo?.entidadId || ""
-            : form.tipo === "Pago de tarjeta"
+            : form.tipo === "Pago de tarjeta" || form.tipo === "Compra con tarjeta"
             ? tarjeta?.entidadId || ""
             : form.tipo === "Pago de membresía"
             ? membresia?.entidadId || ""
@@ -246,7 +251,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         entidadName:
           form.tipo === "Pago de préstamo"
             ? prestamo?.entidadName || ""
-            : form.tipo === "Pago de tarjeta"
+            : form.tipo === "Pago de tarjeta" || form.tipo === "Compra con tarjeta"
             ? tarjeta?.entidadName || ""
             : form.tipo === "Pago de membresía"
             ? membresia?.entidadName || ""
@@ -261,8 +266,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         prestamoNumero: form.tipo === "Pago de préstamo" ? prestamo?.numero || "" : "",
         cuentaId: isCuentaTipo ? form.cuentaId : null,
         cuentaNombre: isCuentaTipo ? cuenta?.nombre || "" : "",
-        tarjetaId: form.tipo === "Pago de tarjeta" ? form.tarjetaId : null,
-        tarjetaNombre: form.tipo === "Pago de tarjeta" ? tarjeta?.nombre || "" : "",
+        tarjetaId: form.tipo === "Pago de tarjeta" || form.tipo === "Compra con tarjeta" ? form.tarjetaId : null,
+        tarjetaNombre: form.tipo === "Pago de tarjeta" || form.tipo === "Compra con tarjeta" ? tarjeta?.nombre || "" : "",
         membresiaId: form.tipo === "Pago de membresía" ? form.membresiaId : null,
         membresiaNombre: form.tipo === "Pago de membresía" ? membresia?.nombre || "" : "",
         fuenteIngresoId: form.tipo === "Ingreso" ? form.fuenteIngresoId || null : null,
@@ -503,6 +508,29 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                     </div>
                   )}
                 </>
+              )}
+            </div>
+          ) : form.tipo === "Compra con tarjeta" ? (
+            <div style={{ marginBottom: 8 }}>
+              {tarjetasActivas.filter((t) => (t.tipoTarjeta || "Crédito") === "Crédito").length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--stamp)", padding: "8px 0" }}>
+                  No tienes tarjetas de crédito activas. Registra una en la sección Tarjetas primero.
+                </div>
+              ) : (
+                <select
+                  value={form.tarjetaId}
+                  onChange={(e) => setForm({ ...form, tarjetaId: e.target.value })}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                >
+                  <option value="">Selecciona la tarjeta…</option>
+                  {tarjetasActivas
+                    .filter((t) => (t.tipoTarjeta || "Crédito") === "Crédito")
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.nombre}{t.ultimos4 ? ` ····${t.ultimos4}` : ""} · {t.entidadName}
+                      </option>
+                    ))}
+                </select>
               )}
             </div>
           ) : form.tipo === "Pago de membresía" ? (
@@ -752,6 +780,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   <Landmark size={12} />
                 ) : m.category === "Pago de tarjeta" ? (
                   <CreditCard size={12} />
+                ) : m.category === "Compra con tarjeta" ? (
+                  <ShoppingBag size={12} />
                 ) : m.category === "Pago de membresía" ? (
                   <Ticket size={12} />
                 ) : m.category === "Pago de servicio" ? (

@@ -133,6 +133,15 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
     return map;
   }, [movimientos]);
 
+  const compradoPorTarjeta = useMemo(() => {
+    const map = {};
+    for (const m of movimientos) {
+      if (m.category !== "Compra con tarjeta" || !m.tarjetaId) continue;
+      map[m.tarjetaId] = (map[m.tarjetaId] || 0) + (Number(m.amount) || 0);
+    }
+    return map;
+  }, [movimientos]);
+
   const startEdit = (t) => {
     setEditingId(t.id);
     setEditForm(toEditForm(t));
@@ -632,13 +641,40 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                   </div>
 
                   {(t.tipoTarjeta || "Crédito") === "Crédito" ? (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
-                      <Field label="Límite de crédito" value={t.limiteCredito != null ? formatMoney(t.limiteCredito) : "—"} />
-                      <Field label="Saldo actual" value={t.saldoActual != null ? <span style={{ color: "var(--stamp)" }}>{formatMoney(t.saldoActual)}</span> : "—"} />
-                      <Field label="Pago mínimo" value={t.pagoMinimo != null ? formatMoney(t.pagoMinimo) : "—"} />
-                      <Field label="Tasa interés" value={t.tasaInteres != null ? `${t.tasaInteres}%` : "—"} />
-                      <Field label="Corte / Pago" value={t.fechaCorte || t.fechaPago ? `${t.fechaCorte || "—"} / ${t.fechaPago || "—"}` : "—"} />
-                    </div>
+                    <>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
+                        <Field label="Límite de crédito" value={t.limiteCredito != null ? formatMoney(t.limiteCredito) : "—"} />
+                        <Field label="Saldo actual" value={t.saldoActual != null ? <span style={{ color: "var(--stamp)" }}>{formatMoney(t.saldoActual)}</span> : "—"} />
+                        <Field label="Pago mínimo" value={t.pagoMinimo != null ? formatMoney(t.pagoMinimo) : "—"} />
+                        <Field label="Tasa interés" value={t.tasaInteres != null ? `${t.tasaInteres}%` : "—"} />
+                        <Field label="Corte / Pago" value={t.fechaCorte || t.fechaPago ? `${t.fechaCorte || "—"} / ${t.fechaPago || "—"}` : "—"} />
+                      </div>
+
+                      {t.limiteCredito != null && t.limiteCredito > 0 && (() => {
+                        const consumido = Math.max((compradoPorTarjeta[t.id] || 0) - (pagadoPorTarjeta[t.id] || 0), 0);
+                        const disponible = Math.max(t.limiteCredito - consumido, 0);
+                        const pct = Math.min(100, Math.round((consumido / t.limiteCredito) * 100));
+                        const barColor = pct >= 90 ? "var(--stamp)" : pct >= 60 ? "var(--amber)" : "var(--sage)";
+                        return (
+                          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                              <span style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                Nivel de consumo
+                              </span>
+                              <span className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 600, color: barColor }}>
+                                {pct}% · {formatMoney(consumido)}
+                              </span>
+                            </div>
+                            <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 4 }} />
+                            </div>
+                            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 4 }}>
+                              Disponible: {formatMoney(disponible)}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
                   ) : (
                     <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>Tarjeta de débito · no acumula deuda ni intereses.</div>
                   )}
