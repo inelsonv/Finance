@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { diasRestantesProducto } from "../lib/inventario";
@@ -36,7 +36,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear }) {
+function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -143,6 +143,24 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
       }
     }
 
+    for (const s of seguros || []) {
+      if (s.estado !== "Activo" || !s.fechaVencimiento) continue;
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const target = new Date(s.fechaVencimiento + "T00:00:00");
+      const dias = Math.round((target - hoy) / 86400000);
+      if (dias <= (s.diasAviso ?? 15)) {
+        list.push({
+          id: `seguro-${s.id}`,
+          icon: Shield,
+          titulo: dias < 0 ? `Vencido: ${s.nombre}` : `Por vencer: ${s.nombre}`,
+          subtitulo: s.entidadName ? `${s.tipo} · ${s.entidadName}` : s.tipo,
+          dias,
+          tab: "seguros",
+        });
+      }
+    }
+
     for (const f of fuentesIngreso || []) {
       if (f.estado !== "Activo" || !f.diaPago) continue;
       const diasDelMes = (f.diaPago.match(/\d+/g) || []).map(Number).filter((d) => d >= 1 && d <= 31);
@@ -187,7 +205,7 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros]);
 }
 
 function etiquetaDias(dias) {
@@ -197,7 +215,7 @@ function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, onNavigate }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -211,7 +229,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
     }
   });
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros });
 
   const firma = (n) => `${n.id}:${n.dias}`;
   const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));

@@ -892,3 +892,64 @@ export async function updateMetaAhorroEstado(id, estado) {
 export async function deleteMetaAhorro(id) {
   await deleteDoc(doc(db, "metasAhorro", id));
 }
+
+const segurosCol = collection(db, "seguros");
+
+export function watchSeguros(onChange, onError) {
+  return onSnapshot(
+    segurosCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addSeguro({
+  nombre,
+  tipo,
+  entidadId,
+  entidadName,
+  activoId,
+  activoNombre,
+  numeroPoliza,
+  fechaInicio,
+  fechaVencimiento,
+  primaMonto,
+  primaFrecuencia,
+  diasAviso,
+  estado,
+  notas,
+}) {
+  await addDoc(segurosCol, {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    activoId: activoId || null,
+    activoNombre: activoNombre || "",
+    numeroPoliza: numeroPoliza || "",
+    fechaInicio: fechaInicio || null,
+    fechaVencimiento: fechaVencimiento || null,
+    primaMonto: primaMonto ?? null,
+    primaFrecuencia: primaFrecuencia || "Anual",
+    diasAviso: diasAviso ?? 15,
+    estado: estado || "Activo",
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateSeguro(id, fields) {
+  await updateDoc(doc(db, "seguros", id), fields);
+}
+
+export async function updateSeguroEstado(id, estado) {
+  await updateDoc(doc(db, "seguros", id), { estado });
+}
+
+export async function deleteSeguro(id) {
+  await deleteDoc(doc(db, "seguros", id));
+}

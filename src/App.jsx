@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import Catalogo from "./components/Catalogo.jsx";
@@ -24,6 +24,7 @@ import EstrategiaDeudas from "./components/EstrategiaDeudas.jsx";
 import Calendario from "./components/Calendario.jsx";
 import Activos from "./components/Activos.jsx";
 import Ahorro from "./components/Ahorro.jsx";
+import Seguros from "./components/Seguros.jsx";
 import ChecklistPagos from "./components/ChecklistPagos.jsx";
 import Configuracion from "./components/Configuracion.jsx";
 import EscanearFactura from "./components/EscanearFactura.jsx";
@@ -55,6 +56,7 @@ const TITLES = {
   calendario: "Calendario",
   activos: "Activos",
   ahorro: "Ahorro",
+  seguros: "Seguros",
   configuracion: "Configuración",
   "escanear-factura": "Registrar compra (factura)",
 };
@@ -100,6 +102,7 @@ export default function App() {
   const [activos, setActivos] = useState([]);
   const [mantenimientos, setMantenimientos] = useState([]);
   const [metasAhorro, setMetasAhorro] = useState([]);
+  const [seguros, setSeguros] = useState([]);
   const [flujo, setFlujo] = useState(undefined);
   const currentYear = new Date().getFullYear();
   const [loading, setLoading] = useState(true);
@@ -177,6 +180,7 @@ export default function App() {
     const unsubActivos = watchActivos(setActivos, handleError);
     const unsubMantenimientos = watchMantenimientos(setMantenimientos, handleError);
     const unsubMetasAhorro = watchMetasAhorro(setMetasAhorro, handleError);
+    const unsubSeguros = watchSeguros(setSeguros, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -197,6 +201,7 @@ export default function App() {
       unsubActivos();
       unsubMantenimientos();
       unsubMetasAhorro();
+      unsubSeguros();
       unsubStatus();
     };
   }, [authorized]);
@@ -302,6 +307,7 @@ export default function App() {
                 eventos={eventos}
                 presupuesto={presupuestoAnual}
                 presupuestoYear={currentYear}
+                seguros={seguros}
                 onNavigate={setTab}
               />
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} />
@@ -368,7 +374,18 @@ export default function App() {
         {tab === "contratos" && <Contratos contratos={contratos} entidades={entidades} movimientos={movimientos} />}
         {tab === "ingresos" && <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} />}
         {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} categoriasPersonalizadas={categoriasGasto} />}
-        {tab === "presupuesto-mensual" && <PresupuestoAnual presupuesto={presupuestoAnual} categoriasPersonalizadas={categoriasGasto} year={currentYear} prestamos={prestamos} />}
+        {tab === "presupuesto-mensual" && (
+          <PresupuestoAnual
+            presupuesto={presupuestoAnual}
+            categoriasPersonalizadas={categoriasGasto}
+            year={currentYear}
+            prestamos={prestamos}
+            metasAhorro={metasAhorro}
+            fuentesIngreso={fuentesIngreso}
+            cuentas={cuentas}
+            movimientos={movimientos}
+          />
+        )}
         {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
         {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} />}
@@ -380,6 +397,7 @@ export default function App() {
         {tab === "ahorro" && (
           <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} onNavigate={setTab} />
         )}
+        {tab === "seguros" && <Seguros seguros={seguros} entidades={entidades} activos={activos} />}
         {tab === "configuracion" && (
           <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} />
         )}
