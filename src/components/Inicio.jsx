@@ -617,7 +617,31 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 16 }}>
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center" }}>
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative" }}>
+          <button
+            onClick={() => setShowInfoDeuda((s) => !s)}
+            title="¿Cómo se calcula?"
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              border: "1px solid var(--line)",
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: "pointer",
+              fontSize: 11,
+              fontWeight: 700,
+              fontFamily: "Georgia, serif",
+            }}
+          >
+            i
+          </button>
           <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Nivel de endeudamiento</div>
 
           {ingresoMensual === 0 ? (
@@ -640,46 +664,47 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
                 {clasificacion.label}
               </span>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
-                <MiniStat icon={Briefcase} label="Ingreso mensual" value={formatMoney(ingresoMensual)} color="var(--sage)" />
-                <MiniStat icon={Banknote} label="Cuotas préstamos" value={formatMoney(cuotaPrestamos)} color="var(--stamp)" />
-                <MiniStat icon={CreditCard} label="Pago mín. tarjetas" value={formatMoney(pagoTarjetas)} color="var(--stamp)" />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
+                <MiniStat icon={Briefcase} label="Ingreso mensual" value={formatMoney(ingresoMensual)} color="var(--sage)" compact />
+                <MiniStat icon={Banknote} label="Cuotas préstamos" value={formatMoney(cuotaPrestamos)} color="var(--stamp)" compact />
+                <MiniStat icon={CreditCard} label="Pago mín. tarjetas" value={formatMoney(pagoTarjetas)} color="var(--stamp)" compact />
               </div>
 
-              <div style={{ marginTop: 14, textAlign: "left" }}>
-                <button
-                  onClick={() => setShowInfoDeuda((s) => !s)}
-                  title="¿Cómo se calcula?"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 20,
-                    height: 20,
-                    borderRadius: "50%",
-                    border: "1px solid var(--line)",
-                    background: "var(--paper)",
-                    color: "var(--ink-soft)",
-                    cursor: "pointer",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    fontFamily: "Georgia, serif",
-                  }}
-                >
-                  i
-                </button>
-                {showInfoDeuda && (
-                  <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8, lineHeight: 1.5 }}>
-                    (Cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso mensual estimado.
-                    Saludable por debajo del 35-40%. No incluye membresías ni gastos variables.
-                  </div>
-                )}
-              </div>
+              {showInfoDeuda && (
+                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 12, lineHeight: 1.5, textAlign: "left" }}>
+                  (Cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso mensual estimado.
+                  Saludable por debajo del 35-40%. No incluye membresías ni gastos variables.
+                </div>
+              )}
             </>
           )}
         </div>
 
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center" }}>
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative" }}>
+          <button
+            onClick={() => setShowInfoFondo((s) => !s)}
+            title="¿Cómo se calcula?"
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 20,
+              height: 20,
+              borderRadius: "50%",
+              border: "1px solid var(--line)",
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: "pointer",
+              fontSize: 11,
+              fontWeight: 700,
+              fontFamily: "Georgia, serif",
+            }}
+          >
+            i
+          </button>
           <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Fondo de emergencia</div>
 
           {mesesCobertura == null ? (
@@ -703,40 +728,17 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
                 {clasificacionFondo.label}
               </span>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
-                <MiniStat icon={PiggyBank} label="En cuentas de ahorro" value={formatMoney(ahorroTotal)} color="var(--sage)" />
-                <MiniStat icon={Banknote} label="Gasto mensual prom." value={formatMoney(gastoMensualPromedio)} color="var(--stamp)" />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
+                <MiniStat icon={PiggyBank} label="En cuentas de ahorro" value={formatMoney(ahorroTotal)} color="var(--sage)" compact />
+                <MiniStat icon={Banknote} label="Gasto mensual prom." value={formatMoney(gastoMensualPromedio)} color="var(--stamp)" compact />
               </div>
 
-              <div style={{ marginTop: 14, textAlign: "left" }}>
-                <button
-                  onClick={() => setShowInfoFondo((s) => !s)}
-                  title="¿Cómo se calcula?"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 20,
-                    height: 20,
-                    borderRadius: "50%",
-                    border: "1px solid var(--line)",
-                    background: "var(--paper)",
-                    color: "var(--ink-soft)",
-                    cursor: "pointer",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    fontFamily: "Georgia, serif",
-                  }}
-                >
-                  i
-                </button>
-                {showInfoFondo && (
-                  <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8, lineHeight: 1.5 }}>
-                    Saldo en cuentas de Ahorro ÷ gasto mensual promedio de este año. Los expertos recomiendan tener
-                    entre 3 y 6 meses de gastos cubiertos.
-                  </div>
-                )}
-              </div>
+              {showInfoFondo && (
+                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 12, lineHeight: 1.5, textAlign: "left" }}>
+                  Saldo en cuentas de Ahorro ÷ gasto mensual promedio de este año. Los expertos recomiendan tener
+                  entre 3 y 6 meses de gastos cubiertos.
+                </div>
+              )}
             </>
           )}
         </div>
@@ -757,14 +759,35 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   );
 }
 
-function MiniStat({ icon: Icon, label, value, color }) {
+function MiniStat({ icon: Icon, label, value, color, compact }) {
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 3 }}>
-        <Icon size={11} />
+    <div style={{ minWidth: 0 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          fontSize: compact ? 9 : 10.5,
+          color: "var(--ink-soft)",
+          textTransform: "uppercase",
+          letterSpacing: "0.02em",
+          marginBottom: 3,
+          whiteSpace: compact ? "nowrap" : "normal",
+          overflow: compact ? "hidden" : "visible",
+          textOverflow: compact ? "ellipsis" : "clip",
+        }}
+        title={compact ? label : undefined}
+      >
+        <Icon size={compact ? 10 : 11} style={{ flexShrink: 0 }} />
         {label}
       </div>
-      <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 600, color }}>{value}</div>
+      <div
+        className="despensa-mono"
+        style={{ fontSize: compact ? 12 : 14, fontWeight: 600, color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+        title={compact ? value : undefined}
+      >
+        {value}
+      </div>
     </div>
   );
 }
