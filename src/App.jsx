@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import Catalogo from "./components/Catalogo.jsx";
@@ -25,6 +25,7 @@ import Calendario from "./components/Calendario.jsx";
 import Activos from "./components/Activos.jsx";
 import Ahorro from "./components/Ahorro.jsx";
 import Seguros from "./components/Seguros.jsx";
+import OrdenesCompra from "./components/OrdenesCompra.jsx";
 import ChecklistPagos from "./components/ChecklistPagos.jsx";
 import Configuracion from "./components/Configuracion.jsx";
 import EscanearFactura from "./components/EscanearFactura.jsx";
@@ -57,6 +58,7 @@ const TITLES = {
   activos: "Activos",
   ahorro: "Ahorro",
   seguros: "Seguros",
+  "ordenes-compra": "Órdenes de compra",
   configuracion: "Configuración",
   "escanear-factura": "Registrar compra (factura)",
 };
@@ -104,6 +106,7 @@ export default function App() {
   const [metasAhorro, setMetasAhorro] = useState([]);
   const [seguros, setSeguros] = useState([]);
   const [historialCompras, setHistorialCompras] = useState([]);
+  const [ordenesCompra, setOrdenesCompra] = useState([]);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
   const currentYear = new Date().getFullYear();
@@ -189,6 +192,7 @@ export default function App() {
     const unsubMetasAhorro = watchMetasAhorro(setMetasAhorro, handleError);
     const unsubSeguros = watchSeguros(setSeguros, handleError);
     const unsubHistorialCompras = watchHistorialCompras(setHistorialCompras, handleError);
+    const unsubOrdenesCompra = watchOrdenesCompra(setOrdenesCompra, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -211,6 +215,7 @@ export default function App() {
       unsubMetasAhorro();
       unsubSeguros();
       unsubHistorialCompras();
+      unsubOrdenesCompra();
       unsubStatus();
     };
   }, [authorized]);
@@ -414,6 +419,7 @@ export default function App() {
           <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} onNavigate={setTab} />
         )}
         {tab === "seguros" && <Seguros seguros={seguros} entidades={entidades} activos={activos} />}
+        {tab === "ordenes-compra" && <OrdenesCompra ordenes={ordenesCompra} products={products} entidades={entidades} />}
         {tab === "configuracion" && (
           <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} />
         )}

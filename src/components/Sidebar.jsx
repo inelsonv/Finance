@@ -75,6 +75,7 @@ const NAV_ITEMS = [
     children: [
       { id: "catalogo", label: "Catálogo" },
       { id: "lista", label: "Lista de compra" },
+      { id: "ordenes-compra", label: "Órdenes de compra" },
     ],
   },
   { id: "entidades", label: "Entidades", icon: Landmark },

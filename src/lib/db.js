@@ -9,6 +9,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  runTransaction,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "../firebase";
@@ -975,4 +976,56 @@ export async function registrarCompraProducto({ productId, productName, fecha, c
     cantidad: cantidad || 1,
     createdAt: serverTimestamp(),
   });
+}
+
+const ordenesCompraCol = collection(db, "ordenesCompra");
+
+export function watchOrdenesCompra(onChange, onError) {
+  return onSnapshot(
+    ordenesCompraCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.folio || "").localeCompare(a.folio || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+// Genera el siguiente folio (OC00001, OC00002, ...) de forma atómica, usando un
+// contador en Firestore para evitar folios repetidos.
+async function siguienteFolioOC() {
+  const contadorRef = doc(db, "config", "contadorOC");
+  const nuevoNumero = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(contadorRef);
+    const actual = snap.exists() ? snap.data().ultimo || 0 : 0;
+    const siguiente = actual + 1;
+    tx.set(contadorRef, { ultimo: siguiente });
+    return siguiente;
+  });
+  return `OC${String(nuevoNumero).padStart(5, "0")}`;
+}
+
+export async function addOrdenCompra({ items, proveedorId, proveedorNombre, notas }) {
+  const folio = await siguienteFolioOC();
+  const docRef = await addDoc(ordenesCompraCol, {
+    folio,
+    fecha: new Date().toISOString().slice(0, 10),
+    estado: "Borrador",
+    modalidad: null,
+    proveedorId: proveedorId || null,
+    proveedorNombre: proveedorNombre || "",
+    items: items || [],
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+  return { id: docRef.id, folio };
+}
+
+export async function updateOrdenCompra(id, fields) {
+  await updateDoc(doc(db, "ordenesCompra", id), fields);
+}
+
+export async function deleteOrdenCompra(id) {
+  await deleteDoc(doc(db, "ordenesCompra", id));
 }
