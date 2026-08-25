@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw } from "lucide-react";
+import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 
 const PLAZO_UNIDADES = ["meses", "años"];
@@ -58,6 +58,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
   const [editForm, setEditForm] = useState(null);
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [revolventeAbiertoId, setRevolventeAbiertoId] = useState(null);
 
   const openForm = () => {
     setForm(emptyForm(nextNumero(prestamos)));
@@ -817,37 +818,59 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
                     const minimoRetiro = p.montoMinimoRetiro;
                     const puedeRetirar = minimoRetiro != null ? disponible >= minimoRetiro : disponible > 0;
                     const barColor = pctUsado >= 90 ? "var(--stamp)" : pctUsado >= 60 ? "var(--amber)" : "var(--sage)";
+                    const abierto = revolventeAbiertoId === p.id;
                     return (
                       <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                          <RotateCcw size={11} style={{ color: "var(--ink-soft)" }} />
-                          <span style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Línea revolvente</span>
-                        </div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 6 }}>
-                          <Field label="Disponible para retirar" value={<span style={{ color: puedeRetirar ? "var(--sage)" : "var(--stamp)" }}>{formatMoney(disponible)}</span>} />
-                          <Field label="Saldo utilizado" value={formatMoney(usado)} />
-                        </div>
-                        <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden", marginBottom: 6 }}>
-                          <div style={{ height: "100%", width: `${pctUsado}%`, background: barColor, borderRadius: 4 }} />
-                        </div>
-                        <div
-                          className="despensa-tab-font"
+                        <button
+                          onClick={() => setRevolventeAbiertoId(abierto ? null : p.id)}
                           style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
                             fontSize: 11,
-                            fontWeight: 600,
-                            display: "inline-block",
-                            padding: "2px 8px",
-                            borderRadius: 12,
-                            background: puedeRetirar ? "var(--sage-bg)" : "var(--stamp-bg)",
-                            color: puedeRetirar ? "var(--sage)" : "var(--stamp)",
+                            color: "var(--ink-soft)",
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: 0,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.03em",
                           }}
                         >
-                          {puedeRetirar
-                            ? "Puedes volver a retirar"
-                            : minimoRetiro != null
-                            ? `Necesitas pagar más (mínimo ${formatMoney(minimoRetiro)} disponible)`
-                            : "Sin disponible para retirar"}
-                        </div>
+                          <RotateCcw size={11} />
+                          Línea revolvente
+                          {abierto ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                        </button>
+
+                        {abierto && (
+                          <div style={{ marginTop: 8 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 6 }}>
+                              <Field label="Disponible para retirar" value={<span style={{ color: puedeRetirar ? "var(--sage)" : "var(--stamp)" }}>{formatMoney(disponible)}</span>} />
+                              <Field label="Saldo utilizado" value={formatMoney(usado)} />
+                            </div>
+                            <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden", marginBottom: 6 }}>
+                              <div style={{ height: "100%", width: `${pctUsado}%`, background: barColor, borderRadius: 4 }} />
+                            </div>
+                            <div
+                              className="despensa-tab-font"
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                display: "inline-block",
+                                padding: "2px 8px",
+                                borderRadius: 12,
+                                background: puedeRetirar ? "var(--sage-bg)" : "var(--stamp-bg)",
+                                color: puedeRetirar ? "var(--sage)" : "var(--stamp)",
+                              }}
+                            >
+                              {puedeRetirar
+                                ? "Puedes volver a retirar"
+                                : minimoRetiro != null
+                                ? `Necesitas pagar más (mínimo ${formatMoney(minimoRetiro)} disponible)`
+                                : "Sin disponible para retirar"}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
