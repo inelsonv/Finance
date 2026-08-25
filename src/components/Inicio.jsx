@@ -313,6 +313,7 @@ function StocksCard() {
   const [newNombre, setNewNombre] = useState("");
   const [addError, setAddError] = useState(null);
   const [updatedAt, setUpdatedAt] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
 
   useEffect(() => {
     const unsubA = watchAcciones(setAcciones, () => {});
@@ -330,24 +331,39 @@ function StocksCard() {
   const fetchPrices = async () => {
     if (!apiKey || acciones.length === 0) return;
     setLoadingPrices(true);
+    setFetchError(null);
     try {
       const results = await Promise.all(
         acciones.map(async (a) => {
           try {
             const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(a.symbol)}&token=${apiKey}`);
-            if (!res.ok) throw new Error("bad response");
-            const data = await res.json();
-            return [a.symbol, { price: data.c, change: data.dp }];
-          } catch {
-            return [a.symbol, null];
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.error) {
+              return [a.symbol, null, data.error || `HTTP ${res.status}`];
+            }
+            if (data.c == null || data.c === 0) {
+              return [a.symbol, null, "sin datos"];
+            }
+            return [a.symbol, { price: data.c, change: data.dp }, null];
+          } catch (err) {
+            return [a.symbol, null, err.message || String(err)];
           }
         })
       );
-      const nuevosPrecios = Object.fromEntries(results);
-      setPrices(nuevosPrecios);
-      setUpdatedAt(new Date());
-      const symbolsOrdenados = acciones.map((a) => a.symbol).sort();
-      saveAccionesPrecios(nuevosPrecios, symbolsOrdenados);
+      const nuevosPrecios = Object.fromEntries(results.map(([sym, val]) => [sym, val]));
+      const algunExito = results.some(([, val]) => val != null);
+      const errores = results.filter(([, val]) => val == null).map(([sym, , err]) => `${sym}: ${err}`);
+
+      if (algunExito) {
+        setPrices(nuevosPrecios);
+        setUpdatedAt(new Date());
+        const symbolsOrdenados = acciones.map((a) => a.symbol).sort();
+        saveAccionesPrecios(nuevosPrecios, symbolsOrdenados);
+      }
+      if (errores.length > 0) {
+        setFetchError(algunExito ? `Algunas acciones no se pudieron actualizar (${errores.join(", ")})` : `No se pudo obtener ningún precio (${errores[0]}). Revisa tu clave API o el límite de uso en finnhub.io.`);
+        console.error("Acciones: error al obtener precios", errores);
+      }
     } finally {
       setLoadingPrices(false);
     }
@@ -494,8 +510,15 @@ function StocksCard() {
           bursátil, ej. <span className="despensa-mono">AAPL</span> para Apple.
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
-          {acciones.map((a) => {
+        <>
+          {fetchError && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 11.5, color: "var(--stamp)", background: "var(--stamp-bg)", borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
+              <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+              {fetchError}
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+            {acciones.map((a) => {
             const p = prices[a.symbol];
             const up = p && p.change >= 0;
             return (
@@ -527,7 +550,8 @@ function StocksCard() {
               </div>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
