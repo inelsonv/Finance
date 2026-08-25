@@ -46,7 +46,7 @@ function toEditForm(m) {
   };
 }
 
-export default function MetasAhorro({ metas, cuentas, movimientos, fuentesIngreso }) {
+export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, onNavigate }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -293,14 +293,55 @@ export default function MetasAhorro({ metas, cuentas, movimientos, fuentesIngres
     </div>
   );
 
+  const cuentasSoloAhorro = useMemo(() => cuentas.filter((c) => c.tipo === "Ahorro"), [cuentas]);
+  const totalAhorrado = useMemo(
+    () => cuentasSoloAhorro.reduce((s, c) => s + (aportadoPorCuenta[c.id] || 0), 0),
+    [cuentasSoloAhorro, aportadoPorCuenta]
+  );
+
   return (
     <div>
-      {ingresoMensual > 0 && (
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginBottom: 16, display: "inline-flex", gap: 6, alignItems: "baseline" }}>
-          <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Ingreso mensual configurado:</span>
-          <span className="despensa-mono" style={{ fontSize: 14, fontWeight: 600 }}>{formatMoney(ingresoMensual)}</span>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 16 }}>
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Total en cuentas de ahorro</div>
+          <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700, color: "var(--sage)" }}>{formatMoney(totalAhorrado)}</div>
+        </div>
+        {ingresoMensual > 0 && (
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Ingreso mensual configurado</div>
+            <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700 }}>{formatMoney(ingresoMensual)}</div>
+          </div>
+        )}
+      </div>
+
+      {cuentasSoloAhorro.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>
+            Tus cuentas de ahorro
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {cuentasSoloAhorro.map((c) => (
+              <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, padding: "8px 10px" }}>
+                <Landmark size={13} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
+                <span style={{ fontSize: 12.5, flex: 1, minWidth: 0 }}>{c.nombre} <span style={{ color: "var(--ink-soft)" }}>· {c.entidadName}</span></span>
+                <span className="despensa-mono" style={{ fontSize: 13, fontWeight: 600, color: "var(--sage)", flexShrink: 0 }}>{formatMoney(aportadoPorCuenta[c.id] || 0)}</span>
+              </div>
+            ))}
+          </div>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate("cuentas")}
+              style={{ fontSize: 11.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer", padding: "6px 0 0" }}
+            >
+              + Agregar o editar cuentas de ahorro
+            </button>
+          )}
         </div>
       )}
+
+      <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>
+        Metas y planes de ahorro
+      </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
         <button

@@ -23,7 +23,7 @@ import Inversion from "./components/Inversion.jsx";
 import EstrategiaDeudas from "./components/EstrategiaDeudas.jsx";
 import Calendario from "./components/Calendario.jsx";
 import Activos from "./components/Activos.jsx";
-import MetasAhorro from "./components/MetasAhorro.jsx";
+import Ahorro from "./components/Ahorro.jsx";
 import ChecklistPagos from "./components/ChecklistPagos.jsx";
 import Configuracion from "./components/Configuracion.jsx";
 import EscanearFactura from "./components/EscanearFactura.jsx";
@@ -54,7 +54,7 @@ const TITLES = {
   "checklist-pagos": "Checklist de pagos",
   calendario: "Calendario",
   activos: "Activos",
-  "metas-ahorro": "Metas de ahorro",
+  ahorro: "Ahorro",
   configuracion: "Configuración",
   "escanear-factura": "Registrar compra (factura)",
 };
@@ -377,8 +377,8 @@ export default function App() {
         )}
         {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} />}
         {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} />}
-        {tab === "metas-ahorro" && (
-          <MetasAhorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} />
+        {tab === "ahorro" && (
+          <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} onNavigate={setTab} />
         )}
         {tab === "configuracion" && (
           <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} />

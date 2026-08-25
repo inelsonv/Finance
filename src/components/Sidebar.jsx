@@ -47,7 +47,7 @@ const NAV_ITEMS = [
   { id: "lista", label: "Lista de compra", icon: ShoppingCart },
   { id: "entidades", label: "Entidades", icon: Landmark },
   { id: "cuentas", label: "Cuentas", icon: Vault },
-  { id: "metas-ahorro", label: "Metas de ahorro", icon: PiggyBank },
+  { id: "ahorro", label: "Ahorro", icon: PiggyBank },
   { id: "prestamos", label: "Préstamos", icon: Banknote },
   { id: "tarjetas", label: "Tarjetas", icon: CreditCard },
   { id: "membresias", label: "Membresías", icon: Ticket },
