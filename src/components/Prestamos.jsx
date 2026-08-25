@@ -193,7 +193,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 18 }}>
         <SummaryCard label="Préstamos" value={totals.total} mono={false} />
         <SummaryCard label="Activos" value={totals.activos} mono={false} />
         <SummaryCard label="Monto aprobado total" value={formatMoney(totals.aprobado)} mono />
@@ -729,9 +729,13 @@ function EstadoBadge({ estado, onChange }) {
 
 function SummaryCard({ label, value, mono, color }) {
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
-      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 2 }}>{label}</div>
-      <div className={mono ? "despensa-mono" : "despensa-tab-font"} style={{ fontSize: 16, fontWeight: 600, color: color || "var(--ink)" }}>
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "8px 10px", minWidth: 0 }}>
+      <div style={{ fontSize: 10, color: "var(--ink-soft)", marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+      <div
+        className={mono ? "despensa-mono" : "despensa-tab-font"}
+        style={{ fontSize: "clamp(11px, 2.2vw, 15px)", fontWeight: 600, color: color || "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+        title={typeof value === "string" ? value : undefined}
+      >
         {value}
       </div>
     </div>
