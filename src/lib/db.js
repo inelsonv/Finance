@@ -677,6 +677,18 @@ export async function setChecklistItem(periodoKey, itemKey, fields) {
   await setDoc(doc(db, "checklistPagos", periodoKey), { items: { [itemKey]: fields } }, { merge: true });
 }
 
+export function watchInicioOrden(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "inicioOrden"),
+    (snap) => onChange(snap.exists() ? snap.data().orden : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveInicioOrden(orden) {
+  await setDoc(doc(db, "config", "inicioOrden"), { orden });
+}
+
 const calendarioCol = collection(db, "calendario");
 
 export function watchCalendario(onChange, onError) {

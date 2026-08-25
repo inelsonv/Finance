@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank } from "lucide-react";
-import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig } from "../lib/db";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical } from "lucide-react";
+import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden } from "../lib/db";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -234,7 +237,7 @@ function DolarCard() {
   }, []);
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", marginTop: 16 }}>
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <DollarSign size={16} style={{ color: "var(--ink-soft)" }} />
@@ -416,7 +419,7 @@ function StocksCard() {
   };
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", marginTop: 16 }}>
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <LineChart size={16} style={{ color: "var(--ink-soft)" }} />
@@ -558,7 +561,68 @@ function StocksCard() {
   );
 }
 
+const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar"];
+
+function SortableSection({ id, isFirst, children }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    marginTop: isFirst ? 0 : 16,
+    position: "relative",
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      <div
+        {...attributes}
+        {...listeners}
+        title="Arrastrar para reordenar esta sección"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "100%",
+          height: 16,
+          cursor: isDragging ? "grabbing" : "grab",
+          color: "var(--ink-soft)",
+          touchAction: "none",
+        }}
+      >
+        <GripVertical size={13} style={{ transform: "rotate(90deg)" }} />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas }) {
+  const [orden, setOrden] = useState(SECTION_IDS_DEFAULT);
+
+  useEffect(() => {
+    const unsub = watchInicioOrden((o) => {
+      if (o && Array.isArray(o) && o.length > 0) {
+        const completo = [...o.filter((id) => SECTION_IDS_DEFAULT.includes(id)), ...SECTION_IDS_DEFAULT.filter((id) => !o.includes(id))];
+        setOrden(completo);
+      }
+    }, () => {});
+    return () => unsub();
+  }, []);
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setOrden((items) => {
+      const oldIndex = items.indexOf(active.id);
+      const newIndex = items.indexOf(over.id);
+      const nuevo = arrayMove(items, oldIndex, newIndex);
+      saveInicioOrden(nuevo);
+      return nuevo;
+    });
+  };
+
   const cuotaPrestamos = useMemo(
     () => prestamos.filter((p) => p.estado === "Activo").reduce((s, p) => s + (Number(p.cuota) || 0), 0),
     [prestamos]
@@ -612,7 +676,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const mesesCobertura = gastoMensualPromedio > 0 ? ahorroTotal / gastoMensualPromedio : null;
   const clasificacionFondo = mesesCobertura != null ? clasificarFondoEmergencia(mesesCobertura) : null;
 
-  return (
+  const kpisContent = (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 16 }}>
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative" }}>
@@ -687,19 +751,35 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
           )}
         </div>
       </div>
-
-      <StocksCard />
-
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", marginTop: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
-          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por mes y categoría</span>
-        </div>
-        <GastosPorMesChart movimientos={movimientos} />
-      </div>
-
-      <DolarCard />
     </div>
+  );
+
+  const accionesContent = <StocksCard />;
+
+  const gastosContent = (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
+        <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por mes y categoría</span>
+      </div>
+      <GastosPorMesChart movimientos={movimientos} />
+    </div>
+  );
+
+  const dolarContent = <DolarCard />;
+
+  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent };
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={orden} strategy={verticalListSortingStrategy}>
+        {orden.map((id, i) => (
+          <SortableSection key={id} id={id} isFirst={i === 0}>
+            {SECTION_CONTENT[id]}
+          </SortableSection>
+        ))}
+      </SortableContext>
+    </DndContext>
   );
 }
 
