@@ -143,6 +143,14 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
     return map;
   }, [movimientos]);
 
+  const totalesGenerales = useMemo(() => {
+    let pagado = 0;
+    for (const p of prestamos) {
+      pagado += pagadoPorPrestamo[p.id] || 0;
+    }
+    return { pagado, pendiente: totals.aprobado - pagado };
+  }, [prestamos, pagadoPorPrestamo, totals.aprobado]);
+
   const handleAdd = async () => {
     const monto = parseFloat(form.montoAprobado);
     const plazo = parseFloat(form.plazo);
@@ -185,10 +193,12 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
         <SummaryCard label="Préstamos" value={totals.total} mono={false} />
         <SummaryCard label="Activos" value={totals.activos} mono={false} />
         <SummaryCard label="Monto aprobado total" value={formatMoney(totals.aprobado)} mono />
+        <SummaryCard label="Total pagado" value={formatMoney(totalesGenerales.pagado)} mono color="var(--sage)" />
+        <SummaryCard label="Falta por pagar" value={formatMoney(totalesGenerales.pendiente)} mono color={totalesGenerales.pendiente > 0 ? "var(--stamp)" : "var(--sage)"} />
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
@@ -717,11 +727,11 @@ function EstadoBadge({ estado, onChange }) {
   );
 }
 
-function SummaryCard({ label, value, mono }) {
+function SummaryCard({ label, value, mono, color }) {
   return (
     <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
       <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 2 }}>{label}</div>
-      <div className={mono ? "despensa-mono" : "despensa-tab-font"} style={{ fontSize: 16, fontWeight: 600, color: "var(--ink)" }}>
+      <div className={mono ? "despensa-mono" : "despensa-tab-font"} style={{ fontSize: 16, fontWeight: 600, color: color || "var(--ink)" }}>
         {value}
       </div>
     </div>
