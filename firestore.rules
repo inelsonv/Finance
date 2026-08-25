@@ -60,5 +60,8 @@ service cloud.firestore {
     match /calendario/{doc} {
       allow read, write: if esPropietario();
     }
+    match /checklistPagos/{doc} {
+      allow read, write: if esPropietario();
+    }
   }
 }

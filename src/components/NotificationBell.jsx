@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { diasRestantesProducto } from "../lib/inventario";
 
@@ -35,7 +35,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos }) {
+function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -142,8 +142,29 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
       }
     }
 
+    for (const f of fuentesIngreso || []) {
+      if (f.estado !== "Activo" || !f.diaPago) continue;
+      const diasDelMes = (f.diaPago.match(/\d+/g) || []).map(Number).filter((d) => d >= 1 && d <= 31);
+      if (diasDelMes.length === 0) continue;
+      let mejorDias = null;
+      for (const d of diasDelMes) {
+        const dd = diasHasta(d, today);
+        if (mejorDias == null || dd < mejorDias) mejorDias = dd;
+      }
+      if (mejorDias != null && mejorDias <= UMBRAL_DIAS) {
+        list.push({
+          id: `cobro-${f.id}`,
+          icon: Wallet,
+          titulo: `Día de cobro: ${f.nombre}`,
+          subtitulo: "Ver checklist de pagos de la quincena",
+          dias: mejorDias,
+          tab: "checklist-pagos",
+        });
+      }
+    }
+
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso]);
 }
 
 function etiquetaDias(dias) {
@@ -160,7 +181,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso });
 
   useEffect(() => {
     const unsub = watchNotifConfig(setEmailConfig, () => {});

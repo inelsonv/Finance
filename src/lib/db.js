@@ -649,6 +649,18 @@ export async function saveCombustibleConfig(precios) {
   await setDoc(doc(db, "config", "combustible"), { precios, updatedAt: serverTimestamp() });
 }
 
+export function watchChecklistPeriodo(periodoKey, onChange, onError) {
+  return onSnapshot(
+    doc(db, "checklistPagos", periodoKey),
+    (snap) => onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function setChecklistItem(periodoKey, itemKey, fields) {
+  await setDoc(doc(db, "checklistPagos", periodoKey), { items: { [itemKey]: fields } }, { merge: true });
+}
+
 const calendarioCol = collection(db, "calendario");
 
 export function watchCalendario(onChange, onError) {

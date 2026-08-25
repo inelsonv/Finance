@@ -22,6 +22,7 @@ import FlujoEditor from "./components/FlujoEditor.jsx";
 import Inversion from "./components/Inversion.jsx";
 import EstrategiaDeudas from "./components/EstrategiaDeudas.jsx";
 import Calendario from "./components/Calendario.jsx";
+import ChecklistPagos from "./components/ChecklistPagos.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
@@ -46,6 +47,7 @@ const TITLES = {
   "presupuesto-flujo": "Editor de flujo",
   inversion: "Inversión",
   "estrategia-deudas": "Estrategia de deudas",
+  "checklist-pagos": "Checklist de pagos",
   calendario: "Calendario",
 };
 
@@ -317,6 +319,9 @@ export default function App() {
         {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
         {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} />}
+        {tab === "checklist-pagos" && (
+          <ChecklistPagos categoriasGasto={categoriasGasto} presupuesto={presupuestoAnual} prestamos={prestamos} presupuestoYear={currentYear} />
+        )}
         {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} />}
       </main>
     </div>
