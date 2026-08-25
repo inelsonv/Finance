@@ -357,7 +357,7 @@ function StocksCard() {
   // Solo se consulta la API de nuevo si la lista de símbolos cambió (agregaste/quitaste
   // una empresa) o si el usuario le da clic manual a "Actualizar".
   const symbolsKey = acciones.map((a) => a.symbol).sort().join(",");
-  const UN_DIA_MS = 24 * 60 * 60 * 1000;
+  const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
 
   useEffect(() => {
     if (cache === undefined) return; // aún cargando
@@ -370,7 +370,7 @@ function StocksCard() {
       setPrices(cache.prices);
       const fechaCache = cache.fetchedAt?.toDate ? cache.fetchedAt.toDate() : null;
       if (fechaCache) setUpdatedAt(fechaCache);
-      const desactualizada = fechaCache ? Date.now() - fechaCache.getTime() > UN_DIA_MS : true;
+      const desactualizada = fechaCache ? Date.now() - fechaCache.getTime() > DOCE_HORAS_MS : true;
       if ((!mismosSimbolos || desactualizada) && apiKey && acciones.length > 0) {
         fetchPrices();
       }
