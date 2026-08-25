@@ -5,7 +5,6 @@ import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchM
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import Catalogo from "./components/Catalogo.jsx";
-import ListaCompra from "./components/ListaCompra.jsx";
 import Entidades from "./components/Entidades.jsx";
 import Presupuesto from "./components/Presupuesto.jsx";
 import Movimientos from "./components/Movimientos.jsx";
@@ -40,7 +39,6 @@ const TITLES = {
   presupuesto: "Presupuesto",
   movimientos: "Movimientos",
   catalogo: "Catálogo",
-  lista: "Lista de compra",
   entidades: "Entidades",
   cuentas: "Cuentas",
   prestamos: "Préstamos",
@@ -265,7 +263,7 @@ export default function App() {
       <Sidebar
         tab={tab}
         setTab={setTab}
-        listCount={list.length}
+        listCount={(ordenesCompra.find((o) => o.estado === "Borrador")?.items || []).length}
         prestamosActivosCount={prestamos.filter((p) => p.estado === "Activo").length}
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -362,8 +360,15 @@ export default function App() {
         </div>
 
         {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} movimientos={movimientos} cuentas={cuentas} />}
-        {tab === "catalogo" && <Catalogo products={products} list={list} entidades={entidades} historialCompras={historialCompras} />}
-        {tab === "lista" && <ListaCompra products={products} list={list} />}
+        {tab === "catalogo" && (
+          <Catalogo
+            products={products}
+            entidades={entidades}
+            historialCompras={historialCompras}
+            ordenesCompra={ordenesCompra}
+            onNavigate={setTab}
+          />
+        )}
         {tab === "entidades" && <Entidades entidades={entidades} tiposPersonalizados={tiposEntidad} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
         {tab === "movimientos" && (

@@ -1022,6 +1022,28 @@ export async function addOrdenCompra({ items, proveedorId, proveedorNombre, nota
   return { id: docRef.id, folio };
 }
 
+// Agrega (o incrementa la cantidad de) un producto en la orden de compra que esté
+// en Borrador. Si no existe ninguna en borrador, crea una nueva automáticamente.
+// Así, "agregar a la lista" desde Catálogo alimenta directo la orden de compra.
+export async function agregarItemABorrador(ordenBorrador, { productId, productName, precioUnitario }) {
+  if (!ordenBorrador) {
+    const { id } = await addOrdenCompra({
+      items: [{ productId, productName, cantidad: 1, precioUnitario: precioUnitario ?? null }],
+    });
+    return id;
+  }
+  const items = ordenBorrador.items || [];
+  const idx = items.findIndex((it) => it.productId === productId);
+  let nuevosItems;
+  if (idx >= 0) {
+    nuevosItems = items.map((it, i) => (i === idx ? { ...it, cantidad: (Number(it.cantidad) || 0) + 1 } : it));
+  } else {
+    nuevosItems = [...items, { productId, productName, cantidad: 1, precioUnitario: precioUnitario ?? null }];
+  }
+  await updateOrdenCompra(ordenBorrador.id, { items: nuevosItems });
+  return ordenBorrador.id;
+}
+
 export async function updateOrdenCompra(id, fields) {
   await updateDoc(doc(db, "ordenesCompra", id), fields);
 }

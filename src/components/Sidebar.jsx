@@ -74,7 +74,6 @@ const NAV_ITEMS = [
     icon: ShoppingCart,
     children: [
       { id: "catalogo", label: "Catálogo" },
-      { id: "lista", label: "Lista de compra" },
       { id: "ordenes-compra", label: "Órdenes de compra" },
     ],
   },
@@ -83,7 +82,7 @@ const NAV_ITEMS = [
 
 export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {
   const [expandedId, setExpandedId] = useState(null);
-  const badgeCounts = { lista: listCount, prestamos: prestamosActivosCount };
+  const badgeCounts = { "ordenes-compra": listCount, prestamos: prestamosActivosCount };
 
   return (
     <nav className={`despensa-sidebar${collapsed ? " despensa-sidebar--collapsed" : ""}`}>

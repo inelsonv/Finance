@@ -1,12 +1,11 @@
 import React, { useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart } from "lucide-react";
+import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check } from "lucide-react";
 import {
   addProduct,
   deleteProduct,
   updateProductPrice,
   updateProducto,
-  addToList,
-  incrementListQty,
+  agregarItemABorrador,
   uploadProductImage,
   removeProductImage,
 } from "../lib/db";
@@ -16,7 +15,7 @@ import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
 
-export default function Catalogo({ products, list, entidades, historialCompras }) {
+export default function Catalogo({ products, entidades, historialCompras, ordenesCompra, onNavigate }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
@@ -29,8 +28,14 @@ export default function Catalogo({ products, list, entidades, historialCompras }
   const [configForm, setConfigForm] = useState(null);
   const [configSaving, setConfigSaving] = useState(false);
   const [dismissedSugerencias, setDismissedSugerencias] = useState([]);
+  const [agregadoId, setAgregadoId] = useState(null);
   const formFileRef = useRef(null);
   const rowFileRefs = useRef({});
+
+  const borradorActual = useMemo(
+    () => (ordenesCompra || []).find((o) => o.estado === "Borrador"),
+    [ordenesCompra]
+  );
 
   const sugerencias = useMemo(() => {
     const productIds = new Set(products.map((p) => p.id));
@@ -39,14 +44,20 @@ export default function Catalogo({ products, list, entidades, historialCompras }
       .slice(0, 6);
   }, [historialCompras, products, dismissedSugerencias]);
 
-  const agregarSugerenciaALista = async (productId) => {
-    const existing = list.find((it) => it.id === productId);
-    if (existing) {
-      await incrementListQty(productId, existing.qty || 1, 1);
-    } else {
-      await addToList(productId);
-    }
-    setDismissedSugerencias((prev) => [...prev, productId]);
+  const agregarACompra = async (product) => {
+    await agregarItemABorrador(borradorActual, { productId: product.id, productName: product.name, precioUnitario: product.price });
+    setAgregadoId(product.id);
+    setTimeout(() => setAgregadoId(null), 1500);
+  };
+
+  const agregarSugerenciaACompra = async (sugerencia) => {
+    const product = products.find((p) => p.id === sugerencia.productId);
+    await agregarItemABorrador(borradorActual, {
+      productId: sugerencia.productId,
+      productName: sugerencia.productName,
+      precioUnitario: product?.price ?? null,
+    });
+    setDismissedSugerencias((prev) => [...prev, sugerencia.productId]);
   };
 
   const filtered = useMemo(() => {
@@ -107,13 +118,9 @@ export default function Catalogo({ products, list, entidades, historialCompras }
     if (Number.isFinite(price)) updateProductPrice(id, price);
   };
 
-  const handleAddToList = async (id) => {
-    const existing = list.find((it) => it.id === id);
-    if (existing) {
-      await incrementListQty(id, existing.qty || 1, 1);
-    } else {
-      await addToList(id);
-    }
+  const handleAddToList = (id) => {
+    const product = products.find((p) => p.id === id);
+    if (product) agregarACompra(product);
   };
 
   const openConfig = (p) => {
@@ -166,6 +173,35 @@ export default function Catalogo({ products, list, entidades, historialCompras }
 
   return (
     <div>
+      {borradorActual && (borradorActual.items || []).length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            background: "var(--sage-bg)",
+            border: "1px solid var(--sage)",
+            borderRadius: 10,
+            padding: "9px 12px",
+            marginBottom: 16,
+            flexWrap: "wrap",
+          }}
+        >
+          <span style={{ fontSize: 12.5, color: "var(--sage)" }}>
+            Tienes {borradorActual.items.length} producto(s) en tu orden de compra {borradorActual.folio} sin enviar todavía.
+          </span>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate("ordenes-compra")}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", fontSize: 11.5, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer", flexShrink: 0 }}
+            >
+              <ShoppingCart size={12} /> Ver orden de compra
+            </button>
+          )}
+        </div>
+      )}
+
       {sugerencias.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
@@ -196,7 +232,7 @@ export default function Catalogo({ products, list, entidades, historialCompras }
                   </div>
                 </div>
                 <button
-                  onClick={() => agregarSugerenciaALista(s.productId)}
+                  onClick={() => agregarSugerenciaACompra(s)}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -213,7 +249,7 @@ export default function Catalogo({ products, list, entidades, historialCompras }
                     whiteSpace: "nowrap",
                   }}
                 >
-                  <ShoppingCart size={12} /> Agregar a lista
+                  <ShoppingCart size={12} /> Agregar a compra
                 </button>
                 <button
                   onClick={() => setDismissedSugerencias((prev) => [...prev, s.productId])}
@@ -481,7 +517,7 @@ export default function Catalogo({ products, list, entidades, historialCompras }
                   </button>
                   <button
                     onClick={() => handleAddToList(p.id)}
-                    title="Agregar a la lista de compra"
+                    title="Agregar a orden de compra"
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -489,14 +525,14 @@ export default function Catalogo({ products, list, entidades, historialCompras }
                       width: 26,
                       height: 26,
                       flexShrink: 0,
-                      background: "var(--sage-bg)",
-                      color: "var(--sage)",
+                      background: agregadoId === p.id ? "var(--sage)" : "var(--sage-bg)",
+                      color: agregadoId === p.id ? "#fff" : "var(--sage)",
                       border: "none",
                       borderRadius: 6,
                       cursor: "pointer",
                     }}
                   >
-                    <Plus size={14} />
+                    {agregadoId === p.id ? <Check size={14} /> : <Plus size={14} />}
                   </button>
                   <button
                     onClick={() => deleteProduct(p.id)}
