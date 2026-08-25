@@ -3,6 +3,7 @@ import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCir
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 
 const PLAZO_UNIDADES = ["meses", "años"];
+const TIPOS_PRESTAMO = ["Vehículo", "Hipotecario / Vivienda", "Personal", "Estudiantil", "Consolidación de deuda", "Negocio", "Otro"];
 const ESTADOS = ["Activo", "Pagado", "En mora"];
 
 function formatMoney(n) {
@@ -31,6 +32,7 @@ function nextNumero(prestamos) {
 
 const emptyForm = (numero) => ({
   numero,
+  tipo: TIPOS_PRESTAMO[0],
   entidadId: "",
   montoAprobado: "",
   plazo: "",
@@ -63,6 +65,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
     setEditingId(p.id);
     setEditError(null);
     setEditForm({
+      tipo: p.tipo || TIPOS_PRESTAMO[0],
       entidadId: p.entidadId || "",
       montoAprobado: p.montoAprobado != null ? String(p.montoAprobado) : "",
       plazo: p.plazo != null ? String(p.plazo) : "",
@@ -100,6 +103,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
       const tasa = parseFloat(editForm.tasaInteres);
       const cuota = parseFloat(editForm.cuota);
       await updatePrestamo(editingId, {
+        tipo: editForm.tipo,
         entidadId: editForm.entidadId,
         entidadName: entidad ? entidad.name : "",
         montoAprobado: monto,
@@ -158,6 +162,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
       const cuota = parseFloat(form.cuota);
       await addPrestamo({
         numero: form.numero,
+        tipo: form.tipo,
         entidadId: form.entidadId,
         entidadName: entidad ? entidad.name : "",
         montoAprobado: monto,
@@ -233,6 +238,18 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
               <option value="">Entidad prestamista…</option>
               {entidades.map((e) => (
                 <option key={e.docId} value={e.docId}>{e.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <select
+              value={form.tipo}
+              onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              {TIPOS_PRESTAMO.map((t) => (
+                <option key={t} value={t}>{t}</option>
               ))}
             </select>
           </div>
@@ -388,6 +405,18 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                     </select>
                   </div>
 
+                  <div style={{ marginBottom: 8 }}>
+                    <select
+                      value={editForm.tipo}
+                      onChange={(e) => setEditForm({ ...editForm, tipo: e.target.value })}
+                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      {TIPOS_PRESTAMO.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <input
                       className="despensa-mono"
@@ -537,6 +566,14 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                         <span className="despensa-mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--stamp)" }}>
                           {p.numero}
                         </span>
+                        {p.tipo && (
+                          <span
+                            className="despensa-tab-font"
+                            style={{ fontSize: 10.5, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: "var(--sage-bg)", color: "var(--sage)" }}
+                          >
+                            {p.tipo}
+                          </span>
+                        )}
                         <EstadoBadge estado={p.estado} onChange={(estado) => updatePrestamoEstado(p.id, estado)} />
                         {p.notificarWhatsapp && (
                           <span

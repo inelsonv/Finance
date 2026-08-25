@@ -249,6 +249,7 @@ export function watchPrestamos(onChange, onError) {
 
 export async function addPrestamo({
   numero,
+  tipo,
   entidadId,
   entidadName,
   montoAprobado,
@@ -263,6 +264,7 @@ export async function addPrestamo({
 }) {
   await addDoc(prestamosCol, {
     numero,
+    tipo: tipo || "Otro",
     entidadId: entidadId || null,
     entidadName: entidadName || "",
     montoAprobado,
