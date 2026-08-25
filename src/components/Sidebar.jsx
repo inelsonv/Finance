@@ -39,24 +39,45 @@ const NAV_ITEMS = [
     ],
   },
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
-  { id: "ingresos", label: "Ingresos", icon: Briefcase },
-  { id: "inversion", label: "Inversión", icon: LineChart },
   { id: "calendario", label: "Calendario", icon: CalendarDays },
+  {
+    id: "dinero-cuentas",
+    label: "Dinero y Cuentas",
+    icon: Vault,
+    children: [
+      { id: "cuentas", label: "Cuentas" },
+      { id: "ahorro", label: "Ahorro" },
+      { id: "inversion", label: "Inversión" },
+      { id: "ingresos", label: "Ingresos" },
+    ],
+  },
+  {
+    id: "deudas-pagos",
+    label: "Deudas y Pagos fijos",
+    icon: Banknote,
+    children: [
+      { id: "prestamos", label: "Préstamos" },
+      { id: "tarjetas", label: "Tarjetas" },
+      { id: "membresias", label: "Membresías" },
+      { id: "contratos", label: "Contratos" },
+    ],
+  },
   {
     id: "activos",
     label: "Activos",
     icon: Car,
     children: [{ id: "seguros", label: "Seguros" }],
   },
-  { id: "catalogo", label: "Catálogo", icon: Package },
-  { id: "lista", label: "Lista de compra", icon: ShoppingCart },
+  {
+    id: "compras",
+    label: "Compras",
+    icon: ShoppingCart,
+    children: [
+      { id: "catalogo", label: "Catálogo" },
+      { id: "lista", label: "Lista de compra" },
+    ],
+  },
   { id: "entidades", label: "Entidades", icon: Landmark },
-  { id: "cuentas", label: "Cuentas", icon: Vault },
-  { id: "ahorro", label: "Ahorro", icon: PiggyBank },
-  { id: "prestamos", label: "Préstamos", icon: Banknote },
-  { id: "tarjetas", label: "Tarjetas", icon: CreditCard },
-  { id: "membresias", label: "Membresías", icon: Ticket },
-  { id: "contratos", label: "Contratos", icon: Zap },
 ];
 
 export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {
@@ -131,9 +152,13 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = tab === item.id;
-          const hasChildren = !collapsed && item.children && item.children.length > 0;
+          const itemHasChildren = item.children && item.children.length > 0;
+          const hasChildren = !collapsed && itemHasChildren;
           const expanded = hasChildren && expandedId === item.id;
-          const count = badgeCounts[item.id];
+          const childrenCount = itemHasChildren
+            ? item.children.reduce((s, c) => s + (badgeCounts[c.id] || 0), 0)
+            : undefined;
+          const count = badgeCounts[item.id] ?? childrenCount;
           return (
             <div key={item.id}>
               <button
@@ -194,6 +219,7 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
                 <div className="despensa-submenu" style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 1 }}>
                   {item.children.map((child) => {
                     const childActive = tab === child.id;
+                    const childCount = badgeCounts[child.id];
                     return (
                       <button
                         key={child.id}
@@ -209,6 +235,21 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
                       >
                         <span style={{ width: 4, height: 4, borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
                         <span className="despensa-navlabel">{child.label}</span>
+                        {childCount > 0 && (
+                          <span
+                            className="despensa-mono"
+                            style={{
+                              marginLeft: "auto",
+                              background: childActive ? "var(--sage)" : "var(--line)",
+                              color: childActive ? "#fff" : "var(--ink)",
+                              borderRadius: 10,
+                              fontSize: 10.5,
+                              padding: "1px 6px",
+                            }}
+                          >
+                            {childCount}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

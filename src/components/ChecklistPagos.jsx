@@ -48,9 +48,21 @@ function periodoAdyacente(periodo, dir) {
   }
 }
 
-export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, presupuestoYear }) {
-  const [periodo, setPeriodo] = useState(periodoActual);
+export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, presupuestoYear, periodoInicial, onConsumePeriodoInicial }) {
+  const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual());
   const [checklist, setChecklist] = useState({});
+
+  // Cuando llegamos aquí desde la notificación de "día de cobro", saltamos directo
+  // a la quincena que corresponde pagar (Q1 del mes siguiente si el cobro es a fin
+  // de mes, o Q2 del mismo mes si el cobro es a mitad de mes). Una vez aplicado, se
+  // limpia para que una visita normal (desde el menú) no quede "pegada" a esa quincena.
+  useEffect(() => {
+    if (periodoInicial) {
+      setPeriodo(periodoInicial);
+      if (onConsumePeriodoInicial) onConsumePeriodoInicial();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodoInicial]);
 
   const periodoKey = `${periodo.year}-${periodo.month}-${periodo.quincena}`;
 

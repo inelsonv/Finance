@@ -31,6 +31,36 @@ function diasHasta(diaPago, today) {
   return diff;
 }
 
+// Determina en qué fecha (año/mes/día) cae la próxima ocurrencia de un día de pago,
+// sin importar si ya pasó este mes (en cuyo caso proyecta al mes siguiente).
+function ocurrenciaDia(diaPago, today) {
+  const { year, month, day } = today;
+  const daysInThisMonth = new Date(year, month, 0).getDate();
+  const targetDay = Math.min(diaPago, daysInThisMonth);
+  if (targetDay >= day) return { year, month, day: targetDay };
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  const daysInNextMonth = new Date(nextYear, nextMonth, 0).getDate();
+  return { year: nextYear, month: nextMonth, day: Math.min(diaPago, daysInNextMonth) };
+}
+
+// Un cobro cerca de fin de mes (ej. día 30) es para pagar la primera quincena del
+// mes SIGUIENTE. Un cobro a mitad de mes (ej. día 15) es para pagar la segunda
+// quincena de ESE MISMO mes.
+function periodoObjetivoParaCobro(diaPago, today) {
+  const ocurrencia = ocurrenciaDia(diaPago, today);
+  if (ocurrencia.day <= 15) {
+    return { year: ocurrencia.year, month: ocurrencia.month, quincena: "Q2" };
+  }
+  let month = ocurrencia.month + 1;
+  let year = ocurrencia.year;
+  if (month > 12) {
+    month = 1;
+    year += 1;
+  }
+  return { year, month, quincena: "Q1" };
+}
+
 function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   const prefix = ymPrefix(today.year, today.month);
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
@@ -166,11 +196,16 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
       const diasDelMes = (f.diaPago.match(/\d+/g) || []).map(Number).filter((d) => d >= 1 && d <= 31);
       if (diasDelMes.length === 0) continue;
       let mejorDias = null;
+      let mejorDia = null;
       for (const d of diasDelMes) {
         const dd = diasHasta(d, today);
-        if (mejorDias == null || dd < mejorDias) mejorDias = dd;
+        if (mejorDias == null || dd < mejorDias) {
+          mejorDias = dd;
+          mejorDia = d;
+        }
       }
       if (mejorDias != null && mejorDias <= UMBRAL_DIAS) {
+        const periodoObjetivo = periodoObjetivoParaCobro(mejorDia, today);
         list.push({
           id: `cobro-${f.id}`,
           icon: Wallet,
@@ -178,6 +213,7 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
           subtitulo: "Ver checklist de pagos de la quincena",
           dias: mejorDias,
           tab: "checklist-pagos",
+          periodoObjetivo,
         });
       }
     }
@@ -398,13 +434,13 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
                   tabIndex={0}
                   onClick={() => {
                     marcarLeida(n);
-                    onNavigate(n.tab);
+                    onNavigate(n.tab, n.periodoObjetivo);
                     setOpen(false);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       marcarLeida(n);
-                      onNavigate(n.tab);
+                      onNavigate(n.tab, n.periodoObjetivo);
                       setOpen(false);
                     }
                   }}

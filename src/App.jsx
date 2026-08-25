@@ -103,6 +103,7 @@ export default function App() {
   const [mantenimientos, setMantenimientos] = useState([]);
   const [metasAhorro, setMetasAhorro] = useState([]);
   const [seguros, setSeguros] = useState([]);
+  const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
   const currentYear = new Date().getFullYear();
   const [loading, setLoading] = useState(true);
@@ -129,6 +130,11 @@ export default function App() {
   }, [sidebarCollapsed]);
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+
+  const handleNavigate = (tabId, periodoObjetivo) => {
+    setTab(tabId);
+    if (periodoObjetivo) setChecklistPeriodoInicial(periodoObjetivo);
+  };
   const toggleSidebar = () => setSidebarCollapsed((c) => !c);
 
   useEffect(() => {
@@ -308,7 +314,7 @@ export default function App() {
                 presupuesto={presupuestoAnual}
                 presupuestoYear={currentYear}
                 seguros={seguros}
-                onNavigate={setTab}
+                onNavigate={handleNavigate}
               />
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} />
             </div>
@@ -390,7 +396,14 @@ export default function App() {
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
         {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} />}
         {tab === "checklist-pagos" && (
-          <ChecklistPagos categoriasGasto={categoriasGasto} presupuesto={presupuestoAnual} prestamos={prestamos} presupuestoYear={currentYear} />
+          <ChecklistPagos
+            categoriasGasto={categoriasGasto}
+            presupuesto={presupuestoAnual}
+            prestamos={prestamos}
+            presupuestoYear={currentYear}
+            periodoInicial={checklistPeriodoInicial}
+            onConsumePeriodoInicial={() => setChecklistPeriodoInicial(null)}
+          />
         )}
         {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} />}
         {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} />}
