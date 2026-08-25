@@ -6,12 +6,17 @@ import {
   setListChecked,
   removeFromList,
   updateProducto,
+  registrarCompraProducto,
 } from "../lib/db";
 import { registrarReposicion } from "../lib/inventario";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toFixed(2);
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export default function ListaCompra({ products, list }) {
@@ -42,9 +47,17 @@ export default function ListaCompra({ products, list }) {
   const handleToggleChecked = async (row) => {
     const marcandoComoComprado = !row.checked;
     await setListChecked(row.id, marcandoComoComprado);
-    if (marcandoComoComprado && row.product.seguimiento) {
-      const cambios = registrarReposicion(row.product, row.qty || 1);
-      await updateProducto(row.product.id, cambios);
+    if (marcandoComoComprado) {
+      registrarCompraProducto({
+        productId: row.product.id,
+        productName: row.product.name,
+        fecha: todayStr(),
+        cantidad: row.qty || 1,
+      });
+      if (row.product.seguimiento) {
+        const cambios = registrarReposicion(row.product, row.qty || 1);
+        await updateProducto(row.product.id, cambios);
+      }
     }
   };
 

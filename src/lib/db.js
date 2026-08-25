@@ -953,3 +953,26 @@ export async function updateSeguroEstado(id, estado) {
 export async function deleteSeguro(id) {
   await deleteDoc(doc(db, "seguros", id));
 }
+
+const historialComprasCol = collection(db, "historialCompras");
+
+export function watchHistorialCompras(onChange, onError) {
+  return onSnapshot(
+    historialComprasCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function registrarCompraProducto({ productId, productName, fecha, cantidad }) {
+  await addDoc(historialComprasCol, {
+    productId,
+    productName: productName || "",
+    fecha,
+    cantidad: cantidad || 1,
+    createdAt: serverTimestamp(),
+  });
+}

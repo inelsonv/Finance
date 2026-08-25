@@ -1,7 +1,7 @@
 import React, { useRef, useState } from "react";
 import { createWorker } from "tesseract.js";
 import { Camera, Check, X, Loader2, AlertTriangle, Receipt } from "lucide-react";
-import { addProduct, addMovimiento, updateProductPrice } from "../lib/db";
+import { addProduct, addMovimiento, updateProductPrice, registrarCompraProducto } from "../lib/db";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 
@@ -132,10 +132,15 @@ export default function EscanearFactura({ products }) {
       for (const it of items) {
         if (!it.incluir || !it.nombre.trim()) continue;
         const precio = parseFloat(it.precio) || 0;
+        let productId = it.productoExistente?.id || null;
         if (it.esNuevo) {
-          await addProduct({ name: it.nombre.trim(), category: gastoCategoria, unit: "unidad", price: precio });
+          const docRef = await addProduct({ name: it.nombre.trim(), category: gastoCategoria, unit: "unidad", price: precio });
+          productId = docRef.id;
         } else if (it.productoExistente && precio > 0 && precio !== it.productoExistente.price) {
           await updateProductPrice(it.productoExistente.id, precio);
+        }
+        if (productId) {
+          registrarCompraProducto({ productId, productName: it.nombre.trim(), fecha, cantidad: 1 });
         }
       }
 

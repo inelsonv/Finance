@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock } from "lucide-react";
+import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart } from "lucide-react";
 import {
   addProduct,
   deleteProduct,
@@ -11,11 +11,12 @@ import {
   removeProductImage,
 } from "../lib/db";
 import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
+import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
 
-export default function Catalogo({ products, list, entidades }) {
+export default function Catalogo({ products, list, entidades, historialCompras }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
@@ -27,8 +28,26 @@ export default function Catalogo({ products, list, entidades }) {
   const [configuringId, setConfiguringId] = useState(null);
   const [configForm, setConfigForm] = useState(null);
   const [configSaving, setConfigSaving] = useState(false);
+  const [dismissedSugerencias, setDismissedSugerencias] = useState([]);
   const formFileRef = useRef(null);
   const rowFileRefs = useRef({});
+
+  const sugerencias = useMemo(() => {
+    const productIds = new Set(products.map((p) => p.id));
+    return calcularSugerenciasRecompra(historialCompras || [])
+      .filter((s) => productIds.has(s.productId) && !dismissedSugerencias.includes(s.productId))
+      .slice(0, 6);
+  }, [historialCompras, products, dismissedSugerencias]);
+
+  const agregarSugerenciaALista = async (productId) => {
+    const existing = list.find((it) => it.id === productId);
+    if (existing) {
+      await incrementListQty(productId, existing.qty || 1, 1);
+    } else {
+      await addToList(productId);
+    }
+    setDismissedSugerencias((prev) => [...prev, productId]);
+  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -147,6 +166,68 @@ export default function Catalogo({ products, list, entidades }) {
 
   return (
     <div>
+      {sugerencias.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <Sparkles size={13} style={{ color: "var(--sage)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+              Sugerencias basadas en tus hábitos de compra
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {sugerencias.map((s) => (
+              <div
+                key={s.productId}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  background: s.vencido ? "var(--stamp-bg)" : "var(--sage-bg)",
+                  border: `1px solid ${s.vencido ? "var(--stamp)" : "var(--sage)"}`,
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{s.productName}</div>
+                  <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+                    Sueles comprarlo cada ~{s.promedioDias} días · última vez hace {s.diasDesdeUltima} días
+                    {s.vencido && " · ya deberías haberlo repuesto"}
+                  </div>
+                </div>
+                <button
+                  onClick={() => agregarSugerenciaALista(s.productId)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "6px 10px",
+                    fontSize: 11.5,
+                    fontWeight: 500,
+                    background: s.vencido ? "var(--stamp)" : "var(--sage)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 7,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <ShoppingCart size={12} /> Agregar a lista
+                </button>
+                <button
+                  onClick={() => setDismissedSugerencias((prev) => [...prev, s.productId])}
+                  title="Descartar"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer", flexShrink: 0 }}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <div style={{ position: "relative", flex: "1 1 200px" }}>
           <Search size={14} style={{ position: "absolute", left: 10, top: 11, color: "var(--ink-soft)" }} />

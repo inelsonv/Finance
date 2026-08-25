@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import Catalogo from "./components/Catalogo.jsx";
@@ -103,6 +103,7 @@ export default function App() {
   const [mantenimientos, setMantenimientos] = useState([]);
   const [metasAhorro, setMetasAhorro] = useState([]);
   const [seguros, setSeguros] = useState([]);
+  const [historialCompras, setHistorialCompras] = useState([]);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
   const currentYear = new Date().getFullYear();
@@ -187,6 +188,7 @@ export default function App() {
     const unsubMantenimientos = watchMantenimientos(setMantenimientos, handleError);
     const unsubMetasAhorro = watchMetasAhorro(setMetasAhorro, handleError);
     const unsubSeguros = watchSeguros(setSeguros, handleError);
+    const unsubHistorialCompras = watchHistorialCompras(setHistorialCompras, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -208,6 +210,7 @@ export default function App() {
       unsubMantenimientos();
       unsubMetasAhorro();
       unsubSeguros();
+      unsubHistorialCompras();
       unsubStatus();
     };
   }, [authorized]);
@@ -354,7 +357,7 @@ export default function App() {
         </div>
 
         {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} movimientos={movimientos} cuentas={cuentas} />}
-        {tab === "catalogo" && <Catalogo products={products} list={list} entidades={entidades} />}
+        {tab === "catalogo" && <Catalogo products={products} list={list} entidades={entidades} historialCompras={historialCompras} />}
         {tab === "lista" && <ListaCompra products={products} list={list} />}
         {tab === "entidades" && <Entidades entidades={entidades} tiposPersonalizados={tiposEntidad} />}
         {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
