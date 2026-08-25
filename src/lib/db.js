@@ -339,6 +339,7 @@ export function watchTarjetas(onChange, onError) {
 
 export async function addTarjeta({
   nombre,
+  tipoTarjeta,
   entidadId,
   entidadName,
   ultimos4,
@@ -355,6 +356,7 @@ export async function addTarjeta({
 }) {
   await addDoc(tarjetasCol, {
     nombre,
+    tipoTarjeta: tipoTarjeta || "Crédito",
     entidadId: entidadId || null,
     entidadName: entidadName || "",
     ultimos4: ultimos4 || "",

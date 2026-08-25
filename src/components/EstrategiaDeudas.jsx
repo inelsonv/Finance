@@ -38,7 +38,7 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos }) {
     }
 
     for (const t of tarjetas) {
-      if (t.estado !== "Activa" || t.saldoActual == null || t.saldoActual <= 0) continue;
+      if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito" || t.saldoActual == null || t.saldoActual <= 0) continue;
       list.push({
         id: `t-${t.id}`,
         nombre: t.nombre,
