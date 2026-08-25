@@ -24,6 +24,7 @@ import EstrategiaDeudas from "./components/EstrategiaDeudas.jsx";
 import Calendario from "./components/Calendario.jsx";
 import ChecklistPagos from "./components/ChecklistPagos.jsx";
 import Configuracion from "./components/Configuracion.jsx";
+import EscanearFactura from "./components/EscanearFactura.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
@@ -51,6 +52,7 @@ const TITLES = {
   "checklist-pagos": "Checklist de pagos",
   calendario: "Calendario",
   configuracion: "Configuración",
+  "escanear-factura": "Registrar compra (factura)",
 };
 
 function getInitialTheme() {
@@ -246,9 +248,29 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               {tab === "catalogo" && (
-                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-                  {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
-                </span>
+                <>
+                  <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                    {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
+                  </span>
+                  <button
+                    onClick={() => setTab("escanear-factura")}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      background: "var(--ink)",
+                      color: "var(--paper)",
+                      border: "none",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Registrar compra (factura)
+                  </button>
+                </>
               )}
               {tab === "entidades" && (
                 <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
@@ -344,6 +366,7 @@ export default function App() {
         {tab === "configuracion" && (
           <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} />
         )}
+        {tab === "escanear-factura" && <EscanearFactura products={products} />}
       </main>
     </div>
   );

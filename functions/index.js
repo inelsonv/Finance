@@ -1,9 +1,14 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 
 initializeApp();
 const db = getFirestore();
+
+const ALLOWED_EMAIL = "iventuramena@gmail.com";
+const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
 
 const UMBRAL_DIAS = 7;
 
@@ -185,3 +190,72 @@ exports.avisoDiarioAlertas = onSchedule(
     console.log(`Correo de alertas encolado para ${email} con ${notificaciones.length} notificaciones.`);
   }
 );
+
+// Lee una foto de factura/recibo con IA y devuelve los productos y precios
+// encontrados en formato estructurado, para que el usuario los revise antes
+// de guardarlos en Catálogo y Movimientos.
+exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request) => {
+  if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
+    throw new HttpsError("permission-denied", "No autorizado");
+  }
+
+  const { imageBase64, mediaType } = request.data || {};
+  if (!imageBase64 || !mediaType) {
+    throw new HttpsError("invalid-argument", "Falta la imagen de la factura");
+  }
+
+  const prompt =
+    'Lee esta factura o recibo de compra y responde ÚNICAMENTE con un JSON válido (sin texto adicional, ' +
+    "sin bloques de código markdown) con exactamente esta forma: " +
+    '{"tienda": string o null, "fecha": "YYYY-MM-DD" o null, "items": ' +
+    '[{"nombre": string, "precio": number, "cantidad": number}], "total": number o null}. ' +
+    "Los precios y el total deben ser números (sin símbolo de moneda). Si no puedes leer algo, usa null. " +
+    "Ignora líneas que no sean productos (impuestos, descuentos, subtotales) — esas ya están incluidas en el total.";
+
+  let resp;
+  try {
+    resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": anthropicApiKey.value(),
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 2000,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
+              { type: "text", text: prompt },
+            ],
+          },
+        ],
+      }),
+    });
+  } catch (err) {
+    throw new HttpsError("internal", "No se pudo contactar el servicio de IA: " + err.message);
+  }
+
+  const data = await resp.json().catch(() => ({}));
+
+  if (!resp.ok) {
+    throw new HttpsError("internal", data?.error?.message || `Error de la API de Anthropic (HTTP ${resp.status})`);
+  }
+
+  const textBlock = (data.content || []).find((c) => c.type === "text");
+  const rawText = textBlock?.text || "";
+
+  let parsed;
+  try {
+    const clean = rawText.replace(/```json|```/g, "").trim();
+    parsed = JSON.parse(clean);
+  } catch (err) {
+    throw new HttpsError("internal", "No se pudo interpretar la respuesta de la IA. Intenta con una foto más clara.");
+  }
+
+  if (!Array.isArray(parsed.items)) parsed.items = [];
+  return parsed;
+});
