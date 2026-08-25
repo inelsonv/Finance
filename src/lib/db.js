@@ -841,3 +841,54 @@ export async function addMantenimiento({ activoId, activoNombre, fecha, tipo, co
 export async function deleteMantenimiento(id) {
   await deleteDoc(doc(db, "mantenimientos", id));
 }
+
+const metasAhorroCol = collection(db, "metasAhorro");
+
+export function watchMetasAhorro(onChange, onError) {
+  return onSnapshot(
+    metasAhorroCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addMetaAhorro({
+  nombre,
+  tipoMeta,
+  cuentaId,
+  cuentaNombre,
+  montoObjetivo,
+  porcentaje,
+  fechaObjetivo,
+  estado,
+  notas,
+}) {
+  await addDoc(metasAhorroCol, {
+    nombre,
+    tipoMeta,
+    cuentaId: cuentaId || null,
+    cuentaNombre: cuentaNombre || "",
+    montoObjetivo: montoObjetivo ?? null,
+    porcentaje: porcentaje ?? null,
+    fechaObjetivo: fechaObjetivo || null,
+    estado: estado || "Activa",
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateMetaAhorro(id, fields) {
+  await updateDoc(doc(db, "metasAhorro", id), fields);
+}
+
+export async function updateMetaAhorroEstado(id, estado) {
+  await updateDoc(doc(db, "metasAhorro", id), { estado });
+}
+
+export async function deleteMetaAhorro(id) {
+  await deleteDoc(doc(db, "metasAhorro", id));
+}

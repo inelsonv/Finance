@@ -66,6 +66,9 @@ service cloud.firestore {
     match /mantenimientos/{doc} {
       allow read, write: if esPropietario();
     }
+    match /metasAhorro/{doc} {
+      allow read, write: if esPropietario();
+    }
     match /checklistPagos/{doc} {
       allow read, write: if esPropietario();
     }
