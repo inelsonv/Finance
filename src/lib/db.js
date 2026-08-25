@@ -265,6 +265,9 @@ export async function addPrestamo({
   notificarWhatsapp,
   activoId,
   activoNombre,
+  esRevolvente,
+  saldoActual,
+  montoMinimoRetiro,
 }) {
   await addDoc(prestamosCol, {
     numero,
@@ -273,6 +276,9 @@ export async function addPrestamo({
     entidadName: entidadName || "",
     activoId: activoId || null,
     activoNombre: activoNombre || "",
+    esRevolvente: !!esRevolvente,
+    saldoActual: saldoActual ?? null,
+    montoMinimoRetiro: montoMinimoRetiro ?? null,
     montoAprobado,
     plazo,
     plazoUnidad,

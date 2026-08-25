@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car } from "lucide-react";
+import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw } from "lucide-react";
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 
 const PLAZO_UNIDADES = ["meses", "años"];
@@ -44,6 +44,9 @@ const emptyForm = (numero) => ({
   estado: "Activo",
   notas: "",
   notificarWhatsapp: false,
+  esRevolvente: false,
+  saldoActual: "",
+  montoMinimoRetiro: "",
 });
 
 export default function Prestamos({ prestamos, entidades, movimientos, activos }) {
@@ -69,6 +72,9 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
       tipo: p.tipo || TIPOS_PRESTAMO[0],
       entidadId: p.entidadId || "",
       activoId: p.activoId || "",
+      esRevolvente: !!p.esRevolvente,
+      saldoActual: p.saldoActual != null ? String(p.saldoActual) : "",
+      montoMinimoRetiro: p.montoMinimoRetiro != null ? String(p.montoMinimoRetiro) : "",
       montoAprobado: p.montoAprobado != null ? String(p.montoAprobado) : "",
       plazo: p.plazo != null ? String(p.plazo) : "",
       plazoUnidad: p.plazoUnidad || "meses",
@@ -111,6 +117,9 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
         entidadName: entidad ? entidad.name : "",
         activoId: editForm.tipo === "Vehículo" ? editForm.activoId || null : null,
         activoNombre: editForm.tipo === "Vehículo" ? activoSel?.nombre || "" : "",
+        esRevolvente: editForm.esRevolvente,
+        saldoActual: editForm.esRevolvente ? parseFloat(editForm.saldoActual) || null : null,
+        montoMinimoRetiro: editForm.esRevolvente ? parseFloat(editForm.montoMinimoRetiro) || null : null,
         montoAprobado: monto,
         plazo: Number.isFinite(plazo) ? plazo : null,
         plazoUnidad: editForm.plazoUnidad,
@@ -181,6 +190,9 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
         entidadName: entidad ? entidad.name : "",
         activoId: form.tipo === "Vehículo" ? form.activoId || null : null,
         activoNombre: form.tipo === "Vehículo" ? activoSel?.nombre || "" : "",
+        esRevolvente: form.esRevolvente,
+        saldoActual: form.esRevolvente ? parseFloat(form.saldoActual) || null : null,
+        montoMinimoRetiro: form.esRevolvente ? parseFloat(form.montoMinimoRetiro) || null : null,
         montoAprobado: monto,
         plazo: Number.isFinite(plazo) ? plazo : null,
         plazoUnidad: form.plazoUnidad,
@@ -290,6 +302,39 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
                   ))}
                 </select>
               )}
+            </div>
+          )}
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginBottom: 8, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={form.esRevolvente}
+              onChange={(e) => setForm({ ...form, esRevolvente: e.target.checked })}
+            />
+            Es un préstamo revolvente (al pagar, el monto queda disponible para volver a retirar)
+          </label>
+          {form.esRevolvente && (
+            <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <input
+                className="despensa-mono"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Saldo actual utilizado"
+                value={form.saldoActual}
+                onChange={(e) => setForm({ ...form, saldoActual: e.target.value })}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <input
+                className="despensa-mono"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Mínimo disponible para retirar"
+                value={form.montoMinimoRetiro}
+                onChange={(e) => setForm({ ...form, montoMinimoRetiro: e.target.value })}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
             </div>
           )}
 
@@ -474,6 +519,39 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
                           ))}
                         </select>
                       )}
+                    </div>
+                  )}
+
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginBottom: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={editForm.esRevolvente}
+                      onChange={(e) => setEditForm({ ...editForm, esRevolvente: e.target.checked })}
+                    />
+                    Es un préstamo revolvente (al pagar, el monto queda disponible para volver a retirar)
+                  </label>
+                  {editForm.esRevolvente && (
+                    <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                      <input
+                        className="despensa-mono"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Saldo actual utilizado"
+                        value={editForm.saldoActual}
+                        onChange={(e) => setEditForm({ ...editForm, saldoActual: e.target.value })}
+                        style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                      />
+                      <input
+                        className="despensa-mono"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Mínimo disponible para retirar"
+                        value={editForm.montoMinimoRetiro}
+                        onChange={(e) => setEditForm({ ...editForm, montoMinimoRetiro: e.target.value })}
+                        style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                      />
                     </div>
                   )}
 
@@ -726,6 +804,49 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
                         </div>
                         <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${pct}%`, background: "var(--sage)", borderRadius: 4 }} />
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {p.esRevolvente && (() => {
+                    const limite = Number(p.montoAprobado) || 0;
+                    const usado = Number(p.saldoActual) || 0;
+                    const disponible = Math.max(limite - usado, 0);
+                    const pctUsado = limite ? Math.min(100, Math.round((usado / limite) * 100)) : 0;
+                    const minimoRetiro = p.montoMinimoRetiro;
+                    const puedeRetirar = minimoRetiro != null ? disponible >= minimoRetiro : disponible > 0;
+                    const barColor = pctUsado >= 90 ? "var(--stamp)" : pctUsado >= 60 ? "var(--amber)" : "var(--sage)";
+                    return (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                          <RotateCcw size={11} style={{ color: "var(--ink-soft)" }} />
+                          <span style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Línea revolvente</span>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 6 }}>
+                          <Field label="Disponible para retirar" value={<span style={{ color: puedeRetirar ? "var(--sage)" : "var(--stamp)" }}>{formatMoney(disponible)}</span>} />
+                          <Field label="Saldo utilizado" value={formatMoney(usado)} />
+                        </div>
+                        <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden", marginBottom: 6 }}>
+                          <div style={{ height: "100%", width: `${pctUsado}%`, background: barColor, borderRadius: 4 }} />
+                        </div>
+                        <div
+                          className="despensa-tab-font"
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 600,
+                            display: "inline-block",
+                            padding: "2px 8px",
+                            borderRadius: 12,
+                            background: puedeRetirar ? "var(--sage-bg)" : "var(--stamp-bg)",
+                            color: puedeRetirar ? "var(--sage)" : "var(--stamp)",
+                          }}
+                        >
+                          {puedeRetirar
+                            ? "Puedes volver a retirar"
+                            : minimoRetiro != null
+                            ? `Necesitas pagar más (mínimo ${formatMoney(minimoRetiro)} disponible)`
+                            : "Sin disponible para retirar"}
                         </div>
                       </div>
                     );
