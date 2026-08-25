@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig } from "../lib/db";
 
@@ -559,8 +559,6 @@ function StocksCard() {
 }
 
 export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas }) {
-  const [showInfoDeuda, setShowInfoDeuda] = useState(false);
-  const [showInfoFondo, setShowInfoFondo] = useState(false);
   const cuotaPrestamos = useMemo(
     () => prestamos.filter((p) => p.estado === "Activo").reduce((s, p) => s + (Number(p.cuota) || 0), 0),
     [prestamos]
@@ -618,30 +616,10 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 16 }}>
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative" }}>
-          <button
-            onClick={() => setShowInfoDeuda((s) => !s)}
-            title="¿Cómo se calcula?"
-            style={{
-              position: "absolute",
-              top: 12,
-              right: 12,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 20,
-              height: 20,
-              borderRadius: "50%",
-              border: "1px solid var(--line)",
-              background: "var(--paper)",
-              color: "var(--ink-soft)",
-              cursor: "pointer",
-              fontSize: 11,
-              fontWeight: 700,
-              fontFamily: "Georgia, serif",
-            }}
-          >
-            i
-          </button>
+          <InfoTooltip>
+            (Cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso mensual estimado.
+            Saludable por debajo del 35-40%. No incluye membresías ni gastos variables.
+          </InfoTooltip>
           <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Nivel de endeudamiento</div>
 
           {ingresoMensual === 0 ? (
@@ -669,42 +647,15 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
                 <MiniStat icon={Banknote} label="Cuotas préstamos" value={formatMoney(cuotaPrestamos)} color="var(--stamp)" compact />
                 <MiniStat icon={CreditCard} label="Pago mín. tarjetas" value={formatMoney(pagoTarjetas)} color="var(--stamp)" compact />
               </div>
-
-              {showInfoDeuda && (
-                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 12, lineHeight: 1.5, textAlign: "left" }}>
-                  (Cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso mensual estimado.
-                  Saludable por debajo del 35-40%. No incluye membresías ni gastos variables.
-                </div>
-              )}
             </>
           )}
         </div>
 
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative" }}>
-          <button
-            onClick={() => setShowInfoFondo((s) => !s)}
-            title="¿Cómo se calcula?"
-            style={{
-              position: "absolute",
-              top: 12,
-              right: 12,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 20,
-              height: 20,
-              borderRadius: "50%",
-              border: "1px solid var(--line)",
-              background: "var(--paper)",
-              color: "var(--ink-soft)",
-              cursor: "pointer",
-              fontSize: 11,
-              fontWeight: 700,
-              fontFamily: "Georgia, serif",
-            }}
-          >
-            i
-          </button>
+          <InfoTooltip>
+            Saldo en cuentas de Ahorro ÷ gasto mensual promedio de este año. Los expertos recomiendan tener
+            entre 3 y 6 meses de gastos cubiertos.
+          </InfoTooltip>
           <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Fondo de emergencia</div>
 
           {mesesCobertura == null ? (
@@ -732,13 +683,6 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
                 <MiniStat icon={PiggyBank} label="En cuentas de ahorro" value={formatMoney(ahorroTotal)} color="var(--sage)" compact />
                 <MiniStat icon={Banknote} label="Gasto mensual prom." value={formatMoney(gastoMensualPromedio)} color="var(--stamp)" compact />
               </div>
-
-              {showInfoFondo && (
-                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 12, lineHeight: 1.5, textAlign: "left" }}>
-                  Saldo en cuentas de Ahorro ÷ gasto mensual promedio de este año. Los expertos recomiendan tener
-                  entre 3 y 6 meses de gastos cubiertos.
-                </div>
-              )}
             </>
           )}
         </div>
@@ -755,6 +699,72 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
       </div>
 
       <DolarCard />
+    </div>
+  );
+}
+
+function InfoTooltip({ children }) {
+  const [show, setShow] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!show) return;
+    const onClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setShow(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, [show]);
+
+  return (
+    <div ref={ref} style={{ position: "absolute", top: 12, right: 12 }}>
+      <button
+        onClick={() => setShow((s) => !s)}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        title="¿Cómo se calcula?"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 20,
+          height: 20,
+          borderRadius: "50%",
+          border: "1px solid var(--line)",
+          background: "var(--paper)",
+          color: "var(--ink-soft)",
+          cursor: "pointer",
+          fontSize: 11,
+          fontWeight: 700,
+          fontFamily: "Georgia, serif",
+        }}
+      >
+        i
+      </button>
+      {show && (
+        <div
+          onMouseEnter={() => setShow(true)}
+          onMouseLeave={() => setShow(false)}
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            right: 0,
+            width: 220,
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            padding: "9px 11px",
+            fontSize: 11,
+            lineHeight: 1.5,
+            color: "var(--ink-soft)",
+            textAlign: "left",
+            boxShadow: "0 6px 18px rgba(0,0,0,0.18)",
+            zIndex: 20,
+          }}
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }
