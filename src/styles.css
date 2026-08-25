@@ -60,6 +60,27 @@ body {
   font-family: "IBM Plex Mono", monospace;
 }
 
+input,
+select,
+textarea {
+  background: var(--card);
+  color: var(--ink);
+  font-family: inherit;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea {
+  color-scheme: dark;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-soft);
+  opacity: 1;
+}
+
 input:focus,
 select:focus {
   outline: 2px solid var(--sage);
