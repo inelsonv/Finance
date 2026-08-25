@@ -263,12 +263,16 @@ export async function addPrestamo({
   estado,
   notas,
   notificarWhatsapp,
+  activoId,
+  activoNombre,
 }) {
   await addDoc(prestamosCol, {
     numero,
     tipo: tipo || "Otro",
     entidadId: entidadId || null,
     entidadName: entidadName || "",
+    activoId: activoId || null,
+    activoNombre: activoNombre || "",
     montoAprobado,
     plazo,
     plazoUnidad,

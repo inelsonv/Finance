@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle } from "lucide-react";
+import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car } from "lucide-react";
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 
 const PLAZO_UNIDADES = ["meses", "años"];
@@ -34,6 +34,7 @@ const emptyForm = (numero) => ({
   numero,
   tipo: TIPOS_PRESTAMO[0],
   entidadId: "",
+  activoId: "",
   montoAprobado: "",
   plazo: "",
   plazoUnidad: "meses",
@@ -45,7 +46,7 @@ const emptyForm = (numero) => ({
   notificarWhatsapp: false,
 });
 
-export default function Prestamos({ prestamos, entidades, movimientos }) {
+export default function Prestamos({ prestamos, entidades, movimientos, activos }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => emptyForm(nextNumero(prestamos)));
   const [formError, setFormError] = useState(null);
@@ -67,6 +68,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
     setEditForm({
       tipo: p.tipo || TIPOS_PRESTAMO[0],
       entidadId: p.entidadId || "",
+      activoId: p.activoId || "",
       montoAprobado: p.montoAprobado != null ? String(p.montoAprobado) : "",
       plazo: p.plazo != null ? String(p.plazo) : "",
       plazoUnidad: p.plazoUnidad || "meses",
@@ -99,6 +101,7 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
     setEditError(null);
     try {
       const entidad = entidades.find((e) => e.docId === editForm.entidadId);
+      const activoSel = activos.find((a) => a.id === editForm.activoId);
       const plazo = parseFloat(editForm.plazo);
       const tasa = parseFloat(editForm.tasaInteres);
       const cuota = parseFloat(editForm.cuota);
@@ -106,6 +109,8 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
         tipo: editForm.tipo,
         entidadId: editForm.entidadId,
         entidadName: entidad ? entidad.name : "",
+        activoId: editForm.tipo === "Vehículo" ? editForm.activoId || null : null,
+        activoNombre: editForm.tipo === "Vehículo" ? activoSel?.nombre || "" : "",
         montoAprobado: monto,
         plazo: Number.isFinite(plazo) ? plazo : null,
         plazoUnidad: editForm.plazoUnidad,
@@ -167,12 +172,15 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
     setFormError(null);
     try {
       const entidad = entidades.find((e) => e.docId === form.entidadId);
+      const activoSel = activos.find((a) => a.id === form.activoId);
       const cuota = parseFloat(form.cuota);
       await addPrestamo({
         numero: form.numero,
         tipo: form.tipo,
         entidadId: form.entidadId,
         entidadName: entidad ? entidad.name : "",
+        activoId: form.tipo === "Vehículo" ? form.activoId || null : null,
+        activoNombre: form.tipo === "Vehículo" ? activoSel?.nombre || "" : "",
         montoAprobado: monto,
         plazo: Number.isFinite(plazo) ? plazo : null,
         plazoUnidad: form.plazoUnidad,
@@ -263,6 +271,27 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
               ))}
             </select>
           </div>
+
+          {form.tipo === "Vehículo" && (
+            <div style={{ marginBottom: 8 }}>
+              {activos.filter((a) => a.tipo === "Vehículo").length === 0 ? (
+                <div style={{ fontSize: 11.5, color: "var(--ink-soft)", padding: "4px 0" }}>
+                  No tienes vehículos registrados en Activos todavía (opcional).
+                </div>
+              ) : (
+                <select
+                  value={form.activoId}
+                  onChange={(e) => setForm({ ...form, activoId: e.target.value })}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                >
+                  <option value="">Vincular a un vehículo de Activos (opcional)…</option>
+                  {activos.filter((a) => a.tipo === "Vehículo").map((a) => (
+                    <option key={a.id} value={a.id}>{a.nombre}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
           <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
             <input
@@ -426,6 +455,27 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                       ))}
                     </select>
                   </div>
+
+                  {editForm.tipo === "Vehículo" && (
+                    <div style={{ marginBottom: 8 }}>
+                      {activos.filter((a) => a.tipo === "Vehículo").length === 0 ? (
+                        <div style={{ fontSize: 11.5, color: "var(--ink-soft)", padding: "4px 0" }}>
+                          No tienes vehículos registrados en Activos todavía (opcional).
+                        </div>
+                      ) : (
+                        <select
+                          value={editForm.activoId}
+                          onChange={(e) => setEditForm({ ...editForm, activoId: e.target.value })}
+                          style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                        >
+                          <option value="">Vincular a un vehículo de Activos (opcional)…</option>
+                          {activos.filter((a) => a.tipo === "Vehículo").map((a) => (
+                            <option key={a.id} value={a.id}>{a.nombre}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
 
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
                     <input
@@ -602,6 +652,12 @@ export default function Prestamos({ prestamos, entidades, movimientos }) {
                         <Landmark size={13} style={{ color: "var(--ink-soft)" }} />
                         {p.entidadName || "Entidad no especificada"}
                       </div>
+                      {p.activoNombre && (
+                        <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>
+                          <Car size={12} />
+                          {p.activoNombre}
+                        </div>
+                      )}
                     </div>
                     <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
                       <button
