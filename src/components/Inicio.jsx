@@ -3,7 +3,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical } from "lucide-react";
-import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden } from "../lib/db";
+import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -211,6 +211,14 @@ function DolarCard() {
   const [rates, setRates] = useState({ USD: null, EUR: null });
   const [updatedAt, setUpdatedAt] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ok | error
+  const [cache, setCache] = useState(undefined);
+
+  const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
+
+  useEffect(() => {
+    const unsub = watchTipoCambioCache(setCache, () => {});
+    return () => unsub();
+  }, []);
 
   const fetchRates = async () => {
     setStatus("loading");
@@ -224,17 +232,32 @@ function DolarCard() {
       const dopUsd = dataUsd?.rates?.DOP;
       const dopEur = dataEur?.rates?.DOP;
       if (!Number.isFinite(dopUsd) || !Number.isFinite(dopEur)) throw new Error("No se encontró la tasa DOP");
-      setRates({ USD: dopUsd, EUR: dopEur });
+      const nuevasTasas = { USD: dopUsd, EUR: dopEur };
+      setRates(nuevasTasas);
       setUpdatedAt(new Date());
       setStatus("ok");
+      saveTipoCambioCache(nuevasTasas);
     } catch (err) {
-      setStatus("error");
+      setStatus(rates.USD != null ? "ok" : "error");
     }
   };
 
+  // Usa la caché de Firestore al entrar; solo consulta la API de nuevo si no hay
+  // caché o si tiene más de 12 horas. El botón de refrescar siempre fuerza la consulta.
   useEffect(() => {
-    fetchRates();
-  }, []);
+    if (cache === undefined) return; // aún cargando
+    if (cache && cache.rates) {
+      setRates(cache.rates);
+      setStatus("ok");
+      const fechaCache = cache.fetchedAt?.toDate ? cache.fetchedAt.toDate() : null;
+      if (fechaCache) setUpdatedAt(fechaCache);
+      const desactualizada = fechaCache ? Date.now() - fechaCache.getTime() > DOCE_HORAS_MS : true;
+      if (desactualizada) fetchRates();
+    } else {
+      fetchRates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cache]);
 
   return (
     <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>

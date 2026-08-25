@@ -641,6 +641,18 @@ export async function saveAccionesPrecios(prices, symbols) {
   });
 }
 
+export function watchTipoCambioCache(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "tipoCambio"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveTipoCambioCache(rates) {
+  await setDoc(doc(db, "config", "tipoCambio"), { rates, fetchedAt: serverTimestamp() });
+}
+
 export function watchNotifConfig(onChange, onError) {
   return onSnapshot(
     doc(db, "config", "notificaciones"),
