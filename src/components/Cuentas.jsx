@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, PiggyBank, Pencil, Check } from "lucide-react";
+import { Plus, Trash2, X, Landmark, Vault, Pencil, Check } from "lucide-react";
 import { addCuenta, deleteCuenta, updateCuenta } from "../lib/db";
 
 export const CUENTA_TIPOS = ["Ahorro", "Corriente", "Inversión", "Corretaje", "Otro"];
@@ -347,7 +347,7 @@ export default function Cuentas({ cuentas, entidades }) {
                       color: "var(--sage)",
                     }}
                   >
-                    <PiggyBank size={15} />
+                    <Vault size={15} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 500 }}>{c.nombre}</div>
