@@ -40,11 +40,16 @@ body {
   box-sizing: border-box;
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   font-family: "Inter", sans-serif;
   background: var(--paper);
   color: var(--ink);
+  overflow-x: hidden;
 }
 
 .despensa-tab-font {

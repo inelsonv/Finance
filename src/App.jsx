@@ -126,6 +126,14 @@ export default function App() {
 
   const authorized = authUser && authUser.email === ALLOWED_EMAIL;
 
+  const fechaHoy = (() => {
+    const d = new Date();
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  })();
+
   useEffect(() => {
     if (!authorized) return;
     const handleError = (err) => {
@@ -226,29 +234,34 @@ export default function App() {
           <h1 className="despensa-tab-font" style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
             {TITLES[tab]}
           </h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {tab === "catalogo" && (
-              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-                {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
-              </span>
-            )}
-            {tab === "entidades" && (
-              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-                {entidades.length} entidad{entidades.length !== 1 ? "es" : ""} registrada{entidades.length !== 1 ? "s" : ""}
-              </span>
-            )}
-            <NotificationBell
-              prestamos={prestamos}
-              tarjetas={tarjetas}
-              membresias={membresias}
-              contratos={contratos}
-              movimientos={movimientos}
-              products={products}
-              entidades={entidades}
-              fuentesIngreso={fuentesIngreso}
-              onNavigate={setTab}
-            />
-            <AccountMenu user={authUser} onSignOut={() => signOut(auth)} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              {tab === "catalogo" && (
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                  {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
+                </span>
+              )}
+              {tab === "entidades" && (
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                  {entidades.length} entidad{entidades.length !== 1 ? "es" : ""} registrada{entidades.length !== 1 ? "s" : ""}
+                </span>
+              )}
+              <NotificationBell
+                prestamos={prestamos}
+                tarjetas={tarjetas}
+                membresias={membresias}
+                contratos={contratos}
+                movimientos={movimientos}
+                products={products}
+                entidades={entidades}
+                fuentesIngreso={fuentesIngreso}
+                onNavigate={setTab}
+              />
+              <AccountMenu user={authUser} onSignOut={() => signOut(auth)} />
+            </div>
+            <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+              {fechaHoy}
+            </span>
           </div>
         </div>
 

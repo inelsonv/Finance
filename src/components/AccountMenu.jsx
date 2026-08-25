@@ -43,7 +43,7 @@ export default function AccountMenu({ user, onSignOut }) {
             position: "absolute",
             top: "calc(100% + 8px)",
             right: 0,
-            width: 220,
+            width: "min(220px, calc(100vw - 24px))",
             background: "var(--card)",
             border: "1px solid var(--line)",
             borderRadius: 10,

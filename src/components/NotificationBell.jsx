@@ -228,7 +228,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
             position: "absolute",
             top: "calc(100% + 8px)",
             right: 0,
-            width: 300,
+            width: "min(300px, calc(100vw - 24px))",
             maxHeight: 380,
             overflowY: "auto",
             background: "var(--card)",
