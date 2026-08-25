@@ -136,7 +136,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
   const compradoPorTarjeta = useMemo(() => {
     const map = {};
     for (const m of movimientos) {
-      if (m.category !== "Compra con tarjeta" || !m.tarjetaId) continue;
+      if (m.metodoPago !== "Tarjeta de crédito" || !m.tarjetaId) continue;
       map[m.tarjetaId] = (map[m.tarjetaId] || 0) + (Number(m.amount) || 0);
     }
     return map;
