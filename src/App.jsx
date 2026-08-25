@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import Catalogo from "./components/Catalogo.jsx";
@@ -21,6 +21,7 @@ import Contratos from "./components/Contratos.jsx";
 import FlujoEditor from "./components/FlujoEditor.jsx";
 import Inversion from "./components/Inversion.jsx";
 import EstrategiaDeudas from "./components/EstrategiaDeudas.jsx";
+import Calendario from "./components/Calendario.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
@@ -45,6 +46,7 @@ const TITLES = {
   "presupuesto-flujo": "Editor de flujo",
   inversion: "Inversión",
   "estrategia-deudas": "Estrategia de deudas",
+  calendario: "Calendario",
 };
 
 function getInitialTheme() {
@@ -84,6 +86,7 @@ export default function App() {
   const [presupuestoAnual, setPresupuestoAnual] = useState({});
   const [contratos, setContratos] = useState([]);
   const [tiposEntidad, setTiposEntidad] = useState([]);
+  const [eventos, setEventos] = useState([]);
   const [flujo, setFlujo] = useState(undefined);
   const currentYear = new Date().getFullYear();
   const [loading, setLoading] = useState(true);
@@ -157,6 +160,7 @@ export default function App() {
     const unsubContratos = watchContratos(setContratos, handleError);
     const unsubTiposEntidad = watchTiposEntidad(setTiposEntidad, handleError);
     const unsubFlujo = watchFlujo(setFlujo, handleError);
+    const unsubCalendario = watchCalendario(setEventos, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -173,6 +177,7 @@ export default function App() {
       unsubContratos();
       unsubTiposEntidad();
       unsubFlujo();
+      unsubCalendario();
       unsubStatus();
     };
   }, [authorized]);
@@ -255,6 +260,7 @@ export default function App() {
                 products={products}
                 entidades={entidades}
                 fuentesIngreso={fuentesIngreso}
+                eventos={eventos}
                 onNavigate={setTab}
               />
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} />
@@ -311,6 +317,7 @@ export default function App() {
         {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
         {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} />}
+        {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} />}
       </main>
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Package,
   ShoppingCart,
+  CalendarDays,
   Landmark,
   Wallet,
   Banknote,
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "ingresos", label: "Ingresos", icon: Briefcase },
   { id: "inversion", label: "Inversión", icon: LineChart },
+  { id: "calendario", label: "Calendario", icon: CalendarDays },
   { id: "catalogo", label: "Catálogo", icon: Package },
   { id: "lista", label: "Lista de compra", icon: ShoppingCart },
   { id: "entidades", label: "Entidades", icon: Landmark },

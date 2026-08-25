@@ -646,3 +646,44 @@ export function watchCombustibleConfig(onChange, onError) {
 export async function saveCombustibleConfig(precios) {
   await setDoc(doc(db, "config", "combustible"), { precios, updatedAt: serverTimestamp() });
 }
+
+const calendarioCol = collection(db, "calendario");
+
+export function watchCalendario(onChange, onError) {
+  return onSnapshot(
+    calendarioCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => `${a.fecha || ""}${a.hora || ""}`.localeCompare(`${b.fecha || ""}${b.hora || ""}`));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addEvento({ titulo, tipo, fecha, hora, entidadId, entidadName, diasAviso, estado, notas }) {
+  await addDoc(calendarioCol, {
+    titulo,
+    tipo,
+    fecha,
+    hora: hora || "",
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    diasAviso: diasAviso ?? 1,
+    estado: estado || "Pendiente",
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateEvento(id, fields) {
+  await updateDoc(doc(db, "calendario", id), fields);
+}
+
+export async function updateEventoEstado(id, estado) {
+  await updateDoc(doc(db, "calendario", id), { estado });
+}
+
+export async function deleteEvento(id) {
+  await deleteDoc(doc(db, "calendario", id));
+}

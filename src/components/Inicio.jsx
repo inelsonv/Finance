@@ -499,6 +499,8 @@ function StocksCard() {
 }
 
 export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas }) {
+  const [showInfoDeuda, setShowInfoDeuda] = useState(false);
+  const [showInfoFondo, setShowInfoFondo] = useState(false);
   const cuotaPrestamos = useMemo(
     () => prestamos.filter((p) => p.estado === "Activo").reduce((s, p) => s + (Number(p.cuota) || 0), 0),
     [prestamos]
@@ -584,9 +586,34 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
                 <MiniStat icon={CreditCard} label="Pago mín. tarjetas" value={formatMoney(pagoTarjetas)} color="var(--stamp)" />
               </div>
 
-              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 14, lineHeight: 1.5, textAlign: "left" }}>
-                (Cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso mensual estimado.
-                Saludable por debajo del 35-40%. No incluye membresías ni gastos variables.
+              <div style={{ marginTop: 14, textAlign: "left" }}>
+                <button
+                  onClick={() => setShowInfoDeuda((s) => !s)}
+                  title="¿Cómo se calcula?"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    border: "1px solid var(--line)",
+                    background: "var(--paper)",
+                    color: "var(--ink-soft)",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    fontFamily: "Georgia, serif",
+                  }}
+                >
+                  i
+                </button>
+                {showInfoDeuda && (
+                  <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8, lineHeight: 1.5 }}>
+                    (Cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso mensual estimado.
+                    Saludable por debajo del 35-40%. No incluye membresías ni gastos variables.
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -621,9 +648,34 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
                 <MiniStat icon={Banknote} label="Gasto mensual prom." value={formatMoney(gastoMensualPromedio)} color="var(--stamp)" />
               </div>
 
-              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 14, lineHeight: 1.5, textAlign: "left" }}>
-                Saldo en cuentas de Ahorro ÷ gasto mensual promedio de este año. Los expertos recomiendan tener
-                entre 3 y 6 meses de gastos cubiertos.
+              <div style={{ marginTop: 14, textAlign: "left" }}>
+                <button
+                  onClick={() => setShowInfoFondo((s) => !s)}
+                  title="¿Cómo se calcula?"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    border: "1px solid var(--line)",
+                    background: "var(--paper)",
+                    color: "var(--ink-soft)",
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    fontFamily: "Georgia, serif",
+                  }}
+                >
+                  i
+                </button>
+                {showInfoFondo && (
+                  <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8, lineHeight: 1.5 }}>
+                    Saldo en cuentas de Ahorro ÷ gasto mensual promedio de este año. Los expertos recomiendan tener
+                    entre 3 y 6 meses de gastos cubiertos.
+                  </div>
+                )}
               </div>
             </>
           )}

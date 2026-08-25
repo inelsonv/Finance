@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { diasRestantesProducto } from "../lib/inventario";
 
@@ -35,7 +35,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades }) {
+function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -123,8 +123,27 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
       }
     }
 
+    for (const e of eventos || []) {
+      if (e.estado !== "Pendiente" || !e.fecha) continue;
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+      const target = new Date(e.fecha + "T00:00:00");
+      const dias = Math.round((target - hoy) / 86400000);
+      if (dias < 0) continue;
+      if (dias <= (e.diasAviso ?? 1)) {
+        list.push({
+          id: `evt-${e.id}`,
+          icon: Calendar,
+          titulo: e.titulo,
+          subtitulo: e.entidadName ? `${e.tipo} · ${e.entidadName}` : e.tipo,
+          dias,
+          tab: "calendario",
+        });
+      }
+    }
+
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos]);
 }
 
 function etiquetaDias(dias) {
@@ -134,14 +153,14 @@ function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, onNavigate }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, onNavigate }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos });
 
   useEffect(() => {
     const unsub = watchNotifConfig(setEmailConfig, () => {});
