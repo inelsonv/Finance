@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import Catalogo from "./components/Catalogo.jsx";
@@ -22,6 +22,7 @@ import FlujoEditor from "./components/FlujoEditor.jsx";
 import Inversion from "./components/Inversion.jsx";
 import EstrategiaDeudas from "./components/EstrategiaDeudas.jsx";
 import Calendario from "./components/Calendario.jsx";
+import Activos from "./components/Activos.jsx";
 import ChecklistPagos from "./components/ChecklistPagos.jsx";
 import Configuracion from "./components/Configuracion.jsx";
 import EscanearFactura from "./components/EscanearFactura.jsx";
@@ -51,6 +52,7 @@ const TITLES = {
   "estrategia-deudas": "Estrategia de deudas",
   "checklist-pagos": "Checklist de pagos",
   calendario: "Calendario",
+  activos: "Activos",
   configuracion: "Configuración",
   "escanear-factura": "Registrar compra (factura)",
 };
@@ -93,6 +95,8 @@ export default function App() {
   const [contratos, setContratos] = useState([]);
   const [tiposEntidad, setTiposEntidad] = useState([]);
   const [eventos, setEventos] = useState([]);
+  const [activos, setActivos] = useState([]);
+  const [mantenimientos, setMantenimientos] = useState([]);
   const [flujo, setFlujo] = useState(undefined);
   const currentYear = new Date().getFullYear();
   const [loading, setLoading] = useState(true);
@@ -167,6 +171,8 @@ export default function App() {
     const unsubTiposEntidad = watchTiposEntidad(setTiposEntidad, handleError);
     const unsubFlujo = watchFlujo(setFlujo, handleError);
     const unsubCalendario = watchCalendario(setEventos, handleError);
+    const unsubActivos = watchActivos(setActivos, handleError);
+    const unsubMantenimientos = watchMantenimientos(setMantenimientos, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -184,6 +190,8 @@ export default function App() {
       unsubTiposEntidad();
       unsubFlujo();
       unsubCalendario();
+      unsubActivos();
+      unsubMantenimientos();
       unsubStatus();
     };
   }, [authorized]);
@@ -363,6 +371,7 @@ export default function App() {
           <ChecklistPagos categoriasGasto={categoriasGasto} presupuesto={presupuestoAnual} prestamos={prestamos} presupuestoYear={currentYear} />
         )}
         {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} />}
+        {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} />}
         {tab === "configuracion" && (
           <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} />
         )}

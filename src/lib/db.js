@@ -745,3 +745,89 @@ export async function updateEventoEstado(id, estado) {
 export async function deleteEvento(id) {
   await deleteDoc(doc(db, "calendario", id));
 }
+
+const activosCol = collection(db, "activos");
+
+export function watchActivos(onChange, onError) {
+  return onSnapshot(
+    activosCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addActivo({
+  nombre,
+  tipo,
+  marca,
+  modelo,
+  anio,
+  identificador,
+  fechaCompra,
+  valorCompra,
+  proximoMantenimiento,
+  estado,
+  notas,
+}) {
+  await addDoc(activosCol, {
+    nombre,
+    tipo,
+    marca: marca || "",
+    modelo: modelo || "",
+    anio: anio ?? null,
+    identificador: identificador || "",
+    fechaCompra: fechaCompra || null,
+    valorCompra: valorCompra ?? null,
+    proximoMantenimiento: proximoMantenimiento || null,
+    estado: estado || "Activo",
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateActivo(id, fields) {
+  await updateDoc(doc(db, "activos", id), fields);
+}
+
+export async function updateActivoEstado(id, estado) {
+  await updateDoc(doc(db, "activos", id), { estado });
+}
+
+export async function deleteActivo(id) {
+  await deleteDoc(doc(db, "activos", id));
+}
+
+const mantenimientosCol = collection(db, "mantenimientos");
+
+export function watchMantenimientos(onChange, onError) {
+  return onSnapshot(
+    mantenimientosCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addMantenimiento({ activoId, activoNombre, fecha, tipo, costo, kilometraje, notas }) {
+  await addDoc(mantenimientosCol, {
+    activoId,
+    activoNombre: activoNombre || "",
+    fecha,
+    tipo,
+    costo: costo ?? null,
+    kilometraje: kilometraje ?? null,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteMantenimiento(id) {
+  await deleteDoc(doc(db, "mantenimientos", id));
+}
