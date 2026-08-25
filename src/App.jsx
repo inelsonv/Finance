@@ -23,6 +23,7 @@ import Inversion from "./components/Inversion.jsx";
 import EstrategiaDeudas from "./components/EstrategiaDeudas.jsx";
 import Calendario from "./components/Calendario.jsx";
 import ChecklistPagos from "./components/ChecklistPagos.jsx";
+import Configuracion from "./components/Configuracion.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 
@@ -49,6 +50,7 @@ const TITLES = {
   "estrategia-deudas": "Estrategia de deudas",
   "checklist-pagos": "Checklist de pagos",
   calendario: "Calendario",
+  configuracion: "Configuración",
 };
 
 function getInitialTheme() {
@@ -267,7 +269,7 @@ export default function App() {
                 presupuestoYear={currentYear}
                 onNavigate={setTab}
               />
-              <AccountMenu user={authUser} onSignOut={() => signOut(auth)} />
+              <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} />
             </div>
             <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
               {fechaHoy}
@@ -339,6 +341,9 @@ export default function App() {
           <ChecklistPagos categoriasGasto={categoriasGasto} presupuesto={presupuestoAnual} prestamos={prestamos} presupuestoYear={currentYear} />
         )}
         {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} />}
+        {tab === "configuracion" && (
+          <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} />
+        )}
       </main>
     </div>
   );

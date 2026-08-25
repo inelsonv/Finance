@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LogOut } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
 
-export default function AccountMenu({ user, onSignOut }) {
+export default function AccountMenu({ user, onSignOut, onOpenSettings }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -62,6 +62,28 @@ export default function AccountMenu({ user, onSignOut }) {
               {user.email}
             </div>
           </div>
+          <button
+            onClick={() => {
+              setOpen(false);
+              onOpenSettings();
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "10px 12px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12.5,
+              color: "var(--ink)",
+              textAlign: "left",
+              borderBottom: "1px solid var(--line-soft)",
+            }}
+          >
+            <Settings size={14} /> Configuración
+          </button>
           <button
             onClick={() => {
               setOpen(false);
