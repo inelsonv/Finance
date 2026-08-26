@@ -209,6 +209,7 @@ function GastosPorMesChart({ movimientos }) {
 }
 
 function GastosPorCategoriaMesActual({ movimientos, compact }) {
+  const [activo, setActivo] = useState(null);
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
@@ -252,27 +253,56 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
     return { d, color, ...s };
   });
 
+  const activoData = arcs.find((a) => a.category === activo);
+
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: compact ? 0 : 20 }}>
       <svg
         viewBox="0 0 180 180"
         style={{ width: compact ? "100%" : 160, maxWidth: compact ? 220 : 160, height: "auto", flexShrink: 0, display: "block", margin: compact ? "0 auto" : undefined }}
+        onMouseLeave={() => setActivo(null)}
       >
         {arcs.map((a) => (
-          <path key={a.category} d={a.d} fill={a.color} />
+          <path
+            key={a.category}
+            d={a.d}
+            fill={a.color}
+            opacity={activo && activo !== a.category ? 0.45 : 1}
+            style={{ cursor: "pointer", transition: "opacity 0.15s" }}
+            onMouseEnter={() => setActivo(a.category)}
+            onClick={() => setActivo((prev) => (prev === a.category ? null : a.category))}
+          />
         ))}
-        <circle cx={cx} cy={cy} r={44} fill="var(--card)" />
-        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="9" fill="var(--ink-soft)" fontFamily="Inter, sans-serif">
-          Este mes
-        </text>
-        <text x={cx} y={cy + 12} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ink)" fontFamily="IBM Plex Mono, monospace">
-          ${Math.round(total).toLocaleString("es")}
-        </text>
+        <circle cx={cx} cy={cy} r={44} fill="var(--card)" style={{ pointerEvents: "none" }} />
+        {activoData ? (
+          <>
+            <text x={cx} y={cy - 4} textAnchor="middle" fontSize="8.5" fill={activoData.color} fontFamily="Inter, sans-serif" fontWeight="600">
+              {activoData.category.length > 16 ? activoData.category.slice(0, 15) + "…" : activoData.category}
+            </text>
+            <text x={cx} y={cy + 14} textAnchor="middle" fontSize="15" fontWeight="700" fill="var(--ink)" fontFamily="IBM Plex Mono, monospace">
+              {Math.round((activoData.value / total) * 100)}%
+            </text>
+          </>
+        ) : (
+          <>
+            <text x={cx} y={cy - 4} textAnchor="middle" fontSize="9" fill="var(--ink-soft)" fontFamily="Inter, sans-serif">
+              Este mes
+            </text>
+            <text x={cx} y={cy + 12} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ink)" fontFamily="IBM Plex Mono, monospace">
+              ${Math.round(total).toLocaleString("es")}
+            </text>
+          </>
+        )}
       </svg>
       {!compact && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 140 }}>
           {arcs.map((a) => (
-            <div key={a.category} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5 }}>
+            <div
+              key={a.category}
+              onMouseEnter={() => setActivo(a.category)}
+              onMouseLeave={() => setActivo(null)}
+              style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, cursor: "pointer", opacity: activo && activo !== a.category ? 0.5 : 1 }}
+            >
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 }} />
               <span style={{ color: "var(--ink-soft)", flex: 1 }}>{a.category}</span>
               <span className="despensa-mono" style={{ fontWeight: 600 }}>{Math.round((a.value / total) * 100)}%</span>
