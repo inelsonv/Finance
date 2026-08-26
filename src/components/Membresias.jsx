@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Calendar, Sparkles } from "lucide-react";
 import { addMembresia, deleteMembresia, updateMembresiaEstado, updateMembresia } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 export const MEMBRESIA_TIPOS = ["Gimnasio", "Club de compras", "Streaming", "Software", "Salud", "Otro"];
 const FRECUENCIAS = ["Mensual", "Trimestral", "Semestral", "Anual"];
@@ -515,8 +516,8 @@ export default function Membresias({ membresias, entidades, movimientos }) {
                           <Pencil size={14} />
                         </button>
                         <button
-                          onClick={() => {
-                            if (window.confirm("¿Eliminar esta membresía?")) deleteMembresia(m.id);
+                          onClick={async () => {
+                            if (await confirm("¿Eliminar esta membresía?")) deleteMembresia(m.id);
                           }}
                           title="Eliminar membresía"
                           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "var(--paper)", color: "var(--stamp)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}

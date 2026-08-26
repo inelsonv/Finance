@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, X, Trash2 } from "lucide-react";
 import { addCategoriaGasto, deleteCategoriaGasto } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 const FLOW_COLORS = [
   "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a",
@@ -165,8 +166,8 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
                 <span style={{ color: c.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)" }}>{c.nombre}</span>
                 <span style={{ color: "var(--ink-soft)", fontSize: 10.5 }}>{c.clasificacion}</span>
                 <button
-                  onClick={() => {
-                    if (window.confirm("¿Eliminar esta categoría?")) deleteCategoriaGasto(c.id);
+                  onClick={async () => {
+                    if (await confirm("¿Eliminar esta categoría?")) deleteCategoriaGasto(c.id);
                   }}
                   title="Eliminar categoría"
                   style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer" }}

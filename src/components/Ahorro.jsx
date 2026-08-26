@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Target, PiggyBank, Percent, Landmark, Calendar } from "lucide-react";
 import { addMetaAhorro, deleteMetaAhorro, updateMetaAhorroEstado, updateMetaAhorro } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 const TIPOS_META = ["Meta específica", "Porcentaje de ingreso"];
 const ESTADOS = ["Activa", "Completada", "Pausada"];
@@ -449,8 +450,8 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => {
-                        if (window.confirm("¿Eliminar esta meta de ahorro?")) deleteMetaAhorro(m.id);
+                      onClick={async () => {
+                        if (await confirm("¿Eliminar esta meta de ahorro?")) deleteMetaAhorro(m.id);
                       }}
                       title="Eliminar"
                       style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}

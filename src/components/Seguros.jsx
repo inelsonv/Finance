@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Shield, Car, HeartPulse, Home, Umbrella, Calendar, Landmark } from "lucide-react";
 import { addSeguro, deleteSeguro, updateSeguroEstado, updateSeguro } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 const TIPOS = ["Vehículo", "Salud", "Vida", "Hogar/Propiedad", "Otro"];
 const ESTADOS = ["Activo", "Vencido", "Cancelado"];
@@ -394,8 +395,8 @@ export default function Seguros({ seguros, entidades, activos }) {
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => {
-                        if (window.confirm("¿Eliminar este seguro?")) deleteSeguro(s.id);
+                      onClick={async () => {
+                        if (await confirm("¿Eliminar este seguro?")) deleteSeguro(s.id);
                       }}
                       title="Eliminar"
                       style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}

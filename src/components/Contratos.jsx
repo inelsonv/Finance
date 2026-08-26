@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, FileText, Pencil, Check, Landmark } from "lucide-react";
 import { addContrato, deleteContrato, updateContratoEstado, updateContrato } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 export const CONTRATO_TIPOS = [
   "Electricidad",
@@ -388,8 +389,8 @@ export default function Contratos({ contratos, entidades, movimientos }) {
                         <Pencil size={14} />
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm("¿Eliminar este contrato?")) deleteContrato(c.id);
+                        onClick={async () => {
+                          if (await confirm("¿Eliminar este contrato?")) deleteContrato(c.id);
                         }}
                         title="Eliminar contrato"
                         style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}

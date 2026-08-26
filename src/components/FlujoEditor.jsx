@@ -13,6 +13,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt } from "lucide-react";
 import { saveFlujo } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 const PALETTE = ["#5b7a5b", "#a23e2e", "#b8892b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a"];
 const FRECUENCIA_FACTOR = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1 / 12, Único: 0 };
@@ -254,15 +255,15 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
 
   const useIngresoSugerido = () => setEditAmount(String(ingresoSugerido.toFixed(2)));
 
-  const clearAll = () => {
-    if (!window.confirm("¿Vaciar el lienzo y empezar de cero?")) return;
+  const clearAll = async () => {
+    if (!(await confirm("¿Vaciar el lienzo y empezar de cero?"))) return;
     setNodes([]);
     setEdges([]);
     setDirty(true);
   };
 
-  const resetDefault = () => {
-    if (!window.confirm("¿Restaurar el diagrama de ejemplo? Se perderán tus cambios actuales.")) return;
+  const resetDefault = async () => {
+    if (!(await confirm("¿Restaurar el diagrama de ejemplo? Se perderán tus cambios actuales."))) return;
     setNodes(defaultNodes());
     setEdges(defaultEdges());
     setDirty(true);

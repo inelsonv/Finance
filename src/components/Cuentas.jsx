@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Landmark, Vault, Pencil, Check } from "lucide-react";
 import { addCuenta, deleteCuenta, updateCuenta } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 export const CUENTA_TIPOS = ["Ahorro", "Corriente", "Inversión", "Corretaje", "Otro"];
 
@@ -384,8 +385,8 @@ export default function Cuentas({ cuentas, entidades }) {
                     <Pencil size={14} />
                   </button>
                   <button
-                    onClick={() => {
-                      if (window.confirm("¿Eliminar esta cuenta?")) deleteCuenta(c.id);
+                    onClick={async () => {
+                      if (await confirm("¿Eliminar esta cuenta?")) deleteCuenta(c.id);
                     }}
                     title="Eliminar cuenta"
                     style={{

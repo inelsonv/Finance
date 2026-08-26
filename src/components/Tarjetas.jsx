@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Landmark, Pencil, Check } from "lucide-react";
 import { addTarjeta, deleteTarjeta, updateTarjetaEstado, updateTarjeta } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 const ESTADOS = ["Activa", "Bloqueada", "Cancelada"];
 const TIPOS_TARJETA = ["Crédito", "Débito"];
@@ -630,8 +631,8 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                           <Pencil size={14} />
                         </button>
                         <button
-                          onClick={() => {
-                            if (window.confirm("¿Eliminar esta tarjeta?")) deleteTarjeta(t.id);
+                          onClick={async () => {
+                            if (await confirm("¿Eliminar esta tarjeta?")) deleteTarjeta(t.id);
                           }}
                           title="Eliminar tarjeta"
                           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "var(--paper)", color: "var(--stamp)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}

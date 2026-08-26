@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 const PLAZO_UNIDADES = ["meses", "años"];
 const TIPOS_PRESTAMO = ["Vehículo", "Hipotecario / Vivienda", "Personal", "Estudiantil", "Consolidación de deuda", "Negocio", "Otro"];
@@ -758,8 +759,8 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
                         <Pencil size={14} />
                       </button>
                       <button
-                        onClick={() => {
-                          if (window.confirm("¿Eliminar este préstamo?")) deletePrestamo(p.id);
+                        onClick={async () => {
+                          if (await confirm("¿Eliminar este préstamo?")) deletePrestamo(p.id);
                         }}
                         title="Eliminar préstamo"
                         style={{

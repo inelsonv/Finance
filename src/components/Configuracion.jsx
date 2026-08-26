@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 export default function Configuracion({ theme, onToggleTheme, user, onSignOut }) {
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -72,8 +73,8 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
           </div>
         </div>
         <button
-          onClick={() => {
-            if (window.confirm("¿Cerrar sesión?")) onSignOut();
+          onClick={async () => {
+            if (await confirm("¿Cerrar sesión?", { confirmLabel: "Cerrar sesión", danger: false })) onSignOut();
           }}
           style={{
             display: "flex",

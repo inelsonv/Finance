@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { LogOut, Settings } from "lucide-react";
+import { confirm } from "../lib/confirm";
 
 export default function AccountMenu({ user, onSignOut, onOpenSettings }) {
   const [open, setOpen] = useState(false);
@@ -85,9 +86,9 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings }) {
             <Settings size={14} /> Configuración
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               setOpen(false);
-              if (window.confirm("¿Cerrar sesión?")) onSignOut();
+              if (await confirm("¿Cerrar sesión?", { confirmLabel: "Cerrar sesión", danger: false })) onSignOut();
             }}
             style={{
               display: "flex",

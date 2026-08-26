@@ -4,6 +4,7 @@ import { addMovimiento, deleteMovimiento } from "../lib/db";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
 import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
 import { quincenaDeFecha, consumoPresupuesto } from "../lib/presupuestoConsumo";
+import { confirm } from "../lib/confirm";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
 const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
@@ -853,8 +854,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                 {m.type === "Ingreso" ? "+" : "−"}{formatMoney(m.amount)}
               </span>
               <button
-                onClick={() => {
-                  if (window.confirm("¿Eliminar este movimiento?")) deleteMovimiento(m.id);
+                onClick={async () => {
+                  if (await confirm("¿Eliminar este movimiento?")) deleteMovimiento(m.id);
                 }}
                 title="Eliminar movimiento"
                 style={{

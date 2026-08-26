@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, Search, X, MapPin, Phone, Pencil, Check } from "lucide-react";
 import { addEntidad, deleteEntidad, updateEntidad, addTipoEntidad } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 const TYPES_BASE = [
   "Banco",
@@ -396,8 +397,8 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
                     <Pencil size={15} />
                   </button>
                   <button
-                    onClick={() => {
-                      if (window.confirm("¿Eliminar esta entidad?")) deleteEntidad(e.docId);
+                    onClick={async () => {
+                      if (await confirm("¿Eliminar esta entidad?")) deleteEntidad(e.docId);
                     }}
                     title="Eliminar entidad"
                     style={{

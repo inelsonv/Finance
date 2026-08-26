@@ -11,6 +11,7 @@ import {
 } from "../lib/db";
 import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
 import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
+import { confirm } from "../lib/confirm";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
@@ -539,8 +540,8 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                     {agregadoId === p.id ? <Check size={14} /> : <Plus size={14} />}
                   </button>
                   <button
-                    onClick={() => {
-                      if (window.confirm("¿Eliminar este producto del catálogo?")) deleteProduct(p.id);
+                    onClick={async () => {
+                      if (await confirm("¿Eliminar este producto del catálogo?")) deleteProduct(p.id);
                     }}
                     title="Eliminar producto"
                     style={{

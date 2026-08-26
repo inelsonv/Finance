@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight } from "lucide-react";
 import { addEvento, deleteEvento, updateEventoEstado, updateEvento } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 const TIPOS = ["Cita médica", "Vacaciones", "Cumpleaños", "Trabajo", "Personal", "Otro"];
 const ESTADOS = ["Pendiente", "Completado", "Cancelado"];
@@ -413,8 +414,8 @@ export default function Calendario({ eventos, entidades }) {
               <Pencil size={14} />
             </button>
             <button
-              onClick={() => {
-                if (window.confirm("¿Eliminar este evento?")) deleteEvento(e.id);
+              onClick={async () => {
+                if (await confirm("¿Eliminar este evento?")) deleteEvento(e.id);
               }}
               title="Eliminar"
               style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}

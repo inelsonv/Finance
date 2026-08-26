@@ -15,6 +15,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { addOrdenCompra, updateOrdenCompra, deleteOrdenCompra, registrarCompraProducto, deleteHistorialCompra, addMovimiento, deleteMovimiento, agregarItemABorrador } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 const ESTADO_COLORES = {
   Borrador: { bg: "var(--line-soft)", color: "var(--ink-soft)" },
@@ -230,7 +231,7 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
   };
 
   const revertirCompletada = async (orden) => {
-    if (!window.confirm("Esto deshace el gasto y el historial registrados por esta compra, y la regresa al checklist para que la ajustes. ¿Continuar?")) return;
+    if (!(await confirm("Esto deshace el gasto y el historial registrados por esta compra, y la regresa al checklist para que la ajustes. ¿Continuar?"))) return;
     setBusy(orden.id);
     try {
       for (const hId of orden.historialIds || []) {
@@ -386,8 +387,8 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
                     </div>
                   </div>
                   <button
-                    onClick={() => {
-                      if (window.confirm(`¿Eliminar la orden ${o.folio}?`)) deleteOrdenCompra(o.id);
+                    onClick={async () => {
+                      if (await confirm(`¿Eliminar la orden ${o.folio}?`)) deleteOrdenCompra(o.id);
                     }}
                     title="Eliminar orden"
                     style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}

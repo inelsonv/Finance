@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Car, Home, Laptop, Package2, Wrench, Calendar, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
 import { addActivo, deleteActivo, updateActivoEstado, updateActivo, addMantenimiento, deleteMantenimiento } from "../lib/db";
+import { confirm } from "../lib/confirm";
 
 const TIPOS = ["Vehículo", "Propiedad", "Electrodoméstico", "Equipo electrónico", "Otro"];
 const ESTADOS = ["Activo", "Vendido", "Dado de baja"];
@@ -498,8 +499,8 @@ export default function Activos({ activos, mantenimientos }) {
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => {
-                        if (window.confirm("¿Eliminar este activo? Se perderá su información y su historial de mantenimiento seguirá guardado por separado.")) deleteActivo(a.id);
+                      onClick={async () => {
+                        if (await confirm("¿Eliminar este activo? Se perderá su información y su historial de mantenimiento seguirá guardado por separado.")) deleteActivo(a.id);
                       }}
                       title="Eliminar"
                       style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}
@@ -607,8 +608,8 @@ export default function Activos({ activos, mantenimientos }) {
                               <span className="despensa-mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--stamp)", flexShrink: 0 }}>{formatMoney(m.costo)}</span>
                             )}
                             <button
-                              onClick={() => {
-                                if (window.confirm("¿Eliminar este registro de mantenimiento?")) deleteMantenimiento(m.id);
+                              onClick={async () => {
+                                if (await confirm("¿Eliminar este registro de mantenimiento?")) deleteMantenimiento(m.id);
                               }}
                               style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer", flexShrink: 0 }}
                             >

@@ -4,6 +4,7 @@ import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
+import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import Catalogo from "./components/Catalogo.jsx";
 import Entidades from "./components/Entidades.jsx";
 import Presupuesto from "./components/Presupuesto.jsx";
@@ -430,6 +431,7 @@ export default function App() {
         )}
         {tab === "escanear-factura" && <EscanearFactura products={products} />}
       </main>
+      <ConfirmDialogHost />
     </div>
   );
 }
