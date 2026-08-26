@@ -22,6 +22,7 @@ const emptyForm = () => ({
   estado: "Activo",
   notas: "",
   codigoEmpleado: "",
+  diasVacacionesAnuales: "",
 });
 
 function toEditForm(f) {
@@ -35,6 +36,7 @@ function toEditForm(f) {
     estado: f.estado || "Activo",
     notas: f.notas || "",
     codigoEmpleado: f.codigoEmpleado || "",
+    diasVacacionesAnuales: f.diasVacacionesAnuales != null ? String(f.diasVacacionesAnuales) : "",
   };
 }
 
@@ -100,6 +102,7 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
         estado: form.estado,
         notas: form.notas.trim(),
         codigoEmpleado: form.codigoEmpleado.trim(),
+        diasVacacionesAnuales: parseInt(form.diasVacacionesAnuales, 10) || null,
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -125,6 +128,7 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
         estado: editForm.estado,
         notas: editForm.notas.trim(),
         codigoEmpleado: editForm.codigoEmpleado.trim(),
+        diasVacacionesAnuales: parseInt(editForm.diasVacacionesAnuales, 10) || null,
       });
       cancelEdit();
     } catch (err) {
@@ -244,6 +248,16 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
           />
 
           <input
+            className="despensa-mono"
+            type="number"
+            min="0"
+            placeholder="Días de vacaciones al año (opcional)"
+            value={form.diasVacacionesAnuales}
+            onChange={(e) => setForm({ ...form, diasVacacionesAnuales: e.target.value })}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+          />
+
+          <input
             placeholder="Notas (opcional)"
             value={form.notas}
             onChange={(e) => setForm({ ...form, notas: e.target.value })}
@@ -344,6 +358,15 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
                     placeholder="Código de empleado (opcional)"
                     value={editForm.codigoEmpleado}
                     onChange={(e) => setEditForm({ ...editForm, codigoEmpleado: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+                  />
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    min="0"
+                    placeholder="Días de vacaciones al año (opcional)"
+                    value={editForm.diasVacacionesAnuales}
+                    onChange={(e) => setEditForm({ ...editForm, diasVacacionesAnuales: e.target.value })}
                     style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
                   />
                   <input

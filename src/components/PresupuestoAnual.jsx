@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 
@@ -82,11 +82,22 @@ function celdaOrdenCompra(orden, year, mes) {
   return { activo, quincena };
 }
 
+// Igual que las anteriores, pero para un periodo de vacaciones, usando su
+// fecha de inicio como referencia.
+function celdaVacacion(vacacion, year, mes) {
+  if (!vacacion.fechaInicio) return { activo: false, quincena: null };
+  const [vy, vm, vd] = vacacion.fechaInicio.split("-").map(Number);
+  if (!vy || !vm) return { activo: false, quincena: null };
+  const activo = vy === year && vm === mes;
+  const quincena = vd && vd > 15 ? "Q2" : "Q1";
+  return { activo, quincena };
+}
+
 function totalItemsOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra }) {
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones }) {
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
 
@@ -147,6 +158,19 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     [ordenesCompra]
   );
 
+  const vacacionesConGasto = useMemo(
+    () =>
+      (vacaciones || []).filter(
+        (v) => v.estado !== "Cancelada" && v.categoriaGasto && v.presupuestoEstimado && v.fechaInicio
+      ),
+    [vacaciones]
+  );
+
+  const categoriasVacacionesUnicas = useMemo(
+    () => [...new Set(vacacionesConGasto.map((v) => v.categoriaGasto))],
+    [vacacionesConGasto]
+  );
+
   const getCeldaPrestamo = (prestamo, mes, quincena) => {
     if (prestamo.frecuenciaCuota === "Personalizado") {
       let total = 0;
@@ -203,6 +227,19 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
 
   const totalMesOrden = (orden, mes) => getCeldaOrden(orden, mes, "Q1") + getCeldaOrden(orden, mes, "Q2");
 
+  const getCeldaVacacion = (vacacion, mes, quincena) => {
+    const { activo, quincena: q } = celdaVacacion(vacacion, year, mes);
+    return activo && q === quincena ? vacacion.presupuestoEstimado : 0;
+  };
+
+  const getCeldaVacacionCategoria = (categoriaNombre, mes, quincena) =>
+    vacacionesConGasto
+      .filter((v) => v.categoriaGasto === categoriaNombre)
+      .reduce((s, v) => s + getCeldaVacacion(v, mes, quincena), 0);
+
+  const totalMesVacacionCategoria = (categoriaNombre, mes) =>
+    getCeldaVacacionCategoria(categoriaNombre, mes, "Q1") + getCeldaVacacionCategoria(categoriaNombre, mes, "Q2");
+
   const getCelda = (categoria, mes, quincena) => {
     const val = presupuesto?.[categoria]?.[String(mes)]?.[quincena];
     return typeof val === "number" ? val : null;
@@ -227,8 +264,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     for (const orden of ordenesConGasto) {
       for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesOrden(orden, m);
     }
+    for (const vacacion of vacacionesConGasto) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaVacacion(vacacion, m, "Q1") + getCeldaVacacion(vacacion, m, "Q2");
+    }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, year, ingresoMensual, aportadoPorCuenta]);
 
   const totalPorQuincenaGlobal = useMemo(() => {
     const totals = {};
@@ -255,9 +295,14 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         totals[`${m}-Q1`] += getCeldaOrden(orden, m, "Q1");
         totals[`${m}-Q2`] += getCeldaOrden(orden, m, "Q2");
       }
+      for (const vacacion of vacacionesConGasto) {
+        totals[`${m}-Q1`] += getCeldaVacacion(vacacion, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaVacacion(vacacion, m, "Q2");
+      }
     }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, year, ingresoMensual, aportadoPorCuenta]);
+
 
   const totalPorCategoria = (categoria) => {
     let total = 0;
@@ -292,6 +337,12 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const totalPorOrden = (orden) => {
     let total = 0;
     for (let m = 1; m <= 12; m++) total += totalMesOrden(orden, m);
+    return total;
+  };
+
+  const totalPorVacacionCategoria = (categoriaNombre) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesVacacionCategoria(categoriaNombre, m);
     return total;
   };
 
@@ -338,7 +389,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   }, [categorias, presupuesto, movimientos, year, mesActual, quincenaActual]);
 
 
-  if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0 && eventosConGasto.length === 0 && ordenesConGasto.length === 0) {
+  if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0 && eventosConGasto.length === 0 && ordenesConGasto.length === 0 && vacacionesConGasto.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
         Todavía no has creado ninguna categoría propia. Ve a{" "}
@@ -408,6 +459,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
           {prestamosActivos.length > 0 && " · Las cuotas de préstamos (🏦) se calculan solas"}
           {metasActivas.length > 0 && " · Las metas de ahorro (🐷) también"}
           {eventosConGasto.length > 0 && " · Los eventos del calendario (📅) también"}
+          {vacacionesConGasto.length > 0 && " · Tus vacaciones (🌴) también"}
         </div>
       </div>
 
@@ -812,6 +864,66 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     }}
                   >
                     {formatMoney(totalPorOrden(orden)) || "0"}
+                  </td>
+                </tr>
+              );
+            })}
+            {categoriasVacacionesUnicas.map((catNombre, idx) => {
+              const rowIdx = categorias.length + prestamosActivos.length + metasActivas.length + categoriasEventosUnicas.length + ordenesConGasto.length + idx;
+              return (
+                <tr key={`vacacion-${catNombre}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                  <td
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
+                      padding: "6px 10px",
+                      borderRight: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: 12.5,
+                      color: "var(--amber)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                    title="Suma todos los periodos de vacaciones vinculados a esta categoría"
+                  >
+                    <PalmtreeIcon size={11} /> {catNombre}
+                  </td>
+                  {MESES.map((_, i) => {
+                    const mes = i + 1;
+                    return QUINCENAS.map((q) => {
+                      const val = getCeldaVacacionCategoria(catNombre, mes, q);
+                      return (
+                        <td
+                          key={`${catNombre}-${mes}-${q}`}
+                          style={{
+                            borderBottom: "1px solid var(--line-soft)",
+                            borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                            padding: "6px 4px",
+                            textAlign: "right",
+                            color: "var(--amber)",
+                            opacity: val ? 1 : 0.35,
+                          }}
+                        >
+                          {formatMoney(val) || "—"}
+                        </td>
+                      );
+                    });
+                  })}
+                  <td
+                    style={{
+                      borderLeft: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      padding: "7px 10px",
+                      textAlign: "right",
+                      fontWeight: 600,
+                      background: "var(--amber-bg)",
+                      color: "var(--amber)",
+                    }}
+                  >
+                    {formatMoney(totalPorVacacionCategoria(catNombre)) || "0"}
                   </td>
                 </tr>
               );

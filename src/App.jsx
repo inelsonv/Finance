@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
@@ -10,6 +10,7 @@ import Catalogo from "./components/Catalogo.jsx";
 import Compras from "./components/Compras.jsx";
 import Finanzas from "./components/Finanzas.jsx";
 import PagosFijos from "./components/PagosFijos.jsx";
+import Vacaciones from "./components/Vacaciones.jsx";
 import Entidades from "./components/Entidades.jsx";
 import Presupuesto from "./components/Presupuesto.jsx";
 import Movimientos from "./components/Movimientos.jsx";
@@ -60,6 +61,7 @@ const TITLES = {
   inversion: "Inversión",
   "estrategia-deudas": "Estrategia de deudas",
   "checklist-pagos": "Checklist de pagos",
+  vacaciones: "Vacaciones",
   calendario: "Calendario",
   activos: "Activos",
   ahorro: "Ahorro",
@@ -113,6 +115,7 @@ export default function App() {
   const [seguros, setSeguros] = useState([]);
   const [historialCompras, setHistorialCompras] = useState([]);
   const [ordenesCompra, setOrdenesCompra] = useState([]);
+  const [vacaciones, setVacaciones] = useState([]);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -219,6 +222,7 @@ export default function App() {
     const unsubSeguros = watchSeguros(setSeguros, handleError);
     const unsubHistorialCompras = watchHistorialCompras(setHistorialCompras, handleError);
     const unsubOrdenesCompra = watchOrdenesCompra(setOrdenesCompra, handleError);
+    const unsubVacaciones = watchVacaciones(setVacaciones, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -242,6 +246,7 @@ export default function App() {
       unsubSeguros();
       unsubHistorialCompras();
       unsubOrdenesCompra();
+      unsubVacaciones();
       unsubStatus();
     };
   }, [authorized]);
@@ -458,6 +463,7 @@ export default function App() {
             movimientos={movimientos}
             eventos={eventos}
             ordenesCompra={ordenesCompra}
+            vacaciones={vacaciones}
           />
         )}
         {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
@@ -472,6 +478,9 @@ export default function App() {
             periodoInicial={checklistPeriodoInicial}
             onConsumePeriodoInicial={() => setChecklistPeriodoInicial(null)}
           />
+        )}
+        {tab === "vacaciones" && (
+          <Vacaciones vacaciones={vacaciones} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} />
         )}
         {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} categoriasGasto={categoriasGasto} />}
         {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} />}

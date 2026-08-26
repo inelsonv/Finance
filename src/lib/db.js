@@ -483,6 +483,7 @@ export async function addFuenteIngreso({
   estado,
   notas,
   codigoEmpleado,
+  diasVacacionesAnuales,
 }) {
   await addDoc(fuentesIngresoCol, {
     nombre,
@@ -495,6 +496,7 @@ export async function addFuenteIngreso({
     estado,
     notas: notas || "",
     codigoEmpleado: codigoEmpleado || "",
+    diasVacacionesAnuales: diasVacacionesAnuales ?? null,
     createdAt: serverTimestamp(),
   });
 }
@@ -1070,4 +1072,53 @@ export async function updateOrdenCompra(id, fields) {
 
 export async function deleteOrdenCompra(id) {
   await deleteDoc(doc(db, "ordenesCompra", id));
+}
+
+const vacacionesCol = collection(db, "vacaciones");
+
+export function watchVacaciones(onChange, onError) {
+  return onSnapshot(
+    vacacionesCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.fechaInicio || "").localeCompare(b.fechaInicio || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addVacacion({
+  destino,
+  fuenteIngresoId,
+  fuenteIngresoName,
+  fechaInicio,
+  fechaFin,
+  diasUtilizados,
+  presupuestoEstimado,
+  categoriaGasto,
+  estado,
+  notas,
+}) {
+  await addDoc(vacacionesCol, {
+    destino,
+    fuenteIngresoId: fuenteIngresoId || null,
+    fuenteIngresoName: fuenteIngresoName || "",
+    fechaInicio,
+    fechaFin,
+    diasUtilizados: diasUtilizados ?? 0,
+    presupuestoEstimado: presupuestoEstimado ?? null,
+    categoriaGasto: categoriaGasto || null,
+    estado: estado || "Planificada",
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateVacacion(id, fields) {
+  await updateDoc(doc(db, "vacaciones", id), fields);
+}
+
+export async function deleteVacacion(id) {
+  await deleteDoc(doc(db, "vacaciones", id));
 }

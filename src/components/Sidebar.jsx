@@ -36,6 +36,7 @@ const NAV_ITEMS = [
       { id: "presupuesto-flujo", label: "Editor de flujo" },
       { id: "estrategia-deudas", label: "Estrategia de deudas" },
       { id: "checklist-pagos", label: "Checklist de pagos" },
+      { id: "vacaciones", label: "Vacaciones" },
     ],
   },
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },

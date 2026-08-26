@@ -78,6 +78,9 @@ service cloud.firestore {
     match /ordenesCompra/{doc} {
       allow read, write: if esPropietario();
     }
+    match /vacaciones/{doc} {
+      allow read, write: if esPropietario();
+    }
     match /checklistPagos/{doc} {
       allow read, write: if esPropietario();
     }
