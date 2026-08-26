@@ -180,6 +180,22 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
 
   const totalMesEvento = (evento, mes) => getCeldaEvento(evento, mes, "Q1") + getCeldaEvento(evento, mes, "Q2");
 
+  // Varios eventos pueden compartir la misma categoría de gasto (ej. 3 citas
+  // odontológicas en meses distintos) — se agrupan en UNA sola fila del
+  // presupuesto en vez de una fila por cada evento.
+  const categoriasEventosUnicas = useMemo(
+    () => [...new Set(eventosConGasto.map((e) => e.categoriaGasto))],
+    [eventosConGasto]
+  );
+
+  const getCeldaEventoCategoria = (categoriaNombre, mes, quincena) =>
+    eventosConGasto
+      .filter((e) => e.categoriaGasto === categoriaNombre)
+      .reduce((s, e) => s + getCeldaEvento(e, mes, quincena), 0);
+
+  const totalMesEventoCategoria = (categoriaNombre, mes) =>
+    getCeldaEventoCategoria(categoriaNombre, mes, "Q1") + getCeldaEventoCategoria(categoriaNombre, mes, "Q2");
+
   const getCeldaOrden = (orden, mes, quincena) => {
     const { activo, quincena: q } = celdaOrdenCompra(orden, year, mes);
     return activo && q === quincena ? totalItemsOrden(orden) : 0;
@@ -264,6 +280,12 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const totalPorEvento = (evento) => {
     let total = 0;
     for (let m = 1; m <= 12; m++) total += totalMesEvento(evento, m);
+    return total;
+  };
+
+  const totalPorEventoCategoria = (categoriaNombre) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesEventoCategoria(categoriaNombre, m);
     return total;
   };
 
@@ -674,10 +696,10 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                 </tr>
               );
             })}
-            {eventosConGasto.map((evento, idx) => {
+            {categoriasEventosUnicas.map((catNombre, idx) => {
               const rowIdx = categorias.length + prestamosActivos.length + metasActivas.length + idx;
               return (
-                <tr key={`evento-${evento.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                <tr key={`evento-cat-${catNombre}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
                   <td
                     style={{
                       position: "sticky",
@@ -693,17 +715,17 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                       alignItems: "center",
                       gap: 5,
                     }}
-                    title="Calculado automáticamente desde Calendario"
+                    title="Suma todos los eventos del calendario vinculados a esta categoría"
                   >
-                    <CalendarIcon size={11} /> {evento.titulo} ({evento.categoriaGasto})
+                    <CalendarIcon size={11} /> {catNombre}
                   </td>
                   {MESES.map((_, i) => {
                     const mes = i + 1;
                     return QUINCENAS.map((q) => {
-                      const val = getCeldaEvento(evento, mes, q);
+                      const val = getCeldaEventoCategoria(catNombre, mes, q);
                       return (
                         <td
-                          key={`${evento.id}-${mes}-${q}`}
+                          key={`${catNombre}-${mes}-${q}`}
                           style={{
                             borderBottom: "1px solid var(--line-soft)",
                             borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
@@ -729,13 +751,13 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                       color: "var(--amber)",
                     }}
                   >
-                    {formatMoney(totalPorEvento(evento)) || "0"}
+                    {formatMoney(totalPorEventoCategoria(catNombre)) || "0"}
                   </td>
                 </tr>
               );
             })}
             {ordenesConGasto.map((orden, idx) => {
-              const rowIdx = categorias.length + prestamosActivos.length + metasActivas.length + eventosConGasto.length + idx;
+              const rowIdx = categorias.length + prestamosActivos.length + metasActivas.length + categoriasEventosUnicas.length + idx;
               return (
                 <tr key={`orden-${orden.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
                   <td
