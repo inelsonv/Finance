@@ -84,24 +84,59 @@ export default function GlobalSearch({
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        title="Buscar en toda la app"
+      <div
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          width: 32,
           height: 32,
-          borderRadius: "50%",
+          width: open ? "min(230px, 60vw)" : 32,
+          borderRadius: 20,
           border: "1px solid var(--line)",
-          background: open ? "var(--sage-bg)" : "var(--card)",
-          color: open ? "var(--sage)" : "var(--ink-soft)",
-          cursor: "pointer",
+          background: open ? "var(--card)" : "var(--card)",
+          overflow: "hidden",
+          transition: "width 0.22s ease",
+          boxShadow: open ? "0 4px 14px rgba(0,0,0,0.12)" : "none",
         }}
       >
-        <Search size={15} />
-      </button>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          title="Buscar en toda la app"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            flexShrink: 0,
+            border: "none",
+            background: "transparent",
+            color: open ? "var(--sage)" : "var(--ink-soft)",
+            cursor: "pointer",
+          }}
+        >
+          <Search size={15} />
+        </button>
+        {open && (
+          <>
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setOpen(false);
+              }}
+              placeholder="Buscar…"
+              style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", fontSize: 13, padding: "0 6px 0 0" }}
+            />
+            <button
+              onClick={() => (query ? setQuery("") : setOpen(false))}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, marginRight: 3, background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer", flexShrink: 0 }}
+            >
+              <X size={13} />
+            </button>
+          </>
+        )}
+      </div>
 
       {open && (
         <div
@@ -121,25 +156,6 @@ export default function GlobalSearch({
             overflow: "hidden",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderBottom: "1px solid var(--line-soft)" }}>
-            <Search size={14} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar en toda la app…"
-              style={{ flex: 1, border: "none", background: "transparent", fontSize: 13, padding: 0 }}
-            />
-            {query && (
-              <button
-                onClick={() => setQuery("")}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer", flexShrink: 0 }}
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
-
           <div style={{ overflowY: "auto" }}>
             {query.trim().length < 2 ? (
               <div style={{ padding: "16px 12px", fontSize: 12, color: "var(--ink-soft)", textAlign: "center" }}>
