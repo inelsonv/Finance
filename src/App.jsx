@@ -8,6 +8,8 @@ import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
 import Catalogo from "./components/Catalogo.jsx";
 import Compras from "./components/Compras.jsx";
+import Finanzas from "./components/Finanzas.jsx";
+import PagosFijos from "./components/PagosFijos.jsx";
 import Entidades from "./components/Entidades.jsx";
 import Presupuesto from "./components/Presupuesto.jsx";
 import Movimientos from "./components/Movimientos.jsx";
@@ -43,6 +45,8 @@ const TITLES = {
   movimientos: "Movimientos",
   catalogo: "Catálogo",
   compras: "Compras",
+  "dinero-cuentas": "Finanzas",
+  "deudas-pagos": "Pagos fijos",
   entidades: "Entidades",
   cuentas: "Cuentas",
   prestamos: "Préstamos",
@@ -402,6 +406,12 @@ export default function App() {
         {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} movimientos={movimientos} cuentas={cuentas} />}
         {tab === "compras" && (
           <Compras products={products} ordenesCompra={ordenesCompra} historialCompras={historialCompras} onNavigate={setTab} />
+        )}
+        {tab === "dinero-cuentas" && (
+          <Finanzas cuentas={cuentas} metasAhorro={metasAhorro} fuentesIngreso={fuentesIngreso} movimientos={movimientos} onNavigate={setTab} />
+        )}
+        {tab === "deudas-pagos" && (
+          <PagosFijos prestamos={prestamos} tarjetas={tarjetas} membresias={membresias} contratos={contratos} movimientos={movimientos} onNavigate={setTab} />
         )}
         {tab === "catalogo" && (
           <Catalogo
