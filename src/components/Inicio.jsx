@@ -208,7 +208,7 @@ function GastosPorMesChart({ movimientos }) {
   );
 }
 
-function GastosPorCategoriaMesActual({ movimientos }) {
+function GastosPorCategoriaMesActual({ movimientos, compact }) {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
@@ -253,8 +253,8 @@ function GastosPorCategoriaMesActual({ movimientos }) {
   });
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 20 }}>
-      <svg viewBox="0 0 180 180" style={{ width: 160, height: 160, flexShrink: 0 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: compact ? 12 : 20 }}>
+      <svg viewBox="0 0 180 180" style={{ width: compact ? 130 : 160, height: compact ? 130 : 160, flexShrink: 0 }}>
         {arcs.map((a) => (
           <path key={a.category} d={a.d} fill={a.color} />
         ))}
@@ -266,14 +266,21 @@ function GastosPorCategoriaMesActual({ movimientos }) {
           ${Math.round(total).toLocaleString("es")}
         </text>
       </svg>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 140 }}>
-        {arcs.map((a) => (
-          <div key={a.category} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 }} />
-            <span style={{ color: "var(--ink-soft)", flex: 1 }}>{a.category}</span>
-            <span className="despensa-mono" style={{ fontWeight: 600 }}>{Math.round((a.value / total) * 100)}%</span>
-          </div>
-        ))}
+      <div style={{ display: "flex", flexDirection: compact ? "row" : "column", flexWrap: "wrap", gap: compact ? 8 : 6, minWidth: compact ? 0 : 140, justifyContent: "center" }}>
+        {arcs.map((a) =>
+          compact ? (
+            <div key={a.category} title={a.category} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 }} />
+              <span className="despensa-mono" style={{ fontWeight: 600 }}>{Math.round((a.value / total) * 100)}%</span>
+            </div>
+          ) : (
+            <div key={a.category} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 }} />
+              <span style={{ color: "var(--ink-soft)", flex: 1 }}>{a.category}</span>
+              <span className="despensa-mono" style={{ fontWeight: 600 }}>{Math.round((a.value / total) * 100)}%</span>
+            </div>
+          )
+        )}
       </div>
     </div>
   );
@@ -854,20 +861,20 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const accionesContent = <StocksCard />;
 
   const gastosContent = (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", gap: 16 }}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+      <div style={{ flex: "2 1 340px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
           <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
           <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por mes y categoría</span>
         </div>
         <GastosPorMesChart movimientos={movimientos} />
       </div>
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+      <div style={{ flex: "1 1 200px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
           <PieChartIcon size={16} style={{ color: "var(--ink-soft)" }} />
-          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por categoría (este mes)</span>
+          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por categoría</span>
         </div>
-        <GastosPorCategoriaMesActual movimientos={movimientos} />
+        <GastosPorCategoriaMesActual movimientos={movimientos} compact />
       </div>
     </div>
   );
