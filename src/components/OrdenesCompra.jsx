@@ -72,7 +72,6 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
   const [notas, setNotas] = useState("");
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [expandidoId, setExpandidoId] = useState(null);
   const [editandoId, setEditandoId] = useState(null);
   const [buscarAgregar, setBuscarAgregar] = useState("");
   const [busy, setBusy] = useState(null);
@@ -367,7 +366,6 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {ordenes.map((o) => {
             const estadoStyle = ESTADO_COLORES[o.estado] || ESTADO_COLORES.Borrador;
-            const expandido = expandidoId === o.id;
             const busyThis = busy === o.id;
             return (
               <div key={o.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
@@ -397,19 +395,9 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
-                  <button
-                    onClick={() => setExpandidoId(expandido ? null : o.id)}
-                    style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--ink-soft)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
-                  >
-                    Ver productos {expandido ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                  </button>
                   {o.estado !== "Completada" && o.estado !== "Cancelada" && (
                     <button
-                      onClick={() => {
-                        const activando = editandoId !== o.id;
-                        setEditandoId(activando ? o.id : null);
-                        if (activando) setExpandidoId(o.id);
-                      }}
+                      onClick={() => setEditandoId(editandoId === o.id ? null : o.id)}
                       style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: editandoId === o.id ? "var(--sage)" : "var(--ink-soft)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
                     >
                       <Pencil size={12} /> {editandoId === o.id ? "Listo" : "Editar"}
@@ -417,8 +405,7 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
                   )}
                 </div>
 
-                {expandido && (
-                  <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
                     {editandoId === o.id && (
                       <div style={{ marginBottom: 6 }}>
                         <select
@@ -516,7 +503,6 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
                       </div>
                     )}
                   </div>
-                )}
 
                 {o.estado === "Borrador" && (
                   <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
