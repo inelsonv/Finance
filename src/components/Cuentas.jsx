@@ -256,6 +256,7 @@ export default function Cuentas({ cuentas, entidades }) {
           {cuentas.map((c, i) => (
             <div
               key={c.id}
+              data-record-id={c.id}
               className="despensa-row"
               style={{
                 padding: "10px 12px",

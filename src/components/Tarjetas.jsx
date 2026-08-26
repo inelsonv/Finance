@@ -443,7 +443,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {tarjetas.map((t) => (
-            <div key={t.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
+            <div key={t.id} data-record-id={t.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
               {editingId === t.id ? (
                 <div>
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 0.7fr", gap: 8, marginBottom: 8 }}>

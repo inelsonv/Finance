@@ -279,7 +279,7 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {fuentes.map((f) => (
-            <div key={f.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
+            <div key={f.id} data-record-id={f.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
               {editingId === f.id ? (
                 <div>
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>

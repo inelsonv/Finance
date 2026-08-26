@@ -369,7 +369,7 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
             const estadoStyle = ESTADO_COLORES[o.estado] || ESTADO_COLORES.Borrador;
             const busyThis = busy === o.id;
             return (
-              <div key={o.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
+              <div key={o.id} data-record-id={o.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

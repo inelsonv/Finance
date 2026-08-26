@@ -384,7 +384,7 @@ export default function Membresias({ membresias, entidades, movimientos }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {membresias.map((m) => (
-            <div key={m.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
+            <div key={m.id} data-record-id={m.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
               {editingId === m.id ? (
                 <div>
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>

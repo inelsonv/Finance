@@ -277,7 +277,7 @@ export default function Contratos({ contratos, entidades, movimientos }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {contratos.map((c) => (
-            <div key={c.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
+            <div key={c.id} data-record-id={c.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
               {editingId === c.id ? (
                 <div>
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>

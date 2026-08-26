@@ -108,6 +108,7 @@ export default function App() {
   const [historialCompras, setHistorialCompras] = useState([]);
   const [ordenesCompra, setOrdenesCompra] = useState([]);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(null);
+  const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
   const currentYear = new Date().getFullYear();
   const [loading, setLoading] = useState(true);
@@ -135,9 +136,28 @@ export default function App() {
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
 
+  useEffect(() => {
+    if (!highlightId) return;
+    const id = highlightId;
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-record-id="${CSS.escape(id)}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("despensa-highlight");
+        setTimeout(() => el.classList.remove("despensa-highlight"), 2400);
+      }
+      setHighlightId(null);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [highlightId, tab]);
+
   const handleNavigate = (tabId, periodoObjetivo) => {
     setTab(tabId);
     if (periodoObjetivo) setChecklistPeriodoInicial(periodoObjetivo);
+  };
+  const handleSearchNavigate = (tabId, recordId) => {
+    setTab(tabId);
+    if (recordId) setHighlightId(recordId);
   };
   const toggleSidebar = () => setSidebarCollapsed((c) => !c);
 
@@ -323,7 +343,7 @@ export default function App() {
                 ordenesCompra={ordenesCompra}
                 metasAhorro={metasAhorro}
                 fuentesIngreso={fuentesIngreso}
-                onNavigate={setTab}
+                onNavigate={handleSearchNavigate}
               />
               <NotificationBell
                 prestamos={prestamos}

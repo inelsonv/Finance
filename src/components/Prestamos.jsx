@@ -472,7 +472,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {prestamos.map((p) => (
-            <div key={p.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
+            <div key={p.id} data-record-id={p.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
               {editingId === p.id ? (
                 <div>
                   <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "0.8fr 1.5fr", gap: 8, marginBottom: 8 }}>

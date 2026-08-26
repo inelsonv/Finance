@@ -455,7 +455,7 @@ export default function Activos({ activos, mantenimientos }) {
             }
 
             return (
-              <div key={a.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
+              <div key={a.id} data-record-id={a.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
                     <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--sage-bg)", color: "var(--sage)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>

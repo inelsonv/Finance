@@ -265,6 +265,7 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
           {filtered.map((e, i) => (
             <div
               key={e.docId}
+              data-record-id={e.docId}
               className="despensa-row"
               style={{
                 padding: "10px 12px",

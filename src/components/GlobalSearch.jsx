@@ -53,19 +53,19 @@ export default function GlobalSearch({
 
   const indice = useMemo(() => {
     const items = [];
-    for (const p of products || []) items.push({ tipo: "Catálogo", icon: Package, nombre: p.name, subtitulo: p.category, tab: "catalogo" });
-    for (const e of entidades || []) items.push({ tipo: "Entidad", icon: Landmark, nombre: e.name, subtitulo: e.type, tab: "entidades" });
-    for (const p of prestamos || []) items.push({ tipo: "Préstamo", icon: Banknote, nombre: `${p.numero} · ${p.entidadName || ""}`, subtitulo: p.tipo, tab: "prestamos" });
-    for (const t of tarjetas || []) items.push({ tipo: "Tarjeta", icon: CreditCard, nombre: t.nombre, subtitulo: t.entidadName, tab: "tarjetas" });
-    for (const m of membresias || []) items.push({ tipo: "Membresía", icon: Ticket, nombre: m.nombre, subtitulo: m.entidadName, tab: "membresias" });
-    for (const c of contratos || []) items.push({ tipo: "Contrato", icon: Zap, nombre: c.nombre, subtitulo: c.tipo, tab: "contratos" });
-    for (const c of cuentas || []) items.push({ tipo: "Cuenta", icon: Vault, nombre: c.nombre, subtitulo: `${c.tipo} · ${c.entidadName || ""}`, tab: "cuentas" });
-    for (const a of activos || []) items.push({ tipo: "Activo", icon: Car, nombre: a.nombre, subtitulo: a.tipo, tab: "activos" });
-    for (const s of seguros || []) items.push({ tipo: "Seguro", icon: Shield, nombre: s.nombre, subtitulo: s.tipo, tab: "seguros" });
-    for (const e of eventos || []) items.push({ tipo: "Evento", icon: Calendar, nombre: e.titulo, subtitulo: e.tipo, tab: "calendario" });
-    for (const o of ordenesCompra || []) items.push({ tipo: "Orden de compra", icon: ClipboardList, nombre: o.folio, subtitulo: o.estado, tab: "ordenes-compra" });
-    for (const m of metasAhorro || []) items.push({ tipo: "Meta de ahorro", icon: PiggyBank, nombre: m.nombre, subtitulo: m.tipoMeta, tab: "ahorro" });
-    for (const f of fuentesIngreso || []) items.push({ tipo: "Ingreso", icon: Briefcase, nombre: f.nombre, subtitulo: f.frecuencia, tab: "ingresos" });
+    for (const p of products || []) items.push({ id: p.id, tipo: "Catálogo", icon: Package, nombre: p.name, subtitulo: p.category, tab: "catalogo" });
+    for (const e of entidades || []) items.push({ id: e.docId, tipo: "Entidad", icon: Landmark, nombre: e.name, subtitulo: e.type, tab: "entidades" });
+    for (const p of prestamos || []) items.push({ id: p.id, tipo: "Préstamo", icon: Banknote, nombre: `${p.numero} · ${p.entidadName || ""}`, subtitulo: p.tipo, tab: "prestamos" });
+    for (const t of tarjetas || []) items.push({ id: t.id, tipo: "Tarjeta", icon: CreditCard, nombre: t.nombre, subtitulo: t.entidadName, tab: "tarjetas" });
+    for (const m of membresias || []) items.push({ id: m.id, tipo: "Membresía", icon: Ticket, nombre: m.nombre, subtitulo: m.entidadName, tab: "membresias" });
+    for (const c of contratos || []) items.push({ id: c.id, tipo: "Contrato", icon: Zap, nombre: c.nombre, subtitulo: c.tipo, tab: "contratos" });
+    for (const c of cuentas || []) items.push({ id: c.id, tipo: "Cuenta", icon: Vault, nombre: c.nombre, subtitulo: `${c.tipo} · ${c.entidadName || ""}`, tab: "cuentas" });
+    for (const a of activos || []) items.push({ id: a.id, tipo: "Activo", icon: Car, nombre: a.nombre, subtitulo: a.tipo, tab: "activos" });
+    for (const s of seguros || []) items.push({ id: s.id, tipo: "Seguro", icon: Shield, nombre: s.nombre, subtitulo: s.tipo, tab: "seguros" });
+    for (const e of eventos || []) items.push({ id: e.id, tipo: "Evento", icon: Calendar, nombre: e.titulo, subtitulo: e.tipo, tab: "calendario" });
+    for (const o of ordenesCompra || []) items.push({ id: o.id, tipo: "Orden de compra", icon: ClipboardList, nombre: o.folio, subtitulo: o.estado, tab: "ordenes-compra" });
+    for (const m of metasAhorro || []) items.push({ id: m.id, tipo: "Meta de ahorro", icon: PiggyBank, nombre: m.nombre, subtitulo: m.tipoMeta, tab: "ahorro" });
+    for (const f of fuentesIngreso || []) items.push({ id: f.id, tipo: "Ingreso", icon: Briefcase, nombre: f.nombre, subtitulo: f.frecuencia, tab: "ingresos" });
     return items;
   }, [products, entidades, prestamos, tarjetas, membresias, contratos, cuentas, activos, seguros, eventos, ordenesCompra, metasAhorro, fuentesIngreso]);
 
@@ -77,8 +77,8 @@ export default function GlobalSearch({
       .slice(0, 20);
   }, [query, indice]);
 
-  const irA = (tab) => {
-    onNavigate(tab);
+  const irA = (tab, id) => {
+    onNavigate(tab, id);
     setOpen(false);
   };
 
@@ -167,7 +167,7 @@ export default function GlobalSearch({
                 return (
                   <button
                     key={idx}
-                    onClick={() => irA(r.tab)}
+                    onClick={() => irA(r.tab, r.id)}
                     style={{
                       display: "flex",
                       alignItems: "center",

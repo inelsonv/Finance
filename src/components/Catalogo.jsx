@@ -422,6 +422,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
           {filtered.map((p) => (
             <div
               key={p.id}
+              data-record-id={p.id}
               style={{
                 background: "var(--card)",
                 border: "1px solid var(--line)",

@@ -347,7 +347,7 @@ export default function Calendario({ eventos, entidades }) {
     }
 
     return (
-      <div key={e.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
+      <div key={e.id} data-record-id={e.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
             <div
