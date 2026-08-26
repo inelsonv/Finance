@@ -235,7 +235,7 @@ export default function GlobalSearch({
                       <Icon size={13} />
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.nombre}</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.nombre}</div>
                       <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
                         {r.tipo}
                         {r.subtitulo && <> · {r.subtitulo}</>}

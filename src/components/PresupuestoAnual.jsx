@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, Calendar as CalendarIcon } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 
@@ -71,7 +71,22 @@ function celdaEvento(evento, year, mes) {
   return { activo, quincena };
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos }) {
+// Igual que celdaEvento, pero para una orden de compra usando su fecha planeada
+// de compra (no la fecha en que se creó la orden).
+function celdaOrdenCompra(orden, year, mes) {
+  if (!orden.fechaPlaneada) return { activo: false, quincena: null };
+  const [oy, om, od] = orden.fechaPlaneada.split("-").map(Number);
+  if (!oy || !om) return { activo: false, quincena: null };
+  const activo = oy === year && om === mes;
+  const quincena = od && od > 15 ? "Q2" : "Q1";
+  return { activo, quincena };
+}
+
+function totalItemsOrden(orden) {
+  return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
+}
+
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra }) {
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
 
@@ -124,6 +139,14 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     [eventos]
   );
 
+  const ordenesConGasto = useMemo(
+    () =>
+      (ordenesCompra || []).filter(
+        (o) => o.estado !== "Cancelada" && o.categoriaGasto && o.fechaPlaneada && totalItemsOrden(o) > 0
+      ),
+    [ordenesCompra]
+  );
+
   const getCeldaPrestamo = (prestamo, mes, quincena) => {
     if (prestamo.frecuenciaCuota === "Personalizado") {
       let total = 0;
@@ -157,6 +180,13 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
 
   const totalMesEvento = (evento, mes) => getCeldaEvento(evento, mes, "Q1") + getCeldaEvento(evento, mes, "Q2");
 
+  const getCeldaOrden = (orden, mes, quincena) => {
+    const { activo, quincena: q } = celdaOrdenCompra(orden, year, mes);
+    return activo && q === quincena ? totalItemsOrden(orden) : 0;
+  };
+
+  const totalMesOrden = (orden, mes) => getCeldaOrden(orden, mes, "Q1") + getCeldaOrden(orden, mes, "Q2");
+
   const getCelda = (categoria, mes, quincena) => {
     const val = presupuesto?.[categoria]?.[String(mes)]?.[quincena];
     return typeof val === "number" ? val : null;
@@ -178,8 +208,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     for (const evento of eventosConGasto) {
       for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesEvento(evento, m);
     }
+    for (const orden of ordenesConGasto) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesOrden(orden, m);
+    }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, year, ingresoMensual, aportadoPorCuenta]);
 
   const totalPorQuincenaGlobal = useMemo(() => {
     const totals = {};
@@ -202,9 +235,13 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         totals[`${m}-Q1`] += getCeldaEvento(evento, m, "Q1");
         totals[`${m}-Q2`] += getCeldaEvento(evento, m, "Q2");
       }
+      for (const orden of ordenesConGasto) {
+        totals[`${m}-Q1`] += getCeldaOrden(orden, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaOrden(orden, m, "Q2");
+      }
     }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, year, ingresoMensual, aportadoPorCuenta]);
 
   const totalPorCategoria = (categoria) => {
     let total = 0;
@@ -227,6 +264,12 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const totalPorEvento = (evento) => {
     let total = 0;
     for (let m = 1; m <= 12; m++) total += totalMesEvento(evento, m);
+    return total;
+  };
+
+  const totalPorOrden = (orden) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesOrden(orden, m);
     return total;
   };
 
@@ -273,7 +316,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   }, [categorias, presupuesto, movimientos, year, mesActual, quincenaActual]);
 
 
-  if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0 && eventosConGasto.length === 0) {
+  if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0 && eventosConGasto.length === 0 && ordenesConGasto.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
         Todavía no has creado ninguna categoría propia. Ve a{" "}
@@ -687,6 +730,66 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     }}
                   >
                     {formatMoney(totalPorEvento(evento)) || "0"}
+                  </td>
+                </tr>
+              );
+            })}
+            {ordenesConGasto.map((orden, idx) => {
+              const rowIdx = categorias.length + prestamosActivos.length + metasActivas.length + eventosConGasto.length + idx;
+              return (
+                <tr key={`orden-${orden.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                  <td
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
+                      padding: "6px 10px",
+                      borderRight: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: 12.5,
+                      color: "var(--amber)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                    title="Calculado automáticamente desde Órdenes de compra"
+                  >
+                    <ClipboardListIcon size={11} /> {orden.folio} ({orden.categoriaGasto})
+                  </td>
+                  {MESES.map((_, i) => {
+                    const mes = i + 1;
+                    return QUINCENAS.map((q) => {
+                      const val = getCeldaOrden(orden, mes, q);
+                      return (
+                        <td
+                          key={`${orden.id}-${mes}-${q}`}
+                          style={{
+                            borderBottom: "1px solid var(--line-soft)",
+                            borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                            padding: "6px 4px",
+                            textAlign: "right",
+                            color: "var(--amber)",
+                            opacity: val ? 1 : 0.35,
+                          }}
+                        >
+                          {formatMoney(val) || "—"}
+                        </td>
+                      );
+                    });
+                  })}
+                  <td
+                    style={{
+                      borderLeft: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      padding: "7px 10px",
+                      textAlign: "right",
+                      fontWeight: 600,
+                      background: "var(--amber-bg)",
+                      color: "var(--amber)",
+                    }}
+                  >
+                    {formatMoney(totalPorOrden(orden)) || "0"}
                   </td>
                 </tr>
               );

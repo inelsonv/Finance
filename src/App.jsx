@@ -442,6 +442,7 @@ export default function App() {
             cuentas={cuentas}
             movimientos={movimientos}
             eventos={eventos}
+            ordenesCompra={ordenesCompra}
           />
         )}
         {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
@@ -463,7 +464,7 @@ export default function App() {
           <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} onNavigate={setTab} />
         )}
         {tab === "seguros" && <Seguros seguros={seguros} entidades={entidades} activos={activos} />}
-        {tab === "ordenes-compra" && <OrdenesCompra ordenes={ordenesCompra} products={products} entidades={entidades} />}
+        {tab === "ordenes-compra" && <OrdenesCompra ordenes={ordenesCompra} products={products} entidades={entidades} categoriasGasto={categoriasGasto} />}
         {tab === "configuracion" && (
           <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} />
         )}

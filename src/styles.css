@@ -89,6 +89,7 @@ select:focus {
 
 button {
   font-family: inherit;
+  color: inherit;
 }
 
 button:hover {

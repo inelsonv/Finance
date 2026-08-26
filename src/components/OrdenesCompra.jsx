@@ -65,12 +65,14 @@ function descargarCSV(orden) {
   URL.revokeObjectURL(url);
 }
 
-export default function OrdenesCompra({ ordenes, products, entidades }) {
+export default function OrdenesCompra({ ordenes, products, entidades, categoriasGasto }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [seleccion, setSeleccion] = useState({}); // { productId: cantidad }
   const [proveedorId, setProveedorId] = useState("");
   const [notas, setNotas] = useState("");
+  const [categoriaGasto, setCategoriaGasto] = useState("");
+  const [fechaPlaneada, setFechaPlaneada] = useState("");
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editandoId, setEditandoId] = useState(null);
@@ -100,6 +102,8 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
     setSeleccion({});
     setProveedorId("");
     setNotas("");
+    setCategoriaGasto("");
+    setFechaPlaneada("");
     setSearch("");
     setFormError(null);
   };
@@ -124,6 +128,8 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
         proveedorId: proveedorId || null,
         proveedorNombre: proveedor ? proveedor.name : "",
         notas: notas.trim(),
+        categoriaGasto: categoriaGasto || null,
+        fechaPlaneada: fechaPlaneada || null,
       });
       resetForm();
       setShowForm(false);
@@ -195,6 +201,10 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
   const cambiarProveedorOrden = async (orden, proveedorId) => {
     const proveedor = entidades.find((e) => e.docId === proveedorId);
     await updateOrdenCompra(orden.id, { proveedorId: proveedorId || null, proveedorNombre: proveedor ? proveedor.name : "" });
+  };
+
+  const cambiarPlaneacionOrden = async (orden, fields) => {
+    await updateOrdenCompra(orden.id, fields);
   };
 
   const finalizarCompraPresencial = async (orden) => {
@@ -334,6 +344,31 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
             </select>
           </div>
 
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 8, marginBottom: 8 }}>
+            <select
+              value={categoriaGasto}
+              onChange={(e) => setCategoriaGasto(e.target.value)}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              <option value="">Categoría de gasto (opcional)…</option>
+              {(categoriasGasto || []).map((c) => (
+                <option key={c.id} value={c.nombre}>{c.nombre}</option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={fechaPlaneada}
+              onChange={(e) => setFechaPlaneada(e.target.value)}
+              title="Fecha en la que piensas hacer esta compra"
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+          {categoriaGasto && fechaPlaneada && (
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: -4, marginBottom: 8 }}>
+              El total de esta orden se sumará automáticamente al Presupuesto mensual, en la quincena que corresponda a esa fecha.
+            </div>
+          )}
+
           <input
             placeholder="Notas (opcional)"
             value={notas}
@@ -385,6 +420,16 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
                       {formatDateDisplay(o.fecha)} · {(o.items || []).length} producto(s) · {formatMoney(totalOrden(o))}
                       {o.proveedorNombre && <> · {o.proveedorNombre}</>}
                     </div>
+                    {o.categoriaGasto && o.fechaPlaneada && (
+                      <div style={{ marginTop: 4 }}>
+                        <span
+                          className="despensa-mono"
+                          style={{ fontSize: 10.5, fontWeight: 600, padding: "1px 7px", borderRadius: 12, background: "var(--sage-bg)", color: "var(--sage)" }}
+                        >
+                          {o.categoriaGasto} · planeada para {formatDateDisplay(o.fechaPlaneada)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <button
                     onClick={async () => {
@@ -421,6 +466,27 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
                             <option key={e.docId} value={e.docId}>{e.name}</option>
                           ))}
                         </select>
+                      </div>
+                    )}
+                    {editandoId === o.id && (
+                      <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 6, marginBottom: 6 }}>
+                        <select
+                          value={o.categoriaGasto || ""}
+                          onChange={(e) => cambiarPlaneacionOrden(o, { categoriaGasto: e.target.value || null })}
+                          style={{ padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12, background: "var(--card)" }}
+                        >
+                          <option value="">Sin categoría de gasto</option>
+                          {(categoriasGasto || []).map((c) => (
+                            <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="date"
+                          value={o.fechaPlaneada || ""}
+                          onChange={(e) => cambiarPlaneacionOrden(o, { fechaPlaneada: e.target.value || null })}
+                          title="Fecha en la que piensas hacer esta compra"
+                          style={{ padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12 }}
+                        />
                       </div>
                     )}
                     {(o.items || []).length === 0 && (

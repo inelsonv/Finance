@@ -1023,7 +1023,7 @@ async function siguienteFolioOC() {
   return `OC${String(nuevoNumero).padStart(5, "0")}`;
 }
 
-export async function addOrdenCompra({ items, proveedorId, proveedorNombre, notas }) {
+export async function addOrdenCompra({ items, proveedorId, proveedorNombre, notas, categoriaGasto, fechaPlaneada }) {
   const folio = await siguienteFolioOC();
   const docRef = await addDoc(ordenesCompraCol, {
     folio,
@@ -1034,6 +1034,8 @@ export async function addOrdenCompra({ items, proveedorId, proveedorNombre, nota
     proveedorNombre: proveedorNombre || "",
     items: items || [],
     notas: notas || "",
+    categoriaGasto: categoriaGasto || null,
+    fechaPlaneada: fechaPlaneada || null,
     createdAt: serverTimestamp(),
   });
   return { id: docRef.id, folio };
