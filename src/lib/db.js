@@ -208,7 +208,7 @@ export async function addMovimiento({
   contratoId,
   contratoNombre,
 }) {
-  await addDoc(movimientosCol, {
+  const docRef = await addDoc(movimientosCol, {
     type,
     category,
     amount,
@@ -232,6 +232,7 @@ export async function addMovimiento({
     contratoNombre: contratoNombre || "",
     createdAt: serverTimestamp(),
   });
+  return docRef;
 }
 
 export async function deleteMovimiento(id) {
@@ -969,13 +970,18 @@ export function watchHistorialCompras(onChange, onError) {
 }
 
 export async function registrarCompraProducto({ productId, productName, fecha, cantidad }) {
-  await addDoc(historialComprasCol, {
+  const docRef = await addDoc(historialComprasCol, {
     productId,
     productName: productName || "",
     fecha,
     cantidad: cantidad || 1,
     createdAt: serverTimestamp(),
   });
+  return docRef;
+}
+
+export async function deleteHistorialCompra(id) {
+  await deleteDoc(doc(db, "historialCompras", id));
 }
 
 const ordenesCompraCol = collection(db, "ordenesCompra");

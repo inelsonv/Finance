@@ -11,8 +11,9 @@ import {
   ChevronDown,
   ChevronUp,
   Send,
+  RotateCcw,
 } from "lucide-react";
-import { addOrdenCompra, updateOrdenCompra, deleteOrdenCompra, registrarCompraProducto, addMovimiento } from "../lib/db";
+import { addOrdenCompra, updateOrdenCompra, deleteOrdenCompra, registrarCompraProducto, deleteHistorialCompra, addMovimiento, deleteMovimiento } from "../lib/db";
 
 const ESTADO_COLORES = {
   Borrador: { bg: "var(--line-soft)", color: "var(--ink-soft)" },
@@ -150,9 +151,18 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
       await updateOrdenCompra(orden.id, {
         estado: "Compra presencial",
         modalidad: "Presencial",
-        items: orden.items.map((it) => ({ ...it, comprado: false })),
+        items: orden.items.map((it) => ({ ...it, comprado: it.comprado || false })),
       });
       setExpandidoId(orden.id);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const cancelarCompraPresencial = async (orden) => {
+    setBusy(orden.id);
+    try {
+      await updateOrdenCompra(orden.id, { estado: "Borrador", modalidad: null });
     } finally {
       setBusy(null);
     }
@@ -167,16 +177,19 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
     setBusy(orden.id);
     try {
       const fecha = todayStr();
+      const historialIds = [];
       for (const it of orden.items) {
         if (it.comprado && it.productId) {
-          registrarCompraProducto({ productId: it.productId, productName: it.productName, fecha, cantidad: it.cantidad });
+          const ref = await registrarCompraProducto({ productId: it.productId, productName: it.productName, fecha, cantidad: it.cantidad });
+          if (ref?.id) historialIds.push(ref.id);
         }
       }
       const total = orden.items
         .filter((it) => it.comprado)
         .reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
+      let movimientoId = null;
       if (total > 0) {
-        await addMovimiento({
+        const ref = await addMovimiento({
           type: "Gasto",
           category: "Alimentos",
           amount: total,
@@ -185,8 +198,31 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
           clasificacion: "Variable",
           metodoPago: "Efectivo",
         });
+        movimientoId = ref?.id || null;
       }
-      await updateOrdenCompra(orden.id, { estado: "Completada" });
+      await updateOrdenCompra(orden.id, { estado: "Completada", historialIds, movimientoId });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const revertirCompletada = async (orden) => {
+    if (!window.confirm("Esto deshace el gasto y el historial registrados por esta compra, y la regresa al checklist para que la ajustes. ¿Continuar?")) return;
+    setBusy(orden.id);
+    try {
+      for (const hId of orden.historialIds || []) {
+        await deleteHistorialCompra(hId).catch(() => {});
+      }
+      if (orden.movimientoId) {
+        await deleteMovimiento(orden.movimientoId).catch(() => {});
+      }
+      await updateOrdenCompra(orden.id, {
+        estado: "Compra presencial",
+        modalidad: "Presencial",
+        historialIds: [],
+        movimientoId: null,
+      });
+      setExpandidoId(orden.id);
     } finally {
       setBusy(null);
     }
@@ -401,12 +437,33 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
                 )}
 
                 {o.estado === "Compra presencial" && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => finalizarCompraPresencial(o)}
+                      disabled={busyThis}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}
+                    >
+                      <Check size={12} /> {busyThis ? "Finalizando…" : "Finalizar compra presencial"}
+                    </button>
+                    <button
+                      onClick={() => cancelarCompraPresencial(o)}
+                      disabled={busyThis}
+                      title="Vuelve a Borrador para hacerla después"
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 7, cursor: "pointer" }}
+                    >
+                      <X size={12} /> Cancelar (para después)
+                    </button>
+                  </div>
+                )}
+
+                {o.estado === "Completada" && (
                   <button
-                    onClick={() => finalizarCompraPresencial(o)}
+                    onClick={() => revertirCompletada(o)}
                     disabled={busyThis}
-                    style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 10, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}
+                    title="Deshace el gasto y el historial registrados"
+                    style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 10, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--card)", color: "var(--stamp)", border: "1px solid var(--line)", borderRadius: 7, cursor: "pointer" }}
                   >
-                    <Check size={12} /> {busyThis ? "Finalizando…" : "Finalizar compra presencial"}
+                    <RotateCcw size={12} /> {busyThis ? "Revirtiendo…" : "Revertir compra"}
                   </button>
                 )}
               </div>
