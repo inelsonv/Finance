@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, PiggyBank } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -178,6 +178,28 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
 
   const totalAnual = totalPorMes.reduce((s, v) => s + v, 0);
 
+  const ingresoQuincenal = ingresoMensual / 2;
+
+  const excedeQuincena = (mes, q) => ingresoQuincenal > 0 && (totalPorQuincenaGlobal[`${mes}-${q}`] || 0) > ingresoQuincenal;
+
+  const hoy = new Date();
+  const mesActual = hoy.getMonth() + 1;
+  const quincenaActual = hoy.getDate() <= 15 ? "Q1" : "Q2";
+  const excesoActual =
+    year === hoy.getFullYear() && ingresoQuincenal > 0
+      ? (totalPorQuincenaGlobal[`${mesActual}-${quincenaActual}`] || 0) - ingresoQuincenal
+      : 0;
+  const quincenasExcedidas = useMemo(() => {
+    if (ingresoQuincenal <= 0) return 0;
+    let count = 0;
+    for (let m = 1; m <= 12; m++) {
+      if (excedeQuincena(m, "Q1")) count++;
+      if (excedeQuincena(m, "Q2")) count++;
+    }
+    return count;
+  }, [totalPorQuincenaGlobal, ingresoQuincenal]);
+
+
   if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
@@ -203,10 +225,45 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
 
   return (
     <div>
+      {ingresoQuincenal > 0 && excesoActual > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 10,
+            background: "var(--stamp-bg)",
+            border: "1px solid var(--stamp)",
+            borderRadius: 10,
+            padding: "10px 12px",
+            marginBottom: 14,
+          }}
+        >
+          <AlertTriangle size={16} style={{ color: "var(--stamp)", flexShrink: 0, marginTop: 1 }} />
+          <div style={{ fontSize: 12.5, color: "var(--stamp)", lineHeight: 1.5 }}>
+            Tu presupuesto de esta quincena ({formatMoney(totalPorQuincenaGlobal[`${mesActual}-${quincenaActual}`])}) supera tu
+            ingreso quincenal esperado ({formatMoney(ingresoQuincenal)}) por{" "}
+            <strong>{formatMoney(excesoActual)}</strong>. Deberías reducir la distribución de esta quincena.
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", display: "inline-flex", gap: 6, alignItems: "baseline" }}>
-          <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Presupuesto total {year}:</span>
-          <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 600 }}>${totalAnual.toLocaleString("es")}</span>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", display: "inline-flex", gap: 6, alignItems: "baseline" }}>
+            <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Presupuesto total {year}:</span>
+            <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 600 }}>${totalAnual.toLocaleString("es")}</span>
+          </div>
+          {ingresoQuincenal > 0 && (
+            <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", display: "inline-flex", gap: 6, alignItems: "baseline" }}>
+              <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Ingreso quincenal estimado:</span>
+              <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 600, color: "var(--sage)" }}>{formatMoney(ingresoQuincenal)}</span>
+              {quincenasExcedidas > 0 && (
+                <span className="despensa-tab-font" style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 12, background: "var(--stamp-bg)", color: "var(--stamp)" }}>
+                  {quincenasExcedidas} quincena(s) excedida(s)
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
           Cada mes tiene 2 columnas: Q1 (primera quincena) y Q2 (segunda quincena)
@@ -475,21 +532,27 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
               </td>
               {MESES.map((_, i) => {
                 const mes = i + 1;
-                return QUINCENAS.map((q) => (
-                  <td
-                    key={`${mes}-${q}`}
-                    style={{
-                      padding: "8px 4px",
-                      borderTop: "2px solid var(--line)",
-                      borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
-                      textAlign: "right",
-                      fontWeight: 600,
-                      fontSize: 10.5,
-                    }}
-                  >
-                    {formatMoney(totalPorQuincenaGlobal[`${mes}-${q}`]) || "0"}
-                  </td>
-                ));
+                return QUINCENAS.map((q) => {
+                  const excedido = excedeQuincena(mes, q);
+                  return (
+                    <td
+                      key={`${mes}-${q}`}
+                      title={excedido ? `Supera tu ingreso quincenal estimado (${formatMoney(ingresoQuincenal)})` : undefined}
+                      style={{
+                        padding: "8px 4px",
+                        borderTop: "2px solid var(--line)",
+                        borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                        textAlign: "right",
+                        fontWeight: 600,
+                        fontSize: 10.5,
+                        background: excedido ? "var(--stamp-bg)" : "transparent",
+                        color: excedido ? "var(--stamp)" : "var(--ink)",
+                      }}
+                    >
+                      {formatMoney(totalPorQuincenaGlobal[`${mes}-${q}`]) || "0"}
+                    </td>
+                  );
+                });
               })}
               <td style={{ padding: "8px 10px", borderTop: "2px solid var(--line)", borderLeft: "1px solid var(--line)", textAlign: "right", fontWeight: 700, background: "var(--sage-bg)", color: "var(--sage)" }}>
                 {totalAnual.toLocaleString("es")}
