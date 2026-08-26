@@ -164,7 +164,7 @@ export default function GlobalSearch({
                 if (e.key === "Escape") setOpen(false);
               }}
               placeholder="Buscar…"
-              style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", fontSize: 13, padding: "0 6px 0 0" }}
+              style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: "var(--ink)", fontSize: 13, padding: "0 6px 0 0" }}
             />
             <button
               onClick={() => (query ? setQuery("") : setOpen(false))}
