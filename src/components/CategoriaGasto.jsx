@@ -165,7 +165,9 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
                 <span style={{ color: c.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)" }}>{c.nombre}</span>
                 <span style={{ color: "var(--ink-soft)", fontSize: 10.5 }}>{c.clasificacion}</span>
                 <button
-                  onClick={() => deleteCategoriaGasto(c.id)}
+                  onClick={() => {
+                    if (window.confirm("¿Eliminar esta categoría?")) deleteCategoriaGasto(c.id);
+                  }}
                   title="Eliminar categoría"
                   style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer" }}
                 >

@@ -388,7 +388,9 @@ export default function Contratos({ contratos, entidades, movimientos }) {
                         <Pencil size={14} />
                       </button>
                       <button
-                        onClick={() => deleteContrato(c.id)}
+                        onClick={() => {
+                          if (window.confirm("¿Eliminar este contrato?")) deleteContrato(c.id);
+                        }}
                         title="Eliminar contrato"
                         style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}
                       >

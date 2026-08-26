@@ -396,7 +396,9 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
                     <Pencil size={15} />
                   </button>
                   <button
-                    onClick={() => deleteEntidad(e.docId)}
+                    onClick={() => {
+                      if (window.confirm("¿Eliminar esta entidad?")) deleteEntidad(e.docId);
+                    }}
                     title="Eliminar entidad"
                     style={{
                       display: "flex",

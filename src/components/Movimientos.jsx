@@ -853,7 +853,9 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                 {m.type === "Ingreso" ? "+" : "−"}{formatMoney(m.amount)}
               </span>
               <button
-                onClick={() => deleteMovimiento(m.id)}
+                onClick={() => {
+                  if (window.confirm("¿Eliminar este movimiento?")) deleteMovimiento(m.id);
+                }}
                 title="Eliminar movimiento"
                 style={{
                   display: "flex",

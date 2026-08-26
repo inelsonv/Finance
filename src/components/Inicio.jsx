@@ -550,7 +550,9 @@ function StocksCard() {
             return (
               <div key={a.id} style={{ position: "relative", padding: "10px 10px 8px", background: "var(--paper)", borderRadius: 8, border: "1px solid var(--line-soft)" }}>
                 <button
-                  onClick={() => deleteAccion(a.id)}
+                  onClick={() => {
+                    if (window.confirm("¿Quitar esta acción de tu lista de seguimiento?")) deleteAccion(a.id);
+                  }}
                   title="Quitar"
                   style={{ position: "absolute", top: 4, right: 4, display: "flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer" }}
                 >

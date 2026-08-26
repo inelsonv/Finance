@@ -413,7 +413,9 @@ export default function Calendario({ eventos, entidades }) {
               <Pencil size={14} />
             </button>
             <button
-              onClick={() => deleteEvento(e.id)}
+              onClick={() => {
+                if (window.confirm("¿Eliminar este evento?")) deleteEvento(e.id);
+              }}
               title="Eliminar"
               style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}
             >

@@ -539,7 +539,9 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                     {agregadoId === p.id ? <Check size={14} /> : <Plus size={14} />}
                   </button>
                   <button
-                    onClick={() => deleteProduct(p.id)}
+                    onClick={() => {
+                      if (window.confirm("¿Eliminar este producto del catálogo?")) deleteProduct(p.id);
+                    }}
                     title="Eliminar producto"
                     style={{
                       display: "flex",

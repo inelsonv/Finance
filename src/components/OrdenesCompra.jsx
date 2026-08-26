@@ -386,7 +386,9 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
                     </div>
                   </div>
                   <button
-                    onClick={() => deleteOrdenCompra(o.id)}
+                    onClick={() => {
+                      if (window.confirm(`¿Eliminar la orden ${o.folio}?`)) deleteOrdenCompra(o.id);
+                    }}
                     title="Eliminar orden"
                     style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
                   >

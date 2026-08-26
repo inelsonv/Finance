@@ -395,7 +395,9 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
                         <Pencil size={14} />
                       </button>
                       <button
-                        onClick={() => deleteFuenteIngreso(f.id)}
+                        onClick={() => {
+                          if (window.confirm("¿Eliminar esta fuente de ingreso?")) deleteFuenteIngreso(f.id);
+                        }}
                         title="Eliminar fuente de ingreso"
                         style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}
                       >

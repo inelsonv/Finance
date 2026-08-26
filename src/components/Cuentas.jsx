@@ -384,7 +384,9 @@ export default function Cuentas({ cuentas, entidades }) {
                     <Pencil size={14} />
                   </button>
                   <button
-                    onClick={() => deleteCuenta(c.id)}
+                    onClick={() => {
+                      if (window.confirm("¿Eliminar esta cuenta?")) deleteCuenta(c.id);
+                    }}
                     title="Eliminar cuenta"
                     style={{
                       display: "flex",

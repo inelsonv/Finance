@@ -758,7 +758,9 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
                         <Pencil size={14} />
                       </button>
                       <button
-                        onClick={() => deletePrestamo(p.id)}
+                        onClick={() => {
+                          if (window.confirm("¿Eliminar este préstamo?")) deletePrestamo(p.id);
+                        }}
                         title="Eliminar préstamo"
                         style={{
                           display: "flex",

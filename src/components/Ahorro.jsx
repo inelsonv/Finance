@@ -449,7 +449,9 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => deleteMetaAhorro(m.id)}
+                      onClick={() => {
+                        if (window.confirm("¿Eliminar esta meta de ahorro?")) deleteMetaAhorro(m.id);
+                      }}
                       title="Eliminar"
                       style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer" }}
                     >

@@ -630,7 +630,9 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                           <Pencil size={14} />
                         </button>
                         <button
-                          onClick={() => deleteTarjeta(t.id)}
+                          onClick={() => {
+                            if (window.confirm("¿Eliminar esta tarjeta?")) deleteTarjeta(t.id);
+                          }}
                           title="Eliminar tarjeta"
                           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "var(--paper)", color: "var(--stamp)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
                         >
