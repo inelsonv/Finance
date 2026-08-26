@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check } from "lucide-react";
+import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine } from "lucide-react";
 import {
   addProduct,
   deleteProduct,
@@ -12,14 +12,29 @@ import {
 import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
 import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
 import { confirm } from "../lib/confirm";
+import BarcodeScanner from "./BarcodeScanner.jsx";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
 
+async function buscarProductoPorCodigo(codigo) {
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${codigo}.json`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.status !== 1 || !data.product) return null;
+    const p = data.product;
+    const nombre = [p.product_name, p.brands].filter(Boolean).join(" - ");
+    return { nombre: nombre || p.generic_name || null, imagen: p.image_front_small_url || p.image_url || null };
+  } catch {
+    return null;
+  }
+}
+
 export default function Catalogo({ products, entidades, historialCompras, ordenesCompra, onNavigate }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
+  const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "" });
   const [formImage, setFormImage] = useState(null);
   const [formImagePreview, setFormImagePreview] = useState(null);
   const [formError, setFormError] = useState(null);
@@ -30,6 +45,9 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const [configSaving, setConfigSaving] = useState(false);
   const [dismissedSugerencias, setDismissedSugerencias] = useState([]);
   const [agregadoId, setAgregadoId] = useState(null);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scanBusy, setScanBusy] = useState(false);
+  const [scanMsg, setScanMsg] = useState(null);
   const formFileRef = useRef(null);
   const rowFileRefs = useRef({});
 
@@ -73,6 +91,31 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
     );
   }, [products, search]);
 
+  const handleBarcodeDetected = async (codigo) => {
+    setShowScanner(false);
+    setScanBusy(true);
+    setScanMsg(null);
+    try {
+      const yaExiste = products.find((p) => p.codigoBarras === codigo);
+      if (yaExiste) {
+        await agregarACompra(yaExiste);
+        setScanMsg({ tipo: "ok", texto: `"${yaExiste.name}" ya estaba en tu catálogo — lo agregué a tu orden de compra.` });
+        return;
+      }
+      const resultado = await buscarProductoPorCodigo(codigo);
+      setShowForm(true);
+      if (resultado?.nombre) {
+        setForm((f) => ({ ...f, name: resultado.nombre, codigoBarras: codigo }));
+        setScanMsg({ tipo: "ok", texto: `Encontrado: ${resultado.nombre}. Revisa el nombre y completa el precio.` });
+      } else {
+        setForm((f) => ({ ...f, name: "", codigoBarras: codigo }));
+        setScanMsg({ tipo: "info", texto: `No encontré este código (${codigo}) en la base de datos. Completa el nombre a mano.` });
+      }
+    } finally {
+      setScanBusy(false);
+    }
+  };
+
   const handleFormImagePick = (file) => {
     if (!file) return;
     setFormImage(file);
@@ -91,11 +134,12 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         category: form.category,
         unit: form.unit,
         price: Number.isFinite(price) ? price : 0,
+        codigoBarras: form.codigoBarras || null,
       });
       if (formImage) {
         await uploadProductImage(docRef.id, formImage);
       }
-      setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "" });
+      setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "" });
       setFormImage(null);
       setFormImagePreview(null);
       setShowForm(false);
@@ -287,6 +331,29 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
           />
         </div>
         <button
+          onClick={() => {
+            setScanMsg(null);
+            setShowScanner(true);
+          }}
+          title="Escanear código de barras"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 14px",
+            fontSize: 13,
+            fontWeight: 500,
+            background: "var(--sage)",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <ScanLine size={14} /> Escanear
+        </button>
+        <button
           onClick={() => setShowForm((s) => !s)}
           style={{
             display: "flex",
@@ -306,6 +373,30 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
           {showForm ? "Cancelar" : "Agregar producto"}
         </button>
       </div>
+
+      {scanBusy && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12 }}>
+          Buscando el producto…
+        </div>
+      )}
+      {scanMsg && (
+        <div
+          style={{
+            fontSize: 12.5,
+            marginBottom: 12,
+            padding: "9px 12px",
+            borderRadius: 8,
+            background: scanMsg.tipo === "ok" ? "var(--sage-bg)" : "var(--amber-bg)",
+            color: scanMsg.tipo === "ok" ? "var(--sage)" : "var(--amber)",
+          }}
+        >
+          {scanMsg.texto}
+        </div>
+      )}
+
+      {showScanner && (
+        <BarcodeScanner onDetected={handleBarcodeDetected} onClose={() => setShowScanner(false)} />
+      )}
 
       {showForm && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>

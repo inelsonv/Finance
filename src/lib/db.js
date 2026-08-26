@@ -52,7 +52,7 @@ export function watchList(onChange, onError) {
   );
 }
 
-export async function addProduct({ name, category, unit, price }) {
+export async function addProduct({ name, category, unit, price, codigoBarras }) {
   const docRef = await addDoc(productsCol, {
     name,
     category,
@@ -60,6 +60,7 @@ export async function addProduct({ name, category, unit, price }) {
     price,
     imageUrl: null,
     updatedAt: null,
+    codigoBarras: codigoBarras || null,
   });
   return docRef;
 }
