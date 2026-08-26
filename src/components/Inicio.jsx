@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
@@ -253,7 +253,7 @@ function GastosPorCategoriaMesActual({ movimientos }) {
   });
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 20, marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--line-soft)" }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 20 }}>
       <svg viewBox="0 0 180 180" style={{ width: 160, height: 160, flexShrink: 0 }}>
         {arcs.map((a) => (
           <path key={a.category} d={a.d} fill={a.color} />
@@ -658,7 +658,7 @@ function StocksCard() {
   );
 }
 
-const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar"];
+const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "gastosCategoria", "dolar"];
 
 function SortableSection({ id, isFirst, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -860,13 +860,22 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
         <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por mes y categoría</span>
       </div>
       <GastosPorMesChart movimientos={movimientos} />
+    </div>
+  );
+
+  const gastosCategoriaContent = (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <PieChartIcon size={16} style={{ color: "var(--ink-soft)" }} />
+        <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por categoría (este mes)</span>
+      </div>
       <GastosPorCategoriaMesActual movimientos={movimientos} />
     </div>
   );
 
   const dolarContent = <DolarCard />;
 
-  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent };
+  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, gastosCategoria: gastosCategoriaContent, dolar: dolarContent };
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
