@@ -192,6 +192,11 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
     setBuscarAgregar("");
   };
 
+  const cambiarProveedorOrden = async (orden, proveedorId) => {
+    const proveedor = entidades.find((e) => e.docId === proveedorId);
+    await updateOrdenCompra(orden.id, { proveedorId: proveedorId || null, proveedorNombre: proveedor ? proveedor.name : "" });
+  };
+
   const finalizarCompraPresencial = async (orden) => {
     setBusy(orden.id);
     try {
@@ -414,6 +419,20 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
 
                 {expandido && (
                   <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {editandoId === o.id && (
+                      <div style={{ marginBottom: 6 }}>
+                        <select
+                          value={o.proveedorId || ""}
+                          onChange={(e) => cambiarProveedorOrden(o, e.target.value)}
+                          style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12, background: "var(--card)" }}
+                        >
+                          <option value="">Sin proveedor asignado</option>
+                          {entidades.map((e) => (
+                            <option key={e.docId} value={e.docId}>{e.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     {(o.items || []).length === 0 && (
                       <div style={{ fontSize: 11.5, color: "var(--ink-soft)", padding: "6px 0" }}>Sin productos en esta orden.</div>
                     )}
