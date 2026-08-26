@@ -5,6 +5,7 @@ import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchM
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
+import GlobalSearch from "./components/GlobalSearch.jsx";
 import Catalogo from "./components/Catalogo.jsx";
 import Entidades from "./components/Entidades.jsx";
 import Presupuesto from "./components/Presupuesto.jsx";
@@ -308,6 +309,22 @@ export default function App() {
                   {entidades.length} entidad{entidades.length !== 1 ? "es" : ""} registrada{entidades.length !== 1 ? "s" : ""}
                 </span>
               )}
+              <GlobalSearch
+                products={products}
+                entidades={entidades}
+                prestamos={prestamos}
+                tarjetas={tarjetas}
+                membresias={membresias}
+                contratos={contratos}
+                cuentas={cuentas}
+                activos={activos}
+                seguros={seguros}
+                eventos={eventos}
+                ordenesCompra={ordenesCompra}
+                metasAhorro={metasAhorro}
+                fuentesIngreso={fuentesIngreso}
+                onNavigate={setTab}
+              />
               <NotificationBell
                 prestamos={prestamos}
                 tarjetas={tarjetas}

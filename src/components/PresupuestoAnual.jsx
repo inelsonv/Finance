@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, PiggyBank, AlertTriangle } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
+import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
@@ -61,6 +62,7 @@ function celdaMeta(meta, year, mes, { ingresoMensual, aportadoPorCuenta }) {
 
 export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos }) {
   const [savingKey, setSavingKey] = useState(null);
+  const [mostrarComparacion, setMostrarComparacion] = useState(true);
 
   const categorias = useMemo(() => {
     return categoriasPersonalizadas.map((c) => ({ nombre: c.nombre, clasificacion: c.clasificacion }));
@@ -199,6 +201,25 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     return count;
   }, [totalPorQuincenaGlobal, ingresoQuincenal]);
 
+  const comparacionActual = useMemo(() => {
+    if (year !== hoy.getFullYear()) return [];
+    return categorias
+      .map((cat) => {
+        const resultado = consumoPresupuesto({
+          presupuesto,
+          movimientos: movimientos || [],
+          categoria: cat.nombre,
+          year,
+          month: mesActual,
+          quincena: quincenaActual,
+        });
+        if (!resultado) return null;
+        return { nombre: cat.nombre, ...resultado };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.pct - a.pct);
+  }, [categorias, presupuesto, movimientos, year, mesActual, quincenaActual]);
+
 
   if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0) {
     return (
@@ -271,6 +292,51 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
           {metasActivas.length > 0 && " · Las metas de ahorro (🐷) también"}
         </div>
       </div>
+
+      {comparacionActual.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <button
+            onClick={() => setMostrarComparacion((s) => !s)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: "var(--ink)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              padding: 0,
+              marginBottom: mostrarComparacion ? 10 : 0,
+            }}
+          >
+            Presupuestado vs. gastado real (quincena actual)
+            {mostrarComparacion ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {mostrarComparacion && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {comparacionActual.map((c) => {
+                const barColor = c.pct >= 100 ? "var(--stamp)" : c.pct >= 80 ? "var(--amber)" : "var(--sage)";
+                return (
+                  <div key={c.nombre} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+                      <span style={{ fontSize: 12.5, fontWeight: 500 }}>{c.nombre}</span>
+                      <span className="despensa-mono" style={{ fontSize: 11.5, color: barColor, fontWeight: 600 }}>
+                        {formatMoney(c.gastado)} / {formatMoney(c.presupuestado)} ({Math.round(c.pct)}%)
+                      </span>
+                    </div>
+                    <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${Math.min(100, c.pct)}%`, background: barColor, borderRadius: 4 }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 }}>
         <table className="despensa-mono" style={{ borderCollapse: "collapse", fontSize: 11, minWidth: 1500, width: "100%" }}>
