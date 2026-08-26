@@ -7,6 +7,7 @@ import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
 import Catalogo from "./components/Catalogo.jsx";
+import Compras from "./components/Compras.jsx";
 import Entidades from "./components/Entidades.jsx";
 import Presupuesto from "./components/Presupuesto.jsx";
 import Movimientos from "./components/Movimientos.jsx";
@@ -41,6 +42,7 @@ const TITLES = {
   presupuesto: "Presupuesto",
   movimientos: "Movimientos",
   catalogo: "Catálogo",
+  compras: "Compras",
   entidades: "Entidades",
   cuentas: "Cuentas",
   prestamos: "Préstamos",
@@ -398,6 +400,9 @@ export default function App() {
         </div>
 
         {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} movimientos={movimientos} cuentas={cuentas} />}
+        {tab === "compras" && (
+          <Compras products={products} ordenesCompra={ordenesCompra} historialCompras={historialCompras} onNavigate={setTab} />
+        )}
         {tab === "catalogo" && (
           <Catalogo
             products={products}
