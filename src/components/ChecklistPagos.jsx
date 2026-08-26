@@ -85,6 +85,17 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     }
     for (const p of prestamos || []) {
       if (p.estado !== "Activo") continue;
+      if (p.frecuenciaCuota === "Personalizado") {
+        for (const c of p.cuotasPersonalizadas || []) {
+          if (!c.fecha || !c.monto) continue;
+          const [cy, cm, cd] = c.fecha.split("-").map(Number);
+          if (cy !== periodo.year || cm !== periodo.month) continue;
+          const q = cd && cd > 15 ? "Q2" : "Q1";
+          if (q !== periodo.quincena) continue;
+          list.push({ key: `prestamo-${p.id}-${c.fecha}`, nombre: `Préstamo ${p.numero} (${c.fecha.split("-").reverse().slice(0, 2).join("/")})`, monto: c.monto, icon: Landmark });
+        }
+        continue;
+      }
       const { activo, quincena } = celdaPrestamo(p, periodo.year, periodo.month);
       if (activo && quincena === periodo.quincena && p.cuota) {
         list.push({ key: `prestamo-${p.id}`, nombre: `Préstamo ${p.numero}`, monto: p.cuota, icon: Landmark });
