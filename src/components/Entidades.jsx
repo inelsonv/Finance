@@ -271,7 +271,7 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
             : "No hay entidades que coincidan con la búsqueda."}
         </div>
       ) : (
-        <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
+        <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)", minHeight: PAGE_SIZE * 53 }}>
           {paginated.map((e, i) => (
             <div
               key={e.docId}
