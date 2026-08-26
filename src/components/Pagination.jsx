@@ -18,7 +18,21 @@ export default function Pagination({ page, totalItems, pageSize, onPageChange })
   }
 
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 16, flexWrap: "wrap" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 4,
+        marginTop: 16,
+        flexWrap: "wrap",
+        position: "sticky",
+        bottom: 0,
+        background: "var(--paper)",
+        padding: "10px 0",
+        zIndex: 5,
+      }}
+    >
       <button
         onClick={() => onPageChange(Math.max(1, page - 1))}
         disabled={page === 1}
