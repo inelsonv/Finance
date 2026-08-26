@@ -4,7 +4,7 @@ import { addEntidad, deleteEntidad, updateEntidad, addTipoEntidad } from "../lib
 import { confirm } from "../lib/confirm";
 import Pagination from "./Pagination.jsx";
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 
 const TYPES_BASE = [
   "Banco",
