@@ -864,12 +864,14 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   );
 
   const gastosCategoriaContent = (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <PieChartIcon size={16} style={{ color: "var(--ink-soft)" }} />
-        <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por categoría (este mes)</span>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 16 }}>
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <PieChartIcon size={16} style={{ color: "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por categoría (este mes)</span>
+        </div>
+        <GastosPorCategoriaMesActual movimientos={movimientos} />
       </div>
-      <GastosPorCategoriaMesActual movimientos={movimientos} />
     </div>
   );
 
