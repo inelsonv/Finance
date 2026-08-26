@@ -146,7 +146,7 @@ function GastosPorMesChart({ movimientos }) {
 
   return (
     <div style={{ overflowX: "auto" }}>
-      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", minWidth: 480, display: "block" }}>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", minWidth: 300, display: "block" }}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
           <line
             key={f}
@@ -658,7 +658,7 @@ function StocksCard() {
   );
 }
 
-const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "gastosCategoria", "dolar"];
+const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar"];
 
 function SortableSection({ id, isFirst, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -854,17 +854,14 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const accionesContent = <StocksCard />;
 
   const gastosContent = (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
-        <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por mes y categoría</span>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", gap: 16 }}>
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por mes y categoría</span>
+        </div>
+        <GastosPorMesChart movimientos={movimientos} />
       </div>
-      <GastosPorMesChart movimientos={movimientos} />
-    </div>
-  );
-
-  const gastosCategoriaContent = (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 16 }}>
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
           <PieChartIcon size={16} style={{ color: "var(--ink-soft)" }} />
@@ -877,7 +874,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
 
   const dolarContent = <DolarCard />;
 
-  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, gastosCategoria: gastosCategoriaContent, dolar: dolarContent };
+  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent };
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
