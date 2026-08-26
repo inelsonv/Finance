@@ -15,7 +15,44 @@ import {
   ClipboardList,
   PiggyBank,
   Briefcase,
+  Compass,
 } from "lucide-react";
+
+// Módulos/secciones navegables de la app, para que buscar "préstamo" también
+// ofrezca ir directo al módulo de Préstamos, no solo a registros existentes.
+function normalizar(texto) {
+  return texto
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+const MODULOS = [
+  { nombre: "Inicio", tab: "inicio" },
+  { nombre: "Presupuesto", tab: "presupuesto" },
+  { nombre: "Categoría de gasto", tab: "presupuesto-categoria-gasto" },
+  { nombre: "Presupuesto mensual", tab: "presupuesto-mensual" },
+  { nombre: "Editor de flujo", tab: "presupuesto-flujo" },
+  { nombre: "Estrategia de deudas", tab: "estrategia-deudas" },
+  { nombre: "Checklist de pagos", tab: "checklist-pagos" },
+  { nombre: "Movimientos", tab: "movimientos" },
+  { nombre: "Calendario", tab: "calendario" },
+  { nombre: "Cuentas", tab: "cuentas" },
+  { nombre: "Ahorro", tab: "ahorro" },
+  { nombre: "Inversión", tab: "inversion" },
+  { nombre: "Ingresos", tab: "ingresos" },
+  { nombre: "Préstamos", tab: "prestamos" },
+  { nombre: "Tarjetas", tab: "tarjetas" },
+  { nombre: "Membresías", tab: "membresias" },
+  { nombre: "Contratos", tab: "contratos" },
+  { nombre: "Activos", tab: "activos" },
+  { nombre: "Seguros", tab: "seguros" },
+  { nombre: "Catálogo", tab: "catalogo" },
+  { nombre: "Órdenes de compra", tab: "ordenes-compra" },
+  { nombre: "Entidades", tab: "entidades" },
+  { nombre: "Configuración", tab: "configuracion" },
+  { nombre: "Registrar compra (factura)", tab: "escanear-factura" },
+];
 
 export default function GlobalSearch({
   products,
@@ -53,6 +90,7 @@ export default function GlobalSearch({
 
   const indice = useMemo(() => {
     const items = [];
+    for (const m of MODULOS) items.push({ id: null, tipo: "Ir a módulo", icon: Compass, nombre: m.nombre, subtitulo: null, tab: m.tab });
     for (const p of products || []) items.push({ id: p.id, tipo: "Catálogo", icon: Package, nombre: p.name, subtitulo: p.category, tab: "catalogo" });
     for (const e of entidades || []) items.push({ id: e.docId, tipo: "Entidad", icon: Landmark, nombre: e.name, subtitulo: e.type, tab: "entidades" });
     for (const p of prestamos || []) items.push({ id: p.id, tipo: "Préstamo", icon: Banknote, nombre: `${p.numero} · ${p.entidadName || ""}`, subtitulo: p.tipo, tab: "prestamos" });
@@ -70,10 +108,10 @@ export default function GlobalSearch({
   }, [products, entidades, prestamos, tarjetas, membresias, contratos, cuentas, activos, seguros, eventos, ordenesCompra, metasAhorro, fuentesIngreso]);
 
   const resultados = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = normalizar(query.trim());
     if (q.length < 2) return [];
     return indice
-      .filter((it) => (it.nombre || "").toLowerCase().includes(q) || (it.subtitulo || "").toLowerCase().includes(q))
+      .filter((it) => normalizar(it.nombre || "").includes(q) || normalizar(it.subtitulo || "").includes(q))
       .slice(0, 20);
   }, [query, indice]);
 
