@@ -230,15 +230,12 @@ button:hover {
 @keyframes despensa-highlight-flash {
   0% {
     background-color: var(--sage-bg);
-    box-shadow: 0 0 0 2px var(--sage);
   }
   70% {
     background-color: var(--sage-bg);
-    box-shadow: 0 0 0 2px var(--sage);
   }
   100% {
     background-color: transparent;
-    box-shadow: 0 0 0 0 transparent;
   }
 }
 
