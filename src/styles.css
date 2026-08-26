@@ -165,6 +165,14 @@ button:hover {
   width: 100%;
 }
 
+.despensa-navlabel {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
 .despensa-main {
   flex: 1;
   min-width: 0;

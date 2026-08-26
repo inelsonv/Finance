@@ -42,7 +42,7 @@ const NAV_ITEMS = [
   { id: "calendario", label: "Calendario", icon: CalendarDays },
   {
     id: "dinero-cuentas",
-    label: "Dinero y Cuentas",
+    label: "Finanzas",
     icon: Vault,
     children: [
       { id: "cuentas", label: "Cuentas" },
@@ -53,7 +53,7 @@ const NAV_ITEMS = [
   },
   {
     id: "deudas-pagos",
-    label: "Deudas y Pagos fijos",
+    label: "Pagos fijos",
     icon: Banknote,
     children: [
       { id: "prestamos", label: "Préstamos" },
@@ -172,13 +172,14 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
                   justifyContent: collapsed ? "center" : "flex-start",
                 }}
               >
-                <Icon size={16} />
+                <Icon size={16} style={{ flexShrink: 0 }} />
                 {!collapsed && <span className="despensa-navlabel">{item.label}</span>}
                 {!collapsed && count > 0 && (
                   <span
                     className="despensa-mono"
                     style={{
                       marginLeft: "auto",
+                      flexShrink: 0,
                       background: active ? "var(--sage)" : "var(--line)",
                       color: active ? "#fff" : "var(--ink)",
                       borderRadius: 10,
@@ -208,7 +209,7 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
                       e.stopPropagation();
                       setExpandedId(expanded ? null : item.id);
                     }}
-                    style={{ marginLeft: "auto", display: "flex", color: "var(--ink-soft)" }}
+                    style={{ marginLeft: "auto", flexShrink: 0, display: "flex", color: "var(--ink-soft)" }}
                   >
                     {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
                   </span>
