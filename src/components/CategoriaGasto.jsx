@@ -1,11 +1,12 @@
 import React, { useMemo, useState } from "react";
 import { Plus, X, Trash2 } from "lucide-react";
-import { addCategoriaGasto, deleteCategoriaGasto } from "../lib/db";
+import { addCategoriaGasto, deleteCategoriaGasto, updateCategoriaGasto } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
 const FLOW_COLORS = [
   "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a",
 ];
+const METODOS_PAGO = ["Efectivo", "Transferencia", "Tarjeta", "Otro"];
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -16,6 +17,7 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
   const [showForm, setShowForm] = useState(false);
   const [nombre, setNombre] = useState("");
   const [clasificacion, setClasificacion] = useState("Variable");
+  const [metodoPagoDefault, setMetodoPagoDefault] = useState("Efectivo");
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -48,9 +50,10 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
     setSaving(true);
     setError(null);
     try {
-      await addCategoriaGasto({ nombre: nombreTrim, clasificacion });
+      await addCategoriaGasto({ nombre: nombreTrim, clasificacion, metodoPagoDefault });
       setNombre("");
       setClasificacion("Variable");
+      setMetodoPagoDefault("Efectivo");
       setShowForm(false);
     } catch (err) {
       setError(err.message || String(err));
@@ -123,6 +126,17 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
               ))}
             </div>
           </div>
+          <div style={{ marginBottom: 10 }}>
+            <select
+              value={metodoPagoDefault}
+              onChange={(e) => setMetodoPagoDefault(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              {METODOS_PAGO.map((m) => (
+                <option key={m} value={m}>Método de pago habitual: {m}</option>
+              ))}
+            </select>
+          </div>
           <button
             onClick={handleAdd}
             disabled={saving}
@@ -165,6 +179,16 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
               >
                 <span style={{ color: c.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)" }}>{c.nombre}</span>
                 <span style={{ color: "var(--ink-soft)", fontSize: 10.5 }}>{c.clasificacion}</span>
+                <select
+                  value={c.metodoPagoDefault || "Efectivo"}
+                  onChange={(e) => updateCategoriaGasto(c.id, { metodoPagoDefault: e.target.value })}
+                  title="Método de pago habitual de esta categoría"
+                  style={{ fontSize: 10.5, padding: "1px 4px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-soft)", cursor: "pointer" }}
+                >
+                  {METODOS_PAGO.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
                 <button
                   onClick={async () => {
                     if (await confirm("¿Eliminar esta categoría?")) deleteCategoriaGasto(c.id);

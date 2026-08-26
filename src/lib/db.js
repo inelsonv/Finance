@@ -522,12 +522,17 @@ export function watchCategoriasGasto(onChange, onError) {
   );
 }
 
-export async function addCategoriaGasto({ nombre, clasificacion }) {
+export async function addCategoriaGasto({ nombre, clasificacion, metodoPagoDefault }) {
   await addDoc(categoriasGastoCol, {
     nombre,
     clasificacion,
+    metodoPagoDefault: metodoPagoDefault || "Efectivo",
     createdAt: serverTimestamp(),
   });
+}
+
+export async function updateCategoriaGasto(id, fields) {
+  await updateDoc(doc(db, "categoriasGasto", id), fields);
 }
 
 export async function deleteCategoriaGasto(id) {

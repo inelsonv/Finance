@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Check, Landmark, Wallet } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle } from "lucide-react";
 import { watchChecklistPeriodo, setChecklistItem } from "../lib/db";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const METODOS = ["Efectivo", "Transferencia", "Tarjeta", "Otro"];
+const METODO_ICONS = { Efectivo: Banknote, Transferencia: ArrowLeftRight, Tarjeta: CreditCard, Otro: HelpCircle, "Sin definir": HelpCircle };
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -79,7 +80,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       for (const c of categoriasGasto) {
         const val = presupuesto?.[c.nombre]?.[String(periodo.month)]?.[periodo.quincena];
         if (typeof val === "number" && val > 0) {
-          list.push({ key: c.nombre, nombre: c.nombre, monto: val, icon: Wallet });
+          list.push({ key: c.nombre, nombre: c.nombre, monto: val, icon: Wallet, metodoDefault: c.metodoPagoDefault || null });
         }
       }
     }
@@ -92,13 +93,13 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           if (cy !== periodo.year || cm !== periodo.month) continue;
           const q = cd && cd > 15 ? "Q2" : "Q1";
           if (q !== periodo.quincena) continue;
-          list.push({ key: `prestamo-${p.id}-${c.fecha}`, nombre: `Préstamo ${p.numero} (${c.fecha.split("-").reverse().slice(0, 2).join("/")})`, monto: c.monto, icon: Landmark });
+          list.push({ key: `prestamo-${p.id}-${c.fecha}`, nombre: `Préstamo ${p.numero} (${c.fecha.split("-").reverse().slice(0, 2).join("/")})`, monto: c.monto, icon: Landmark, metodoDefault: null });
         }
         continue;
       }
       const { activo, quincena } = celdaPrestamo(p, periodo.year, periodo.month);
       if (activo && quincena === periodo.quincena && p.cuota) {
-        list.push({ key: `prestamo-${p.id}`, nombre: `Préstamo ${p.numero}`, monto: p.cuota, icon: Landmark });
+        list.push({ key: `prestamo-${p.id}`, nombre: `Préstamo ${p.numero}`, monto: p.cuota, icon: Landmark, metodoDefault: null });
       }
     }
     return list.sort((a, b) => b.monto - a.monto);
@@ -112,6 +113,17 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       if (checklist?.items?.[it.key]?.pagado) pagado += it.monto;
     }
     return { total, pagado, pendiente: total - pagado };
+  }, [items, checklist]);
+
+  const resumenPorMetodo = useMemo(() => {
+    const map = {};
+    for (const it of items) {
+      const estado = checklist?.items?.[it.key] || {};
+      if (estado.pagado) continue;
+      const metodo = estado.metodoPago || it.metodoDefault || "Sin definir";
+      map[metodo] = (map[metodo] || 0) + it.monto;
+    }
+    return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [items, checklist]);
 
   const toggleItem = (key) => {
@@ -144,7 +156,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         </button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
           <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Total a pagar</div>
           <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700 }}>{formatMoney(totales.total)}</div>
@@ -158,6 +170,46 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700, color: totales.pendiente > 0 ? "var(--stamp)" : "var(--sage)" }}>{formatMoney(totales.pendiente)}</div>
         </div>
       </div>
+
+      {resumenPorMetodo.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>
+            Qué hacer con lo pendiente
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {resumenPorMetodo.map(([metodo, monto]) => {
+              const Icon = METODO_ICONS[metodo] || HelpCircle;
+              return (
+                <div
+                  key={metodo}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                    background: metodo === "Sin definir" ? "var(--amber-bg)" : "var(--sage-bg)",
+                    border: `1px solid ${metodo === "Sin definir" ? "var(--amber)" : "var(--sage)"}`,
+                    borderRadius: 10,
+                    padding: "8px 12px",
+                  }}
+                >
+                  <Icon size={14} style={{ color: metodo === "Sin definir" ? "var(--amber)" : "var(--sage)", flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: metodo === "Sin definir" ? "var(--amber)" : "var(--ink)" }}>
+                    {metodo === "Sin definir" ? "Sin definir aún" : metodo}
+                  </span>
+                  <span className="despensa-mono" style={{ fontSize: 13, fontWeight: 700, color: metodo === "Sin definir" ? "var(--amber)" : "var(--sage)" }}>
+                    {formatMoney(monto)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {resumenPorMetodo.some(([m]) => m === "Sin definir") && (
+            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
+              Define un método de pago habitual en cada categoría (Presupuesto → Categoría de gasto) para que esto se calcule solo.
+            </div>
+          )}
+        </div>
+      )}
 
       {!presupuestoDisponible && (
         <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 12 }}>
@@ -217,7 +269,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 </div>
 
                 <select
-                  value={estado.metodoPago || ""}
+                  value={estado.metodoPago || it.metodoDefault || ""}
                   onChange={(e) => setMetodo(it.key, e.target.value)}
                   style={{ padding: "5px 6px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 11.5, background: "var(--paper)", color: "var(--ink)", flexShrink: 0 }}
                 >
