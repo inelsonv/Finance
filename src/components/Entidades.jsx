@@ -1,7 +1,10 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Search, X, MapPin, Phone, Pencil, Check } from "lucide-react";
 import { addEntidad, deleteEntidad, updateEntidad, addTipoEntidad } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import Pagination from "./Pagination.jsx";
+
+const PAGE_SIZE = 8;
 
 const TYPES_BASE = [
   "Banco",
@@ -23,6 +26,7 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
   }, [tiposPersonalizados]);
 
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", type: TYPES_BASE[0], address: "", phone: "", notes: "" });
   const [formError, setFormError] = useState(null);
@@ -67,6 +71,12 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
         (e.address || "").toLowerCase().includes(q)
     );
   }, [entidades, search]);
+
+  const paginated = useMemo(() => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [filtered, page]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const handleAdd = async () => {
     const name = form.name.trim();
@@ -262,7 +272,7 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
         </div>
       ) : (
         <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
-          {filtered.map((e, i) => (
+          {paginated.map((e, i) => (
             <div
               key={e.docId}
               data-record-id={e.docId}
@@ -424,6 +434,8 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
           ))}
         </div>
       )}
+
+      <Pagination page={page} totalItems={filtered.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
     </div>
   );
 }
