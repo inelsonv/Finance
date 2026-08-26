@@ -441,6 +441,7 @@ export default function App() {
             fuentesIngreso={fuentesIngreso}
             cuentas={cuentas}
             movimientos={movimientos}
+            eventos={eventos}
           />
         )}
         {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
@@ -456,7 +457,7 @@ export default function App() {
             onConsumePeriodoInicial={() => setChecklistPeriodoInicial(null)}
           />
         )}
-        {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} />}
+        {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} categoriasGasto={categoriasGasto} />}
         {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} />}
         {tab === "ahorro" && (
           <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} onNavigate={setTab} />

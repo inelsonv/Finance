@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, Calendar as CalendarIcon } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 
@@ -60,7 +60,18 @@ function celdaMeta(meta, year, mes, { ingresoMensual, aportadoPorCuenta }) {
   return { activo, monto: montoMensual };
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos }) {
+// Calcula, para un evento del calendario vinculado a una categoría de gasto, en
+// qué mes/quincena cae (una sola vez, según la fecha exacta del evento).
+function celdaEvento(evento, year, mes) {
+  if (!evento.fecha) return { activo: false, quincena: null };
+  const [ey, em, ed] = evento.fecha.split("-").map(Number);
+  if (!ey || !em) return { activo: false, quincena: null };
+  const activo = ey === year && em === mes;
+  const quincena = ed && ed > 15 ? "Q2" : "Q1";
+  return { activo, quincena };
+}
+
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos }) {
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
 
@@ -103,6 +114,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     [metasAhorro]
   );
 
+  const eventosConGasto = useMemo(
+    () => (eventos || []).filter((e) => e.estado !== "Cancelado" && e.categoriaGasto && e.montoEstimado && e.fecha),
+    [eventos]
+  );
+
   const getCeldaPrestamo = (prestamo, mes, quincena) => {
     const { activo, quincena: q } = celdaPrestamo(prestamo, year, mes);
     return activo && q === quincena ? prestamo.cuota : 0;
@@ -117,6 +133,13 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   };
 
   const totalMesMeta = (meta, mes) => getCeldaMeta(meta, mes, "Q1") + getCeldaMeta(meta, mes, "Q2");
+
+  const getCeldaEvento = (evento, mes, quincena) => {
+    const { activo, quincena: q } = celdaEvento(evento, year, mes);
+    return activo && q === quincena ? evento.montoEstimado : 0;
+  };
+
+  const totalMesEvento = (evento, mes) => getCeldaEvento(evento, mes, "Q1") + getCeldaEvento(evento, mes, "Q2");
 
   const getCelda = (categoria, mes, quincena) => {
     const val = presupuesto?.[categoria]?.[String(mes)]?.[quincena];
@@ -136,8 +159,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     for (const meta of metasActivas) {
       for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesMeta(meta, m);
     }
+    for (const evento of eventosConGasto) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesEvento(evento, m);
+    }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, year, ingresoMensual, aportadoPorCuenta]);
 
   const totalPorQuincenaGlobal = useMemo(() => {
     const totals = {};
@@ -156,9 +182,13 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         totals[`${m}-Q1`] += getCeldaMeta(meta, m, "Q1");
         totals[`${m}-Q2`] += getCeldaMeta(meta, m, "Q2");
       }
+      for (const evento of eventosConGasto) {
+        totals[`${m}-Q1`] += getCeldaEvento(evento, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaEvento(evento, m, "Q2");
+      }
     }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, year, ingresoMensual, aportadoPorCuenta]);
 
   const totalPorCategoria = (categoria) => {
     let total = 0;
@@ -175,6 +205,12 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const totalPorMeta = (meta) => {
     let total = 0;
     for (let m = 1; m <= 12; m++) total += totalMesMeta(meta, m);
+    return total;
+  };
+
+  const totalPorEvento = (evento) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesEvento(evento, m);
     return total;
   };
 
@@ -221,7 +257,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   }, [categorias, presupuesto, movimientos, year, mesActual, quincenaActual]);
 
 
-  if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0) {
+  if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0 && eventosConGasto.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
         Todavía no has creado ninguna categoría propia. Ve a{" "}
@@ -290,6 +326,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
           Cada mes tiene 2 columnas: Q1 (primera quincena) y Q2 (segunda quincena)
           {prestamosActivos.length > 0 && " · Las cuotas de préstamos (🏦) se calculan solas"}
           {metasActivas.length > 0 && " · Las metas de ahorro (🐷) también"}
+          {eventosConGasto.length > 0 && " · Los eventos del calendario (📅) también"}
         </div>
       </div>
 
@@ -574,6 +611,66 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     }}
                   >
                     {formatMoney(totalPorMeta(meta)) || "0"}
+                  </td>
+                </tr>
+              );
+            })}
+            {eventosConGasto.map((evento, idx) => {
+              const rowIdx = categorias.length + prestamosActivos.length + metasActivas.length + idx;
+              return (
+                <tr key={`evento-${evento.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                  <td
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
+                      padding: "6px 10px",
+                      borderRight: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: 12.5,
+                      color: "var(--amber)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                    title="Calculado automáticamente desde Calendario"
+                  >
+                    <CalendarIcon size={11} /> {evento.titulo} ({evento.categoriaGasto})
+                  </td>
+                  {MESES.map((_, i) => {
+                    const mes = i + 1;
+                    return QUINCENAS.map((q) => {
+                      const val = getCeldaEvento(evento, mes, q);
+                      return (
+                        <td
+                          key={`${evento.id}-${mes}-${q}`}
+                          style={{
+                            borderBottom: "1px solid var(--line-soft)",
+                            borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                            padding: "6px 4px",
+                            textAlign: "right",
+                            color: "var(--amber)",
+                            opacity: val ? 1 : 0.35,
+                          }}
+                        >
+                          {formatMoney(val) || "—"}
+                        </td>
+                      );
+                    });
+                  })}
+                  <td
+                    style={{
+                      borderLeft: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      padding: "7px 10px",
+                      textAlign: "right",
+                      fontWeight: 600,
+                      background: "var(--amber-bg)",
+                      color: "var(--amber)",
+                    }}
+                  >
+                    {formatMoney(totalPorEvento(evento)) || "0"}
                   </td>
                 </tr>
               );

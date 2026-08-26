@@ -79,6 +79,8 @@ const emptyForm = (fecha) => ({
   diasAviso: "1",
   estado: "Pendiente",
   notas: "",
+  categoriaGasto: "",
+  montoEstimado: "",
 });
 
 function toEditForm(e) {
@@ -91,10 +93,12 @@ function toEditForm(e) {
     diasAviso: e.diasAviso != null ? String(e.diasAviso) : "1",
     estado: e.estado || "Pendiente",
     notas: e.notas || "",
+    categoriaGasto: e.categoriaGasto || "",
+    montoEstimado: e.montoEstimado != null ? String(e.montoEstimado) : "",
   };
 }
 
-export default function Calendario({ eventos, entidades }) {
+export default function Calendario({ eventos, entidades, categoriasGasto }) {
   const hoy = todayStr();
   const [viewDate, setViewDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(hoy);
@@ -184,6 +188,8 @@ export default function Calendario({ eventos, entidades }) {
         diasAviso: parseInt(form.diasAviso, 10) || 0,
         estado: form.estado,
         notas: form.notas.trim(),
+        categoriaGasto: form.categoriaGasto || null,
+        montoEstimado: parseFloat(form.montoEstimado) || null,
       });
       setSelectedDate(form.fecha);
       setShowForm(false);
@@ -214,6 +220,8 @@ export default function Calendario({ eventos, entidades }) {
         diasAviso: parseInt(editForm.diasAviso, 10) || 0,
         estado: editForm.estado,
         notas: editForm.notas.trim(),
+        categoriaGasto: editForm.categoriaGasto || null,
+        montoEstimado: parseFloat(editForm.montoEstimado) || null,
       });
       setSelectedDate(editForm.fecha);
       cancelEdit();
@@ -281,6 +289,34 @@ export default function Calendario({ eventos, entidades }) {
           style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
         />
       </div>
+
+      <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
+        <select
+          value={f.categoriaGasto}
+          onChange={(e) => setF({ ...f, categoriaGasto: e.target.value })}
+          style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+        >
+          <option value="">Vincular a categoría de gasto (opcional)…</option>
+          {(categoriasGasto || []).map((c) => (
+            <option key={c.id} value={c.nombre}>{c.nombre}</option>
+          ))}
+        </select>
+        <input
+          className="despensa-mono"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="Monto estimado"
+          value={f.montoEstimado}
+          onChange={(e) => setF({ ...f, montoEstimado: e.target.value })}
+          style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+        />
+      </div>
+      {f.categoriaGasto && (
+        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: -4, marginBottom: 8 }}>
+          Este monto se sumará automáticamente al Presupuesto mensual, en la quincena que corresponda a la fecha.
+        </div>
+      )}
 
       {isEdit && (
         <div style={{ marginBottom: 8 }}>
@@ -393,6 +429,16 @@ export default function Calendario({ eventos, entidades }) {
                 )}
                 <span>{e.tipo}</span>
               </div>
+              {e.categoriaGasto && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+                  <span
+                    className="despensa-mono"
+                    style={{ fontSize: 10.5, fontWeight: 600, padding: "1px 7px", borderRadius: 12, background: "var(--sage-bg)", color: "var(--sage)" }}
+                  >
+                    {e.categoriaGasto}{e.montoEstimado != null ? ` · $${e.montoEstimado.toLocaleString("es")}` : ""}
+                  </span>
+                </div>
+              )}
               {e.notas && <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 4 }}>{e.notas}</div>}
             </div>
           </div>

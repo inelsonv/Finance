@@ -731,7 +731,7 @@ export function watchCalendario(onChange, onError) {
   );
 }
 
-export async function addEvento({ titulo, tipo, fecha, hora, entidadId, entidadName, diasAviso, estado, notas }) {
+export async function addEvento({ titulo, tipo, fecha, hora, entidadId, entidadName, diasAviso, estado, notas, categoriaGasto, montoEstimado }) {
   await addDoc(calendarioCol, {
     titulo,
     tipo,
@@ -742,6 +742,8 @@ export async function addEvento({ titulo, tipo, fecha, hora, entidadId, entidadN
     diasAviso: diasAviso ?? 1,
     estado: estado || "Pendiente",
     notas: notas || "",
+    categoriaGasto: categoriaGasto || null,
+    montoEstimado: montoEstimado ?? null,
     createdAt: serverTimestamp(),
   });
 }
