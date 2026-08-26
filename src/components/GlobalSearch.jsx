@@ -89,7 +89,7 @@ export default function GlobalSearch({
           display: "flex",
           alignItems: "center",
           height: 32,
-          width: open ? "min(230px, 60vw)" : 32,
+          width: open ? "min(340px, 85vw)" : 32,
           borderRadius: 20,
           border: "1px solid var(--line)",
           background: open ? "var(--card)" : "var(--card)",
@@ -138,7 +138,7 @@ export default function GlobalSearch({
         )}
       </div>
 
-      {open && (
+      {open && query.trim().length >= 2 && (
         <div
           style={{
             position: "absolute",
@@ -157,11 +157,7 @@ export default function GlobalSearch({
           }}
         >
           <div style={{ overflowY: "auto" }}>
-            {query.trim().length < 2 ? (
-              <div style={{ padding: "16px 12px", fontSize: 12, color: "var(--ink-soft)", textAlign: "center" }}>
-                Escribe al menos 2 letras para buscar entre préstamos, tarjetas, activos, seguros, catálogo, entidades y más.
-              </div>
-            ) : resultados.length === 0 ? (
+            {resultados.length === 0 ? (
               <div style={{ padding: "16px 12px", fontSize: 12, color: "var(--ink-soft)", textAlign: "center" }}>
                 Sin resultados para "{query}".
               </div>
