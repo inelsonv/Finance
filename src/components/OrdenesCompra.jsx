@@ -12,8 +12,9 @@ import {
   ChevronUp,
   Send,
   RotateCcw,
+  Pencil,
 } from "lucide-react";
-import { addOrdenCompra, updateOrdenCompra, deleteOrdenCompra, registrarCompraProducto, deleteHistorialCompra, addMovimiento, deleteMovimiento } from "../lib/db";
+import { addOrdenCompra, updateOrdenCompra, deleteOrdenCompra, registrarCompraProducto, deleteHistorialCompra, addMovimiento, deleteMovimiento, agregarItemABorrador } from "../lib/db";
 
 const ESTADO_COLORES = {
   Borrador: { bg: "var(--line-soft)", color: "var(--ink-soft)" },
@@ -72,6 +73,8 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [expandidoId, setExpandidoId] = useState(null);
+  const [editandoId, setEditandoId] = useState(null);
+  const [buscarAgregar, setBuscarAgregar] = useState("");
   const [busy, setBusy] = useState(null);
 
   const filteredProducts = useMemo(() => {
@@ -171,6 +174,22 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
   const toggleCompradoItem = async (orden, idx) => {
     const nuevosItems = orden.items.map((it, i) => (i === idx ? { ...it, comprado: !it.comprado } : it));
     await updateOrdenCompra(orden.id, { items: nuevosItems });
+  };
+
+  const eliminarItemOrden = async (orden, idx) => {
+    const nuevosItems = orden.items.filter((_, i) => i !== idx);
+    await updateOrdenCompra(orden.id, { items: nuevosItems });
+  };
+
+  const cambiarCantidadItem = async (orden, idx, cantidad) => {
+    const cant = Math.max(1, parseInt(cantidad, 10) || 1);
+    const nuevosItems = orden.items.map((it, i) => (i === idx ? { ...it, cantidad: cant } : it));
+    await updateOrdenCompra(orden.id, { items: nuevosItems });
+  };
+
+  const agregarProductoAOrden = async (orden, product) => {
+    await agregarItemABorrador(orden, { productId: product.id, productName: product.name, precioUnitario: product.price });
+    setBuscarAgregar("");
   };
 
   const finalizarCompraPresencial = async (orden) => {
@@ -372,31 +391,111 @@ export default function OrdenesCompra({ ordenes, products, entidades }) {
                   </button>
                 </div>
 
-                <button
-                  onClick={() => setExpandidoId(expandido ? null : o.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, fontSize: 11.5, color: "var(--ink-soft)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
-                >
-                  Ver productos {expandido ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+                  <button
+                    onClick={() => setExpandidoId(expandido ? null : o.id)}
+                    style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--ink-soft)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    Ver productos {expandido ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                  </button>
+                  {o.estado !== "Completada" && o.estado !== "Cancelada" && (
+                    <button
+                      onClick={() => {
+                        const activando = editandoId !== o.id;
+                        setEditandoId(activando ? o.id : null);
+                        if (activando) setExpandidoId(o.id);
+                      }}
+                      style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: editandoId === o.id ? "var(--sage)" : "var(--ink-soft)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                    >
+                      <Pencil size={12} /> {editandoId === o.id ? "Listo" : "Editar"}
+                    </button>
+                  )}
+                </div>
 
                 {expandido && (
                   <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {(o.items || []).length === 0 && (
+                      <div style={{ fontSize: 11.5, color: "var(--ink-soft)", padding: "6px 0" }}>Sin productos en esta orden.</div>
+                    )}
                     {(o.items || []).map((it, idx) => (
                       <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--paper)", borderRadius: 7, padding: "6px 9px" }}>
-                        {o.estado === "Compra presencial" && (
+                        {o.estado === "Compra presencial" && editandoId !== o.id && (
                           <input type="checkbox" checked={!!it.comprado} onChange={() => toggleCompradoItem(o, idx)} />
                         )}
                         <span style={{ flex: 1, fontSize: 12, minWidth: 0, textDecoration: it.comprado ? "line-through" : "none", color: it.comprado ? "var(--ink-soft)" : "var(--ink)" }}>
                           {it.productName}
                         </span>
-                        <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)", flexShrink: 0 }}>x{it.cantidad}</span>
+                        {editandoId === o.id ? (
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            min="1"
+                            value={it.cantidad}
+                            onChange={(e) => cambiarCantidadItem(o, idx, e.target.value)}
+                            style={{ width: 48, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 11, flexShrink: 0 }}
+                          />
+                        ) : (
+                          <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)", flexShrink: 0 }}>x{it.cantidad}</span>
+                        )}
                         {it.precioUnitario != null && (
                           <span className="despensa-mono" style={{ fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
                             {formatMoney(it.precioUnitario * it.cantidad)}
                           </span>
                         )}
+                        {editandoId === o.id && (
+                          <button
+                            onClick={() => eliminarItemOrden(o, idx)}
+                            title="Quitar de la orden"
+                            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, background: "transparent", color: "var(--stamp)", border: "none", cursor: "pointer", flexShrink: 0 }}
+                          >
+                            <X size={12} />
+                          </button>
+                        )}
                       </div>
                     ))}
+
+                    {editandoId === o.id && (
+                      <div style={{ marginTop: 6, position: "relative" }}>
+                        <Search size={12} style={{ position: "absolute", left: 9, top: 9, color: "var(--ink-soft)" }} />
+                        <input
+                          placeholder="Buscar producto para agregar…"
+                          value={buscarAgregar}
+                          onChange={(e) => setBuscarAgregar(e.target.value)}
+                          style={{ width: "100%", padding: "7px 9px 7px 28px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12 }}
+                        />
+                        {buscarAgregar.trim() && (
+                          <div style={{ marginTop: 4, maxHeight: 160, overflowY: "auto", border: "1px solid var(--line-soft)", borderRadius: 7 }}>
+                            {products
+                              .filter((p) => p.name.toLowerCase().includes(buscarAgregar.trim().toLowerCase()))
+                              .filter((p) => !(o.items || []).some((it) => it.productId === p.id))
+                              .slice(0, 8)
+                              .map((p) => (
+                                <button
+                                  key={p.id}
+                                  onClick={() => agregarProductoAOrden(o, p)}
+                                  style={{
+                                    display: "flex",
+                                    width: "100%",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 8,
+                                    padding: "6px 9px",
+                                    background: "var(--card)",
+                                    border: "none",
+                                    borderBottom: "1px solid var(--line-soft)",
+                                    fontSize: 12,
+                                    cursor: "pointer",
+                                    textAlign: "left",
+                                  }}
+                                >
+                                  <span>{p.name}</span>
+                                  <Plus size={12} style={{ color: "var(--sage)", flexShrink: 0 }} />
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
