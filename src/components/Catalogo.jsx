@@ -32,8 +32,12 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const formFileRef = useRef(null);
   const rowFileRefs = useRef({});
 
-  const borradorActual = useMemo(
-    () => (ordenesCompra || []).find((o) => o.estado === "Borrador"),
+  // Una orden "vigente" es cualquiera que aún no haya completado su ciclo
+  // (no está Completada ni Cancelada) — puede estar en Borrador, ya enviada al
+  // proveedor, o en compra presencial. Mientras siga vigente, los nuevos productos
+  // se agregan ahí en vez de crear una orden nueva.
+  const ordenVigente = useMemo(
+    () => (ordenesCompra || []).find((o) => o.estado !== "Completada" && o.estado !== "Cancelada"),
     [ordenesCompra]
   );
 
@@ -45,14 +49,14 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   }, [historialCompras, products, dismissedSugerencias]);
 
   const agregarACompra = async (product) => {
-    await agregarItemABorrador(borradorActual, { productId: product.id, productName: product.name, precioUnitario: product.price });
+    await agregarItemABorrador(ordenVigente, { productId: product.id, productName: product.name, precioUnitario: product.price });
     setAgregadoId(product.id);
     setTimeout(() => setAgregadoId(null), 1500);
   };
 
   const agregarSugerenciaACompra = async (sugerencia) => {
     const product = products.find((p) => p.id === sugerencia.productId);
-    await agregarItemABorrador(borradorActual, {
+    await agregarItemABorrador(ordenVigente, {
       productId: sugerencia.productId,
       productName: sugerencia.productName,
       precioUnitario: product?.price ?? null,
@@ -173,7 +177,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
 
   return (
     <div>
-      {borradorActual && (borradorActual.items || []).length > 0 && (
+      {ordenVigente && (ordenVigente.items || []).length > 0 && (
         <div
           style={{
             display: "flex",
@@ -189,7 +193,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
           }}
         >
           <span style={{ fontSize: 12.5, color: "var(--sage)" }}>
-            Tienes {borradorActual.items.length} producto(s) en tu orden de compra {borradorActual.folio} sin enviar todavía.
+            Tienes {ordenVigente.items.length} producto(s) en tu orden de compra {ordenVigente.folio} ({ordenVigente.estado}).
           </span>
           {onNavigate && (
             <button
