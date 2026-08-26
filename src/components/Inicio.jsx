@@ -208,6 +208,77 @@ function GastosPorMesChart({ movimientos }) {
   );
 }
 
+function GastosPorCategoriaMesActual({ movimientos }) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const prefix = `${year}-${String(month).padStart(2, "0")}`;
+
+  const { slices, total } = useMemo(() => {
+    const byCategory = {};
+    for (const m of movimientos) {
+      if (m.type !== "Gasto" || !(m.date || "").startsWith(prefix)) continue;
+      const cat = m.category || "Otro";
+      byCategory[cat] = (byCategory[cat] || 0) + (Number(m.amount) || 0);
+    }
+    const list = Object.entries(byCategory)
+      .map(([category, value], i) => ({ category, value }))
+      .sort((a, b) => b.value - a.value);
+    const sum = list.reduce((s, d) => s + d.value, 0);
+    return { slices: list, total: sum };
+  }, [movimientos, prefix]);
+
+  if (slices.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "1.5rem 1rem", color: "var(--ink-soft)", fontSize: 12.5 }}>
+        Todavía no hay gastos registrados este mes.
+      </div>
+    );
+  }
+
+  const cx = 90;
+  const cy = 90;
+  const r = 78;
+  let cumulative = 0;
+  const arcs = slices.map((s, i) => {
+    const startAngle = (cumulative / total) * 360;
+    cumulative += s.value;
+    const endAngle = (cumulative / total) * 360;
+    const color = LINE_COLORS[i % LINE_COLORS.length];
+    const start = polarToCartesian(cx, cy, r, startAngle);
+    const end = polarToCartesian(cx, cy, r, endAngle);
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+    const d = `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
+    return { d, color, ...s };
+  });
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 20, marginTop: 18, paddingTop: 18, borderTop: "1px solid var(--line-soft)" }}>
+      <svg viewBox="0 0 180 180" style={{ width: 160, height: 160, flexShrink: 0 }}>
+        {arcs.map((a) => (
+          <path key={a.category} d={a.d} fill={a.color} />
+        ))}
+        <circle cx={cx} cy={cy} r={44} fill="var(--card)" />
+        <text x={cx} y={cy - 4} textAnchor="middle" fontSize="9" fill="var(--ink-soft)" fontFamily="Inter, sans-serif">
+          Este mes
+        </text>
+        <text x={cx} y={cy + 12} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ink)" fontFamily="IBM Plex Mono, monospace">
+          ${Math.round(total).toLocaleString("es")}
+        </text>
+      </svg>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 140 }}>
+        {arcs.map((a) => (
+          <div key={a.category} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 }} />
+            <span style={{ color: "var(--ink-soft)", flex: 1 }}>{a.category}</span>
+            <span className="despensa-mono" style={{ fontWeight: 600 }}>{Math.round((a.value / total) * 100)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DolarCard() {
   const [rates, setRates] = useState({ USD: null, EUR: null });
   const [updatedAt, setUpdatedAt] = useState(null);
@@ -789,6 +860,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
         <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por mes y categoría</span>
       </div>
       <GastosPorMesChart movimientos={movimientos} />
+      <GastosPorCategoriaMesActual movimientos={movimientos} />
     </div>
   );
 
