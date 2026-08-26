@@ -270,6 +270,8 @@ export async function addPrestamo({
   esRevolvente,
   saldoActual,
   montoMinimoRetiro,
+  frecuenciaCuota,
+  cuotasPersonalizadas,
 }) {
   await addDoc(prestamosCol, {
     numero,
@@ -290,6 +292,8 @@ export async function addPrestamo({
     estado,
     notas: notas || "",
     notificarWhatsapp: !!notificarWhatsapp,
+    frecuenciaCuota: frecuenciaCuota || "Mensual",
+    cuotasPersonalizadas: cuotasPersonalizadas || [],
     createdAt: serverTimestamp(),
   });
 }

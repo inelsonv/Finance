@@ -31,6 +31,13 @@ function nextNumero(prestamos) {
   return "PT" + String(max + 1).padStart(2, "0");
 }
 
+function normalizarCuotas(lista) {
+  return (lista || [])
+    .filter((c) => c.fecha && c.monto)
+    .map((c) => ({ fecha: c.fecha, monto: parseFloat(c.monto) || 0 }))
+    .filter((c) => c.monto > 0);
+}
+
 const emptyForm = (numero) => ({
   numero,
   tipo: TIPOS_PRESTAMO[0],
@@ -48,6 +55,8 @@ const emptyForm = (numero) => ({
   esRevolvente: false,
   saldoActual: "",
   montoMinimoRetiro: "",
+  frecuenciaCuota: "Mensual",
+  cuotasPersonalizadas: [],
 });
 
 export default function Prestamos({ prestamos, entidades, movimientos, activos }) {
@@ -86,6 +95,8 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
       estado: p.estado || "Activo",
       notas: p.notas || "",
       notificarWhatsapp: !!p.notificarWhatsapp,
+      frecuenciaCuota: p.frecuenciaCuota || "Mensual",
+      cuotasPersonalizadas: p.cuotasPersonalizadas ? p.cuotasPersonalizadas.map((c) => ({ fecha: c.fecha || "", monto: c.monto != null ? String(c.monto) : "" })) : [],
     });
   };
 
@@ -131,6 +142,8 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
         estado: editForm.estado,
         notas: editForm.notas.trim(),
         notificarWhatsapp: editForm.notificarWhatsapp,
+        frecuenciaCuota: editForm.frecuenciaCuota,
+        cuotasPersonalizadas: normalizarCuotas(editForm.cuotasPersonalizadas),
       });
       cancelEdit();
     } catch (err) {
@@ -204,6 +217,8 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
         estado: form.estado,
         notas: form.notas.trim(),
         notificarWhatsapp: form.notificarWhatsapp,
+        frecuenciaCuota: form.frecuenciaCuota,
+        cuotasPersonalizadas: normalizarCuotas(form.cuotasPersonalizadas),
       });
       setShowForm(false);
     } catch (err) {
@@ -408,17 +423,76 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
           </div>
 
           <div style={{ marginBottom: 8 }}>
-            <input
-              className="despensa-mono"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Cuota mensual"
-              value={form.cuota}
-              onChange={(e) => setForm({ ...form, cuota: e.target.value })}
-              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-            />
+            <select
+              value={form.frecuenciaCuota}
+              onChange={(e) => setForm({ ...form, frecuenciaCuota: e.target.value })}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              <option value="Mensual">Cuota mensual fija (se calcula sola cada mes)</option>
+              <option value="Personalizado">Fechas específicas (cuotas irregulares)</option>
+            </select>
           </div>
+
+          {form.frecuenciaCuota === "Mensual" ? (
+            <div style={{ marginBottom: 8 }}>
+              <input
+                className="despensa-mono"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Cuota mensual"
+                value={form.cuota}
+                onChange={(e) => setForm({ ...form, cuota: e.target.value })}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </div>
+          ) : (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+                Agrega cada cuota con su fecha y monto exactos:
+              </div>
+              {form.cuotasPersonalizadas.map((c, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                  <input
+                    type="date"
+                    value={c.fecha}
+                    onChange={(e) => {
+                      const list = [...form.cuotasPersonalizadas];
+                      list[idx] = { ...list[idx], fecha: e.target.value };
+                      setForm({ ...form, cuotasPersonalizadas: list });
+                    }}
+                    style={{ flex: 1, minWidth: 0, padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+                  />
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Monto"
+                    value={c.monto}
+                    onChange={(e) => {
+                      const list = [...form.cuotasPersonalizadas];
+                      list[idx] = { ...list[idx], monto: e.target.value };
+                      setForm({ ...form, cuotasPersonalizadas: list });
+                    }}
+                    style={{ width: 90, flexShrink: 0, padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+                  />
+                  <button
+                    onClick={() => setForm({ ...form, cuotasPersonalizadas: form.cuotasPersonalizadas.filter((_, i) => i !== idx) })}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, flexShrink: 0, background: "transparent", border: "none", color: "var(--stamp)", cursor: "pointer" }}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => setForm({ ...form, cuotasPersonalizadas: [...form.cuotasPersonalizadas, { fecha: "", monto: "" }] })}
+                style={{ fontSize: 12, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+              >
+                + Agregar cuota
+              </button>
+            </div>
+          )}
 
           <input
             placeholder="Notas (opcional)"
@@ -623,17 +697,76 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
                   </div>
 
                   <div style={{ marginBottom: 8 }}>
-                    <input
-                      className="despensa-mono"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder="Cuota mensual"
-                      value={editForm.cuota}
-                      onChange={(e) => setEditForm({ ...editForm, cuota: e.target.value })}
-                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-                    />
+                    <select
+                      value={editForm.frecuenciaCuota}
+                      onChange={(e) => setEditForm({ ...editForm, frecuenciaCuota: e.target.value })}
+                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      <option value="Mensual">Cuota mensual fija (se calcula sola cada mes)</option>
+                      <option value="Personalizado">Fechas específicas (cuotas irregulares)</option>
+                    </select>
                   </div>
+
+                  {editForm.frecuenciaCuota === "Mensual" ? (
+                    <div style={{ marginBottom: 8 }}>
+                      <input
+                        className="despensa-mono"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Cuota mensual"
+                        value={editForm.cuota}
+                        onChange={(e) => setEditForm({ ...editForm, cuota: e.target.value })}
+                        style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: 8 }}>
+                      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+                        Agrega cada cuota con su fecha y monto exactos:
+                      </div>
+                      {editForm.cuotasPersonalizadas.map((c, idx) => (
+                        <div key={idx} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                          <input
+                            type="date"
+                            value={c.fecha}
+                            onChange={(e) => {
+                              const list = [...editForm.cuotasPersonalizadas];
+                              list[idx] = { ...list[idx], fecha: e.target.value };
+                              setEditForm({ ...editForm, cuotasPersonalizadas: list });
+                            }}
+                            style={{ flex: 1, minWidth: 0, padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+                          />
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Monto"
+                            value={c.monto}
+                            onChange={(e) => {
+                              const list = [...editForm.cuotasPersonalizadas];
+                              list[idx] = { ...list[idx], monto: e.target.value };
+                              setEditForm({ ...editForm, cuotasPersonalizadas: list });
+                            }}
+                            style={{ width: 90, flexShrink: 0, padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+                          />
+                          <button
+                            onClick={() => setEditForm({ ...editForm, cuotasPersonalizadas: editForm.cuotasPersonalizadas.filter((_, i) => i !== idx) })}
+                            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, flexShrink: 0, background: "transparent", border: "none", color: "var(--stamp)", cursor: "pointer" }}
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => setEditForm({ ...editForm, cuotasPersonalizadas: [...editForm.cuotasPersonalizadas, { fecha: "", monto: "" }] })}
+                        style={{ fontSize: 12, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                      >
+                        + Agregar cuota
+                      </button>
+                    </div>
+                  )}
 
                   <input
                     placeholder="Notas (opcional)"

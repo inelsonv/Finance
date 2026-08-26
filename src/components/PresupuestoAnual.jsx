@@ -80,7 +80,12 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   }, [categoriasPersonalizadas]);
 
   const prestamosActivos = useMemo(
-    () => (prestamos || []).filter((p) => p.estado === "Activo" && p.fechaInicio && p.cuota && p.plazo),
+    () =>
+      (prestamos || []).filter((p) => {
+        if (p.estado !== "Activo") return false;
+        if (p.frecuenciaCuota === "Personalizado") return (p.cuotasPersonalizadas || []).length > 0;
+        return p.fechaInicio && p.cuota && p.plazo;
+      }),
     [prestamos]
   );
 
@@ -120,6 +125,17 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   );
 
   const getCeldaPrestamo = (prestamo, mes, quincena) => {
+    if (prestamo.frecuenciaCuota === "Personalizado") {
+      let total = 0;
+      for (const c of prestamo.cuotasPersonalizadas || []) {
+        if (!c.fecha) continue;
+        const [cy, cm, cd] = c.fecha.split("-").map(Number);
+        if (cy !== year || cm !== mes) continue;
+        const q = cd && cd > 15 ? "Q2" : "Q1";
+        if (q === quincena) total += Number(c.monto) || 0;
+      }
+      return total;
+    }
     const { activo, quincena: q } = celdaPrestamo(prestamo, year, mes);
     return activo && q === quincena ? prestamo.cuota : 0;
   };
