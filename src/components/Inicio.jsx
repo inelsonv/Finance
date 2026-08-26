@@ -253,8 +253,11 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
   });
 
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: compact ? 12 : 20 }}>
-      <svg viewBox="0 0 180 180" style={{ width: compact ? 130 : 160, height: compact ? 130 : 160, flexShrink: 0 }}>
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: compact ? 0 : 20 }}>
+      <svg
+        viewBox="0 0 180 180"
+        style={{ width: compact ? "100%" : 160, maxWidth: compact ? 220 : 160, height: "auto", flexShrink: 0, display: "block", margin: compact ? "0 auto" : undefined }}
+      >
         {arcs.map((a) => (
           <path key={a.category} d={a.d} fill={a.color} />
         ))}
@@ -266,22 +269,17 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
           ${Math.round(total).toLocaleString("es")}
         </text>
       </svg>
-      <div style={{ display: "flex", flexDirection: compact ? "row" : "column", flexWrap: "wrap", gap: compact ? 8 : 6, minWidth: compact ? 0 : 140, justifyContent: "center" }}>
-        {arcs.map((a) =>
-          compact ? (
-            <div key={a.category} title={a.category} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 }} />
-              <span className="despensa-mono" style={{ fontWeight: 600 }}>{Math.round((a.value / total) * 100)}%</span>
-            </div>
-          ) : (
+      {!compact && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 140 }}>
+          {arcs.map((a) => (
             <div key={a.category} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5 }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 }} />
               <span style={{ color: "var(--ink-soft)", flex: 1 }}>{a.category}</span>
               <span className="despensa-mono" style={{ fontWeight: 600 }}>{Math.round((a.value / total) * 100)}%</span>
             </div>
-          )
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
