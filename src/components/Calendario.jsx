@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight } from "lucide-react";
-import { addEvento, deleteEvento, updateEventoEstado, updateEvento } from "../lib/db";
+import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
 const TIPOS = ["Cita médica", "Vacaciones", "Cumpleaños", "Trabajo", "Personal", "Otro"];
@@ -19,6 +19,11 @@ const TIPO_ICONS = {
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function formatMoney(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function pad2(n) {
@@ -166,6 +171,27 @@ export default function Calendario({ eventos, entidades, categoriasGasto }) {
     setEditingId(null);
     setEditForm(null);
     setEditError(null);
+  };
+
+  const marcarCompletado = async (e) => {
+    await updateEventoEstado(e.id, "Completado");
+    if (e.categoriaGasto && e.montoEstimado) {
+      const registrar = await confirm(
+        `¿Deseas registrar un gasto de ${formatMoney(e.montoEstimado)} en "${e.categoriaGasto}" por esta cita completada?`,
+        { confirmLabel: "Registrar gasto", cancelLabel: "No, gracias", danger: false }
+      );
+      if (registrar) {
+        await addMovimiento({
+          type: "Gasto",
+          category: e.categoriaGasto,
+          amount: e.montoEstimado,
+          description: e.titulo,
+          date: todayStr(),
+          clasificacion: "Variable",
+          metodoPago: "Efectivo",
+        });
+      }
+    }
   };
 
   const handleAdd = async () => {
@@ -445,7 +471,7 @@ export default function Calendario({ eventos, entidades, categoriasGasto }) {
           <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
             {e.estado === "Pendiente" && (
               <button
-                onClick={() => updateEventoEstado(e.id, "Completado")}
+                onClick={() => marcarCompletado(e)}
                 title="Marcar como completado"
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--sage)", border: "none", borderRadius: 6, cursor: "pointer" }}
               >
