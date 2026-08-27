@@ -206,6 +206,7 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
                 )}
                 {hasChildren && (
                   <span
+                    className="despensa-navchevron"
                     onClick={(e) => {
                       e.stopPropagation();
                       setExpandedId(expanded ? null : item.id);
