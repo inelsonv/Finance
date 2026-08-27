@@ -312,7 +312,7 @@ export default function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
       />
-      <BottomNav tab={tab} setTab={setTab} />
+      <BottomNav tab={tab} setTab={setTab} categoriasGasto={categoriasGasto} />
       <main className="despensa-main">
         <div className="despensa-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
