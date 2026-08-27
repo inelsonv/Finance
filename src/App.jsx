@@ -7,6 +7,7 @@ import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
 import MobileMenu from "./components/MobileMenu.jsx";
+import PullToRefresh from "./components/PullToRefresh.jsx";
 import { Menu } from "lucide-react";
 import Catalogo from "./components/Catalogo.jsx";
 import Compras from "./components/Compras.jsx";
@@ -314,6 +315,7 @@ export default function App() {
         onToggleCollapsed={toggleSidebar}
       />
       <BottomNav tab={tab} setTab={setTab} categoriasGasto={categoriasGasto} />
+      <PullToRefresh />
       <main className="despensa-main">
         <div className="despensa-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <div className={`despensa-header-left${searchOpen ? " despensa-header-left--search-open" : ""}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
