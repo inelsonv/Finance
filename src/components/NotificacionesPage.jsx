@@ -1,6 +1,80 @@
 import React, { useState } from "react";
-import { AlertCircle, MessageCircle, Check } from "lucide-react";
+import { AlertCircle, MessageCircle, Check, MoreHorizontal } from "lucide-react";
 import { useNotificaciones, etiquetaDias } from "./NotificationBell.jsx";
+
+function Fila({ n, yaLeida, onOpen, onWhatsapp }) {
+  const Icon = n.icon;
+  const etiqueta = etiquetaDias(n.dias);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => e.key === "Enter" && onOpen()}
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 12,
+        width: "100%",
+        padding: "12px 4px",
+        background: yaLeida ? "transparent" : "var(--sage-bg)",
+        border: "none",
+        borderBottom: "1px solid var(--line-soft)",
+        cursor: "pointer",
+        textAlign: "left",
+      }}
+    >
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
+          background: etiqueta.bg,
+          color: etiqueta.color,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        {n.dias <= 0 ? <AlertCircle size={17} /> : <Icon size={17} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, color: "var(--ink)", lineHeight: 1.35 }}>
+          <span style={{ fontWeight: yaLeida ? 500 : 700 }}>{n.titulo}</span>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2 }}>{n.subtitulo}</div>
+        {n.whatsapp && (
+          <button
+            onClick={(e) => onWhatsapp(n, e)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              marginTop: 6,
+              padding: "5px 10px",
+              fontSize: 11.5,
+              fontWeight: 500,
+              background: "var(--sage)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            <MessageCircle size={12} /> Pedir por WhatsApp
+          </button>
+        )}
+      </div>
+      <button
+        onClick={(e) => e.stopPropagation()}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, flexShrink: 0, background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer" }}
+      >
+        <MoreHorizontal size={16} />
+      </button>
+    </div>
+  );
+}
 
 export default function NotificacionesPage({
   prestamos,
@@ -78,27 +152,31 @@ export default function NotificacionesPage({
     window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(partes.join(" "))}`, "_blank");
   };
 
-  const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));
+  const nuevas = notificaciones.filter((n) => !leidas.has(firma(n)));
+  const anteriores = notificaciones.filter((n) => leidas.has(firma(n)));
+
+  const abrir = (n) => {
+    marcarLeida(n);
+    onNavigate(n.tab, n.periodoObjetivo);
+  };
 
   return (
     <div>
-      {notificaciones.length > 0 && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      {notificaciones.length > 0 && nuevas.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
           <button
             onClick={marcarTodasLeidas}
-            disabled={noLeidas.length === 0}
             style={{
               display: "flex",
               alignItems: "center",
               gap: 6,
-              padding: "7px 14px",
-              fontSize: 12.5,
+              padding: "6px 12px",
+              fontSize: 12,
               fontWeight: 500,
-              background: "var(--card)",
-              color: noLeidas.length === 0 ? "var(--line)" : "var(--ink-soft)",
-              border: "1px solid var(--line)",
-              borderRadius: 8,
-              cursor: noLeidas.length === 0 ? "not-allowed" : "pointer",
+              background: "transparent",
+              color: "var(--sage)",
+              border: "none",
+              cursor: "pointer",
             }}
           >
             <Check size={13} /> Marcar todas como leídas
@@ -111,83 +189,27 @@ export default function NotificacionesPage({
           No tienes alertas próximas por ahora.
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {notificaciones.map((n) => {
-            const Icon = n.icon;
-            const etiqueta = etiquetaDias(n.dias);
-            const yaLeida = leidas.has(firma(n));
-            return (
-              <div
-                key={n.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  marcarLeida(n);
-                  onNavigate(n.tab, n.periodoObjetivo);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    marcarLeida(n);
-                    onNavigate(n.tab, n.periodoObjetivo);
-                  }
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  width: "100%",
-                  padding: "12px 14px",
-                  background: "var(--card)",
-                  border: "1px solid var(--line)",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  opacity: yaLeida ? 0.55 : 1,
-                }}
-              >
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    background: etiqueta.bg,
-                    color: etiqueta.color,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  {n.dias <= 0 ? <AlertCircle size={15} /> : <Icon size={15} />}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}>{n.titulo}</div>
-                  <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>{n.subtitulo}</div>
-                </div>
-                {n.whatsapp && (
-                  <button
-                    onClick={(e) => pedirPorWhatsapp(n, e)}
-                    title="Pedir por WhatsApp"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 28,
-                      height: 28,
-                      flexShrink: 0,
-                      background: "var(--sage-bg)",
-                      color: "var(--sage)",
-                      border: "none",
-                      borderRadius: 7,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <MessageCircle size={14} />
-                  </button>
-                )}
+        <div>
+          {nuevas.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div className="despensa-tab-font" style={{ fontSize: 16, fontWeight: 700, padding: "4px", marginBottom: 2 }}>
+                Nuevas
               </div>
-            );
-          })}
+              {nuevas.map((n) => (
+                <Fila key={n.id} n={n} yaLeida={false} onOpen={() => abrir(n)} onWhatsapp={pedirPorWhatsapp} />
+              ))}
+            </div>
+          )}
+          {anteriores.length > 0 && (
+            <div>
+              <div className="despensa-tab-font" style={{ fontSize: 16, fontWeight: 700, padding: "4px", marginBottom: 2, marginTop: nuevas.length > 0 ? 14 : 0 }}>
+                Anteriores
+              </div>
+              {anteriores.map((n) => (
+                <Fila key={n.id} n={n} yaLeida={true} onOpen={() => abrir(n)} onWhatsapp={pedirPorWhatsapp} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
