@@ -501,7 +501,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
           <div style={{ fontSize: 12.5, color: "var(--amber)", lineHeight: 1.5 }}>
             Tu ahorro automático no se aplicó este mes: tu nivel de endeudamiento está en{" "}
             <strong>{Math.round(nivelEndeudamiento)}%</strong> (Alto/Crítico). Prioriza gastos fijos y deudas
-            primero. Puedes cambiar esto en Configuración → Ahorro automático.
+            primero. Puedes cambiar esto en Configuración → Modo Ahorro.
           </div>
         </div>
       )}
@@ -1131,9 +1131,9 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     alignItems: "center",
                     gap: 5,
                   }}
-                  title="Calculado automáticamente desde Configuración → Ahorro automático"
+                  title="Calculado automáticamente desde Configuración → Modo Ahorro"
                 >
-                  <PiggyBank size={11} /> Ahorro automático ({ahorroConfig.porcentaje}%)
+                  <PiggyBank size={11} /> Modo Ahorro ({ahorroConfig.porcentaje}%)
                 </td>
                 {MESES.map((_, i) => {
                   const mes = i + 1;

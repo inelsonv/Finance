@@ -321,14 +321,14 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
         )}
       </Section>
 
-      <Section icon={PiggyBank} title="Ahorro automático">
+      <Section icon={PiggyBank} title="Modo Ahorro">
         <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
           Reserva un porcentaje de tu ingreso mensual neto como ahorro, sumado automáticamente a Presupuesto
           mensual, repartido entre las dos quincenas.
         </div>
         <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: ahorroConfig?.activo ? 10 : 0, cursor: "pointer" }}>
           <input type="checkbox" checked={!!ahorroConfig?.activo} onChange={handleToggleAhorro} disabled={savingAhorro} style={{ width: 16, height: 16 }} />
-          <span style={{ fontSize: 13 }}>Activar ahorro automático</span>
+          <span style={{ fontSize: 13 }}>Activar Modo Ahorro</span>
         </label>
         {ahorroConfig?.activo && (
           <>
