@@ -37,12 +37,14 @@ import EscanearFactura from "./components/EscanearFactura.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import BottomNav from "./components/BottomNav.jsx";
+import NotificacionesPage from "./components/NotificacionesPage.jsx";
 
 const THEME_KEY = "smart-finance-theme";
 const SIDEBAR_KEY = "smart-finance-sidebar-collapsed";
 
 const TITLES = {
   inicio: "Inicio",
+  notificaciones: "Notificaciones",
   presupuesto: "Presupuesto",
   movimientos: "Movimientos",
   catalogo: "Catálogo",
@@ -411,6 +413,23 @@ export default function App() {
         </div>
 
         {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} movimientos={movimientos} cuentas={cuentas} />}
+        {tab === "notificaciones" && (
+          <NotificacionesPage
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            membresias={membresias}
+            contratos={contratos}
+            movimientos={movimientos}
+            products={products}
+            entidades={entidades}
+            fuentesIngreso={fuentesIngreso}
+            eventos={eventos}
+            presupuesto={presupuestoAnual}
+            presupuestoYear={currentYear}
+            seguros={seguros}
+            onNavigate={handleNavigate}
+          />
+        )}
         {tab === "compras" && (
           <Compras products={products} ordenesCompra={ordenesCompra} historialCompras={historialCompras} onNavigate={setTab} />
         )}

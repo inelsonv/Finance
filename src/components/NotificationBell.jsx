@@ -66,7 +66,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros }) {
+export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -244,7 +244,7 @@ function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimie
   }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros]);
 }
 
-function etiquetaDias(dias) {
+export function etiquetaDias(dias) {
   if (dias <= 0) return { label: "Hoy", color: "var(--stamp)", bg: "var(--stamp-bg)" };
   if (dias === 1) return { label: "Mañana", color: "var(--stamp)", bg: "var(--stamp-bg)" };
   if (dias <= 3) return { label: `En ${dias} días`, color: "var(--amber)", bg: "var(--amber-bg)" };
