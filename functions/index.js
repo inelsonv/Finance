@@ -152,6 +152,120 @@ function construirHtml(notificaciones) {
     </div>`;
 }
 
+function formatMoneyMail(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Un cobro cerca de fin de mes es para pagar la primera quincena del mes
+// SIGUIENTE; un cobro a mitad de mes es para pagar la segunda quincena de ESE
+// MISMO mes (misma regla que usa la app en el frontend).
+function periodoObjetivoParaCobro(diaOcurrencia, today) {
+  if (diaOcurrencia <= 15) {
+    return { year: today.year, month: today.month, quincena: "Q2" };
+  }
+  let month = today.month + 1;
+  let year = today.year;
+  if (month > 12) {
+    month = 1;
+    year += 1;
+  }
+  return { year, month, quincena: "Q1" };
+}
+
+function celdaPrestamoQuincena(prestamo, year, month) {
+  if (!prestamo.fechaInicio || !prestamo.cuota || !prestamo.plazo) return null;
+  const [sy, sm, sd] = prestamo.fechaInicio.split("-").map(Number);
+  if (!sy || !sm) return null;
+  const mesesTotales = prestamo.plazoUnidad === "años" ? (prestamo.plazo || 0) * 12 : prestamo.plazo || 0;
+  if (!mesesTotales) return null;
+  const offset = (year - sy) * 12 + (month - sm);
+  const activo = offset >= 0 && offset < mesesTotales;
+  if (!activo) return null;
+  return sd && sd > 15 ? "Q2" : "Q1";
+}
+
+async function construirItemsChecklist(periodo) {
+  const [categoriasGasto, presupuestoSnap, prestamos] = await Promise.all([
+    getAll("categoriasGasto"),
+    db.collection("presupuestos").doc(String(periodo.year)).get(),
+    getAll("prestamos"),
+  ]);
+  const presupuesto = presupuestoSnap.exists ? presupuestoSnap.data() : {};
+
+  const items = [];
+
+  for (const c of categoriasGasto) {
+    const val = presupuesto?.[c.nombre]?.[String(periodo.month)]?.[periodo.quincena];
+    if (typeof val === "number" && val > 0) {
+      items.push({ nombre: c.nombre, monto: val });
+    }
+  }
+
+  for (const p of prestamos) {
+    if (p.estado !== "Activo") continue;
+    if (p.frecuenciaCuota === "Personalizado") {
+      for (const cuota of p.cuotasPersonalizadas || []) {
+        if (!cuota.fecha || !cuota.monto) continue;
+        const [cy, cm, cd] = cuota.fecha.split("-").map(Number);
+        if (cy !== periodo.year || cm !== periodo.month) continue;
+        const q = cd && cd > 15 ? "Q2" : "Q1";
+        if (q !== periodo.quincena) continue;
+        items.push({ nombre: `Préstamo ${p.numero} (${cuota.fecha.split("-").reverse().slice(0, 2).join("/")})`, monto: cuota.monto });
+      }
+      continue;
+    }
+    const q = celdaPrestamoQuincena(p, periodo.year, periodo.month);
+    if (q === periodo.quincena) {
+      items.push({ nombre: `Préstamo ${p.numero}`, monto: p.cuota });
+    }
+  }
+
+  return items.sort((a, b) => b.monto - a.monto);
+}
+
+function construirHtmlChecklist(fuenteNombre, periodo, items, total) {
+  const nombreMes = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+  ][periodo.month - 1];
+  const link = `https://inelsonv.github.io/Finance/?tab=checklist-pagos&year=${periodo.year}&month=${periodo.month}&quincena=${periodo.quincena}`;
+
+  const filas = items
+    .map(
+      (it) => `
+      <tr>
+        <td style="padding:10px 12px;border-bottom:1px solid #e5ded0;color:#26241f;font-size:14px;">${it.nombre}</td>
+        <td style="padding:10px 12px;border-bottom:1px solid #e5ded0;text-align:right;font-weight:600;color:#26241f;font-size:14px;">${formatMoneyMail(it.monto)}</td>
+      </tr>`
+    )
+    .join("");
+
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;">
+      <h2 style="color:#26241f;">💰 Hoy es tu día de cobro (${fuenteNombre})</h2>
+      <p style="color:#6f6a5e;font-size:13px;">
+        Esto es lo que tienes presupuestado para la ${periodo.quincena === "Q1" ? "primera" : "segunda"} quincena de ${nombreMes}:
+      </p>
+      ${
+        items.length === 0
+          ? `<p style="color:#6f6a5e;font-size:13px;">Todavía no tienes nada presupuestado para esa quincena.</p>`
+          : `<table style="width:100%;border-collapse:collapse;background:#fffefc;border:1px solid #e5ded0;border-radius:8px;">
+              ${filas}
+              <tr>
+                <td style="padding:12px;font-weight:700;color:#26241f;">Total</td>
+                <td style="padding:12px;text-align:right;font-weight:700;color:#26241f;">${formatMoneyMail(total)}</td>
+              </tr>
+            </table>`
+      }
+      <p style="margin-top:20px;">
+        <a href="${link}" style="background:#5b7a5b;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">
+          Abrir checklist de esta quincena
+        </a>
+      </p>
+    </div>`;
+}
+
 exports.avisoDiarioAlertas = onSchedule(
   { schedule: "every day 08:00", timeZone: "America/Santo_Domingo" },
   async () => {
@@ -162,32 +276,53 @@ exports.avisoDiarioAlertas = onSchedule(
       return;
     }
 
-    const [prestamos, tarjetas, membresias, contratos, productos, movimientos] = await Promise.all([
+    const [prestamos, tarjetas, membresias, contratos, productos, movimientos, fuentesIngreso] = await Promise.all([
       getAll("prestamos"),
       getAll("tarjetas"),
       getAll("membresias"),
       getAll("contratos"),
       getAll("productos"),
       getAll("movimientos"),
+      getAll("fuentesIngreso"),
     ]);
 
     const today = todayInfo();
     const notificaciones = construirNotificaciones({ prestamos, tarjetas, membresias, contratos, productos, movimientos, today });
 
-    if (notificaciones.length === 0) {
-      console.log("No hay alertas pendientes hoy, no se envía correo.");
-      return;
+    if (notificaciones.length > 0) {
+      await db.collection("mail").add({
+        to: [email],
+        message: {
+          subject: `Smart Finance: ${notificaciones.length} alerta${notificaciones.length !== 1 ? "s" : ""} pendiente${notificaciones.length !== 1 ? "s" : ""}`,
+          html: construirHtml(notificaciones),
+        },
+      });
+      console.log(`Correo de alertas encolado para ${email} con ${notificaciones.length} notificaciones.`);
+    } else {
+      console.log("No hay alertas pendientes hoy.");
     }
 
-    await db.collection("mail").add({
-      to: [email],
-      message: {
-        subject: `Smart Finance: ${notificaciones.length} alerta${notificaciones.length !== 1 ? "s" : ""} pendiente${notificaciones.length !== 1 ? "s" : ""}`,
-        html: construirHtml(notificaciones),
-      },
-    });
+    // Revisa si hoy es exactamente el día de cobro de alguna fuente de ingreso
+    // activa, y si es así, envía el checklist de la quincena correspondiente.
+    for (const f of fuentesIngreso) {
+      if (f.estado !== "Activo" || !f.diaPago) continue;
+      const diasDelMes = (f.diaPago.match(/\d+/g) || []).map(Number).filter((d) => d >= 1 && d <= 31);
+      const esHoyDiaDeCobro = diasDelMes.includes(today.day);
+      if (!esHoyDiaDeCobro) continue;
 
-    console.log(`Correo de alertas encolado para ${email} con ${notificaciones.length} notificaciones.`);
+      const periodo = periodoObjetivoParaCobro(today.day, today);
+      const items = await construirItemsChecklist(periodo);
+      const total = items.reduce((s, it) => s + it.monto, 0);
+
+      await db.collection("mail").add({
+        to: [email],
+        message: {
+          subject: `Smart Finance: hoy es tu día de cobro (${f.nombre})`,
+          html: construirHtmlChecklist(f.nombre, periodo, items, total),
+        },
+      });
+      console.log(`Correo de día de cobro encolado para ${email} (${f.nombre}), quincena ${periodo.quincena} de ${periodo.month}/${periodo.year}.`);
+    }
   }
 );
 

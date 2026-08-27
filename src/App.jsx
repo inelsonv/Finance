@@ -98,9 +98,26 @@ function getInitialCollapsed() {
   }
 }
 
+function leerParamsURL() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    const year = parseInt(params.get("year"), 10);
+    const month = parseInt(params.get("month"), 10);
+    const quincena = params.get("quincena");
+    if (tab === "checklist-pagos" && year && month && (quincena === "Q1" || quincena === "Q2")) {
+      return { tab, periodo: { year, month, quincena } };
+    }
+    if (tab) return { tab, periodo: null };
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
 export default function App() {
   const [authUser, setAuthUser] = useState(undefined); // undefined = cargando, null = sin sesión
-  const [tab, setTab] = useState("inicio");
+  const [tab, setTab] = useState(() => leerParamsURL()?.tab || "inicio");
   const [products, setProducts] = useState([]);
   const [list, setList] = useState([]);
   const [entidades, setEntidades] = useState([]);
@@ -123,7 +140,7 @@ export default function App() {
   const [ordenesCompra, setOrdenesCompra] = useState([]);
   const [vacaciones, setVacaciones] = useState([]);
   const [diezmoConfig, setDiezmoConfig] = useState(undefined);
-  const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(null);
+  const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
   const currentYear = new Date().getFullYear();
