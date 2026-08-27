@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import {
   Home,
-  ArrowLeftRight,
-  Wallet,
   CalendarDays,
   MoreHorizontal,
   X,
   Vault,
+  ArrowLeftRight,
+  Wallet,
   Banknote,
   Car,
   ShoppingCart,
@@ -16,16 +16,16 @@ import {
 
 const PRINCIPALES = [
   { id: "inicio", label: "Inicio", icon: Home },
-  { id: "movimientos", label: "Movs.", icon: ArrowLeftRight },
-  { id: "presupuesto", label: "Presup.", icon: Wallet },
-  { id: "calendario", label: "Agenda", icon: CalendarDays },
+  { id: "dinero-cuentas", label: "Finanzas", icon: Vault },
+  { id: "calendario", label: "Calendario", icon: CalendarDays },
+  { id: "compras", label: "Compras", icon: ShoppingCart },
 ];
 
 const MAS = [
-  { id: "dinero-cuentas", label: "Finanzas", icon: Vault },
+  { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
+  { id: "presupuesto", label: "Presupuesto", icon: Wallet },
   { id: "deudas-pagos", label: "Pagos fijos", icon: Banknote },
   { id: "activos", label: "Activos", icon: Car },
-  { id: "compras", label: "Compras", icon: ShoppingCart },
   { id: "entidades", label: "Entidades", icon: Landmark },
   { id: "configuracion", label: "Configuración", icon: Settings },
 ];
@@ -37,6 +37,7 @@ function activoEnGrupo(tab, grupoId) {
     "deudas-pagos": ["prestamos", "tarjetas", "membresias", "contratos"],
     activos: ["activos", "seguros"],
     compras: ["catalogo", "ordenes-compra"],
+    presupuesto: ["presupuesto-categoria-gasto", "presupuesto-mensual", "presupuesto-flujo", "estrategia-deudas", "checklist-pagos", "vacaciones"],
   };
   return (prefijosPorGrupo[grupoId] || []).includes(tab);
 }
@@ -49,24 +50,24 @@ export default function BottomNav({ tab, setTab }) {
     setShowMore(false);
   };
 
-  const masActivo = MAS.some((m) => activoEnGrupo(tab, m.id)) || tab === "presupuesto-categoria-gasto" || tab === "presupuesto-mensual" || tab === "presupuesto-flujo" || tab === "estrategia-deudas" || tab === "checklist-pagos" || tab === "vacaciones";
-  const presupuestoActivo = tab === "presupuesto" || ["presupuesto-categoria-gasto", "presupuesto-mensual", "presupuesto-flujo", "estrategia-deudas", "checklist-pagos", "vacaciones"].includes(tab);
+  const todosLosGrupos = [...PRINCIPALES, ...MAS];
+  const masActivo = MAS.some((m) => activoEnGrupo(tab, m.id)) && !PRINCIPALES.some((p) => activoEnGrupo(tab, p.id));
 
   return (
     <>
       <nav className="despensa-bottomnav">
         {PRINCIPALES.map((item) => {
           const Icon = item.icon;
-          const activo = item.id === "presupuesto" ? presupuestoActivo : tab === item.id;
+          const activo = activoEnGrupo(tab, item.id);
           return (
             <button
               key={item.id}
               onClick={() => irA(item.id)}
               className="despensa-bottomnav-item"
+              title={item.label}
               style={{ color: activo ? "var(--sage)" : "var(--ink-soft)" }}
             >
-              <Icon size={20} />
-              <span>{item.label}</span>
+              <Icon size={22} />
               {activo && <span className="despensa-bottomnav-dot" />}
             </button>
           );
@@ -74,10 +75,10 @@ export default function BottomNav({ tab, setTab }) {
         <button
           onClick={() => setShowMore(true)}
           className="despensa-bottomnav-item"
+          title="Más opciones"
           style={{ color: masActivo ? "var(--sage)" : "var(--ink-soft)" }}
         >
-          <MoreHorizontal size={20} />
-          <span>Más</span>
+          <MoreHorizontal size={22} />
           {masActivo && <span className="despensa-bottomnav-dot" />}
         </button>
       </nav>
