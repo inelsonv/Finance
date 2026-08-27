@@ -542,6 +542,8 @@ export default function Calendario({ eventos, entidades, categoriasGasto }) {
             const esHoy = cell.dateStr === hoy;
             const esSeleccionado = cell.dateStr === selectedDate;
             const tieneEventoUrgente = eventosDia.some((e) => e.estado === "Pendiente");
+            const eventoDestacado = eventosDia.find((e) => e.estado === "Pendiente") || eventosDia[0];
+            const IconDia = eventoDestacado ? TIPO_ICONS[eventoDestacado.tipo] || Calendar : null;
             return (
               <button
                 key={cell.dateStr}
@@ -562,6 +564,7 @@ export default function Calendario({ eventos, entidades, categoriasGasto }) {
                   padding: 2,
                   minWidth: 0,
                 }}
+                title={eventosDia.length > 0 ? eventosDia.map((e) => e.titulo).join(", ") : undefined}
               >
                 <span
                   className="despensa-mono"
@@ -569,15 +572,10 @@ export default function Calendario({ eventos, entidades, categoriasGasto }) {
                 >
                   {cell.day}
                 </span>
-                {eventosDia.length > 0 && (
-                  <span
-                    style={{
-                      width: 5,
-                      height: 5,
-                      borderRadius: "50%",
-                      background: tieneEventoUrgente ? "var(--stamp)" : "var(--sage)",
-                      display: "block",
-                    }}
+                {IconDia && (
+                  <IconDia
+                    size={11}
+                    style={{ color: tieneEventoUrgente ? "var(--stamp)" : "var(--sage)", flexShrink: 0 }}
                   />
                 )}
               </button>
