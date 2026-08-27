@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle } from "lucide-react";
 import { addMovimiento, deleteMovimiento } from "../lib/db";
+import SwipeableRow from "./SwipeableRow.jsx";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
 import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
 import { quincenaDeFecha, consumoPresupuesto } from "../lib/presupuestoConsumo";
@@ -772,8 +773,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       ) : (
         <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
           {movimientos.map((m, i) => (
+            <SwipeableRow key={m.id} onDelete={async () => { if (await confirm("¿Eliminar este movimiento?")) deleteMovimiento(m.id); }}>
             <div
-              key={m.id}
               className="despensa-row"
               style={{
                 display: "flex",
@@ -875,6 +876,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                 <Trash2 size={13} />
               </button>
             </div>
+            </SwipeableRow>
           ))}
         </div>
       )}
