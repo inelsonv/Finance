@@ -106,8 +106,8 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
         )}
         {!collapsed && (
           <button
-            onClick={onToggleTheme}
-            title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+            onClick={onToggleCollapsed}
+            title="Colapsar menú"
             style={{
               display: "flex",
               alignItems: "center",
@@ -122,15 +122,15 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
               cursor: "pointer",
             }}
           >
-            {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+            <PanelLeftClose size={14} />
           </button>
         )}
       </div>
 
       {collapsed && (
         <button
-          onClick={onToggleTheme}
-          title={theme === "dark" ? "Cambiar a modo claro" : "Cambiar a modo oscuro"}
+          onClick={onToggleCollapsed}
+          title="Expandir menú"
           style={{
             display: "flex",
             alignItems: "center",
@@ -145,7 +145,7 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
             cursor: "pointer",
           }}
         >
-          {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
+          <PanelLeftOpen size={14} />
         </button>
       )}
 
@@ -262,15 +262,6 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
           );
         })}
       </div>
-
-      <button
-        onClick={onToggleCollapsed}
-        title={collapsed ? "Expandir menú" : "Colapsar menú"}
-        className="despensa-collapse-btn"
-      >
-        {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-        {!collapsed && <span>Colapsar</span>}
-      </button>
     </nav>
   );
 }
