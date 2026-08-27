@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig } from "../lib/db";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins } from "lucide-react";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
 export default function Configuracion({ theme, onToggleTheme, user, onSignOut }) {
@@ -14,12 +14,18 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
   const [savingKey, setSavingKey] = useState(false);
   const [savedKey, setSavedKey] = useState(false);
 
+  const [diezmoConfig, setDiezmoConfig] = useState(undefined);
+  const [diezmoPorcentaje, setDiezmoPorcentaje] = useState("10");
+  const [savingDiezmo, setSavingDiezmo] = useState(false);
+
   useEffect(() => {
     const unsub1 = watchNotifConfig(setEmailConfig, () => {});
     const unsub2 = watchAccionesConfig(setAccionesConfig, () => {});
+    const unsub3 = watchDiezmoConfig(setDiezmoConfig, () => {});
     return () => {
       unsub1();
       unsub2();
+      unsub3();
     };
   }, []);
 
@@ -30,6 +36,10 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
   useEffect(() => {
     if (accionesConfig?.apiKey) setApiKeyInput(accionesConfig.apiKey);
   }, [accionesConfig]);
+
+  useEffect(() => {
+    if (diezmoConfig?.porcentaje != null) setDiezmoPorcentaje(String(diezmoConfig.porcentaje));
+  }, [diezmoConfig]);
 
   const handleSaveEmail = async () => {
     if (!emailInput.trim()) return;
@@ -52,6 +62,24 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
       setTimeout(() => setSavedKey(false), 2000);
     } finally {
       setSavingKey(false);
+    }
+  };
+
+  const handleToggleDiezmo = async () => {
+    setSavingDiezmo(true);
+    try {
+      await saveDiezmoConfig({ activo: !diezmoConfig?.activo, porcentaje: parseFloat(diezmoPorcentaje) || 10 });
+    } finally {
+      setSavingDiezmo(false);
+    }
+  };
+
+  const handleSaveDiezmoPorcentaje = async () => {
+    setSavingDiezmo(true);
+    try {
+      await saveDiezmoConfig({ activo: !!diezmoConfig?.activo, porcentaje: parseFloat(diezmoPorcentaje) || 10 });
+    } finally {
+      setSavingDiezmo(false);
     }
   };
 
@@ -215,6 +243,33 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
             {savingKey ? "Guardando…" : savedKey ? "Guardado" : "Guardar"}
           </button>
         </div>
+      </Section>
+
+      <Section icon={HandCoins} title="Diezmo automático">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Si lo activas, se calcula un porcentaje de tu ingreso mensual neto y se suma automáticamente a Presupuesto
+          mensual, repartido entre las dos quincenas.
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: diezmoConfig?.activo ? 12 : 0, cursor: "pointer" }}>
+          <input type="checkbox" checked={!!diezmoConfig?.activo} onChange={handleToggleDiezmo} disabled={savingDiezmo} style={{ width: 16, height: 16 }} />
+          <span style={{ fontSize: 13 }}>Activar diezmo automático</span>
+        </label>
+        {diezmoConfig?.activo && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              className="despensa-mono"
+              type="number"
+              min="0"
+              max="100"
+              step="0.5"
+              value={diezmoPorcentaje}
+              onChange={(e) => setDiezmoPorcentaje(e.target.value)}
+              onBlur={handleSaveDiezmoPorcentaje}
+              style={{ width: 80, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+            <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>% del ingreso mensual</span>
+          </div>
+        )}
       </Section>
     </div>
   );

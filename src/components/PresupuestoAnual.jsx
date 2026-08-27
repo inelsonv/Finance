@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 
@@ -97,7 +97,7 @@ function totalItemsOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones }) {
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig }) {
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
 
@@ -197,6 +197,12 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
 
   const totalMesMeta = (meta, mes) => getCeldaMeta(meta, mes, "Q1") + getCeldaMeta(meta, mes, "Q2");
 
+  // El diezmo es un porcentaje fijo del ingreso mensual, recurrente todos los
+  // meses (igual que una meta de ahorro por porcentaje de ingreso), sin
+  // depender de una fecha específica.
+  const diezmoMensual = diezmoConfig?.activo && ingresoMensual > 0 ? ingresoMensual * ((diezmoConfig.porcentaje || 0) / 100) : 0;
+  const getCeldaDiezmo = () => (diezmoMensual > 0 ? diezmoMensual / 2 : 0);
+
   const getCeldaEvento = (evento, mes, quincena) => {
     const { activo, quincena: q } = celdaEvento(evento, year, mes);
     return activo && q === quincena ? evento.montoEstimado : 0;
@@ -267,8 +273,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     for (const vacacion of vacacionesConGasto) {
       for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaVacacion(vacacion, m, "Q1") + getCeldaVacacion(vacacion, m, "Q2");
     }
+    if (diezmoMensual > 0) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += diezmoMensual;
+    }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, diezmoMensual, year, ingresoMensual, aportadoPorCuenta]);
 
   const totalPorQuincenaGlobal = useMemo(() => {
     const totals = {};
@@ -299,9 +308,13 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         totals[`${m}-Q1`] += getCeldaVacacion(vacacion, m, "Q1");
         totals[`${m}-Q2`] += getCeldaVacacion(vacacion, m, "Q2");
       }
+      if (diezmoMensual > 0) {
+        totals[`${m}-Q1`] += getCeldaDiezmo();
+        totals[`${m}-Q2`] += getCeldaDiezmo();
+      }
     }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, diezmoMensual, year, ingresoMensual, aportadoPorCuenta]);
 
 
   const totalPorCategoria = (categoria) => {
@@ -928,6 +941,59 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                 </tr>
               );
             })}
+            {diezmoMensual > 0 && (
+              <tr style={{ background: "var(--paper)" }}>
+                <td
+                  style={{
+                    position: "sticky",
+                    left: 0,
+                    background: "var(--paper)",
+                    padding: "6px 10px",
+                    borderRight: "1px solid var(--line)",
+                    borderBottom: "1px solid var(--line-soft)",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 12.5,
+                    color: "var(--sage)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                  }}
+                  title="Calculado automáticamente desde Configuración → Diezmo automático"
+                >
+                  <HandCoinsIcon size={11} /> Diezmo ({diezmoConfig.porcentaje}%)
+                </td>
+                {MESES.map((_, i) => {
+                  const mes = i + 1;
+                  return QUINCENAS.map((q) => (
+                    <td
+                      key={`diezmo-${mes}-${q}`}
+                      style={{
+                        borderBottom: "1px solid var(--line-soft)",
+                        borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                        padding: "6px 4px",
+                        textAlign: "right",
+                        color: "var(--sage)",
+                      }}
+                    >
+                      {formatMoney(getCeldaDiezmo())}
+                    </td>
+                  ));
+                })}
+                <td
+                  style={{
+                    borderLeft: "1px solid var(--line)",
+                    borderBottom: "1px solid var(--line-soft)",
+                    padding: "7px 10px",
+                    textAlign: "right",
+                    fontWeight: 600,
+                    background: "var(--sage-bg)",
+                    color: "var(--sage)",
+                  }}
+                >
+                  {formatMoney(diezmoMensual * 12)}
+                </td>
+              </tr>
+            )}
           </tbody>
           <tfoot>
             <tr>

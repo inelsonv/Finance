@@ -693,6 +693,18 @@ export async function saveNotifConfig(email) {
   await setDoc(doc(db, "config", "notificaciones"), { email });
 }
 
+export function watchDiezmoConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "diezmo"),
+    (snap) => onChange(snap.exists() ? snap.data() : { activo: false, porcentaje: 10 }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveDiezmoConfig({ activo, porcentaje }) {
+  await setDoc(doc(db, "config", "diezmo"), { activo: !!activo, porcentaje: porcentaje ?? 10 });
+}
+
 export function watchCombustibleConfig(onChange, onError) {
   return onSnapshot(
     doc(db, "config", "combustible"),

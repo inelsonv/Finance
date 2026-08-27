@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
@@ -121,6 +121,7 @@ export default function App() {
   const [historialCompras, setHistorialCompras] = useState([]);
   const [ordenesCompra, setOrdenesCompra] = useState([]);
   const [vacaciones, setVacaciones] = useState([]);
+  const [diezmoConfig, setDiezmoConfig] = useState(undefined);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -229,6 +230,7 @@ export default function App() {
     const unsubHistorialCompras = watchHistorialCompras(setHistorialCompras, handleError);
     const unsubOrdenesCompra = watchOrdenesCompra(setOrdenesCompra, handleError);
     const unsubVacaciones = watchVacaciones(setVacaciones, handleError);
+    const unsubDiezmo = watchDiezmoConfig(setDiezmoConfig, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -253,6 +255,7 @@ export default function App() {
       unsubHistorialCompras();
       unsubOrdenesCompra();
       unsubVacaciones();
+      unsubDiezmo();
       unsubStatus();
     };
   }, [authorized]);
@@ -499,6 +502,7 @@ export default function App() {
             eventos={eventos}
             ordenesCompra={ordenesCompra}
             vacaciones={vacaciones}
+            diezmoConfig={diezmoConfig}
           />
         )}
         {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
