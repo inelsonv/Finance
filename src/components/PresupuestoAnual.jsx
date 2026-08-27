@@ -2,7 +2,6 @@ import React, { useMemo, useState } from "react";
 import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
-import { ahorroDespuesDeCompromisos } from "../lib/flujoPrioridad";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
@@ -98,7 +97,7 @@ function totalItemsOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, flujo }) {
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig }) {
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
@@ -218,13 +217,12 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const nivelEndeudamiento = ingresoMensual > 0 ? ((cuotaPrestamosMensual + pagoTarjetasMensual) / ingresoMensual) * 100 : 0;
   const endeudamientoAlto = nivelEndeudamiento > 35;
 
-  // Si el Editor de flujo define explícitamente que "Ahorro" va después de
-  // "Gastos fijos" y "Deudas", usamos esa jerarquía en vez de la regla fija de
-  // 35% de endeudamiento.
-  const flujoOrdenConfirmaAhorro = useMemo(() => ahorroDespuesDeCompromisos(flujo?.nodes, flujo?.edges), [flujo]);
-  const usaRemanenteAhorro = ahorroConfig?.activo && ahorroConfig?.condicionadoADeuda !== false && flujoOrdenConfirmaAhorro === true;
-  const ahorroSeSalta =
-    ahorroConfig?.activo && ahorroConfig?.condicionadoADeuda !== false && flujoOrdenConfirmaAhorro !== true && endeudamientoAlto;
+  const ahorroSeSalta = ahorroConfig?.activo && ahorroConfig?.condicionadoADeuda !== false && endeudamientoAlto;
+  const ahorroMensual =
+    ahorroConfig?.activo && ingresoMensual > 0 && !ahorroSeSalta
+      ? ingresoMensual * ((ahorroConfig.porcentaje || 0) / 100)
+      : 0;
+  const getCeldaAhorroAuto = () => (ahorroMensual > 0 ? ahorroMensual / 2 : 0);
 
   const getCeldaEvento = (evento, mes, quincena) => {
     const { activo, quincena: q } = celdaEvento(evento, year, mes);
@@ -276,80 +274,6 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
 
   const totalMesCategoria = (categoria, mes) => (getCelda(categoria, mes, "Q1") || 0) + (getCelda(categoria, mes, "Q2") || 0);
 
-  const totalPorCategoria = (categoria) => {
-    let total = 0;
-    for (let m = 1; m <= 12; m++) total += totalMesCategoria(categoria, m);
-    return total;
-  };
-
-  const totalPorPrestamo = (p) => {
-    let total = 0;
-    for (let m = 1; m <= 12; m++) total += totalMesPrestamo(p, m);
-    return total;
-  };
-
-  // Suma de TODOS los préstamos activos juntos, para la fila resumen
-  // colapsable "Compromisos financieros".
-  const getCeldaPrestamosTodos = (mes, quincena) =>
-    prestamosActivos.reduce((s, p) => s + getCeldaPrestamo(p, mes, quincena), 0);
-
-  const totalPrestamosTodos = () => prestamosActivos.reduce((s, p) => s + totalPorPrestamo(p), 0);
-
-  // Monto que el Modo Ahorro querría reservar cada quincena, según el % configurado.
-  const ahorroDeseadoPorQuincena = ahorroConfig?.activo && ingresoMensual > 0 ? (ingresoMensual * ((ahorroConfig.porcentaje || 0) / 100)) / 2 : 0;
-
-  const getCeldaAhorroAuto = (mes, quincena) => {
-    if (!ahorroConfig?.activo || ahorroDeseadoPorQuincena <= 0) return 0;
-    if (ahorroSeSalta) return 0;
-
-    if (usaRemanenteAhorro) {
-      // Cálculo por remanente: primero cubre gastos fijos y compromisos
-      // financieros de esa quincena; el ahorro se asigna con lo que sobre,
-      // hasta el % configurado.
-      const comprometido =
-        categorias.filter((c) => c.clasificacion === "Fijo").reduce((s, c) => s + (getCelda(c.nombre, mes, quincena) || 0), 0) +
-        getCeldaPrestamosTodos(mes, quincena);
-      const disponible = Math.max(0, ingresoQuincenal - comprometido);
-      return Math.min(ahorroDeseadoPorQuincena, disponible);
-    }
-
-    return ahorroDeseadoPorQuincena;
-  };
-
-  const totalPorMeta = (meta) => {
-    let total = 0;
-    for (let m = 1; m <= 12; m++) total += totalMesMeta(meta, m);
-    return total;
-  };
-
-  const totalPorEvento = (evento) => {
-    let total = 0;
-    for (let m = 1; m <= 12; m++) total += totalMesEvento(evento, m);
-    return total;
-  };
-
-  const totalPorEventoCategoria = (categoriaNombre) => {
-    let total = 0;
-    for (let m = 1; m <= 12; m++) total += totalMesEventoCategoria(categoriaNombre, m);
-    return total;
-  };
-
-  const totalPorOrden = (orden) => {
-    let total = 0;
-    for (let m = 1; m <= 12; m++) total += totalMesOrden(orden, m);
-    return total;
-  };
-
-  const totalPorVacacionCategoria = (categoriaNombre) => {
-    let total = 0;
-    for (let m = 1; m <= 12; m++) total += totalMesVacacionCategoria(categoriaNombre, m);
-    return total;
-  };
-
-  const totalAnual = totalPorMes.reduce((s, v) => s + v, 0);
-
-  const ingresoQuincenal = ingresoMensual / 2;
-
   const totalPorMes = useMemo(() => {
     const totals = Array(12).fill(0);
     for (const cat of categorias) {
@@ -373,11 +297,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     if (diezmoMensual > 0) {
       for (let m = 1; m <= 12; m++) totals[m - 1] += diezmoMensual;
     }
-    if (ahorroConfig?.activo) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaAhorroAuto(m, "Q1") + getCeldaAhorroAuto(m, "Q2");
+    if (ahorroMensual > 0) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += ahorroMensual;
     }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, diezmoMensual, ahorroConfig, usaRemanenteAhorro, ahorroSeSalta, ahorroDeseadoPorQuincena, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
 
   const totalPorQuincenaGlobal = useMemo(() => {
     const totals = {};
@@ -412,13 +336,67 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         totals[`${m}-Q1`] += getCeldaDiezmo();
         totals[`${m}-Q2`] += getCeldaDiezmo();
       }
-      if (ahorroConfig?.activo) {
-        totals[`${m}-Q1`] += getCeldaAhorroAuto(m, "Q1");
-        totals[`${m}-Q2`] += getCeldaAhorroAuto(m, "Q2");
+      if (ahorroMensual > 0) {
+        totals[`${m}-Q1`] += getCeldaAhorroAuto();
+        totals[`${m}-Q2`] += getCeldaAhorroAuto();
       }
     }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, diezmoMensual, ahorroConfig, usaRemanenteAhorro, ahorroSeSalta, ahorroDeseadoPorQuincena, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
+
+
+  const totalPorCategoria = (categoria) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesCategoria(categoria, m);
+    return total;
+  };
+
+  const totalPorPrestamo = (p) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesPrestamo(p, m);
+    return total;
+  };
+
+  // Suma de TODOS los préstamos activos juntos, para la fila resumen
+  // colapsable "Compromisos financieros".
+  const getCeldaPrestamosTodos = (mes, quincena) =>
+    prestamosActivos.reduce((s, p) => s + getCeldaPrestamo(p, mes, quincena), 0);
+
+  const totalPrestamosTodos = () => prestamosActivos.reduce((s, p) => s + totalPorPrestamo(p), 0);
+
+  const totalPorMeta = (meta) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesMeta(meta, m);
+    return total;
+  };
+
+  const totalPorEvento = (evento) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesEvento(evento, m);
+    return total;
+  };
+
+  const totalPorEventoCategoria = (categoriaNombre) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesEventoCategoria(categoriaNombre, m);
+    return total;
+  };
+
+  const totalPorOrden = (orden) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesOrden(orden, m);
+    return total;
+  };
+
+  const totalPorVacacionCategoria = (categoriaNombre) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesVacacionCategoria(categoriaNombre, m);
+    return total;
+  };
+
+  const totalAnual = totalPorMes.reduce((s, v) => s + v, 0);
+
+  const ingresoQuincenal = ingresoMensual / 2;
 
   const excedeQuincena = (mes, q) => ingresoQuincenal > 0 && (totalPorQuincenaGlobal[`${mes}-${q}`] || 0) > ingresoQuincenal;
 
@@ -1136,7 +1114,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                 </td>
               </tr>
             )}
-            {ahorroConfig?.activo && (
+            {ahorroMensual > 0 && (
               <tr style={{ background: "transparent" }}>
                 <td
                   style={{
@@ -1153,34 +1131,26 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     alignItems: "center",
                     gap: 5,
                   }}
-                  title={
-                    usaRemanenteAhorro
-                      ? "Calculado según lo que sobre después de gastos fijos y compromisos financieros (definido en el Editor de flujo)"
-                      : "Calculado automáticamente desde Configuración → Modo Ahorro"
-                  }
+                  title="Calculado automáticamente desde Configuración → Modo Ahorro"
                 >
                   <PiggyBank size={11} /> Modo Ahorro ({ahorroConfig.porcentaje}%)
                 </td>
                 {MESES.map((_, i) => {
                   const mes = i + 1;
-                  return QUINCENAS.map((q) => {
-                    const val = getCeldaAhorroAuto(mes, q);
-                    return (
-                      <td
-                        key={`ahorro-auto-${mes}-${q}`}
-                        style={{
-                          borderBottom: "1px solid var(--line-soft)",
-                          borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
-                          padding: "6px 4px",
-                          textAlign: "right",
-                          color: "var(--blue)",
-                          opacity: val ? 1 : 0.35,
-                        }}
-                      >
-                        {formatMoney(val) || "—"}
-                      </td>
-                    );
-                  });
+                  return QUINCENAS.map((q) => (
+                    <td
+                      key={`ahorro-auto-${mes}-${q}`}
+                      style={{
+                        borderBottom: "1px solid var(--line-soft)",
+                        borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                        padding: "6px 4px",
+                        textAlign: "right",
+                        color: "var(--blue)",
+                      }}
+                    >
+                      {formatMoney(getCeldaAhorroAuto())}
+                    </td>
+                  ));
                 })}
                 <td
                   style={{
@@ -1193,9 +1163,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     color: "var(--blue)",
                   }}
                 >
-                  {formatMoney(
-                    MESES.reduce((s, _, i) => s + getCeldaAhorroAuto(i + 1, "Q1") + getCeldaAhorroAuto(i + 1, "Q2"), 0)
-                  )}
+                  {formatMoney(ahorroMensual * 12)}
                 </td>
               </tr>
             )}

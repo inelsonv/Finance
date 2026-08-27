@@ -14,7 +14,6 @@ import "reactflow/dist/style.css";
 import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt } from "lucide-react";
 import { saveFlujo } from "../lib/db";
 import { confirm } from "../lib/confirm";
-import { formatearOrdenPrioridad } from "../lib/flujoPrioridad";
 
 const PALETTE = ["#5b7a5b", "#a23e2e", "#b8892b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a"];
 const FRECUENCIA_FACTOR = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1 / 12, Único: 0 };
@@ -109,9 +108,6 @@ function ActivityFlowNode({ data }) {
             {formatMoney(data.amount)}
           </div>
         )}
-        {!esIngreso && data.categoria && (
-          <div style={{ fontSize: 9.5, color: "var(--ink-soft)", marginTop: 1 }}>{data.categoria}</div>
-        )}
       </div>
       <Handle type="source" position={Position.Right} style={{ background: color }} />
     </div>
@@ -151,8 +147,6 @@ function nextId() {
   return `n${idCounter}`;
 }
 
-const CATEGORIAS_PRIORIDAD = ["Gastos fijos", "Deudas", "Ahorro", "Inversión", "Gastos variables", "Otro"];
-
 export default function FlujoEditor({ flujo, fuentesIngreso }) {
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
@@ -164,11 +158,9 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
   const [editAmount, setEditAmount] = useState("");
   const [editIcon, setEditIcon] = useState(ICONO_DEFAULT);
   const [editTipo, setEditTipo] = useState("categoria");
-  const [editCategoria, setEditCategoria] = useState("Otro");
   const loadedOnce = useRef(false);
 
   const ingresoSugerido = useMemo(() => ingresoMensualCalculado(fuentesIngreso), [fuentesIngreso]);
-  const ordenPrioridad = useMemo(() => formatearOrdenPrioridad(nodes, edges), [nodes, edges]);
 
   useEffect(() => {
     if (loadedOnce.current) return;
@@ -228,7 +220,6 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     setEditAmount(node.data.amount != null ? String(node.data.amount) : "");
     setEditIcon(node.data.icon || ICONO_DEFAULT);
     setEditTipo(node.data.tipo || (node.data.role === "ingreso" ? "ingreso" : "categoria"));
-    setEditCategoria(node.data.categoria || "Otro");
   };
 
   const cancelEdit = () => {
@@ -237,7 +228,6 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     setEditAmount("");
     setEditIcon(ICONO_DEFAULT);
     setEditTipo("categoria");
-    setEditCategoria("Otro");
   };
 
   const applyEdit = () => {
@@ -254,7 +244,6 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
                 icon: editIcon,
                 tipo: editTipo,
                 role: editTipo === "ingreso" ? "ingreso" : undefined,
-                categoria: editTipo === "ingreso" ? undefined : editCategoria,
               },
             }
           : n
@@ -317,26 +306,6 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
               {formatMoney(resumen.restante)}
             </strong>
           </span>
-        </div>
-      )}
-
-      {ordenPrioridad && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            background: "var(--sage-bg)",
-            border: "1px solid var(--sage)",
-            borderRadius: 10,
-            padding: "9px 12px",
-            marginBottom: 10,
-            fontSize: 12,
-            color: "var(--sage)",
-            flexWrap: "wrap",
-          }}
-        >
-          <strong>Orden de prioridad detectado:</strong> {ordenPrioridad}
         </div>
       )}
 
@@ -419,23 +388,6 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
               </button>
             )}
           </div>
-
-          {!isIngresoNode && (
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
-                ¿Qué representa este nodo? (para calcular el orden de prioridad)
-              </div>
-              <select
-                value={editCategoria}
-                onChange={(e) => setEditCategoria(e.target.value)}
-                style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, background: "var(--card)" }}
-              >
-                {CATEGORIAS_PRIORIDAD.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-          )}
 
           <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Ícono</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
