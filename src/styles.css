@@ -199,6 +199,12 @@ button:hover {
     margin: -1.25rem -1rem 10px;
     border-bottom: 1px solid var(--line);
   }
+  .despensa-hamburger {
+    display: flex !important;
+  }
+  .despensa-desktop-only {
+    display: none !important;
+  }
 }
 
 .despensa-bottomnav {
@@ -243,6 +249,20 @@ button:hover {
   height: 4px;
   border-radius: 50%;
   background: var(--sage);
+}
+
+.despensa-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 @media (max-width: 520px) {

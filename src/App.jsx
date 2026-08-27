@@ -6,6 +6,8 @@ import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
+import MobileMenu from "./components/MobileMenu.jsx";
+import { Menu } from "lucide-react";
 import Catalogo from "./components/Catalogo.jsx";
 import Compras from "./components/Compras.jsx";
 import Finanzas from "./components/Finanzas.jsx";
@@ -128,6 +130,7 @@ export default function App() {
   const [synced, setSynced] = useState(null);
   const [theme, setTheme] = useState(getInitialTheme);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialCollapsed);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -309,9 +312,18 @@ export default function App() {
       <BottomNav tab={tab} setTab={setTab} />
       <main className="despensa-main">
         <div className="despensa-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-          <h1 className="despensa-tab-font" style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
-            {TITLES[tab]}
-          </h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={() => setShowMobileMenu(true)}
+              className="despensa-hamburger"
+              title="Más opciones"
+            >
+              <Menu size={22} />
+            </button>
+            <h1 className="despensa-tab-font" style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
+              {TITLES[tab]}
+            </h1>
+          </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               {tab === "catalogo" && (
@@ -360,21 +372,23 @@ export default function App() {
                 fuentesIngreso={fuentesIngreso}
                 onNavigate={handleSearchNavigate}
               />
-              <NotificationBell
-                prestamos={prestamos}
-                tarjetas={tarjetas}
-                membresias={membresias}
-                contratos={contratos}
-                movimientos={movimientos}
-                products={products}
-                entidades={entidades}
-                fuentesIngreso={fuentesIngreso}
-                eventos={eventos}
-                presupuesto={presupuestoAnual}
-                presupuestoYear={currentYear}
-                seguros={seguros}
-                onNavigate={handleNavigate}
-              />
+              <div className="despensa-desktop-only">
+                <NotificationBell
+                  prestamos={prestamos}
+                  tarjetas={tarjetas}
+                  membresias={membresias}
+                  contratos={contratos}
+                  movimientos={movimientos}
+                  products={products}
+                  entidades={entidades}
+                  fuentesIngreso={fuentesIngreso}
+                  eventos={eventos}
+                  presupuesto={presupuestoAnual}
+                  presupuestoYear={currentYear}
+                  seguros={seguros}
+                  onNavigate={handleNavigate}
+                />
+              </div>
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} />
             </div>
             <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
@@ -516,6 +530,7 @@ export default function App() {
         {tab === "escanear-factura" && <EscanearFactura products={products} />}
       </main>
       <ConfirmDialogHost />
+      {showMobileMenu && <MobileMenu tab={tab} setTab={(t) => setTab(t)} onClose={() => setShowMobileMenu(false)} onSignOut={() => signOut(auth)} />}
     </div>
   );
 }
