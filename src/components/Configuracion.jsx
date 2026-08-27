@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import Switch from "./Switch.jsx";
 
 export default function Configuracion({ theme, onToggleTheme, user, onSignOut }) {
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -299,10 +300,10 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
           Si lo activas, se calcula un porcentaje de tu ingreso mensual neto y se suma automáticamente a Presupuesto
           mensual, repartido entre las dos quincenas.
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: diezmoConfig?.activo ? 12 : 0, cursor: "pointer" }}>
-          <input type="checkbox" checked={!!diezmoConfig?.activo} onChange={handleToggleDiezmo} disabled={savingDiezmo} style={{ width: 16, height: 16 }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: diezmoConfig?.activo ? 12 : 0 }}>
           <span style={{ fontSize: 13 }}>Activar diezmo automático</span>
-        </label>
+          <Switch checked={!!diezmoConfig?.activo} onChange={handleToggleDiezmo} disabled={savingDiezmo} />
+        </div>
         {diezmoConfig?.activo && (
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <input
@@ -326,10 +327,10 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
           Reserva un porcentaje de tu ingreso mensual neto como ahorro, sumado automáticamente a Presupuesto
           mensual, repartido entre las dos quincenas.
         </div>
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: ahorroConfig?.activo ? 10 : 0, cursor: "pointer" }}>
-          <input type="checkbox" checked={!!ahorroConfig?.activo} onChange={handleToggleAhorro} disabled={savingAhorro} style={{ width: 16, height: 16 }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: ahorroConfig?.activo ? 10 : 0 }}>
           <span style={{ fontSize: 13 }}>Activar Modo Ahorro</span>
-        </label>
+          <Switch checked={!!ahorroConfig?.activo} onChange={handleToggleAhorro} disabled={savingAhorro} />
+        </div>
         {ahorroConfig?.activo && (
           <>
             <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12 }}>
@@ -346,19 +347,13 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
               />
               <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>% del ingreso mensual</span>
             </div>
-            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={ahorroConfig?.condicionadoADeuda !== false}
-                onChange={handleToggleCondicionado}
-                disabled={savingAhorro}
-                style={{ width: 16, height: 16, marginTop: 1 }}
-              />
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
               <span style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
                 Priorizar gastos fijos y deudas primero: si tu nivel de endeudamiento está "Alto" o "Crítico"
                 (más de 35% de tu ingreso comprometido), no aplicar el ahorro esa quincena.
               </span>
-            </label>
+              <Switch checked={ahorroConfig?.condicionadoADeuda !== false} onChange={handleToggleCondicionado} disabled={savingAhorro} />
+            </div>
           </>
         )}
       </Section>
