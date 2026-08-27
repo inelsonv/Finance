@@ -367,68 +367,104 @@ function DolarCard() {
   }, [cache]);
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <DollarSign size={16} style={{ color: "var(--ink-soft)" }} />
-          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Tipo de cambio</span>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <DollarSign size={16} style={{ color: "var(--ink-soft)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Dólar (USD)</span>
+          </div>
+          <button
+            onClick={fetchRates}
+            title="Actualizar"
+            disabled={status === "loading"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 26,
+              height: 26,
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: status === "loading" ? "default" : "pointer",
+            }}
+          >
+            <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
+          </button>
         </div>
-        <button
-          onClick={fetchRates}
-          title="Actualizar"
-          disabled={status === "loading"}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 26,
-            height: 26,
-            border: "1px solid var(--line)",
-            borderRadius: 6,
-            background: "var(--paper)",
-            color: "var(--ink-soft)",
-            cursor: status === "loading" ? "default" : "pointer",
-          }}
-        >
-          <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
-        </button>
+
+        {status === "error" ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
+            <AlertTriangle size={15} />
+            No se pudo obtener el tipo de cambio ahora.
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>1 USD =</span>
+            <span className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--sage)" }}>
+              {rates.USD != null ? rates.USD.toFixed(2) : "—"}
+            </span>
+            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>DOP</span>
+          </div>
+        )}
+
+        {updatedAt && (
+          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
+            Actualizado {updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+          </div>
+        )}
       </div>
 
-      {status === "error" && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
-          <AlertTriangle size={15} />
-          No se pudo obtener el tipo de cambio ahora. Intenta de nuevo en un momento.
-        </div>
-      )}
-
-      {status !== "error" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>1 USD =</span>
-              <span className="despensa-mono" style={{ fontSize: 24, fontWeight: 700, color: "var(--sage)" }}>
-                {rates.USD != null ? rates.USD.toFixed(2) : "—"}
-              </span>
-              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>DOP</span>
-            </div>
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <DollarSign size={16} style={{ color: "var(--ink-soft)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Euro (EUR)</span>
           </div>
-          <div style={{ borderLeft: "1px solid var(--line-soft)", paddingLeft: 16 }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>1 EUR =</span>
-              <span className="despensa-mono" style={{ fontSize: 24, fontWeight: 700, color: "var(--sage)" }}>
-                {rates.EUR != null ? rates.EUR.toFixed(2) : "—"}
-              </span>
-              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>DOP</span>
-            </div>
-          </div>
+          <button
+            onClick={fetchRates}
+            title="Actualizar"
+            disabled={status === "loading"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 26,
+              height: 26,
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: status === "loading" ? "default" : "pointer",
+            }}
+          >
+            <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
+          </button>
         </div>
-      )}
 
-      {updatedAt && (
-        <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
-          Actualizado {updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
-        </div>
-      )}
+        {status === "error" ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
+            <AlertTriangle size={15} />
+            No se pudo obtener el tipo de cambio ahora.
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>1 EUR =</span>
+            <span className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--sage)" }}>
+              {rates.EUR != null ? rates.EUR.toFixed(2) : "—"}
+            </span>
+            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>DOP</span>
+          </div>
+        )}
+
+        {updatedAt && (
+          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
+            Actualizado {updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
+          </div>
+        )}
+      </div>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
