@@ -9,6 +9,8 @@ const db = getFirestore();
 
 const ALLOWED_EMAIL = "iventuramena@gmail.com";
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
+const amadeusApiKey = defineSecret("AMADEUS_API_KEY");
+const amadeusApiSecret = defineSecret("AMADEUS_API_SECRET");
 
 const UMBRAL_DIAS = 7;
 
@@ -393,4 +395,91 @@ exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request)
 
   if (!Array.isArray(parsed.items)) parsed.items = [];
   return parsed;
+});
+
+// Busca vuelos reales usando la API de Amadeus (ambiente de pruebas, capa
+// gratuita). Recibe origen/destino en código IATA (ej. "SDQ", "BOG"), fechas,
+// y opcionalmente una aerolínea (código IATA, ej. "AV" para Avianca).
+exports.buscarVuelos = onCall({ secrets: [amadeusApiKey, amadeusApiSecret] }, async (request) => {
+  if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
+    throw new HttpsError("permission-denied", "No autorizado");
+  }
+
+  const { origen, destino, fechaIda, fechaVuelta, adultos, aerolinea } = request.data || {};
+  if (!origen || !destino || !fechaIda) {
+    throw new HttpsError("invalid-argument", "Faltan origen, destino o fecha de ida");
+  }
+
+  const AMADEUS_BASE = "https://test.api.amadeus.com";
+
+  // 1) Obtener token de acceso (OAuth2, client_credentials)
+  let token;
+  try {
+    const tokenResp = await fetch(`${AMADEUS_BASE}/v1/security/oauth2/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: amadeusApiKey.value(),
+        client_secret: amadeusApiSecret.value(),
+      }).toString(),
+    });
+    const tokenData = await tokenResp.json();
+    if (!tokenResp.ok || !tokenData.access_token) {
+      throw new Error(tokenData.error_description || "No se pudo autenticar con Amadeus");
+    }
+    token = tokenData.access_token;
+  } catch (err) {
+    throw new HttpsError("internal", "Error autenticando con Amadeus: " + err.message);
+  }
+
+  // 2) Buscar ofertas de vuelo
+  const params = new URLSearchParams({
+    originLocationCode: origen.toUpperCase(),
+    destinationLocationCode: destino.toUpperCase(),
+    departureDate: fechaIda,
+    adults: String(adultos || 1),
+    currencyCode: "USD",
+    max: "10",
+  });
+  if (fechaVuelta) params.set("returnDate", fechaVuelta);
+  if (aerolinea) params.set("includedAirlineCodes", aerolinea.toUpperCase());
+
+  let data;
+  try {
+    const resp = await fetch(`${AMADEUS_BASE}/v2/shopping/flight-offers?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    data = await resp.json();
+    if (!resp.ok) {
+      const msg = data?.errors?.[0]?.detail || data?.errors?.[0]?.title || `Error de Amadeus (HTTP ${resp.status})`;
+      throw new Error(msg);
+    }
+  } catch (err) {
+    throw new HttpsError("internal", "Error buscando vuelos: " + err.message);
+  }
+
+  const ofertas = (data.data || []).map((oferta) => {
+    const itinerarios = oferta.itineraries.map((it) => {
+      const segmentos = it.segments;
+      const primero = segmentos[0];
+      const ultimo = segmentos[segmentos.length - 1];
+      return {
+        salida: primero.departure.at,
+        llegada: ultimo.arrival.at,
+        origen: primero.departure.iataCode,
+        destino: ultimo.arrival.iataCode,
+        escalas: segmentos.length - 1,
+        duracion: it.duration,
+        aerolinea: primero.carrierCode,
+      };
+    });
+    return {
+      precio: oferta.price.total,
+      moneda: oferta.price.currency,
+      itinerarios,
+    };
+  });
+
+  return { ofertas };
 });
