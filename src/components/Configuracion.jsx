@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig } from "../lib/db";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank } from "lucide-react";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
 export default function Configuracion({ theme, onToggleTheme, user, onSignOut }) {
@@ -18,14 +18,20 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
   const [diezmoPorcentaje, setDiezmoPorcentaje] = useState("10");
   const [savingDiezmo, setSavingDiezmo] = useState(false);
 
+  const [ahorroConfig, setAhorroConfig] = useState(undefined);
+  const [ahorroPorcentaje, setAhorroPorcentaje] = useState("10");
+  const [savingAhorro, setSavingAhorro] = useState(false);
+
   useEffect(() => {
     const unsub1 = watchNotifConfig(setEmailConfig, () => {});
     const unsub2 = watchAccionesConfig(setAccionesConfig, () => {});
     const unsub3 = watchDiezmoConfig(setDiezmoConfig, () => {});
+    const unsub4 = watchAhorroAutoConfig(setAhorroConfig, () => {});
     return () => {
       unsub1();
       unsub2();
       unsub3();
+      unsub4();
     };
   }, []);
 
@@ -40,6 +46,10 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
   useEffect(() => {
     if (diezmoConfig?.porcentaje != null) setDiezmoPorcentaje(String(diezmoConfig.porcentaje));
   }, [diezmoConfig]);
+
+  useEffect(() => {
+    if (ahorroConfig?.porcentaje != null) setAhorroPorcentaje(String(ahorroConfig.porcentaje));
+  }, [ahorroConfig]);
 
   const handleSaveEmail = async () => {
     if (!emailInput.trim()) return;
@@ -80,6 +90,45 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
       await saveDiezmoConfig({ activo: !!diezmoConfig?.activo, porcentaje: parseFloat(diezmoPorcentaje) || 10 });
     } finally {
       setSavingDiezmo(false);
+    }
+  };
+
+  const handleToggleAhorro = async () => {
+    setSavingAhorro(true);
+    try {
+      await saveAhorroAutoConfig({
+        activo: !ahorroConfig?.activo,
+        porcentaje: parseFloat(ahorroPorcentaje) || 10,
+        condicionadoADeuda: ahorroConfig?.condicionadoADeuda !== false,
+      });
+    } finally {
+      setSavingAhorro(false);
+    }
+  };
+
+  const handleSaveAhorroPorcentaje = async () => {
+    setSavingAhorro(true);
+    try {
+      await saveAhorroAutoConfig({
+        activo: !!ahorroConfig?.activo,
+        porcentaje: parseFloat(ahorroPorcentaje) || 10,
+        condicionadoADeuda: ahorroConfig?.condicionadoADeuda !== false,
+      });
+    } finally {
+      setSavingAhorro(false);
+    }
+  };
+
+  const handleToggleCondicionado = async () => {
+    setSavingAhorro(true);
+    try {
+      await saveAhorroAutoConfig({
+        activo: !!ahorroConfig?.activo,
+        porcentaje: parseFloat(ahorroPorcentaje) || 10,
+        condicionadoADeuda: !(ahorroConfig?.condicionadoADeuda !== false),
+      });
+    } finally {
+      setSavingAhorro(false);
     }
   };
 
@@ -269,6 +318,48 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
             />
             <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>% del ingreso mensual</span>
           </div>
+        )}
+      </Section>
+
+      <Section icon={PiggyBank} title="Ahorro automático">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Reserva un porcentaje de tu ingreso mensual neto como ahorro, sumado automáticamente a Presupuesto
+          mensual, repartido entre las dos quincenas.
+        </div>
+        <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: ahorroConfig?.activo ? 10 : 0, cursor: "pointer" }}>
+          <input type="checkbox" checked={!!ahorroConfig?.activo} onChange={handleToggleAhorro} disabled={savingAhorro} style={{ width: 16, height: 16 }} />
+          <span style={{ fontSize: 13 }}>Activar ahorro automático</span>
+        </label>
+        {ahorroConfig?.activo && (
+          <>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12 }}>
+              <input
+                className="despensa-mono"
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={ahorroPorcentaje}
+                onChange={(e) => setAhorroPorcentaje(e.target.value)}
+                onBlur={handleSaveAhorroPorcentaje}
+                style={{ width: 80, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>% del ingreso mensual</span>
+            </div>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={ahorroConfig?.condicionadoADeuda !== false}
+                onChange={handleToggleCondicionado}
+                disabled={savingAhorro}
+                style={{ width: 16, height: 16, marginTop: 1 }}
+              />
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+                Priorizar gastos fijos y deudas primero: si tu nivel de endeudamiento está "Alto" o "Crítico"
+                (más de 35% de tu ingreso comprometido), no aplicar el ahorro esa quincena.
+              </span>
+            </label>
+          </>
         )}
       </Section>
     </div>

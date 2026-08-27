@@ -705,6 +705,22 @@ export async function saveDiezmoConfig({ activo, porcentaje }) {
   await setDoc(doc(db, "config", "diezmo"), { activo: !!activo, porcentaje: porcentaje ?? 10 });
 }
 
+export function watchAhorroAutoConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "ahorroAutomatico"),
+    (snap) => onChange(snap.exists() ? snap.data() : { activo: false, porcentaje: 10, condicionadoADeuda: true }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveAhorroAutoConfig({ activo, porcentaje, condicionadoADeuda }) {
+  await setDoc(doc(db, "config", "ahorroAutomatico"), {
+    activo: !!activo,
+    porcentaje: porcentaje ?? 10,
+    condicionadoADeuda: condicionadoADeuda !== false,
+  });
+}
+
 export function watchCombustibleConfig(onChange, onError) {
   return onSnapshot(
     doc(db, "config", "combustible"),

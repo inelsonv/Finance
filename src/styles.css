@@ -14,6 +14,8 @@
   --muted-line: #b4ac93;
   --amber: #b8892b;
   --amber-bg: #fbf1de;
+  --blue: #4a6a8a;
+  --blue-bg: #e8eef4;
 }
 
 :root[data-theme="dark"] {
@@ -30,6 +32,8 @@
   --muted-line: #5c574a;
   --amber: #d9ad5c;
   --amber-bg: #3a2f14;
+  --blue: #7ba3c9;
+  --blue-bg: #1f2c38;
 }
 
 body {
