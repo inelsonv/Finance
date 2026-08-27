@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 
 const PRINCIPALES = [
-  { id: "inicio", label: "Inicio", icon: Home },
-  { id: "dinero-cuentas", label: "Finanzas", icon: Vault },
   { id: "calendario", label: "Calendario", icon: CalendarDays },
+  { id: "dinero-cuentas", label: "Finanzas", icon: Vault },
+  { id: "inicio", label: "Inicio", icon: Home },
   { id: "compras", label: "Compras", icon: ShoppingCart },
 ];
 
