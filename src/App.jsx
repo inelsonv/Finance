@@ -144,7 +144,7 @@ export default function App() {
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
-  const currentYear = new Date().getFullYear();
+  const [presupuestoYear, setPresupuestoYear] = useState(() => new Date().getFullYear());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [synced, setSynced] = useState(null);
@@ -238,7 +238,6 @@ export default function App() {
     const unsubMembresias = watchMembresias(setMembresias, handleError);
     const unsubFuentesIngreso = watchFuentesIngreso(setFuentesIngreso, handleError);
     const unsubCategoriasGasto = watchCategoriasGasto(setCategoriasGasto, handleError);
-    const unsubPresupuestoAnual = watchPresupuestoAnual(currentYear, setPresupuestoAnual, handleError);
     const unsubContratos = watchContratos(setContratos, handleError);
     const unsubTiposEntidad = watchTiposEntidad(setTiposEntidad, handleError);
     const unsubFlujo = watchFlujo(setFlujo, handleError);
@@ -264,7 +263,6 @@ export default function App() {
       unsubMembresias();
       unsubFuentesIngreso();
       unsubCategoriasGasto();
-      unsubPresupuestoAnual();
       unsubContratos();
       unsubTiposEntidad();
       unsubFlujo();
@@ -281,6 +279,16 @@ export default function App() {
       unsubStatus();
     };
   }, [authorized]);
+
+  useEffect(() => {
+    if (!authorized) return;
+    const unsub = watchPresupuestoAnual(
+      presupuestoYear,
+      setPresupuestoAnual,
+      (err) => setError(err.message || String(err))
+    );
+    return () => unsub();
+  }, [authorized, presupuestoYear]);
 
   if (authUser === undefined) {
     return (
@@ -411,7 +419,7 @@ export default function App() {
                   fuentesIngreso={fuentesIngreso}
                   eventos={eventos}
                   presupuesto={presupuestoAnual}
-                  presupuestoYear={currentYear}
+                  presupuestoYear={presupuestoYear}
                   seguros={seguros}
                   onNavigate={handleNavigate}
                 />
@@ -437,7 +445,7 @@ export default function App() {
             fuentesIngreso={fuentesIngreso}
             eventos={eventos}
             presupuesto={presupuestoAnual}
-            presupuestoYear={currentYear}
+            presupuestoYear={presupuestoYear}
             seguros={seguros}
             onNavigate={handleNavigate}
           />
@@ -474,7 +482,7 @@ export default function App() {
             categoriasGasto={categoriasGasto}
             contratos={contratos}
             presupuesto={presupuestoAnual}
-            presupuestoYear={currentYear}
+            presupuestoYear={presupuestoYear}
           />
         )}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} activos={activos} />}
@@ -488,7 +496,8 @@ export default function App() {
           <PresupuestoAnual
             presupuesto={presupuestoAnual}
             categoriasPersonalizadas={categoriasGasto}
-            year={currentYear}
+            year={presupuestoYear}
+            onChangeYear={setPresupuestoYear}
             prestamos={prestamos}
             metasAhorro={metasAhorro}
             fuentesIngreso={fuentesIngreso}
@@ -510,7 +519,7 @@ export default function App() {
             categoriasGasto={categoriasGasto}
             presupuesto={presupuestoAnual}
             prestamos={prestamos}
-            presupuestoYear={currentYear}
+            presupuestoYear={presupuestoYear}
             periodoInicial={checklistPeriodoInicial}
             onConsumePeriodoInicial={() => setChecklistPeriodoInicial(null)}
           />
