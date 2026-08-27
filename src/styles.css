@@ -185,50 +185,52 @@ button:hover {
     flex-direction: column;
   }
   .despensa-sidebar {
-    width: 100% !important;
-    border-right: none;
-    border-bottom: 1px solid var(--line);
-    padding: 1rem;
-  }
-  .despensa-navlist {
-    flex-direction: row;
-    overflow-x: auto;
-  }
-  .despensa-navitem {
-    width: auto;
-    white-space: nowrap;
-    gap: 0;
-    padding: 9px 10px;
-    justify-content: center;
-  }
-  .despensa-navlabel {
-    display: none;
-  }
-  .despensa-navchevron {
     display: none;
   }
   .despensa-main {
-    padding: 1.25rem 1rem 2.5rem;
+    padding: 1.25rem 1rem calc(70px + env(safe-area-inset-bottom, 0px));
   }
-  .despensa-navlist > div {
-    position: relative;
-    flex-shrink: 0;
+  .despensa-bottomnav {
+    display: flex;
   }
-  .despensa-submenu {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    z-index: 20;
-    min-width: 170px;
-    padding: 4px;
-  }
-  .despensa-collapse-btn {
-    display: none;
-  }
+}
+
+.despensa-bottomnav {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  justify-content: space-around;
+  align-items: center;
+}
+
+.despensa-bottomnav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 10px;
+  font-family: Inter, sans-serif;
+  position: relative;
+  flex: 1;
+}
+
+.despensa-bottomnav-dot {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--sage);
 }
 
 @media (max-width: 520px) {
