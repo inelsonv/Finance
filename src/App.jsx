@@ -500,6 +500,7 @@ export default function App() {
             diezmoConfig={diezmoConfig}
             tarjetas={tarjetas}
             ahorroConfig={ahorroAutoConfig}
+            flujo={flujo}
           />
         )}
         {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
