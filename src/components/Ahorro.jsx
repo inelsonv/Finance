@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Target, PiggyBank, Percent, Landmark, Calendar } from "lucide-react";
+import { Plus, Trash2, X, Pencil, Check, PiggyBank, Landmark, Calendar } from "lucide-react";
 import { addMetaAhorro, deleteMetaAhorro, updateMetaAhorroEstado, updateMetaAhorro } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
@@ -29,6 +29,7 @@ const emptyForm = () => ({
   cuentaId: "",
   montoObjetivo: "",
   porcentaje: "",
+  fechaInicio: "",
   fechaObjetivo: "",
   estado: "Activa",
   notas: "",
@@ -41,10 +42,41 @@ function toEditForm(m) {
     cuentaId: m.cuentaId || "",
     montoObjetivo: m.montoObjetivo != null ? String(m.montoObjetivo) : "",
     porcentaje: m.porcentaje != null ? String(m.porcentaje) : "",
+    fechaInicio: m.fechaInicio || "",
     fechaObjetivo: m.fechaObjetivo || "",
     estado: m.estado || "Activa",
     notas: m.notas || "",
   };
+}
+
+function PiggyProgress({ pct, size = 52 }) {
+  const clamped = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0));
+  const radius = 24;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - clamped / 100);
+  const color = clamped >= 100 ? "var(--sage)" : clamped >= 40 ? "var(--sage)" : "var(--amber)";
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg viewBox="0 0 60 60" width={size} height={size} style={{ transform: "rotate(-90deg)", display: "block" }}>
+        <circle cx="30" cy="30" r={radius} fill="none" stroke="var(--line-soft)" strokeWidth="5" />
+        <circle
+          cx="30"
+          cy="30"
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth="5"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.3s ease" }}
+        />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <PiggyBank size={size * 0.38} style={{ color }} />
+      </div>
+    </div>
+  );
 }
 
 export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, onNavigate }) {
@@ -133,6 +165,7 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
         cuentaNombre: cuenta ? cuenta.nombre : "",
         montoObjetivo: form.tipoMeta === "Meta específica" ? parseFloat(form.montoObjetivo) || null : null,
         porcentaje: form.tipoMeta === "Porcentaje de ingreso" ? parseFloat(form.porcentaje) || null : null,
+        fechaInicio: form.fechaInicio || null,
         fechaObjetivo: form.fechaObjetivo || null,
         estado: form.estado,
         notas: form.notas.trim(),
@@ -163,6 +196,7 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
         cuentaNombre: cuenta ? cuenta.nombre : "",
         montoObjetivo: editForm.tipoMeta === "Meta específica" ? parseFloat(editForm.montoObjetivo) || null : null,
         porcentaje: editForm.tipoMeta === "Porcentaje de ingreso" ? parseFloat(editForm.porcentaje) || null : null,
+        fechaInicio: editForm.fechaInicio || null,
         fechaObjetivo: editForm.fechaObjetivo || null,
         estado: editForm.estado,
         notas: editForm.notas.trim(),
@@ -216,8 +250,29 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
         )}
       </div>
 
+      <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <div>
+          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Fecha de inicio</div>
+          <input
+            type="date"
+            value={f.fechaInicio}
+            onChange={(e) => setF({ ...f, fechaInicio: e.target.value })}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+          />
+        </div>
+        <div>
+          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Fecha final (opcional)</div>
+          <input
+            type="date"
+            value={f.fechaObjetivo}
+            onChange={(e) => setF({ ...f, fechaObjetivo: e.target.value })}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+          />
+        </div>
+      </div>
+
       {f.tipoMeta === "Meta específica" ? (
-        <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8, marginBottom: 8 }}>
           <input
             className="despensa-mono"
             type="number"
@@ -227,13 +282,6 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
             value={f.montoObjetivo}
             onChange={(e) => setF({ ...f, montoObjetivo: e.target.value })}
             style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-          />
-          <input
-            type="date"
-            value={f.fechaObjetivo}
-            onChange={(e) => setF({ ...f, fechaObjetivo: e.target.value })}
-            style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-            title="Fecha objetivo (opcional)"
           />
         </div>
       ) : (
@@ -374,13 +422,14 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
 
             const cuenta = cuentas.find((c) => c.id === m.cuentaId);
             const esPorcentaje = m.tipoMeta === "Porcentaje de ingreso";
-            const Icon = esPorcentaje ? Percent : Target;
 
             let contenido;
+            let pctAlcanzado = 0;
             if (esPorcentaje) {
               const sugerido = ingresoMensual * ((m.porcentaje || 0) / 100);
               const aportadoEsteMes = cuenta ? aportadoEsteMesPorCuenta[cuenta.id] || 0 : 0;
               const pct = sugerido > 0 ? Math.min(100, Math.round((aportadoEsteMes / sugerido) * 100)) : 0;
+              pctAlcanzado = pct;
               const alDia = sugerido > 0 && aportadoEsteMes >= sugerido;
               contenido = (
                 <>
@@ -389,14 +438,9 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
                     <Field label="Aportado este mes" value={<span style={{ color: alDia ? "var(--sage)" : "var(--stamp)" }}>{formatMoney(aportadoEsteMes)}</span>} />
                   </div>
                   {sugerido > 0 && (
-                    <>
-                      <div style={{ height: 6, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden", marginBottom: 4 }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: alDia ? "var(--sage)" : "var(--amber)", borderRadius: 4 }} />
-                      </div>
-                      <div style={{ fontSize: 11, color: alDia ? "var(--sage)" : "var(--ink-soft)" }}>
-                        {alDia ? "Vas al día este mes" : `Te falta ${formatMoney(Math.max(sugerido - aportadoEsteMes, 0))} este mes`}
-                      </div>
-                    </>
+                    <div style={{ fontSize: 11, color: alDia ? "var(--sage)" : "var(--ink-soft)" }}>
+                      {alDia ? "Vas al día este mes" : `Te falta ${formatMoney(Math.max(sugerido - aportadoEsteMes, 0))} este mes`}
+                    </div>
                   )}
                 </>
               );
@@ -404,18 +448,16 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
               const aportado = cuenta ? aportadoPorCuenta[cuenta.id] || 0 : 0;
               const objetivo = m.montoObjetivo || 0;
               const pct = objetivo > 0 ? Math.min(100, Math.round((aportado / objetivo) * 100)) : 0;
-              const completada = objetivo > 0 && aportado >= objetivo;
+              pctAlcanzado = pct;
               contenido = (
                 <>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 6 }}>
                     <Field label="Aportado" value={<span style={{ color: "var(--sage)" }}>{formatMoney(aportado)}</span>} />
                     <Field label="Objetivo" value={formatMoney(objetivo)} />
                   </div>
-                  <div style={{ height: 6, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden", marginBottom: 4 }}>
-                    <div style={{ height: "100%", width: `${pct}%`, background: completada ? "var(--sage)" : "var(--sage)", borderRadius: 4 }} />
-                  </div>
                   <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
                     {pct}% completado
+                    {m.fechaInicio && <> · desde {formatDateDisplay(m.fechaInicio)}</>}
                     {m.fechaObjetivo && <> · meta para {formatDateDisplay(m.fechaObjetivo)}</>}
                   </div>
                 </>
@@ -426,9 +468,7 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
               <div key={m.id} data-record-id={m.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
-                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--sage-bg)", color: "var(--sage)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Icon size={14} />
-                    </div>
+                    <PiggyProgress pct={pctAlcanzado} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 14, fontWeight: 500 }}>{m.nombre}</span>
