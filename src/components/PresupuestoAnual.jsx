@@ -100,6 +100,7 @@ function totalItemsOrden(orden) {
 export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig }) {
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
+  const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
 
   const categorias = useMemo(() => {
     return categoriasPersonalizadas.map((c) => ({ nombre: c.nombre, clasificacion: c.clasificacion }));
@@ -328,6 +329,13 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     for (let m = 1; m <= 12; m++) total += totalMesPrestamo(p, m);
     return total;
   };
+
+  // Suma de TODOS los préstamos activos juntos, para la fila resumen
+  // colapsable "Compromisos financieros".
+  const getCeldaPrestamosTodos = (mes, quincena) =>
+    prestamosActivos.reduce((s, p) => s + getCeldaPrestamo(p, mes, quincena), 0);
+
+  const totalPrestamosTodos = () => prestamosActivos.reduce((s, p) => s + totalPorPrestamo(p), 0);
 
   const totalPorMeta = (meta) => {
     let total = 0;
@@ -641,7 +649,70 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                 </td>
               </tr>
             ))}
-            {prestamosActivos.map((p, idx) => {
+            {prestamosActivos.length > 0 && (
+              <tr style={{ background: "transparent" }}>
+                <td
+                  onClick={() => setMostrarPrestamos((s) => !s)}
+                  style={{
+                    position: "sticky",
+                    left: 0,
+                    background: "var(--stamp-bg)",
+                    padding: "6px 10px",
+                    borderRight: "1px solid var(--line)",
+                    borderBottom: "1px solid var(--line-soft)",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    color: "var(--stamp)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    cursor: "pointer",
+                  }}
+                  title="Clic para ver el detalle de cada préstamo"
+                >
+                  {mostrarPrestamos ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  <Landmark size={11} /> Compromisos financieros
+                </td>
+                {MESES.map((_, i) => {
+                  const mes = i + 1;
+                  return QUINCENAS.map((q) => {
+                    const val = getCeldaPrestamosTodos(mes, q);
+                    return (
+                      <td
+                        key={`prestamos-resumen-${mes}-${q}`}
+                        style={{
+                          borderBottom: "1px solid var(--line-soft)",
+                          borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                          padding: "6px 4px",
+                          textAlign: "right",
+                          fontWeight: 600,
+                          color: "var(--stamp)",
+                          opacity: val ? 1 : 0.35,
+                        }}
+                      >
+                        {formatMoney(val) || "—"}
+                      </td>
+                    );
+                  });
+                })}
+                <td
+                  style={{
+                    borderLeft: "1px solid var(--line)",
+                    borderBottom: "1px solid var(--line-soft)",
+                    padding: "7px 10px",
+                    textAlign: "right",
+                    fontWeight: 700,
+                    background: "var(--stamp-bg)",
+                    color: "var(--stamp)",
+                  }}
+                >
+                  {formatMoney(totalPrestamosTodos()) || "0"}
+                </td>
+              </tr>
+            )}
+            {mostrarPrestamos &&
+              prestamosActivos.map((p, idx) => {
               const rowIdx = categorias.length + idx;
               return (
                 <tr key={`prestamo-${p.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
@@ -650,11 +721,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                       position: "sticky",
                       left: 0,
                       background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                      padding: "6px 10px",
+                      padding: "6px 10px 6px 24px",
                       borderRight: "1px solid var(--line)",
                       borderBottom: "1px solid var(--line-soft)",
                       fontFamily: "Inter, sans-serif",
-                      fontSize: 12.5,
+                      fontSize: 12,
                       color: "var(--stamp)",
                       display: "flex",
                       alignItems: "center",
@@ -662,7 +733,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     }}
                     title="Calculado automáticamente desde Préstamos"
                   >
-                    <Landmark size={11} /> Préstamo {p.numero}
+                    <Landmark size={10} /> Préstamo {p.numero}
                   </td>
                   {MESES.map((_, i) => {
                     const mes = i + 1;
