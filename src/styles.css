@@ -205,6 +205,9 @@ button:hover {
   .despensa-desktop-only {
     display: none !important;
   }
+  .despensa-header-left--search-open {
+    display: none !important;
+  }
 }
 
 .despensa-bottomnav {

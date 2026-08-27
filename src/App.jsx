@@ -132,6 +132,7 @@ export default function App() {
   const [theme, setTheme] = useState(getInitialTheme);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialCollapsed);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -315,7 +316,7 @@ export default function App() {
       <BottomNav tab={tab} setTab={setTab} categoriasGasto={categoriasGasto} />
       <main className="despensa-main">
         <div className="despensa-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className={`despensa-header-left${searchOpen ? " despensa-header-left--search-open" : ""}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               onClick={() => setShowMobileMenu(true)}
               className="despensa-hamburger"
@@ -374,6 +375,7 @@ export default function App() {
                 metasAhorro={metasAhorro}
                 fuentesIngreso={fuentesIngreso}
                 onNavigate={handleSearchNavigate}
+                onOpenChange={setSearchOpen}
               />
               <div className="despensa-desktop-only">
                 <NotificationBell

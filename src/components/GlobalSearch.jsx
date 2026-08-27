@@ -69,11 +69,16 @@ export default function GlobalSearch({
   metasAhorro,
   fuentesIngreso,
   onNavigate,
+  onOpenChange,
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const ref = useRef(null);
   const inputRef = useRef(null);
+
+  useEffect(() => {
+    onOpenChange && onOpenChange(open);
+  }, [open]);
 
   useEffect(() => {
     const onClickOutside = (e) => {
