@@ -1,9 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Palmtree, Calendar, Briefcase, AlertTriangle, Plane, Search } from "lucide-react";
+import { Plus, Trash2, X, Pencil, Check, Palmtree, Calendar, Briefcase, AlertTriangle } from "lucide-react";
 import { addVacacion, updateVacacion, deleteVacacion } from "../lib/db";
 import { confirm } from "../lib/confirm";
-import { httpsCallable } from "firebase/functions";
-import { functions } from "../firebase";
 
 const ESTADOS = ["Planificada", "Confirmada", "Completada", "Cancelada"];
 
@@ -24,132 +22,6 @@ function diasEntre(inicio, fin) {
   const b = new Date(fin + "T00:00:00");
   const dias = Math.round((b - a) / 86400000) + 1; // inclusivo
   return dias > 0 ? dias : 0;
-}
-
-function BuscadorVuelos({ fechaSugerida }) {
-  const [abierto, setAbierto] = useState(false);
-  const [origen, setOrigen] = useState("SDQ");
-  const [destino, setDestino] = useState("");
-  const [fechaIda, setFechaIda] = useState(fechaSugerida || "");
-  const [fechaVuelta, setFechaVuelta] = useState("");
-  const [aerolinea, setAerolinea] = useState("");
-  const [buscando, setBuscando] = useState(false);
-  const [error, setError] = useState(null);
-  const [resultados, setResultados] = useState(null);
-
-  const buscar = async () => {
-    if (!origen.trim() || !destino.trim() || !fechaIda) {
-      setError("Ingresa origen, destino y fecha de ida (códigos de aeropuerto, ej. SDQ, BOG)");
-      return;
-    }
-    setBuscando(true);
-    setError(null);
-    setResultados(null);
-    try {
-      const buscarVuelos = httpsCallable(functions, "buscarVuelos");
-      const res = await buscarVuelos({
-        origen: origen.trim(),
-        destino: destino.trim(),
-        fechaIda,
-        fechaVuelta: fechaVuelta || null,
-        aerolinea: aerolinea.trim() || null,
-        adultos: 1,
-      });
-      setResultados(res.data.ofertas || []);
-    } catch (err) {
-      setError(err.message || "No se pudo buscar vuelos ahora mismo.");
-    } finally {
-      setBuscando(false);
-    }
-  };
-
-  return (
-    <div style={{ marginTop: 10, borderTop: "1px solid var(--line-soft)", paddingTop: 10 }}>
-      <button
-        onClick={() => setAbierto((s) => !s)}
-        style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
-      >
-        <Plane size={13} /> {abierto ? "Ocultar buscador de vuelos" : "Buscar vuelos para este viaje"}
-      </button>
-
-      {abierto && (
-        <div style={{ marginTop: 10 }}>
-          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
-            <input
-              placeholder="Origen (ej. SDQ)"
-              value={origen}
-              onChange={(e) => setOrigen(e.target.value.toUpperCase())}
-              maxLength={3}
-              style={{ padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12, textTransform: "uppercase" }}
-            />
-            <input
-              placeholder="Destino (ej. BOG)"
-              value={destino}
-              onChange={(e) => setDestino(e.target.value.toUpperCase())}
-              maxLength={3}
-              style={{ padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12, textTransform: "uppercase" }}
-            />
-          </div>
-          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
-            <input
-              type="date"
-              value={fechaIda}
-              onChange={(e) => setFechaIda(e.target.value)}
-              title="Fecha de ida"
-              style={{ padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12 }}
-            />
-            <input
-              type="date"
-              value={fechaVuelta}
-              onChange={(e) => setFechaVuelta(e.target.value)}
-              title="Fecha de vuelta (opcional)"
-              style={{ padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12 }}
-            />
-          </div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-            <input
-              placeholder="Aerolínea (opcional, ej. AV)"
-              value={aerolinea}
-              onChange={(e) => setAerolinea(e.target.value.toUpperCase())}
-              maxLength={2}
-              style={{ flex: 1, padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12, textTransform: "uppercase" }}
-            />
-            <button
-              onClick={buscar}
-              disabled={buscando}
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: buscando ? "not-allowed" : "pointer", flexShrink: 0 }}
-            >
-              <Search size={12} /> {buscando ? "Buscando…" : "Buscar"}
-            </button>
-          </div>
-
-          {error && <div style={{ fontSize: 11.5, color: "var(--stamp)", marginBottom: 8 }}>{error}</div>}
-
-          {resultados && resultados.length === 0 && (
-            <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Sin resultados para esa búsqueda.</div>
-          )}
-
-          {resultados && resultados.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {resultados.map((oferta, idx) => (
-                <div key={idx} style={{ background: "var(--paper)", border: "1px solid var(--line-soft)", borderRadius: 8, padding: "8px 10px" }}>
-                  {oferta.itinerarios.map((it, i) => (
-                    <div key={i} style={{ fontSize: 11.5, color: "var(--ink)", marginBottom: i === 0 && oferta.itinerarios.length > 1 ? 3 : 0 }}>
-                      <span className="despensa-mono" style={{ fontWeight: 600 }}>{it.aerolinea}</span> · {it.origen} → {it.destino} ·{" "}
-                      {it.escalas === 0 ? "Directo" : `${it.escalas} escala(s)`}
-                    </div>
-                  ))}
-                  <div className="despensa-mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--sage)", marginTop: 4 }}>
-                    {oferta.moneda} {oferta.precio}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 const emptyForm = (fuenteIngresoId) => ({
@@ -523,7 +395,7 @@ export default function Vacaciones({ vacaciones, fuentesIngreso, categoriasGasto
                   </div>
                 </div>
                 {v.notas && <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 8, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>{v.notas}</div>}
-                <BuscadorVuelos fechaSugerida={v.fechaInicio} />
+
               </div>
             );
           })}
