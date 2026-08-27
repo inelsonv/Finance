@@ -392,41 +392,12 @@ export default function App() {
                   onNavigate={handleNavigate}
                 />
               </div>
-              <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} />
+              <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} synced={synced} />
             </div>
             <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
               {fechaHoy}
             </span>
           </div>
-        </div>
-
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            fontSize: 11,
-            padding: "3px 9px",
-            borderRadius: 20,
-            marginBottom: "1.25rem",
-            background: synced ? "var(--sage-bg)" : "var(--stamp-bg)",
-            color: synced ? "var(--sage)" : "var(--stamp)",
-          }}
-        >
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "currentColor",
-              flexShrink: 0,
-            }}
-          />
-          {synced === null
-            ? "Conectando con Firebase…"
-            : synced
-            ? "Sincronizado con Firebase"
-            : "Sin conexión con Firebase — guardando solo en este navegador"}
         </div>
 
         {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} movimientos={movimientos} cuentas={cuentas} />}

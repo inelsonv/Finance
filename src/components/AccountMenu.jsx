@@ -4,7 +4,7 @@ import { confirm } from "../lib/confirm";
 
 const APP_URL = "https://inelsonv.github.io/Finance/";
 
-export default function AccountMenu({ user, onSignOut, onOpenSettings }) {
+export default function AccountMenu({ user, onSignOut, onOpenSettings, synced }) {
   const [open, setOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const ref = useRef(null);
@@ -24,7 +24,7 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings }) {
       <button
         onClick={() => setOpen((o) => !o)}
         title={user.displayName || user.email}
-        style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "flex" }}
+        style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "flex", position: "relative" }}
       >
         <img
           src={user.photoURL}
@@ -37,6 +37,19 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings }) {
             border: open ? "2px solid var(--sage)" : "1px solid var(--line)",
             objectFit: "cover",
             flexShrink: 0,
+          }}
+        />
+        <span
+          title={synced === null ? "Conectando…" : synced ? "Sincronizado" : "Sin conexión"}
+          style={{
+            position: "absolute",
+            bottom: -1,
+            right: -1,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: synced === null ? "var(--amber)" : synced ? "var(--sage)" : "var(--stamp)",
+            border: "2px solid var(--paper)",
           }}
         />
       </button>
