@@ -190,6 +190,15 @@ button:hover {
   .despensa-main {
     padding: 1.25rem 1rem calc(70px + env(safe-area-inset-bottom, 0px));
   }
+  .despensa-header {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: var(--paper);
+    padding: 0.75rem 1rem;
+    margin: -1.25rem -1rem 10px;
+    border-bottom: 1px solid var(--line);
+  }
 }
 
 .despensa-bottomnav {

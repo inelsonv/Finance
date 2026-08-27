@@ -306,7 +306,7 @@ export default function App() {
       />
       <BottomNav tab={tab} setTab={setTab} />
       <main className="despensa-main">
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
+        <div className="despensa-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <h1 className="despensa-tab-font" style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
             {TITLES[tab]}
           </h1>
