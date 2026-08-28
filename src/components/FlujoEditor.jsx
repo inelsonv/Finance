@@ -42,6 +42,15 @@ const ICONOS = {
 
 const ICONO_DEFAULT = "dollarSign";
 
+const NODOS_PRECONFIGURADOS = [
+  { label: "Gastos fijos", icon: "home", color: PALETTE[1] },
+  { label: "Gastos variables", icon: "shoppingBag", color: PALETTE[2] },
+  { label: "Pago de deudas", icon: "landmark", color: PALETTE[3] },
+  { label: "Ahorro", icon: "piggyBank", color: PALETTE[0] },
+  { label: "Inversión", icon: "trendingUp", color: PALETTE[4] },
+  { label: "Diezmo", icon: "coins", color: PALETTE[5] },
+];
+
 function IconoNodo({ nombre, size = 13 }) {
   const Icon = ICONOS[nombre] || ICONOS[ICONO_DEFAULT];
   return <Icon size={size} />;
@@ -70,22 +79,23 @@ function ActivityFlowNode({ data }) {
         display: "flex",
         alignItems: "center",
         gap: 10,
-        background: "var(--card)",
-        color: "var(--ink)",
+        background: color,
+        color: "#fff",
         border: `2px solid ${color}`,
         borderRadius: 10,
         padding: "8px 12px",
         fontFamily: "Inter, sans-serif",
         minWidth: 150,
+        boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
       }}
     >
-      <Handle type="target" position={Position.Left} style={{ background: color }} />
+      <Handle type="target" position={Position.Left} style={{ background: "#fff", border: `2px solid ${color}` }} />
       <div
         style={{
           width: 32,
           height: 32,
           borderRadius: "50%",
-          background: color,
+          background: "rgba(255,255,255,0.25)",
           opacity: 1,
           display: "flex",
           alignItems: "center",
@@ -97,19 +107,22 @@ function ActivityFlowNode({ data }) {
         <IconoNodo nombre={data.icon} size={16} />
       </div>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>{data.label}</div>
+        <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", color: "#fff" }}>{data.label}</div>
         {esIngreso && (
-          <div className="despensa-mono" style={{ fontSize: 11, color, fontWeight: 600, marginTop: 2 }}>
+          <div className="despensa-mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2 }}>
             {data.amount != null ? formatMoney(data.amount) : "Sin monto"}
           </div>
         )}
         {!esIngreso && data.amount != null && (
-          <div className="despensa-mono" style={{ fontSize: 11, color, fontWeight: 600, marginTop: 2 }}>
+          <div className="despensa-mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2 }}>
             {formatMoney(data.amount)}
           </div>
         )}
+        {!esIngreso && data.categoria && (
+          <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.75)", marginTop: 1 }}>{data.categoria}</div>
+        )}
       </div>
-      <Handle type="source" position={Position.Right} style={{ background: color }} />
+      <Handle type="source" position={Position.Right} style={{ background: "#fff", border: `2px solid ${color}` }} />
     </div>
   );
 }
@@ -154,6 +167,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [editLabel, setEditLabel] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editIcon, setEditIcon] = useState(ICONO_DEFAULT);
@@ -212,6 +226,20 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     setEditAmount("");
     setEditIcon(ICONO_DEFAULT);
     setEditTipo("categoria");
+  };
+
+  const addNodoPreconfigurado = (preset) => {
+    const id = nextId();
+    setNodes((nds) => [
+      ...nds,
+      {
+        id,
+        type: "activity",
+        position: { x: 120 + (nds.length % 4) * 60, y: 60 + Math.floor(nds.length / 4) * 100 },
+        data: { label: preset.label, amount: null, color: preset.color, icon: preset.icon, tipo: "categoria" },
+      },
+    ]);
+    setDirty(true);
   };
 
   const openEdit = (node) => {
@@ -309,9 +337,36 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
         </div>
       )}
 
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Nodos comunes — toca para agregar:</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {NODOS_PRECONFIGURADOS.map((preset) => (
+            <button
+              key={preset.label}
+              onClick={() => addNodoPreconfigurado(preset)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                fontSize: 12,
+                fontWeight: 500,
+                borderRadius: 20,
+                border: `1px solid ${preset.color}`,
+                background: "var(--card)",
+                color: preset.color,
+                cursor: "pointer",
+              }}
+            >
+              <IconoNodo nombre={preset.icon} size={12} /> {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10, alignItems: "center" }}>
         <button onClick={addNode} style={btnStyle("var(--ink)", "var(--paper)")}>
-          <Plus size={14} /> Agregar actividad
+          <Plus size={14} /> Agregar actividad personalizada
         </button>
         <button onClick={handleSave} disabled={saving || !dirty} style={btnStyle(dirty ? "var(--sage)" : "var(--line)", "#fff", !dirty)}>
           <Save size={14} /> {saving ? "Guardando…" : dirty ? "Guardar cambios" : "Guardado"}
@@ -425,7 +480,36 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
         </div>
       )}
 
-      <div style={{ height: 680, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
+      <div style={{ height: 680, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)", position: "relative" }}>
+        {selectedEdgeId && (
+          <button
+            onClick={() => {
+              setEdges((eds) => eds.filter((e) => e.id !== selectedEdgeId));
+              setDirty(true);
+              setSelectedEdgeId(null);
+            }}
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 12px",
+              fontSize: 12,
+              fontWeight: 500,
+              background: "var(--stamp)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            }}
+          >
+            <Trash2 size={13} /> Eliminar conexión
+          </button>
+        )}
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -436,7 +520,10 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
           onEdgeDoubleClick={(_, edge) => {
             setEdges((eds) => eds.filter((e) => e.id !== edge.id));
             setDirty(true);
+            setSelectedEdgeId(null);
           }}
+          onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
+          onPaneClick={() => setSelectedEdgeId(null)}
           onNodeDoubleClick={(_, node) => openEdit(node)}
           fitView
           deleteKeyCode={["Backspace", "Delete"]}
@@ -448,8 +535,8 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
       </div>
 
       <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8 }}>
-        El nodo "Ingreso" original toma como referencia tu ingreso mensual calculado en la sección Ingresos. Selecciona un
-        nodo o conexión y presiona Suprimir/Backspace para eliminarlo.
+        El nodo "Ingreso" original toma como referencia tu ingreso mensual calculado en la sección Ingresos. Toca una
+        conexión para seleccionarla y aparecerá el botón "Eliminar conexión" (o doble clic para borrarla directo).
       </div>
     </div>
   );
