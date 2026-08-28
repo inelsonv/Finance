@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle } from "lucide-react";
-import { watchChecklistPeriodo, setChecklistItem } from "../lib/db";
+import { watchChecklistPeriodo, setChecklistItem, addMovimiento } from "../lib/db";
+import { confirm } from "../lib/confirm";
+import { GASTO_CATS_FIJO } from "../lib/categorias";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const METODOS = ["Efectivo", "Transferencia", "Tarjeta", "Otro"];
@@ -9,6 +11,10 @@ const METODO_ICONS = { Efectivo: Banknote, Transferencia: ArrowLeftRight, Tarjet
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function celdaPrestamo(prestamo, year, mes) {
@@ -80,7 +86,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       for (const c of categoriasGasto) {
         const val = presupuesto?.[c.nombre]?.[String(periodo.month)]?.[periodo.quincena];
         if (typeof val === "number" && val > 0) {
-          list.push({ key: c.nombre, nombre: c.nombre, monto: val, icon: Wallet, metodoDefault: c.metodoPagoDefault || null });
+          list.push({ key: c.nombre, nombre: c.nombre, monto: val, icon: Wallet, metodoDefault: c.metodoPagoDefault || null, esPrestamo: false });
         }
       }
     }
@@ -93,13 +99,35 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           if (cy !== periodo.year || cm !== periodo.month) continue;
           const q = cd && cd > 15 ? "Q2" : "Q1";
           if (q !== periodo.quincena) continue;
-          list.push({ key: `prestamo-${p.id}-${c.fecha}`, nombre: `Préstamo ${p.numero} (${c.fecha.split("-").reverse().slice(0, 2).join("/")})`, monto: c.monto, icon: Landmark, metodoDefault: null });
+          list.push({
+            key: `prestamo-${p.id}-${c.fecha}`,
+            nombre: `Préstamo ${p.numero} (${c.fecha.split("-").reverse().slice(0, 2).join("/")})`,
+            monto: c.monto,
+            icon: Landmark,
+            metodoDefault: null,
+            esPrestamo: true,
+            prestamoId: p.id,
+            prestamoNumero: p.numero,
+            entidadId: p.entidadId || "",
+            entidadName: p.entidadName || "",
+          });
         }
         continue;
       }
       const { activo, quincena } = celdaPrestamo(p, periodo.year, periodo.month);
       if (activo && quincena === periodo.quincena && p.cuota) {
-        list.push({ key: `prestamo-${p.id}`, nombre: `Préstamo ${p.numero}`, monto: p.cuota, icon: Landmark, metodoDefault: null });
+        list.push({
+          key: `prestamo-${p.id}`,
+          nombre: `Préstamo ${p.numero}`,
+          monto: p.cuota,
+          icon: Landmark,
+          metodoDefault: null,
+          esPrestamo: true,
+          prestamoId: p.id,
+          prestamoNumero: p.numero,
+          entidadId: p.entidadId || "",
+          entidadName: p.entidadName || "",
+        });
       }
     }
     return list.sort((a, b) => b.monto - a.monto);
@@ -126,9 +154,57 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     return Object.entries(map).sort((a, b) => b[1] - a[1]);
   }, [items, checklist]);
 
-  const toggleItem = (key) => {
-    const actual = checklist?.items?.[key] || {};
-    setChecklistItem(periodoKey, key, { ...actual, pagado: !actual.pagado });
+  const [confirmandoKey, setConfirmandoKey] = useState(null);
+
+  const toggleItem = async (it) => {
+    const actual = checklist?.items?.[it.key] || {};
+
+    if (actual.pagado) {
+      // Desmarcar no requiere confirmación ni registra nada (el movimiento ya
+      // creado, si lo hay, se puede editar/eliminar desde Movimientos).
+      setChecklistItem(periodoKey, it.key, { ...actual, pagado: false });
+      return;
+    }
+
+    const metodoPago = actual.metodoPago || it.metodoDefault || "Efectivo";
+    setConfirmandoKey(it.key);
+    let confirmado;
+    try {
+      confirmado = await confirm(`¿Confirmar el pago de "${it.nombre}" por ${formatMoney(it.monto)}?`, {
+        confirmLabel: "Confirmar pago",
+        danger: false,
+      });
+    } finally {
+      setConfirmandoKey(null);
+    }
+    if (!confirmado) return;
+
+    await setChecklistItem(periodoKey, it.key, { ...actual, pagado: true, metodoPago });
+
+    if (it.esPrestamo) {
+      await addMovimiento({
+        type: "Pago de préstamo",
+        category: "Pago de préstamo",
+        amount: it.monto,
+        description: it.nombre,
+        date: todayStr(),
+        metodoPago,
+        entidadId: it.entidadId || null,
+        entidadName: it.entidadName || "",
+        prestamoId: it.prestamoId,
+        prestamoNumero: it.prestamoNumero || "",
+      });
+    } else {
+      await addMovimiento({
+        type: "Gasto",
+        category: it.nombre,
+        amount: it.monto,
+        description: it.nombre,
+        date: todayStr(),
+        clasificacion: GASTO_CATS_FIJO.includes(it.nombre) ? "Fijo" : "Variable",
+        metodoPago,
+      });
+    }
   };
 
   const setMetodo = (key, metodo) => {
@@ -243,7 +319,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 }}
               >
                 <button
-                  onClick={() => toggleItem(it.key)}
+                  onClick={() => toggleItem(it)}
+                  disabled={confirmandoKey === it.key}
                   title={estado.pagado ? "Marcar como pendiente" : "Marcar como pagado"}
                   style={{
                     display: "flex",
@@ -255,7 +332,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     border: `2px solid ${estado.pagado ? "var(--sage)" : "var(--line)"}`,
                     background: estado.pagado ? "var(--sage)" : "transparent",
                     color: "#fff",
-                    cursor: "pointer",
+                    cursor: confirmandoKey === it.key ? "wait" : "pointer",
                     flexShrink: 0,
                   }}
                 >
