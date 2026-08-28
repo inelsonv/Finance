@@ -533,7 +533,7 @@ export default function App() {
         {tab === "vacaciones" && (
           <Vacaciones vacaciones={vacaciones} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} />
         )}
-        {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} categoriasGasto={categoriasGasto} />}
+        {tab === "calendario" && <Calendario eventos={eventos} entidades={entidades} categoriasGasto={categoriasGasto} vacaciones={vacaciones} />}
         {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} />}
         {tab === "ahorro" && (
           <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} onNavigate={setTab} />

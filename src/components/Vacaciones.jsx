@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Palmtree, Calendar, Briefcase, AlertTriangle } from "lucide-react";
 import { addVacacion, updateVacacion, deleteVacacion } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import DateRangeCalendar from "./DateRangeCalendar.jsx";
 
 const ESTADOS = ["Planificada", "Confirmada", "Completada", "Cancelada"];
 
@@ -158,7 +159,6 @@ export default function Vacaciones({ vacaciones, fuentesIngreso, categoriasGasto
   };
 
   const renderForm = (f, setF, onSave, savingFlag, error, onCancel, isEdit) => {
-    const dias = diasEntre(f.fechaInicio, f.fechaFin);
     return (
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
         <input
@@ -182,32 +182,14 @@ export default function Vacaciones({ vacaciones, fuentesIngreso, categoriasGasto
           </select>
         </div>
 
-        <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-          <div>
-            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Desde</div>
-            <input
-              type="date"
-              value={f.fechaInicio}
-              onChange={(e) => setF({ ...f, fechaInicio: e.target.value })}
-              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-            />
-          </div>
-          <div>
-            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Hasta</div>
-            <input
-              type="date"
-              value={f.fechaFin}
-              onChange={(e) => setF({ ...f, fechaFin: e.target.value })}
-              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-            />
-          </div>
+        <div style={{ marginBottom: 8 }}>
+          <DateRangeCalendar
+            fechaInicio={f.fechaInicio}
+            fechaFin={f.fechaFin}
+            onChange={({ fechaInicio, fechaFin }) => setF({ ...f, fechaInicio, fechaFin })}
+          />
         </div>
 
-        {f.fechaInicio && f.fechaFin && (
-          <div style={{ fontSize: 11.5, color: "var(--sage)", marginBottom: 8 }}>
-            {dias} día(s) de vacaciones
-          </div>
-        )}
 
         <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 8, marginBottom: 8 }}>
           <select

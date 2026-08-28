@@ -103,7 +103,7 @@ function toEditForm(e) {
   };
 }
 
-export default function Calendario({ eventos, entidades, categoriasGasto }) {
+export default function Calendario({ eventos, entidades, categoriasGasto, vacaciones }) {
   const hoy = todayStr();
   const [viewDate, setViewDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(hoy);
@@ -118,15 +118,41 @@ export default function Calendario({ eventos, entidades, categoriasGasto }) {
   const [mostrarPasados, setMostrarPasados] = useState(false);
   const [mostrarLista, setMostrarLista] = useState(false);
 
+  // Convierte cada periodo de vacaciones en un "evento" por cada día del
+  // rango, para que aparezcan en el calendario general (icono, día
+  // seleccionado), sin duplicar datos: siguen viviendo solo en Vacaciones.
+  const eventosVacaciones = useMemo(() => {
+    const sinteticos = [];
+    for (const v of vacaciones || []) {
+      if (v.estado === "Cancelada" || !v.fechaInicio || !v.fechaFin) continue;
+      let cursor = new Date(v.fechaInicio + "T00:00:00");
+      const fin = new Date(v.fechaFin + "T00:00:00");
+      while (cursor <= fin) {
+        const dateStr = `${cursor.getFullYear()}-${pad2(cursor.getMonth() + 1)}-${pad2(cursor.getDate())}`;
+        sinteticos.push({
+          id: `vac-${v.id}-${dateStr}`,
+          titulo: v.destino,
+          tipo: "Vacaciones",
+          fecha: dateStr,
+          estado: v.estado === "Completada" ? "Completado" : "Pendiente",
+          notas: v.notas || "",
+          esVacacionSintetica: true,
+        });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
+    return sinteticos;
+  }, [vacaciones]);
+
   const eventosPorFecha = useMemo(() => {
     const map = {};
-    for (const e of eventos) {
+    for (const e of [...eventos, ...eventosVacaciones]) {
       if (!e.fecha) continue;
       if (!map[e.fecha]) map[e.fecha] = [];
       map[e.fecha].push(e);
     }
     return map;
-  }, [eventos]);
+  }, [eventos, eventosVacaciones]);
 
   const grilla = useMemo(() => construirGrilla(viewDate), [viewDate]);
 
@@ -393,6 +419,31 @@ export default function Calendario({ eventos, entidades, categoriasGasto }) {
 
     if (isEditing) {
       return <div key={e.id}>{renderForm(editForm, setEditForm, saveEdit, editSaving, editError, cancelEdit, true)}</div>;
+    }
+
+    if (e.esVacacionSintetica) {
+      return (
+        <div
+          key={e.id}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 12px",
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+          }}
+        >
+          <div style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--sage-bg)", color: "var(--sage)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon size={14} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{e.titulo}</div>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Vacaciones · gestiónalo en Presupuesto → Vacaciones</div>
+          </div>
+        </div>
+      );
     }
 
     let etiqueta = null;
