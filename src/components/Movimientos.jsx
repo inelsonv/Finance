@@ -1,9 +1,12 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle } from "lucide-react";
 import { addMovimiento, deleteMovimiento } from "../lib/db";
 import SwipeableRow from "./SwipeableRow.jsx";
+import Pagination from "./Pagination.jsx";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
 import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
+
+const PAGE_SIZE = 10;
 import { quincenaDeFecha, consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { confirm } from "../lib/confirm";
 
@@ -60,6 +63,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const [expresCategory, setExpresCategory] = useState(null);
   const [expresAmount, setExpresAmount] = useState("");
   const [expresSaving, setExpresSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const paginated = useMemo(() => movimientos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [movimientos, page]);
   const [alertaPresupuesto, setAlertaPresupuesto] = useState(null);
 
   const openExpres = (category) => {
@@ -771,8 +776,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
           Todavía no registraste ningún movimiento.
         </div>
       ) : (
-        <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
-          {movimientos.map((m, i) => (
+        <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)", minHeight: PAGE_SIZE * 53 }}>
+          {paginated.map((m, i) => (
             <SwipeableRow key={m.id} onDelete={async () => { if (await confirm("¿Eliminar este movimiento?")) deleteMovimiento(m.id); }}>
             <div
               className="despensa-row"
@@ -880,6 +885,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
           ))}
         </div>
       )}
+
+      <Pagination page={page} totalItems={movimientos.length} pageSize={PAGE_SIZE} onPageChange={setPage} />
     </div>
   );
 }
