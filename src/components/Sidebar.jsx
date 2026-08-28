@@ -10,7 +10,6 @@ import {
   ArrowLeftRight,
   Sun,
   Moon,
-  Vault,
   PiggyBank,
   CreditCard,
   PanelLeftClose,
@@ -22,6 +21,7 @@ import {
   Home,
   Zap,
   LineChart,
+  Coins,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -44,7 +44,7 @@ const NAV_ITEMS = [
   {
     id: "dinero-cuentas",
     label: "Finanzas",
-    icon: Vault,
+    icon: Coins,
     children: [
       { id: "cuentas", label: "Cuentas" },
       { id: "ahorro", label: "Ahorro" },

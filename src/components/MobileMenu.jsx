@@ -1,10 +1,10 @@
 import React from "react";
-import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Vault } from "lucide-react";
+import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins } from "lucide-react";
 import { confirm } from "../lib/confirm";
 
 const OPCIONES = [
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
-  { id: "dinero-cuentas", label: "Finanzas", icon: Vault },
+  { id: "dinero-cuentas", label: "Finanzas", icon: Coins },
   { id: "presupuesto", label: "Presupuesto", icon: Wallet },
   { id: "deudas-pagos", label: "Pagos fijos", icon: Banknote },
   { id: "activos", label: "Activos", icon: Car },
