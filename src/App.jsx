@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
@@ -33,6 +33,7 @@ import Calendario from "./components/Calendario.jsx";
 import Activos from "./components/Activos.jsx";
 import Ahorro from "./components/Ahorro.jsx";
 import Seguros from "./components/Seguros.jsx";
+import Renovaciones from "./components/Renovaciones.jsx";
 import OrdenesCompra from "./components/OrdenesCompra.jsx";
 import ChecklistPagos from "./components/ChecklistPagos.jsx";
 import Configuracion from "./components/Configuracion.jsx";
@@ -72,6 +73,7 @@ const TITLES = {
   activos: "Activos",
   ahorro: "Ahorro",
   seguros: "Seguros",
+  renovaciones: "Renovaciones y Trámites",
   "ordenes-compra": "Órdenes de compra",
   configuracion: "Configuración",
   "escanear-factura": "Registrar compra (factura)",
@@ -136,6 +138,7 @@ export default function App() {
   const [mantenimientos, setMantenimientos] = useState([]);
   const [metasAhorro, setMetasAhorro] = useState([]);
   const [seguros, setSeguros] = useState([]);
+  const [renovaciones, setRenovaciones] = useState([]);
   const [historialCompras, setHistorialCompras] = useState([]);
   const [ordenesCompra, setOrdenesCompra] = useState([]);
   const [vacaciones, setVacaciones] = useState([]);
@@ -246,6 +249,7 @@ export default function App() {
     const unsubMantenimientos = watchMantenimientos(setMantenimientos, handleError);
     const unsubMetasAhorro = watchMetasAhorro(setMetasAhorro, handleError);
     const unsubSeguros = watchSeguros(setSeguros, handleError);
+    const unsubRenovaciones = watchRenovaciones(setRenovaciones, handleError);
     const unsubHistorialCompras = watchHistorialCompras(setHistorialCompras, handleError);
     const unsubOrdenesCompra = watchOrdenesCompra(setOrdenesCompra, handleError);
     const unsubVacaciones = watchVacaciones(setVacaciones, handleError);
@@ -271,6 +275,7 @@ export default function App() {
       unsubMantenimientos();
       unsubMetasAhorro();
       unsubSeguros();
+      unsubRenovaciones();
       unsubHistorialCompras();
       unsubOrdenesCompra();
       unsubVacaciones();
@@ -498,6 +503,7 @@ export default function App() {
             categoriasPersonalizadas={categoriasGasto}
             year={presupuestoYear}
             onChangeYear={setPresupuestoYear}
+            renovaciones={renovaciones}
             prestamos={prestamos}
             metasAhorro={metasAhorro}
             fuentesIngreso={fuentesIngreso}
@@ -533,6 +539,9 @@ export default function App() {
           <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} onNavigate={setTab} />
         )}
         {tab === "seguros" && <Seguros seguros={seguros} entidades={entidades} activos={activos} />}
+        {tab === "renovaciones" && (
+          <Renovaciones renovaciones={renovaciones} entidades={entidades} activos={activos} categoriasGasto={categoriasGasto} />
+        )}
         {tab === "ordenes-compra" && <OrdenesCompra ordenes={ordenesCompra} products={products} entidades={entidades} categoriasGasto={categoriasGasto} />}
         {tab === "configuracion" && (
           <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} />

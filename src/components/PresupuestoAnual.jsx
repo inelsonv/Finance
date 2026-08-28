@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 
@@ -93,11 +93,20 @@ function celdaVacacion(vacacion, year, mes) {
   return { activo, quincena };
 }
 
+function celdaRenovacion(renovacion, year, mes) {
+  if (!renovacion.fechaInicio) return { activo: false, quincena: null };
+  const [ry, rm, rd] = renovacion.fechaInicio.split("-").map(Number);
+  if (!ry || !rm) return { activo: false, quincena: null };
+  const activo = ry === year && rm === mes;
+  const quincena = rd && rd > 15 ? "Q2" : "Q1";
+  return { activo, quincena };
+}
+
 function totalItemsOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear }) {
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones }) {
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
@@ -170,6 +179,19 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const categoriasVacacionesUnicas = useMemo(
     () => [...new Set(vacacionesConGasto.map((v) => v.categoriaGasto))],
     [vacacionesConGasto]
+  );
+
+  const renovacionesConGasto = useMemo(
+    () =>
+      (renovaciones || []).filter(
+        (r) => r.estado !== "Cancelado" && r.categoriaGasto && r.monto && r.fechaInicio
+      ),
+    [renovaciones]
+  );
+
+  const categoriasRenovacionesUnicas = useMemo(
+    () => [...new Set(renovacionesConGasto.map((r) => r.categoriaGasto))],
+    [renovacionesConGasto]
   );
 
   const getCeldaPrestamo = (prestamo, mes, quincena) => {
@@ -267,6 +289,19 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const totalMesVacacionCategoria = (categoriaNombre, mes) =>
     getCeldaVacacionCategoria(categoriaNombre, mes, "Q1") + getCeldaVacacionCategoria(categoriaNombre, mes, "Q2");
 
+  const getCeldaRenovacion = (renovacion, mes, quincena) => {
+    const { activo, quincena: q } = celdaRenovacion(renovacion, year, mes);
+    return activo && q === quincena ? renovacion.monto : 0;
+  };
+
+  const getCeldaRenovacionCategoria = (categoriaNombre, mes, quincena) =>
+    renovacionesConGasto
+      .filter((r) => r.categoriaGasto === categoriaNombre)
+      .reduce((s, r) => s + getCeldaRenovacion(r, mes, quincena), 0);
+
+  const totalMesRenovacionCategoria = (categoriaNombre, mes) =>
+    getCeldaRenovacionCategoria(categoriaNombre, mes, "Q1") + getCeldaRenovacionCategoria(categoriaNombre, mes, "Q2");
+
   const getCelda = (categoria, mes, quincena) => {
     const val = presupuesto?.[categoria]?.[String(mes)]?.[quincena];
     return typeof val === "number" ? val : null;
@@ -294,6 +329,9 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     for (const vacacion of vacacionesConGasto) {
       for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaVacacion(vacacion, m, "Q1") + getCeldaVacacion(vacacion, m, "Q2");
     }
+    for (const renovacion of renovacionesConGasto) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaRenovacion(renovacion, m, "Q1") + getCeldaRenovacion(renovacion, m, "Q2");
+    }
     if (diezmoMensual > 0) {
       for (let m = 1; m <= 12; m++) totals[m - 1] += diezmoMensual;
     }
@@ -301,7 +339,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
       for (let m = 1; m <= 12; m++) totals[m - 1] += ahorroMensual;
     }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
 
   const totalPorQuincenaGlobal = useMemo(() => {
     const totals = {};
@@ -332,6 +370,10 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         totals[`${m}-Q1`] += getCeldaVacacion(vacacion, m, "Q1");
         totals[`${m}-Q2`] += getCeldaVacacion(vacacion, m, "Q2");
       }
+      for (const renovacion of renovacionesConGasto) {
+        totals[`${m}-Q1`] += getCeldaRenovacion(renovacion, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaRenovacion(renovacion, m, "Q2");
+      }
       if (diezmoMensual > 0) {
         totals[`${m}-Q1`] += getCeldaDiezmo();
         totals[`${m}-Q2`] += getCeldaDiezmo();
@@ -342,7 +384,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
       }
     }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
 
 
   const totalPorCategoria = (categoria) => {
@@ -394,6 +436,12 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     return total;
   };
 
+  const totalPorRenovacionCategoria = (categoriaNombre) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesRenovacionCategoria(categoriaNombre, m);
+    return total;
+  };
+
   const totalAnual = totalPorMes.reduce((s, v) => s + v, 0);
 
   const ingresoQuincenal = ingresoMensual / 2;
@@ -437,7 +485,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   }, [categorias, presupuesto, movimientos, year, mesActual, quincenaActual]);
 
 
-  if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0 && eventosConGasto.length === 0 && ordenesConGasto.length === 0 && vacacionesConGasto.length === 0) {
+  if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0 && eventosConGasto.length === 0 && ordenesConGasto.length === 0 && vacacionesConGasto.length === 0 && renovacionesConGasto.length === 0) {
     return (
       <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
         Todavía no has creado ninguna categoría propia. Ve a{" "}
@@ -1101,6 +1149,67 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     }}
                   >
                     {formatMoney(totalPorVacacionCategoria(catNombre)) || "0"}
+                  </td>
+                </tr>
+              );
+            })}
+            {categoriasRenovacionesUnicas.map((catNombre, idx) => {
+              const rowIdx =
+                categorias.length + prestamosActivos.length + metasActivas.length + categoriasEventosUnicas.length + ordenesConGasto.length + categoriasVacacionesUnicas.length + idx;
+              return (
+                <tr key={`renovacion-${catNombre}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                  <td
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
+                      padding: "6px 10px",
+                      borderRight: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: 12.5,
+                      color: "var(--amber)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                    title="Suma todos los trámites y renovaciones vinculados a esta categoría"
+                  >
+                    <ScrollTextIcon size={11} /> {catNombre}
+                  </td>
+                  {MESES.map((_, i) => {
+                    const mes = i + 1;
+                    return QUINCENAS.map((q) => {
+                      const val = getCeldaRenovacionCategoria(catNombre, mes, q);
+                      return (
+                        <td
+                          key={`${catNombre}-${mes}-${q}`}
+                          style={{
+                            borderBottom: "1px solid var(--line-soft)",
+                            borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                            padding: "6px 4px",
+                            textAlign: "right",
+                            color: "var(--amber)",
+                            opacity: val ? 1 : 0.35,
+                          }}
+                        >
+                          {formatMoney(val) || "—"}
+                        </td>
+                      );
+                    });
+                  })}
+                  <td
+                    style={{
+                      borderLeft: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      padding: "7px 10px",
+                      textAlign: "right",
+                      fontWeight: 600,
+                      background: "var(--amber-bg)",
+                      color: "var(--amber)",
+                    }}
+                  >
+                    {formatMoney(totalPorRenovacionCategoria(catNombre)) || "0"}
                   </td>
                 </tr>
               );

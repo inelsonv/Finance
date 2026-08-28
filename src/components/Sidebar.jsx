@@ -67,7 +67,10 @@ const NAV_ITEMS = [
     id: "activos",
     label: "Activos",
     icon: Car,
-    children: [{ id: "seguros", label: "Seguros" }],
+    children: [
+      { id: "seguros", label: "Seguros" },
+      { id: "renovaciones", label: "Renovaciones y Trámites" },
+    ],
   },
   {
     id: "compras",

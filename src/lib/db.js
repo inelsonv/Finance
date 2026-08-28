@@ -998,6 +998,67 @@ export async function deleteSeguro(id) {
   await deleteDoc(doc(db, "seguros", id));
 }
 
+const renovacionesCol = collection(db, "renovaciones");
+
+export function watchRenovaciones(onChange, onError) {
+  return onSnapshot(
+    renovacionesCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addRenovacion({
+  nombre,
+  tipo,
+  entidadId,
+  entidadName,
+  activoId,
+  activoNombre,
+  numeroReferencia,
+  fechaInicio,
+  fechaVencimiento,
+  monto,
+  diasAviso,
+  estado,
+  categoriaGasto,
+  notas,
+}) {
+  await addDoc(renovacionesCol, {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    activoId: activoId || null,
+    activoNombre: activoNombre || "",
+    numeroReferencia: numeroReferencia || "",
+    fechaInicio: fechaInicio || null,
+    fechaVencimiento: fechaVencimiento || null,
+    monto: monto ?? null,
+    diasAviso: diasAviso ?? 15,
+    estado: estado || "Activo",
+    categoriaGasto: categoriaGasto || null,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateRenovacion(id, fields) {
+  await updateDoc(doc(db, "renovaciones", id), fields);
+}
+
+export async function updateRenovacionEstado(id, estado) {
+  await updateDoc(doc(db, "renovaciones", id), { estado });
+}
+
+export async function deleteRenovacion(id) {
+  await deleteDoc(doc(db, "renovaciones", id));
+}
+
 const historialComprasCol = collection(db, "historialCompras");
 
 export function watchHistorialCompras(onChange, onError) {
