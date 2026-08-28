@@ -517,7 +517,7 @@ export default function App() {
             ahorroConfig={ahorroAutoConfig}
           />
         )}
-        {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} />}
+        {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} />}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
         {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} />}
         {tab === "checklist-pagos" && (

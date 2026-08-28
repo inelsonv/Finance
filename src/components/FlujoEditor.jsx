@@ -118,8 +118,8 @@ function ActivityFlowNode({ data }) {
             {formatMoney(data.amount)}
           </div>
         )}
-        {!esIngreso && data.categoria && (
-          <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.75)", marginTop: 1 }}>{data.categoria}</div>
+        {!esIngreso && data.categoriaGasto && (
+          <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.75)", marginTop: 1 }}>{data.categoriaGasto}</div>
         )}
       </div>
       <Handle type="source" position={Position.Right} style={{ background: "#fff", border: `2px solid ${color}` }} />
@@ -160,7 +160,7 @@ function nextId() {
   return `n${idCounter}`;
 }
 
-export default function FlujoEditor({ flujo, fuentesIngreso }) {
+export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) {
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
   const [colorIndex, setColorIndex] = useState(0);
@@ -172,6 +172,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
   const [editAmount, setEditAmount] = useState("");
   const [editIcon, setEditIcon] = useState(ICONO_DEFAULT);
   const [editTipo, setEditTipo] = useState("categoria");
+  const [editCategoriaGasto, setEditCategoriaGasto] = useState("");
   const loadedOnce = useRef(false);
 
   const ingresoSugerido = useMemo(() => ingresoMensualCalculado(fuentesIngreso), [fuentesIngreso]);
@@ -248,6 +249,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     setEditAmount(node.data.amount != null ? String(node.data.amount) : "");
     setEditIcon(node.data.icon || ICONO_DEFAULT);
     setEditTipo(node.data.tipo || (node.data.role === "ingreso" ? "ingreso" : "categoria"));
+    setEditCategoriaGasto(node.data.categoriaGasto || "");
   };
 
   const cancelEdit = () => {
@@ -256,6 +258,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
     setEditAmount("");
     setEditIcon(ICONO_DEFAULT);
     setEditTipo("categoria");
+    setEditCategoriaGasto("");
   };
 
   const applyEdit = () => {
@@ -272,6 +275,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
                 icon: editIcon,
                 tipo: editTipo,
                 role: editTipo === "ingreso" ? "ingreso" : undefined,
+                categoriaGasto: editTipo === "ingreso" ? undefined : editCategoriaGasto || undefined,
               },
             }
           : n
@@ -418,6 +422,22 @@ export default function FlujoEditor({ flujo, fuentesIngreso }) {
               Categoría / destino
             </button>
           </div>
+
+          {!isIngresoNode && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Vincular a una categoría de gasto (opcional)</div>
+              <select
+                value={editCategoriaGasto}
+                onChange={(e) => setEditCategoriaGasto(e.target.value)}
+                style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, background: "var(--card)" }}
+              >
+                <option value="">Sin vincular…</option>
+                {(categoriasGasto || []).map((c) => (
+                  <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 10 }}>
             <input
