@@ -6,10 +6,13 @@ import {
   onSnapshot,
   orderBy,
   query,
+  where,
+  getDocs,
   serverTimestamp,
   setDoc,
   updateDoc,
   runTransaction,
+  increment,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "../firebase";
@@ -233,7 +236,55 @@ export async function addMovimiento({
     contratoNombre: contratoNombre || "",
     createdAt: serverTimestamp(),
   });
+
+  // Otorga puntos automáticamente según el tipo de movimiento registrado
+  // (cumplir una obligación rígida genera puntos). No debe romper el guardado
+  // del movimiento si algo falla aquí.
+  try {
+    if (type === "Pago de préstamo" && prestamoId) {
+      await otorgarPuntos(`Pago de préstamo ${prestamoNumero || ""}`.trim(), 15, "prestamo");
+    } else if (type === "Gasto" && clasificacion === "Fijo") {
+      await otorgarPuntos(`Pago de gasto fijo: ${category}`, 8, "gastoFijo");
+    } else if (cuentaId && Number(amount) > 0) {
+      const metasSnap = await getDocs(
+        query(collection(db, "metasAhorro"), where("cuentaId", "==", cuentaId), where("estado", "==", "Activa"))
+      );
+      if (!metasSnap.empty) {
+        await otorgarPuntos("Aporte a meta de ahorro", 10, "metaAhorro");
+      }
+    }
+  } catch (err) {
+    console.error("No se pudieron otorgar puntos:", err);
+  }
+
   return docRef;
+}
+
+export async function otorgarPuntos(motivo, puntos, tipo) {
+  await addDoc(collection(db, "puntosHistorial"), {
+    motivo,
+    puntos,
+    tipo,
+    fecha: new Date().toISOString().slice(0, 10),
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(puntos) }, { merge: true });
+}
+
+export function watchPuntos(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "puntos"),
+    (snap) => onChange(snap.exists() ? snap.data().total || 0 : 0),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchPuntosHistorial(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "puntosHistorial"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
 }
 
 export async function deleteMovimiento(id) {

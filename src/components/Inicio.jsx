@@ -3,7 +3,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon } from "lucide-react";
-import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
+import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache, watchPuntos } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
 function formatMoney(n) {
@@ -310,6 +310,38 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function PuntosCard() {
+  const [puntos, setPuntos] = useState(0);
+
+  useEffect(() => {
+    const unsub = watchPuntos(setPuntos, () => {});
+    return () => unsub();
+  }, []);
+
+  if (puntos <= 0) return null;
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        background: "var(--amber-bg)",
+        border: "1px solid var(--amber)",
+        borderRadius: 12,
+        padding: "10px 14px",
+        marginBottom: 16,
+      }}
+    >
+      <span style={{ fontSize: 20 }}>🏆</span>
+      <div>
+        <div className="despensa-mono" style={{ fontSize: 16, fontWeight: 700, color: "var(--amber)" }}>{puntos} puntos</div>
+        <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Ganados por cumplir tus obligaciones (préstamos, ahorro, gastos fijos)</div>
+      </div>
     </div>
   );
 }
@@ -948,15 +980,18 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent };
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={orden} strategy={verticalListSortingStrategy}>
-        {orden.map((id, i) => (
-          <SortableSection key={id} id={id} isFirst={i === 0}>
-            {SECTION_CONTENT[id]}
-          </SortableSection>
-        ))}
-      </SortableContext>
-    </DndContext>
+    <div>
+      <PuntosCard />
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={orden} strategy={verticalListSortingStrategy}>
+          {orden.map((id, i) => (
+            <SortableSection key={id} id={id} isFirst={i === 0}>
+              {SECTION_CONTENT[id]}
+            </SortableSection>
+          ))}
+        </SortableContext>
+      </DndContext>
+    </div>
   );
 }
 

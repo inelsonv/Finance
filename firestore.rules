@@ -75,6 +75,9 @@ service cloud.firestore {
     match /renovaciones/{doc} {
       allow read, write: if esPropietario();
     }
+    match /puntosHistorial/{doc} {
+      allow read, write: if esPropietario();
+    }
     match /historialCompras/{doc} {
       allow read, write: if esPropietario();
     }
