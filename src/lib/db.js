@@ -240,17 +240,22 @@ export async function addMovimiento({
   // Otorga puntos automáticamente según el tipo de movimiento registrado
   // (cumplir una obligación rígida genera puntos). No debe romper el guardado
   // del movimiento si algo falla aquí.
+  // 1 punto = $1 peso disponible para gastos flexibles. Se otorga el 5% del
+  // monto de cada obligación cumplida (préstamo, gasto fijo, aporte a ahorro).
+  const PORCENTAJE_PUNTOS = 0.05;
   try {
-    if (type === "Pago de préstamo" && prestamoId) {
-      await otorgarPuntos(`Pago de préstamo ${prestamoNumero || ""}`.trim(), 15, "prestamo");
-    } else if (type === "Gasto" && clasificacion === "Fijo") {
-      await otorgarPuntos(`Pago de gasto fijo: ${category}`, 8, "gastoFijo");
-    } else if (cuentaId && Number(amount) > 0) {
+    const montoNum = Number(amount) || 0;
+    const puntosGanados = Math.round(montoNum * PORCENTAJE_PUNTOS);
+    if (type === "Pago de préstamo" && prestamoId && puntosGanados > 0) {
+      await otorgarPuntos(`Pago de préstamo ${prestamoNumero || ""}`.trim(), puntosGanados, "prestamo");
+    } else if (type === "Gasto" && clasificacion === "Fijo" && puntosGanados > 0) {
+      await otorgarPuntos(`Pago de gasto fijo: ${category}`, puntosGanados, "gastoFijo");
+    } else if (cuentaId && montoNum > 0 && puntosGanados > 0) {
       const metasSnap = await getDocs(
         query(collection(db, "metasAhorro"), where("cuentaId", "==", cuentaId), where("estado", "==", "Activa"))
       );
       if (!metasSnap.empty) {
-        await otorgarPuntos("Aporte a meta de ahorro", 10, "metaAhorro");
+        await otorgarPuntos("Aporte a meta de ahorro", puntosGanados, "metaAhorro");
       }
     }
   } catch (err) {

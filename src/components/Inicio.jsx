@@ -339,8 +339,8 @@ function PuntosCard() {
     >
       <span style={{ fontSize: 20 }}>🏆</span>
       <div>
-        <div className="despensa-mono" style={{ fontSize: 16, fontWeight: 700, color: "var(--amber)" }}>{puntos} puntos</div>
-        <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Ganados por cumplir tus obligaciones (préstamos, ahorro, gastos fijos)</div>
+        <div className="despensa-mono" style={{ fontSize: 16, fontWeight: 700, color: "var(--amber)" }}>${puntos} disponibles</div>
+        <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Ganados (5%) por cumplir préstamos, ahorro y gastos fijos — para gastos flexibles</div>
       </div>
     </div>
   );
