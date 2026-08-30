@@ -14,6 +14,7 @@ import {
   updateDoc,
   runTransaction,
   increment,
+  arrayUnion,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "../firebase";
@@ -324,6 +325,22 @@ export async function canjearPuntos({ montoACanjear, year, month, quincena, cate
     createdAt: serverTimestamp(),
   });
   await setDoc(doc(db, "config", "puntos"), { total: increment(-monto) }, { merge: true });
+}
+
+// Cambia la fecha de un movimiento, exigiendo un motivo de justificación.
+// Guarda un historial de cambios (no sobreescribe el motivo anterior).
+export async function updateMovimientoFecha(id, nuevaFecha, motivo, fechaAnterior) {
+  const motivoLimpio = (motivo || "").trim();
+  if (!motivoLimpio) throw new Error("Debes justificar el cambio de fecha");
+  await updateDoc(doc(db, "movimientos", id), {
+    date: nuevaFecha,
+    historialCambiosFecha: arrayUnion({
+      fechaAnterior: fechaAnterior || null,
+      fechaNueva: nuevaFecha,
+      motivo: motivoLimpio,
+      cambiadoEn: new Date().toISOString(),
+    }),
+  });
 }
 
 export async function deleteMovimiento(id) {

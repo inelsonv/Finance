@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle } from "lucide-react";
-import { addMovimiento, deleteMovimiento } from "../lib/db";
+import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle, Pencil, History } from "lucide-react";
+import { addMovimiento, deleteMovimiento, updateMovimientoFecha } from "../lib/db";
 import SwipeableRow from "./SwipeableRow.jsx";
 import Pagination from "./Pagination.jsx";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
@@ -64,6 +64,46 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const [expresAmount, setExpresAmount] = useState("");
   const [expresSaving, setExpresSaving] = useState(false);
   const [page, setPage] = useState(1);
+  const [editandoFechaId, setEditandoFechaId] = useState(null);
+  const [editFecha, setEditFecha] = useState("");
+  const [editMotivo, setEditMotivo] = useState("");
+  const [editFechaSaving, setEditFechaSaving] = useState(false);
+  const [editFechaError, setEditFechaError] = useState(null);
+
+  const startEditFecha = (m) => {
+    setEditandoFechaId(m.id);
+    setEditFecha(m.date || "");
+    setEditMotivo("");
+    setEditFechaError(null);
+  };
+
+  const cancelEditFecha = () => {
+    setEditandoFechaId(null);
+    setEditFecha("");
+    setEditMotivo("");
+    setEditFechaError(null);
+  };
+
+  const saveEditFecha = async (m) => {
+    if (!editFecha) {
+      setEditFechaError("Elige una fecha");
+      return;
+    }
+    if (!editMotivo.trim()) {
+      setEditFechaError("Debes justificar el cambio de fecha");
+      return;
+    }
+    setEditFechaSaving(true);
+    setEditFechaError(null);
+    try {
+      await updateMovimientoFecha(m.id, editFecha, editMotivo, m.date);
+      cancelEditFecha();
+    } catch (err) {
+      setEditFechaError(err.message || String(err));
+    } finally {
+      setEditFechaSaving(false);
+    }
+  };
   const paginated = useMemo(() => movimientos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [movimientos, page]);
   const [alertaPresupuesto, setAlertaPresupuesto] = useState(null);
 
@@ -851,7 +891,50 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                       {m.clasificacion}
                     </span>
                   )}
+                  {m.historialCambiosFecha?.length > 0 && (
+                    <span title={`Fecha editada ${m.historialCambiosFecha.length} vez(es)`} style={{ marginLeft: 6, display: "inline-flex", verticalAlign: "middle" }}>
+                      <History size={11} style={{ color: "var(--ink-soft)" }} />
+                    </span>
+                  )}
                 </div>
+
+                {editandoFechaId === m.id && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ marginTop: 8, padding: 10, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8 }}
+                  >
+                    <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Nueva fecha</div>
+                    <input
+                      type="date"
+                      value={editFecha}
+                      onChange={(e) => setEditFecha(e.target.value)}
+                      style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, marginBottom: 8 }}
+                    />
+                    <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Motivo del cambio (obligatorio)</div>
+                    <input
+                      placeholder="Ej. Se registró con la fecha equivocada"
+                      value={editMotivo}
+                      onChange={(e) => setEditMotivo(e.target.value)}
+                      style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, marginBottom: 8 }}
+                    />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        onClick={() => saveEditFecha(m)}
+                        disabled={editFechaSaving}
+                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: editFechaSaving ? "not-allowed" : "pointer" }}
+                      >
+                        <Check size={12} /> {editFechaSaving ? "Guardando…" : "Guardar"}
+                      </button>
+                      <button
+                        onClick={cancelEditFecha}
+                        style={{ padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 7, cursor: "pointer" }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                    {editFechaError && <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--stamp)" }}>{editFechaError}</div>}
+                  </div>
+                )}
               </div>
               <span
                 className="despensa-mono"
@@ -859,6 +942,25 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
               >
                 {m.type === "Ingreso" ? "+" : "−"}{formatMoney(m.amount)}
               </span>
+              <button
+                onClick={() => (editandoFechaId === m.id ? cancelEditFecha() : startEditFecha(m))}
+                title="Editar fecha"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 26,
+                  height: 26,
+                  background: "transparent",
+                  color: editandoFechaId === m.id ? "var(--sage)" : "var(--ink-soft)",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <Pencil size={13} />
+              </button>
               <button
                 onClick={async () => {
                   if (await confirm("¿Eliminar este movimiento?")) deleteMovimiento(m.id);
