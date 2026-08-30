@@ -248,7 +248,7 @@ export async function addMovimiento({
   try {
     const montoNum = Number(amount) || 0;
     const puntosGanados = Math.round(montoNum * PORCENTAJE_PUNTOS);
-    if (type === "Pago de préstamo" && prestamoId && puntosGanados > 0) {
+    if (category === "Pago de préstamo" && prestamoId && puntosGanados > 0) {
       await otorgarPuntos(`Pago de préstamo ${prestamoNumero || ""}`.trim(), puntosGanados, "prestamo", docRef.id);
     } else if (type === "Gasto" && clasificacion === "Fijo" && puntosGanados > 0) {
       await otorgarPuntos(`Pago de gasto fijo: ${category}`, puntosGanados, "gastoFijo", docRef.id);
@@ -268,7 +268,7 @@ export async function addMovimiento({
   // saldado, y en ese caso marca el estado como "Pagado" automáticamente.
   // Este estado ya no se puede revertir manualmente (ver Prestamos.jsx).
   try {
-    if (type === "Pago de préstamo" && prestamoId) {
+    if (category === "Pago de préstamo" && prestamoId) {
       const prestamoSnap = await getDoc(doc(db, "prestamos", prestamoId));
       if (prestamoSnap.exists()) {
         const p = prestamoSnap.data();
