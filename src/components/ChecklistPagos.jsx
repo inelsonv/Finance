@@ -91,7 +91,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       }
     }
     for (const p of prestamos || []) {
-      if (p.estado !== "Activo") continue;
+      if (p.estado !== "Activo" && p.estado !== "Pagado") continue;
+      const saldado = p.estado === "Pagado";
       if (p.frecuenciaCuota === "Personalizado") {
         for (const c of p.cuotasPersonalizadas || []) {
           if (!c.fecha || !c.monto) continue;
@@ -110,6 +111,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
             prestamoNumero: p.numero,
             entidadId: p.entidadId || "",
             entidadName: p.entidadName || "",
+            bloqueadoPagado: saldado,
           });
         }
         continue;
@@ -127,6 +129,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           prestamoNumero: p.numero,
           entidadId: p.entidadId || "",
           entidadName: p.entidadName || "",
+          bloqueadoPagado: saldado,
         });
       }
     }
@@ -138,7 +141,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     let pagado = 0;
     for (const it of items) {
       total += it.monto;
-      if (checklist?.items?.[it.key]?.pagado) pagado += it.monto;
+      if (it.bloqueadoPagado || checklist?.items?.[it.key]?.pagado) pagado += it.monto;
     }
     return { total, pagado, pendiente: total - pagado };
   }, [items, checklist]);
@@ -146,6 +149,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   const resumenPorMetodo = useMemo(() => {
     const map = {};
     for (const it of items) {
+      if (it.bloqueadoPagado) continue;
       const estado = checklist?.items?.[it.key] || {};
       if (estado.pagado) continue;
       const metodo = estado.metodoPago || it.metodoDefault || "Sin definir";
@@ -302,7 +306,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {items.map((it) => {
-            const estado = checklist?.items?.[it.key] || {};
+            const estado = it.bloqueadoPagado ? { pagado: true } : checklist?.items?.[it.key] || {};
             const Icon = it.icon;
             return (
               <div
@@ -319,9 +323,9 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 }}
               >
                 <button
-                  onClick={() => toggleItem(it)}
-                  disabled={confirmandoKey === it.key}
-                  title={estado.pagado ? "Marcar como pendiente" : "Marcar como pagado"}
+                  onClick={() => !it.bloqueadoPagado && toggleItem(it)}
+                  disabled={confirmandoKey === it.key || it.bloqueadoPagado}
+                  title={it.bloqueadoPagado ? "Préstamo saldado — ya no se puede modificar" : estado.pagado ? "Marcar como pendiente" : "Marcar como pagado"}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -332,7 +336,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     border: `2px solid ${estado.pagado ? "var(--sage)" : "var(--line)"}`,
                     background: estado.pagado ? "var(--sage)" : "transparent",
                     color: "#fff",
-                    cursor: confirmandoKey === it.key ? "wait" : "pointer",
+                    cursor: it.bloqueadoPagado ? "not-allowed" : confirmandoKey === it.key ? "wait" : "pointer",
                     flexShrink: 0,
                   }}
                 >
@@ -342,13 +346,30 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 <Icon size={14} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 500, textDecoration: estado.pagado ? "line-through" : "none" }}>{it.nombre}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, textDecoration: estado.pagado ? "line-through" : "none" }}>
+                    {it.nombre}
+                    {it.bloqueadoPagado && (
+                      <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--sage-bg)", color: "var(--sage)", textDecoration: "none" }}>
+                        Saldado
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <select
                   value={estado.metodoPago || it.metodoDefault || ""}
                   onChange={(e) => setMetodo(it.key, e.target.value)}
-                  style={{ padding: "5px 6px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 11.5, background: "var(--paper)", color: "var(--ink)", flexShrink: 0 }}
+                  disabled={it.bloqueadoPagado}
+                  style={{
+                    padding: "5px 6px",
+                    border: "1px solid var(--line)",
+                    borderRadius: 7,
+                    fontSize: 11.5,
+                    background: it.bloqueadoPagado ? "var(--line-soft)" : "var(--paper)",
+                    color: it.bloqueadoPagado ? "var(--ink-soft)" : "var(--ink)",
+                    flexShrink: 0,
+                    cursor: it.bloqueadoPagado ? "not-allowed" : "pointer",
+                  }}
                 >
                   <option value="">Método…</option>
                   {METODOS.map((m) => (
