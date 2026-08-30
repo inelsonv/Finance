@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight } from "lucide-react";
+import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame } from "lucide-react";
 import { canjearPuntos } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import { calcularRacha, historialRachaVisual } from "../lib/racha";
 
 const NOMBRES_MES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -27,13 +28,16 @@ function formatDateDisplay(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-export default function Puntos({ puntos, puntosHistorial, categoriasGasto }) {
+export default function Puntos({ puntos, puntosHistorial, categoriasGasto, checklistTodos }) {
   const [categoria, setCategoria] = useState("");
   const [monto, setMonto] = useState("");
   const [quincena, setQuincena] = useState("Q1");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [exito, setExito] = useState(null);
+
+  const racha = useMemo(() => calcularRacha(checklistTodos), [checklistTodos]);
+  const historialRacha = useMemo(() => historialRachaVisual(checklistTodos), [checklistTodos]);
 
   const { mesObjetivo, yearObjetivo } = useMemo(() => {
     const hoy = new Date();
@@ -89,6 +93,50 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 640 }}>
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "16px 18px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <Flame size={18} style={{ color: racha > 0 ? "var(--stamp)" : "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>
+            Racha: {racha} quincena{racha !== 1 ? "s" : ""} seguida{racha !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {historialRacha.map((h) => {
+            const [, mesN, q] = h.key.split("-");
+            return (
+              <div key={h.key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <div
+                  title={h.esActual ? "Quincena en curso" : h.cumplida ? "Cumplida" : "No cumplida"}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: h.esActual ? "var(--card)" : h.cumplida ? "var(--sage)" : "var(--line-soft)",
+                    border: h.esActual ? "2px dashed var(--amber)" : "none",
+                    color: h.cumplida ? "#fff" : "var(--ink-soft)",
+                  }}
+                >
+                  {h.esActual ? (
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--amber)" }} />
+                  ) : h.cumplida ? (
+                    <Check size={15} />
+                  ) : (
+                    <span style={{ fontSize: 10 }}>✕</span>
+                  )}
+                </div>
+                <span style={{ fontSize: 9, color: "var(--ink-soft)" }}>{q}/{mesN}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 10 }}>
+          Se cuenta una quincena como cumplida cuando marcas todos sus pagos del Checklist como pagados.
+        </div>
+      </div>
+
       <div
         style={{
           display: "flex",

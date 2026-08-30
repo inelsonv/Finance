@@ -846,6 +846,23 @@ export function watchChecklistPeriodo(periodoKey, onChange, onError) {
   );
 }
 
+// Trae TODOS los períodos del checklist a la vez (usado para calcular la
+// racha de quincenas cumplidas). La colección es pequeña (una quincena a la
+// vez), así que traerla completa es económico.
+export function watchChecklistTodos(onChange, onError) {
+  return onSnapshot(
+    collection(db, "checklistPagos"),
+    (snap) => {
+      const map = {};
+      snap.docs.forEach((d) => {
+        map[d.id] = d.data();
+      });
+      onChange(map);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
 export async function setChecklistItem(periodoKey, itemKey, fields) {
   await setDoc(doc(db, "checklistPagos", periodoKey), { items: { [itemKey]: fields } }, { merge: true });
 }

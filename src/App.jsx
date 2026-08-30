@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
@@ -148,6 +148,7 @@ export default function App() {
   const [ahorroAutoConfig, setAhorroAutoConfig] = useState(undefined);
   const [puntos, setPuntos] = useState(0);
   const [puntosHistorial, setPuntosHistorial] = useState([]);
+  const [checklistTodos, setChecklistTodos] = useState({});
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -261,6 +262,7 @@ export default function App() {
     const unsubAhorroAuto = watchAhorroAutoConfig(setAhorroAutoConfig, handleError);
     const unsubPuntos = watchPuntos(setPuntos, handleError);
     const unsubPuntosHistorial = watchPuntosHistorial(setPuntosHistorial, handleError);
+    const unsubChecklistTodos = watchChecklistTodos(setChecklistTodos, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -289,6 +291,7 @@ export default function App() {
       unsubAhorroAuto();
       unsubPuntos();
       unsubPuntosHistorial();
+      unsubChecklistTodos();
       unsubStatus();
     };
   }, [authorized]);
@@ -485,7 +488,7 @@ export default function App() {
             onNavigate={handleNavigate}
           />
         )}
-        {tab === "puntos" && <Puntos puntos={puntos} puntosHistorial={puntosHistorial} categoriasGasto={categoriasGasto} />}
+        {tab === "puntos" && <Puntos puntos={puntos} puntosHistorial={puntosHistorial} categoriasGasto={categoriasGasto} checklistTodos={checklistTodos} />}
         {tab === "compras" && (
           <Compras products={products} ordenesCompra={ordenesCompra} historialCompras={historialCompras} onNavigate={setTab} />
         )}
