@@ -420,28 +420,28 @@ export default function App() {
                 onNavigate={handleSearchNavigate}
                 onOpenChange={setSearchOpen}
               />
-              <div className="despensa-desktop-only">
-                <button
-                  onClick={() => setTab("puntos")}
-                  title="Ver tus puntos"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "6px 10px",
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    background: "var(--amber-bg)",
-                    color: "var(--amber)",
-                    border: "1px solid var(--amber)",
-                    borderRadius: 20,
-                    cursor: "pointer",
-                  }}
-                >
-                  <Trophy size={14} />
-                  <span className="despensa-mono">${puntos}</span>
-                </button>
-              </div>
+              <button
+                onClick={() => setTab("puntos")}
+                title="Ver tus puntos"
+                className={`despensa-puntos-btn${searchOpen ? " despensa-header-left--search-open" : ""}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 10px",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  background: "var(--amber-bg)",
+                  color: "var(--amber)",
+                  border: "1px solid var(--amber)",
+                  borderRadius: 20,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <Trophy size={14} />
+                <span className="despensa-mono despensa-puntos-monto">${puntos}</span>
+              </button>
               <div className="despensa-desktop-only">
                 <NotificationBell
                   prestamos={prestamos}

@@ -212,6 +212,12 @@ button:hover {
   .despensa-header-left--search-open {
     display: none !important;
   }
+  .despensa-puntos-monto {
+    display: none;
+  }
+  .despensa-puntos-btn {
+    padding: 6px 8px !important;
+  }
 }
 
 .despensa-bottomnav {
