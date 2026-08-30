@@ -61,6 +61,10 @@ const emptyForm = (numero) => ({
 
 export default function Prestamos({ prestamos, entidades, movimientos, activos }) {
   const [showForm, setShowForm] = useState(false);
+  const [showHistorico, setShowHistorico] = useState(false);
+
+  const prestamosActivos = useMemo(() => prestamos.filter((p) => p.estado !== "Pagado"), [prestamos]);
+  const prestamosPagados = useMemo(() => prestamos.filter((p) => p.estado === "Pagado"), [prestamos]);
   const [form, setForm] = useState(() => emptyForm(nextNumero(prestamos)));
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -544,13 +548,13 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
         </div>
       )}
 
-      {prestamos.length === 0 ? (
+      {prestamosActivos.length === 0 ? (
         <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
-          Todavía no registraste ningún préstamo.
+          {prestamos.length === 0 ? "Todavía no registraste ningún préstamo." : "No tienes préstamos activos — revisa el histórico abajo."}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {prestamos.map((p) => (
+          {prestamosActivos.map((p) => (
             <div key={p.id} data-record-id={p.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
               {editingId === p.id ? (
                 <div>
@@ -1039,6 +1043,69 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {prestamosPagados.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <button
+            onClick={() => setShowHistorico((s) => !s)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 12px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              background: "var(--card)",
+              color: "var(--ink-soft)",
+              border: "1px solid var(--line)",
+              borderRadius: 8,
+              cursor: "pointer",
+              width: "100%",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Check size={13} style={{ color: "var(--sage)" }} /> Histórico de préstamos saldados ({prestamosPagados.length})
+            </span>
+            {showHistorico ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+
+          {showHistorico && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+              {prestamosPagados.map((p) => (
+                <div
+                  key={p.id}
+                  data-record-id={p.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10,
+                    background: "var(--paper)",
+                    border: "1px solid var(--line-soft)",
+                    borderRadius: 10,
+                    padding: "10px 14px",
+                    opacity: 0.85,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: "50%", background: "var(--sage-bg)", color: "var(--sage)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Check size={12} />
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{p.numero}</div>
+                      <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>{p.entidadName || "Sin entidad"}</div>
+                    </div>
+                  </div>
+                  <div className="despensa-mono" style={{ fontSize: 12.5, color: "var(--ink-soft)", flexShrink: 0 }}>
+                    {formatMoney(p.montoAprobado)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
