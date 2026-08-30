@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
 import MobileMenu from "./components/MobileMenu.jsx";
 import PullToRefresh from "./components/PullToRefresh.jsx";
-import { Menu } from "lucide-react";
+import { Menu, Trophy } from "lucide-react";
 import Catalogo from "./components/Catalogo.jsx";
 import Compras from "./components/Compras.jsx";
 import Finanzas from "./components/Finanzas.jsx";
@@ -39,6 +39,7 @@ import ChecklistPagos from "./components/ChecklistPagos.jsx";
 import Configuracion from "./components/Configuracion.jsx";
 import EscanearFactura from "./components/EscanearFactura.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
+import Puntos from "./components/Puntos.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import NotificacionesPage from "./components/NotificacionesPage.jsx";
@@ -74,6 +75,7 @@ const TITLES = {
   ahorro: "Ahorro",
   seguros: "Seguros",
   renovaciones: "Renovaciones y Trámites",
+  puntos: "Puntos",
   "ordenes-compra": "Órdenes de compra",
   configuracion: "Configuración",
   "escanear-factura": "Registrar compra (factura)",
@@ -144,6 +146,8 @@ export default function App() {
   const [vacaciones, setVacaciones] = useState([]);
   const [diezmoConfig, setDiezmoConfig] = useState(undefined);
   const [ahorroAutoConfig, setAhorroAutoConfig] = useState(undefined);
+  const [puntos, setPuntos] = useState(0);
+  const [puntosHistorial, setPuntosHistorial] = useState([]);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -255,6 +259,8 @@ export default function App() {
     const unsubVacaciones = watchVacaciones(setVacaciones, handleError);
     const unsubDiezmo = watchDiezmoConfig(setDiezmoConfig, handleError);
     const unsubAhorroAuto = watchAhorroAutoConfig(setAhorroAutoConfig, handleError);
+    const unsubPuntos = watchPuntos(setPuntos, handleError);
+    const unsubPuntosHistorial = watchPuntosHistorial(setPuntosHistorial, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -281,6 +287,8 @@ export default function App() {
       unsubVacaciones();
       unsubDiezmo();
       unsubAhorroAuto();
+      unsubPuntos();
+      unsubPuntosHistorial();
       unsubStatus();
     };
   }, [authorized]);
@@ -413,6 +421,28 @@ export default function App() {
                 onOpenChange={setSearchOpen}
               />
               <div className="despensa-desktop-only">
+                <button
+                  onClick={() => setTab("puntos")}
+                  title="Ver tus puntos"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 10px",
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    background: "var(--amber-bg)",
+                    color: "var(--amber)",
+                    border: "1px solid var(--amber)",
+                    borderRadius: 20,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Trophy size={14} />
+                  <span className="despensa-mono">${puntos}</span>
+                </button>
+              </div>
+              <div className="despensa-desktop-only">
                 <NotificationBell
                   prestamos={prestamos}
                   tarjetas={tarjetas}
@@ -455,6 +485,7 @@ export default function App() {
             onNavigate={handleNavigate}
           />
         )}
+        {tab === "puntos" && <Puntos puntos={puntos} puntosHistorial={puntosHistorial} categoriasGasto={categoriasGasto} />}
         {tab === "compras" && (
           <Compras products={products} ordenesCompra={ordenesCompra} historialCompras={historialCompras} onNavigate={setTab} />
         )}

@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -290,6 +291,38 @@ export function watchPuntosHistorial(onChange, onError) {
     (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     (err) => onError && onError(err)
   );
+}
+
+// Canjea puntos acumulados: libera ese monto (1 punto = $1) como presupuesto
+// extra en una categoría de gasto variable, para una quincena específica
+// (normalmente del mes siguiente). Lee y suma sobre el valor ya presupuestado
+// en esa celda, en vez de sobreescribirlo.
+export async function canjearPuntos({ montoACanjear, year, month, quincena, categoria }) {
+  const monto = Math.round(Number(montoACanjear) || 0);
+  if (monto <= 0) throw new Error("El monto a canjear debe ser mayor a cero");
+
+  const puntosSnap = await getDoc(doc(db, "config", "puntos"));
+  const puntosDisponibles = puntosSnap.exists() ? puntosSnap.data().total || 0 : 0;
+  if (monto > puntosDisponibles) throw new Error("No tienes suficientes puntos para ese canje");
+
+  const presupuestoSnap = await getDoc(doc(db, "presupuestos", String(year)));
+  const valorActual = presupuestoSnap.exists() ? presupuestoSnap.data()?.[categoria]?.[String(month)]?.[quincena] || 0 : 0;
+  const nuevoValor = valorActual + monto;
+
+  await setDoc(
+    doc(db, "presupuestos", String(year)),
+    { [categoria]: { [String(month)]: { [quincena]: nuevoValor } } },
+    { merge: true }
+  );
+
+  await addDoc(collection(db, "puntosHistorial"), {
+    motivo: `Canje: $${monto} liberados para "${categoria}"`,
+    puntos: -monto,
+    tipo: "canje",
+    fecha: new Date().toISOString().slice(0, 10),
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(-monto) }, { merge: true });
 }
 
 export async function deleteMovimiento(id) {
