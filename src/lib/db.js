@@ -248,15 +248,15 @@ export async function addMovimiento({
     const montoNum = Number(amount) || 0;
     const puntosGanados = Math.round(montoNum * PORCENTAJE_PUNTOS);
     if (type === "Pago de préstamo" && prestamoId && puntosGanados > 0) {
-      await otorgarPuntos(`Pago de préstamo ${prestamoNumero || ""}`.trim(), puntosGanados, "prestamo");
+      await otorgarPuntos(`Pago de préstamo ${prestamoNumero || ""}`.trim(), puntosGanados, "prestamo", docRef.id);
     } else if (type === "Gasto" && clasificacion === "Fijo" && puntosGanados > 0) {
-      await otorgarPuntos(`Pago de gasto fijo: ${category}`, puntosGanados, "gastoFijo");
+      await otorgarPuntos(`Pago de gasto fijo: ${category}`, puntosGanados, "gastoFijo", docRef.id);
     } else if (cuentaId && montoNum > 0 && puntosGanados > 0) {
       const metasSnap = await getDocs(
         query(collection(db, "metasAhorro"), where("cuentaId", "==", cuentaId), where("estado", "==", "Activa"))
       );
       if (!metasSnap.empty) {
-        await otorgarPuntos("Aporte a meta de ahorro", puntosGanados, "metaAhorro");
+        await otorgarPuntos("Aporte a meta de ahorro", puntosGanados, "metaAhorro", docRef.id);
       }
     }
   } catch (err) {
@@ -266,11 +266,12 @@ export async function addMovimiento({
   return docRef;
 }
 
-export async function otorgarPuntos(motivo, puntos, tipo) {
+export async function otorgarPuntos(motivo, puntos, tipo, movimientoId = null) {
   await addDoc(collection(db, "puntosHistorial"), {
     motivo,
     puntos,
     tipo,
+    movimientoId: movimientoId || null,
     fecha: new Date().toISOString().slice(0, 10),
     createdAt: serverTimestamp(),
   });
@@ -326,6 +327,21 @@ export async function canjearPuntos({ montoACanjear, year, month, quincena, cate
 }
 
 export async function deleteMovimiento(id) {
+  // Si este movimiento había generado puntos, los revierte antes de eliminarlo
+  // (no debe romper el borrado si algo falla aquí).
+  try {
+    const puntosSnap = await getDocs(query(collection(db, "puntosHistorial"), where("movimientoId", "==", id)));
+    for (const d of puntosSnap.docs) {
+      const puntosOtorgados = d.data().puntos || 0;
+      if (puntosOtorgados !== 0) {
+        await setDoc(doc(db, "config", "puntos"), { total: increment(-puntosOtorgados) }, { merge: true });
+      }
+      await deleteDoc(d.ref);
+    }
+  } catch (err) {
+    console.error("No se pudieron revertir los puntos de este movimiento:", err);
+  }
+
   await deleteDoc(doc(db, "movimientos", id));
 }
 
