@@ -107,6 +107,11 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
   };
 
   const saveEdit = async () => {
+    const prestamoOriginal = prestamos.find((pr) => pr.id === editingId);
+    if (prestamoOriginal?.estado === "Pagado" && editForm.estado !== "Pagado") {
+      setEditError("Este préstamo ya está saldado y no se puede revertir su estado.");
+      return;
+    }
     const monto = parseFloat(editForm.montoAprobado);
     if (!editForm.entidadId) {
       setEditError("Selecciona la entidad prestamista");
@@ -688,13 +693,28 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
                     <select
                       value={editForm.estado}
                       onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}
-                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                      disabled={p.estado === "Pagado"}
+                      title={p.estado === "Pagado" ? "Este préstamo ya está saldado y no se puede revertir" : undefined}
+                      style={{
+                        padding: "8px 10px",
+                        border: "1px solid var(--line)",
+                        borderRadius: 8,
+                        fontSize: 13,
+                        background: p.estado === "Pagado" ? "var(--line-soft)" : "var(--card)",
+                        color: p.estado === "Pagado" ? "var(--ink-soft)" : "var(--ink)",
+                        cursor: p.estado === "Pagado" ? "not-allowed" : "pointer",
+                      }}
                     >
                       {ESTADOS.map((e) => (
                         <option key={e} value={e}>{e}</option>
                       ))}
                     </select>
                   </div>
+                  {p.estado === "Pagado" && (
+                    <div style={{ fontSize: 11, color: "var(--sage)", marginTop: -4, marginBottom: 8, display: "flex", alignItems: "center", gap: 4 }}>
+                      <Check size={11} /> Préstamo saldado por completo — el estado ya no se puede cambiar.
+                    </div>
+                  )}
 
                   <div style={{ marginBottom: 8 }}>
                     <select

@@ -264,6 +264,36 @@ export async function addMovimiento({
     console.error("No se pudieron otorgar puntos:", err);
   }
 
+  // Si este pago es de un préstamo, verifica si con él queda completamente
+  // saldado, y en ese caso marca el estado como "Pagado" automáticamente.
+  // Este estado ya no se puede revertir manualmente (ver Prestamos.jsx).
+  try {
+    if (type === "Pago de préstamo" && prestamoId) {
+      const prestamoSnap = await getDoc(doc(db, "prestamos", prestamoId));
+      if (prestamoSnap.exists()) {
+        const p = prestamoSnap.data();
+        if (p.estado !== "Pagado") {
+          let totalAPagar = 0;
+          if (p.frecuenciaCuota === "Personalizado") {
+            totalAPagar = (p.cuotasPersonalizadas || []).reduce((s, c) => s + (Number(c.monto) || 0), 0);
+          } else {
+            const meses = p.plazoUnidad === "años" ? (Number(p.plazo) || 0) * 12 : Number(p.plazo) || 0;
+            totalAPagar = (Number(p.cuota) || 0) * meses;
+          }
+          if (totalAPagar > 0) {
+            const pagosSnap = await getDocs(query(collection(db, "movimientos"), where("prestamoId", "==", prestamoId)));
+            const totalPagado = pagosSnap.docs.reduce((s, d) => s + (Number(d.data().amount) || 0), 0);
+            if (totalPagado >= totalAPagar) {
+              await updateDoc(doc(db, "prestamos", prestamoId), { estado: "Pagado" });
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("No se pudo verificar/actualizar el estado del préstamo:", err);
+  }
+
   return docRef;
 }
 
