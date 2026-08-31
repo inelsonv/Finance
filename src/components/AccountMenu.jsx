@@ -106,6 +106,7 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings, synced })
               setOpen(false);
               setShowQr(true);
             }}
+            className="despensa-desktop-only"
             style={{
               display: "flex",
               alignItems: "center",
