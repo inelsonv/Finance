@@ -392,11 +392,15 @@ exports.avisoDiarioAlertas = onSchedule(
   async () => {
     const today = todayInfo();
 
-    // Correo fijo para TODAS las notificaciones de esta función (alertas
-    // diarias, día de cobro, resumen mensual). No depende de ninguna
-    // configuración guardada en la app — así nunca puede llegar a otro correo
-    // por accidente.
-    const CORREO_NOTIFICACIONES = "iventuramena@gmail.com";
+    // El correo destino es el mismo que configuras en la app, en
+    // Configuración → Notificaciones por correo. Ahí puedes cambiarlo cuando
+    // quieras (ej. a tu Gmail personal), sin necesidad de tocar código.
+    const configSnap = await db.collection("config").doc("notificaciones").get();
+    const email = configSnap.exists ? configSnap.data().email : null;
+    if (!email) {
+      console.log("Sin correo configurado en config/notificaciones, no se envía nada.");
+      return;
+    }
 
     // El día 1 de cada mes, envía el resumen financiero del mes que acaba de
     // terminar (comportamiento del presupuesto y puntos ganados).
@@ -409,13 +413,13 @@ exports.avisoDiarioAlertas = onSchedule(
       ][monthAnterior - 1];
 
       await db.collection("mail").add({
-        to: [CORREO_NOTIFICACIONES],
+        to: [email],
         message: {
           subject: `Smart Finance: resumen de ${nombreMesAnterior}`,
           html: construirHtmlResumenMensual(yearAnterior, monthAnterior, resumen),
         },
       });
-      console.log(`Correo de resumen mensual encolado para ${CORREO_NOTIFICACIONES} (${nombreMesAnterior} ${yearAnterior}).`);
+      console.log(`Correo de resumen mensual encolado para ${email} (${nombreMesAnterior} ${yearAnterior}).`);
     }
 
     const [prestamos, tarjetas, membresias, contratos, productos, movimientos, fuentesIngreso] = await Promise.all([
@@ -432,13 +436,13 @@ exports.avisoDiarioAlertas = onSchedule(
 
     if (notificaciones.length > 0) {
       await db.collection("mail").add({
-        to: [CORREO_NOTIFICACIONES],
+        to: [email],
         message: {
           subject: `Smart Finance: ${notificaciones.length} alerta${notificaciones.length !== 1 ? "s" : ""} pendiente${notificaciones.length !== 1 ? "s" : ""}`,
           html: construirHtml(notificaciones),
         },
       });
-      console.log(`Correo de alertas encolado para ${CORREO_NOTIFICACIONES} con ${notificaciones.length} notificaciones.`);
+      console.log(`Correo de alertas encolado para ${email} con ${notificaciones.length} notificaciones.`);
     } else {
       console.log("No hay alertas pendientes hoy.");
     }
@@ -456,13 +460,13 @@ exports.avisoDiarioAlertas = onSchedule(
       const total = items.reduce((s, it) => s + it.monto, 0);
 
       await db.collection("mail").add({
-        to: [CORREO_NOTIFICACIONES],
+        to: [email],
         message: {
           subject: `Smart Finance: hoy es tu día de cobro (${f.nombre})`,
           html: construirHtmlChecklist(f.nombre, periodo, items, total),
         },
       });
-      console.log(`Correo de día de cobro encolado para ${CORREO_NOTIFICACIONES} (${f.nombre}), quincena ${periodo.quincena} de ${periodo.month}/${periodo.year}.`);
+      console.log(`Correo de día de cobro encolado para ${email} (${f.nombre}), quincena ${periodo.quincena} de ${periodo.month}/${periodo.year}.`);
     }
   }
 );
