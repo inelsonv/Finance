@@ -266,6 +266,127 @@ function construirHtmlChecklist(fuenteNombre, periodo, items, total) {
     </div>`;
 }
 
+// Mes anterior al indicado en "today" (para el resumen que se envía el día 1
+// de cada mes, resumiendo el mes que acaba de terminar).
+function mesAnterior(today) {
+  let month = today.month - 1;
+  let year = today.year;
+  if (month < 1) {
+    month = 12;
+    year -= 1;
+  }
+  return { year, month };
+}
+
+function rangoFechasMes(year, month) {
+  const pad = (n) => String(n).padStart(2, "0");
+  const diasEnMes = new Date(year, month, 0).getDate();
+  return { desde: `${year}-${pad(month)}-01`, hasta: `${year}-${pad(month)}-${pad(diasEnMes)}` };
+}
+
+async function construirResumenMensual(year, month) {
+  const [categoriasGasto, presupuestoSnap, prestamos, movimientos, puntosHistorial] = await Promise.all([
+    getAll("categoriasGasto"),
+    db.collection("presupuestos").doc(String(year)).get(),
+    getAll("prestamos"),
+    getAll("movimientos"),
+    getAll("puntosHistorial"),
+  ]);
+  const presupuesto = presupuestoSnap.exists ? presupuestoSnap.data() : {};
+  const { desde, hasta } = rangoFechasMes(year, month);
+
+  let presupuestado = 0;
+  for (const c of categoriasGasto) {
+    for (const q of ["Q1", "Q2"]) {
+      const val = presupuesto?.[c.nombre]?.[String(month)]?.[q];
+      if (typeof val === "number") presupuestado += val;
+    }
+  }
+  for (const p of prestamos) {
+    if (p.estado !== "Activo") continue;
+    if (p.frecuenciaCuota === "Personalizado") {
+      for (const cuota of p.cuotasPersonalizadas || []) {
+        if (!cuota.fecha || !cuota.monto) continue;
+        if (cuota.fecha >= desde && cuota.fecha <= hasta) presupuestado += Number(cuota.monto) || 0;
+      }
+      continue;
+    }
+    const q = celdaPrestamoQuincena(p, year, month);
+    if (q) presupuestado += Number(p.cuota) || 0;
+  }
+
+  let gastado = 0;
+  for (const m of movimientos) {
+    if (m.type !== "Gasto") continue;
+    if (!m.date || m.date < desde || m.date > hasta) continue;
+    gastado += Number(m.amount) || 0;
+  }
+
+  let puntosGanadosMes = 0;
+  for (const ph of puntosHistorial) {
+    if (!ph.fecha || ph.fecha < desde || ph.fecha > hasta) continue;
+    if (ph.puntos > 0) puntosGanadosMes += ph.puntos;
+  }
+
+  const puntosSnap = await db.collection("config").doc("puntos").get();
+  const puntosTotal = puntosSnap.exists ? puntosSnap.data().total || 0 : 0;
+
+  return { presupuestado, gastado, puntosGanadosMes, puntosTotal };
+}
+
+function construirHtmlResumenMensual(year, month, resumen) {
+  const nombreMes = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+  ][month - 1];
+  const { presupuestado, gastado, puntosGanadosMes, puntosTotal } = resumen;
+  const exitoso = presupuestado > 0 && gastado <= presupuestado;
+  const diferencia = presupuestado - gastado;
+  const link = `https://inelsonv.github.io/Finance/?tab=presupuesto-mensual`;
+
+  const mensajeEstado =
+    presupuestado <= 0
+      ? { titulo: "Sin presupuesto configurado", color: "#6f6a5e", detalle: "No tenías montos presupuestados este mes, así que no se puede evaluar." }
+      : exitoso
+      ? { titulo: "✅ ¡Mes exitoso!", color: "#5b7a5b", detalle: `Te mantuviste dentro de tu presupuesto, con ${formatMoneyMail(diferencia)} de margen.` }
+      : { titulo: "⚠️ Te excediste este mes", color: "#a23e2e", detalle: `Gastaste ${formatMoneyMail(Math.abs(diferencia))} más de lo presupuestado.` };
+
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;">
+      <h2 style="color:#26241f;">📊 Resumen de ${nombreMes} ${year}</h2>
+
+      <div style="background:${mensajeEstado.color}1a;border:1px solid ${mensajeEstado.color};border-radius:10px;padding:14px;margin-bottom:16px;">
+        <div style="font-weight:700;color:${mensajeEstado.color};font-size:15px;margin-bottom:4px;">${mensajeEstado.titulo}</div>
+        <div style="color:#6f6a5e;font-size:13px;">${mensajeEstado.detalle}</div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;background:#fffefc;border:1px solid #e5ded0;border-radius:8px;margin-bottom:16px;">
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5ded0;color:#6f6a5e;font-size:13px;">Presupuestado</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5ded0;text-align:right;font-weight:600;color:#26241f;font-size:14px;">${formatMoneyMail(presupuestado)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5ded0;color:#6f6a5e;font-size:13px;">Gastado</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #e5ded0;text-align:right;font-weight:600;color:#26241f;font-size:14px;">${formatMoneyMail(gastado)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px 12px;color:#6f6a5e;font-size:13px;">🏆 Puntos ganados este mes</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:600;color:#b8892b;font-size:14px;">+${Math.round(puntosGanadosMes)}</td>
+        </tr>
+      </table>
+
+      <p style="color:#6f6a5e;font-size:13px;">
+        Tienes <strong style="color:#b8892b;">$${Math.round(puntosTotal)}</strong> puntos disponibles en total para canjear.
+      </p>
+
+      <p style="margin-top:16px;">
+        <a href="${link}" style="background:#5b7a5b;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:13px;font-weight:600;">
+          Ver Presupuesto mensual
+        </a>
+      </p>
+    </div>`;
+}
+
 exports.avisoDiarioAlertas = onSchedule(
   { schedule: "every day 08:00", timeZone: "America/Santo_Domingo" },
   async () => {
@@ -322,6 +443,26 @@ exports.avisoDiarioAlertas = onSchedule(
         },
       });
       console.log(`Correo de día de cobro encolado para ${email} (${f.nombre}), quincena ${periodo.quincena} de ${periodo.month}/${periodo.year}.`);
+    }
+
+    // El día 1 de cada mes, envía el resumen financiero del mes que acaba de
+    // terminar (comportamiento del presupuesto y puntos ganados).
+    if (today.day === 1) {
+      const { year: yearAnterior, month: monthAnterior } = mesAnterior(today);
+      const resumen = await construirResumenMensual(yearAnterior, monthAnterior);
+      const nombreMesAnterior = [
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+      ][monthAnterior - 1];
+
+      await db.collection("mail").add({
+        to: [email],
+        message: {
+          subject: `Smart Finance: resumen de ${nombreMesAnterior}`,
+          html: construirHtmlResumenMensual(yearAnterior, monthAnterior, resumen),
+        },
+      });
+      console.log(`Correo de resumen mensual encolado para ${email} (${nombreMesAnterior} ${yearAnterior}).`);
     }
   }
 );
