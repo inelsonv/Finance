@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
+import { formatearOrdenPrioridad } from "../lib/flujoPrioridad";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
@@ -106,7 +107,12 @@ function totalItemsOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones }) {
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones, flujo }) {
+  // Puramente informativo: el orden de prioridad definido en el Editor de
+  // flujo, mostrado como referencia visual. No depende de ningún otro cálculo
+  // de este componente ni los modifica.
+  const ordenFlujoReferencia = useMemo(() => formatearOrdenPrioridad(flujo?.nodes, flujo?.edges), [flujo]);
+
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
@@ -551,6 +557,29 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
             <strong>{Math.round(nivelEndeudamiento)}%</strong> (Alto/Crítico). Prioriza gastos fijos y deudas
             primero. Puedes cambiar esto en Configuración → Modo Ahorro.
           </div>
+        </div>
+      )}
+
+      {ordenFlujoReferencia && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "var(--sage-bg)",
+            border: "1px solid var(--sage)",
+            borderRadius: 10,
+            padding: "9px 12px",
+            marginBottom: 14,
+            fontSize: 12,
+            color: "var(--sage)",
+            flexWrap: "wrap",
+          }}
+        >
+          <ListOrdered size={14} style={{ flexShrink: 0 }} />
+          <span>
+            <strong>Orden de prioridad (según tu Editor de flujo):</strong> {ordenFlujoReferencia}
+          </span>
         </div>
       )}
 

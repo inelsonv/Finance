@@ -538,6 +538,7 @@ export default function App() {
             year={presupuestoYear}
             onChangeYear={setPresupuestoYear}
             renovaciones={renovaciones}
+            flujo={flujo}
             prestamos={prestamos}
             metasAhorro={metasAhorro}
             fuentesIngreso={fuentesIngreso}

@@ -168,6 +168,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [editLabel, setEditLabel] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editIcon, setEditIcon] = useState(ICONO_DEFAULT);
@@ -241,6 +242,14 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
       },
     ]);
     setDirty(true);
+  };
+
+  const deleteNode = (nodeId) => {
+    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+    setDirty(true);
+    setSelectedNodeId(null);
+    if (editingId === nodeId) cancelEdit();
   };
 
   const openEdit = (node) => {
@@ -530,6 +539,31 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
             <Trash2 size={13} /> Eliminar conexión
           </button>
         )}
+        {selectedNodeId && !selectedEdgeId && (
+          <button
+            onClick={() => deleteNode(selectedNodeId)}
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 12px",
+              fontSize: 12,
+              fontWeight: 500,
+              background: "var(--stamp)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            }}
+          >
+            <Trash2 size={13} /> Eliminar nodo
+          </button>
+        )}
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -543,8 +577,12 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
             setSelectedEdgeId(null);
           }}
           onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
-          onPaneClick={() => setSelectedEdgeId(null)}
           onNodeDoubleClick={(_, node) => openEdit(node)}
+          onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+          onPaneClick={() => {
+            setSelectedEdgeId(null);
+            setSelectedNodeId(null);
+          }}
           fitView
           deleteKeyCode={["Backspace", "Delete"]}
         >
@@ -556,7 +594,8 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
 
       <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8 }}>
         El nodo "Ingreso" original toma como referencia tu ingreso mensual calculado en la sección Ingresos. Toca una
-        conexión para seleccionarla y aparecerá el botón "Eliminar conexión" (o doble clic para borrarla directo).
+        conexión para seleccionarla y aparecerá el botón "Eliminar conexión" (o doble clic para borrarla directo). Toca un
+        nodo para seleccionarlo y aparecerá el botón "Eliminar nodo".
       </div>
     </div>
   );
