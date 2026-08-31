@@ -1,15 +1,22 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Briefcase, Pencil, Check, Landmark } from "lucide-react";
-import { addFuenteIngreso, deleteFuenteIngreso, updateFuenteIngresoEstado, updateFuenteIngreso } from "../lib/db";
+import { Plus, Trash2, X, Briefcase, Pencil, Check, Landmark, Gift } from "lucide-react";
+import { addFuenteIngreso, deleteFuenteIngreso, updateFuenteIngresoEstado, updateFuenteIngreso, addIngresoPuntual, deleteIngresoPuntual, marcarIngresoPuntualRecibido } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
 export const FUENTE_TIPOS = ["Salario", "Freelance", "Negocio propio", "Renta", "Otro"];
+const TIPOS_INGRESO_PUNTUAL = ["Bonificación", "Regalía Pascual", "Bono Vacacional", "Comisión", "Otro"];
 export const FRECUENCIAS_INGRESO = ["Semanal", "Quincenal", "Mensual", "Anual", "Único"];
 const ESTADOS = ["Activo", "Inactivo"];
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 const emptyForm = () => ({
@@ -40,7 +47,7 @@ function toEditForm(f) {
   };
 }
 
-export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
+export default function FuentesIngreso({ fuentes, entidades, movimientos, ingresosPuntuales }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -49,6 +56,68 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
   const [editForm, setEditForm] = useState(null);
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+
+  const [agregandoPuntualId, setAgregandoPuntualId] = useState(null);
+  const [puntualTipo, setPuntualTipo] = useState(TIPOS_INGRESO_PUNTUAL[0]);
+  const [puntualMonto, setPuntualMonto] = useState("");
+  const [puntualFecha, setPuntualFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [puntualNotas, setPuntualNotas] = useState("");
+  const [puntualError, setPuntualError] = useState(null);
+  const [puntualSaving, setPuntualSaving] = useState(false);
+  const [recibiendoId, setRecibiendoId] = useState(null);
+
+  const puntualesPorFuente = useMemo(() => {
+    const map = {};
+    for (const ip of ingresosPuntuales || []) {
+      if (!map[ip.fuenteIngresoId]) map[ip.fuenteIngresoId] = [];
+      map[ip.fuenteIngresoId].push(ip);
+    }
+    return map;
+  }, [ingresosPuntuales]);
+
+  const abrirAgregarPuntual = (fuenteId) => {
+    setAgregandoPuntualId(fuenteId);
+    setPuntualTipo(TIPOS_INGRESO_PUNTUAL[0]);
+    setPuntualMonto("");
+    setPuntualFecha(new Date().toISOString().slice(0, 10));
+    setPuntualNotas("");
+    setPuntualError(null);
+  };
+
+  const guardarPuntual = async (fuente) => {
+    const montoNum = parseFloat(puntualMonto);
+    if (!Number.isFinite(montoNum) || montoNum <= 0) {
+      setPuntualError("Ingresa un monto válido");
+      return;
+    }
+    setPuntualSaving(true);
+    setPuntualError(null);
+    try {
+      await addIngresoPuntual({
+        fuenteIngresoId: fuente.id,
+        fuenteIngresoNombre: fuente.nombre,
+        tipo: puntualTipo,
+        monto: montoNum,
+        fecha: puntualFecha,
+        notas: puntualNotas.trim(),
+      });
+      setAgregandoPuntualId(null);
+    } catch (err) {
+      setPuntualError(err.message || String(err));
+    } finally {
+      setPuntualSaving(false);
+    }
+  };
+
+  const recibirPuntual = async (ip) => {
+    if (!(await confirm(`¿Confirmar que recibiste ${ip.tipo} por ${formatMoney(ip.monto)}? Se registrará como ingreso y no se podrá revertir.`))) return;
+    setRecibiendoId(ip.id);
+    try {
+      await marcarIngresoPuntualRecibido(ip.id, ip);
+    } finally {
+      setRecibiendoId(null);
+    }
+  };
 
   const recibidoPorFuente = useMemo(() => {
     const map = {};
@@ -448,6 +517,127 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos }) {
                       {f.notas}
                     </div>
                   )}
+
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <span className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", display: "flex", alignItems: "center", gap: 4 }}>
+                        <Gift size={11} /> Ingresos puntuales
+                      </span>
+                      <button
+                        onClick={() => (agregandoPuntualId === f.id ? setAgregandoPuntualId(null) : abrirAgregarPuntual(f.id))}
+                        style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                      >
+                        {agregandoPuntualId === f.id ? <X size={11} /> : <Plus size={11} />}
+                        {agregandoPuntualId === f.id ? "Cancelar" : "Agregar"}
+                      </button>
+                    </div>
+
+                    {agregandoPuntualId === f.id && (
+                      <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                        <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 6, marginBottom: 6 }}>
+                          <select
+                            value={puntualTipo}
+                            onChange={(e) => setPuntualTipo(e.target.value)}
+                            style={{ padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12, background: "var(--card)" }}
+                          >
+                            {TIPOS_INGRESO_PUNTUAL.map((t) => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Monto"
+                            value={puntualMonto}
+                            onChange={(e) => setPuntualMonto(e.target.value)}
+                            style={{ padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12 }}
+                          />
+                        </div>
+                        <input
+                          type="date"
+                          value={puntualFecha}
+                          onChange={(e) => setPuntualFecha(e.target.value)}
+                          style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12, marginBottom: 6 }}
+                        />
+                        <input
+                          placeholder="Notas (opcional)"
+                          value={puntualNotas}
+                          onChange={(e) => setPuntualNotas(e.target.value)}
+                          style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12, marginBottom: 8 }}
+                        />
+                        <button
+                          onClick={() => guardarPuntual(f)}
+                          disabled={puntualSaving}
+                          style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: puntualSaving ? "not-allowed" : "pointer" }}
+                        >
+                          <Check size={12} /> {puntualSaving ? "Guardando…" : "Guardar"}
+                        </button>
+                        {puntualError && <div style={{ marginTop: 6, fontSize: 11, color: "var(--stamp)" }}>{puntualError}</div>}
+                      </div>
+                    )}
+
+                    {(puntualesPorFuente[f.id] || []).length === 0 ? (
+                      <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Sin ingresos puntuales registrados.</div>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {puntualesPorFuente[f.id].map((ip) => (
+                          <div
+                            key={ip.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 8,
+                              padding: "6px 8px",
+                              background: "var(--paper)",
+                              borderRadius: 7,
+                              opacity: ip.recibido ? 0.7 : 1,
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 500 }}>
+                                {ip.tipo}
+                                {ip.recibido && (
+                                  <span className="despensa-mono" style={{ marginLeft: 5, fontSize: 9, fontWeight: 600, padding: "1px 5px", borderRadius: 8, background: "var(--sage-bg)", color: "var(--sage)" }}>
+                                    Recibido
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>{formatDateDisplay(ip.fecha)}{ip.notas && ` · ${ip.notas}`}</div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                              <span className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 600, color: ip.recibido ? "var(--sage)" : "var(--ink)" }}>
+                                {formatMoney(ip.monto)}
+                              </span>
+                              {!ip.recibido && (
+                                <>
+                                  <button
+                                    onClick={() => recibirPuntual(ip)}
+                                    disabled={recibiendoId === ip.id}
+                                    title="Marcar como recibido y registrar el ingreso"
+                                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, background: "transparent", color: "var(--sage)", border: "none", borderRadius: 5, cursor: "pointer" }}
+                                  >
+                                    <Check size={13} />
+                                  </button>
+                                  <button
+                                    onClick={async () => {
+                                      if (await confirm(`¿Eliminar este ingreso puntual (${ip.tipo})?`)) deleteIngresoPuntual(ip.id);
+                                    }}
+                                    title="Eliminar"
+                                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 5, cursor: "pointer" }}
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
             </div>

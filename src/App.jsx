@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales } from "./lib/db";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
@@ -141,6 +141,7 @@ export default function App() {
   const [metasAhorro, setMetasAhorro] = useState([]);
   const [seguros, setSeguros] = useState([]);
   const [renovaciones, setRenovaciones] = useState([]);
+  const [ingresosPuntuales, setIngresosPuntuales] = useState([]);
   const [historialCompras, setHistorialCompras] = useState([]);
   const [ordenesCompra, setOrdenesCompra] = useState([]);
   const [vacaciones, setVacaciones] = useState([]);
@@ -256,6 +257,7 @@ export default function App() {
     const unsubMetasAhorro = watchMetasAhorro(setMetasAhorro, handleError);
     const unsubSeguros = watchSeguros(setSeguros, handleError);
     const unsubRenovaciones = watchRenovaciones(setRenovaciones, handleError);
+    const unsubIngresosPuntuales = watchIngresosPuntuales(setIngresosPuntuales, handleError);
     const unsubHistorialCompras = watchHistorialCompras(setHistorialCompras, handleError);
     const unsubOrdenesCompra = watchOrdenesCompra(setOrdenesCompra, handleError);
     const unsubVacaciones = watchVacaciones(setVacaciones, handleError);
@@ -286,6 +288,7 @@ export default function App() {
       unsubMetasAhorro();
       unsubSeguros();
       unsubRenovaciones();
+      unsubIngresosPuntuales();
       unsubHistorialCompras();
       unsubOrdenesCompra();
       unsubVacaciones();
@@ -556,7 +559,9 @@ export default function App() {
         {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} />}
         {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
         {tab === "contratos" && <Contratos contratos={contratos} entidades={entidades} movimientos={movimientos} />}
-        {tab === "ingresos" && <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} />}
+        {tab === "ingresos" && (
+          <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} ingresosPuntuales={ingresosPuntuales} />
+        )}
         {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} categoriasPersonalizadas={categoriasGasto} />}
         {tab === "presupuesto-mensual" && (
           <PresupuestoAnual

@@ -704,6 +704,52 @@ export async function deleteFuenteIngreso(id) {
   await deleteDoc(doc(db, "fuentesIngreso", id));
 }
 
+const ingresosPuntualesCol = collection(db, "ingresosPuntuales");
+
+export function watchIngresosPuntuales(onChange, onError) {
+  return onSnapshot(
+    ingresosPuntualesCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addIngresoPuntual({ fuenteIngresoId, fuenteIngresoNombre, tipo, monto, fecha, notas }) {
+  await addDoc(ingresosPuntualesCol, {
+    fuenteIngresoId,
+    fuenteIngresoNombre: fuenteIngresoNombre || "",
+    tipo,
+    monto: monto ?? null,
+    fecha: fecha || null,
+    notas: notas || "",
+    recibido: false,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteIngresoPuntual(id) {
+  await deleteDoc(doc(db, "ingresosPuntuales", id));
+}
+
+// Marca un ingreso puntual como recibido y registra el movimiento
+// correspondiente. No debe poder revertirse una vez recibido.
+export async function marcarIngresoPuntualRecibido(id, ingreso) {
+  await addMovimiento({
+    type: "Ingreso",
+    category: ingreso.tipo,
+    amount: ingreso.monto,
+    description: `${ingreso.tipo} — ${ingreso.fuenteIngresoNombre}`,
+    date: ingreso.fecha || new Date().toISOString().slice(0, 10),
+    fuenteIngresoId: ingreso.fuenteIngresoId,
+    fuenteIngresoNombre: ingreso.fuenteIngresoNombre,
+  });
+  await updateDoc(doc(db, "ingresosPuntuales", id), { recibido: true });
+}
+
 export function watchCategoriasGasto(onChange, onError) {
   return onSnapshot(
     categoriasGastoCol,

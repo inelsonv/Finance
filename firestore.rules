@@ -78,6 +78,9 @@ service cloud.firestore {
     match /puntosHistorial/{doc} {
       allow read, write: if esPropietario();
     }
+    match /ingresosPuntuales/{doc} {
+      allow read, write: if esPropietario();
+    }
     match /historialCompras/{doc} {
       allow read, write: if esPropietario();
     }
