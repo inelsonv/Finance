@@ -214,14 +214,28 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
     setDirty(true);
   }, []);
 
-  const onConnect = useCallback((connection) => {
-    setColorIndex((i) => {
-      const color = PALETTE[i % PALETTE.length];
-      setEdges((eds) => addEdge({ ...connection, ...edgeStyle(color) }, eds));
-      return i + 1;
-    });
-    setDirty(true);
-  }, []);
+  const [avisoIngreso, setAvisoIngreso] = useState(null);
+
+  const onConnect = useCallback(
+    (connection) => {
+      const sourceNode = nodes.find((n) => n.id === connection.source);
+      const esIngreso = sourceNode?.data?.tipo === "ingreso" || sourceNode?.data?.role === "ingreso";
+
+      if (esIngreso && edges.some((e) => e.source === connection.source)) {
+        setAvisoIngreso("El nodo Ingreso solo puede tener una conexión de salida. Elimina la actual antes de crear otra.");
+        setTimeout(() => setAvisoIngreso(null), 3500);
+        return;
+      }
+
+      setColorIndex((i) => {
+        const color = PALETTE[i % PALETTE.length];
+        setEdges((eds) => addEdge({ ...connection, ...edgeStyle(color) }, eds));
+        return i + 1;
+      });
+      setDirty(true);
+    },
+    [nodes, edges]
+  );
 
   const addNode = () => {
     const label = window.prompt("Nombre de la actividad (ej. Pago préstamo, Inversión)");
@@ -352,6 +366,25 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
 
   return (
     <div>
+      {avisoIngreso && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: "var(--stamp-bg)",
+            border: "1px solid var(--stamp)",
+            borderRadius: 10,
+            padding: "9px 12px",
+            marginBottom: 10,
+            fontSize: 12,
+            color: "var(--stamp)",
+          }}
+        >
+          {avisoIngreso}
+        </div>
+      )}
+
       {resumen.ingresoMonto > 0 && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginBottom: 10, display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12 }}>
           <span>Ingreso del nodo: <strong className="despensa-mono">{formatMoney(resumen.ingresoMonto)}</strong></span>
