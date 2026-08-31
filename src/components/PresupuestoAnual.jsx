@@ -237,8 +237,27 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
       }
       return total;
     }
+
+    // Igual que en el Checklist de pagos: una cuota puede haberse movido
+    // manualmente a otra quincena (incluso de otro mes). Revisa ambos casos:
+    // 1) la cuota natural de este mes, si no fue movida a otro lado, y
+    // 2) cuotas de otros meses que fueron movidas para caer aquí.
+    const overrides = prestamo.quincenaOverrides || {};
+    const overrideEsteMesRaw = overrides[`${mes}-${year}`];
+    const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
+
+    let total = 0;
     const { activo, quincena: q } = celdaPrestamo(prestamo, year, mes);
-    return activo && q === quincena ? prestamo.cuota : 0;
+    if (activo && !overrideEsteMes && q === quincena) {
+      total += Number(prestamo.cuota) || 0;
+    }
+    for (const destino of Object.values(overrides)) {
+      if (!destino || typeof destino !== "object") continue;
+      if (destino.year === year && destino.month === mes && destino.quincena === quincena) {
+        total += Number(prestamo.cuota) || 0;
+      }
+    }
+    return total;
   };
 
   const totalMesPrestamo = (prestamo, mes) => getCeldaPrestamo(prestamo, mes, "Q1") + getCeldaPrestamo(prestamo, mes, "Q2");
