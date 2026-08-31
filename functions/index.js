@@ -446,7 +446,10 @@ exports.avisoDiarioAlertas = onSchedule(
     }
 
     // El día 1 de cada mes, envía el resumen financiero del mes que acaba de
-    // terminar (comportamiento del presupuesto y puntos ganados).
+    // terminar (comportamiento del presupuesto y puntos ganados). Este correo
+    // va exclusivamente a una dirección fija, aparte del correo configurado
+    // para las demás alertas.
+    const CORREO_RESUMEN_MENSUAL = "iventuramena@gmail.com";
     if (today.day === 1) {
       const { year: yearAnterior, month: monthAnterior } = mesAnterior(today);
       const resumen = await construirResumenMensual(yearAnterior, monthAnterior);
@@ -456,13 +459,13 @@ exports.avisoDiarioAlertas = onSchedule(
       ][monthAnterior - 1];
 
       await db.collection("mail").add({
-        to: [email],
+        to: [CORREO_RESUMEN_MENSUAL],
         message: {
           subject: `Smart Finance: resumen de ${nombreMesAnterior}`,
           html: construirHtmlResumenMensual(yearAnterior, monthAnterior, resumen),
         },
       });
-      console.log(`Correo de resumen mensual encolado para ${email} (${nombreMesAnterior} ${yearAnterior}).`);
+      console.log(`Correo de resumen mensual encolado para ${CORREO_RESUMEN_MENSUAL} (${nombreMesAnterior} ${yearAnterior}).`);
     }
   }
 );
