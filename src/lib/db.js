@@ -483,17 +483,18 @@ export async function updatePrestamo(id, fields) {
   await updateDoc(doc(db, "prestamos", id), fields);
 }
 
-// Mueve la cuota de un mes específico a la otra quincena, sin cambiar la
-// configuración general del préstamo (solo afecta ese mes puntual).
-export async function setPrestamoQuincenaOverride(id, year, month, quincena) {
+// Mueve la cuota que naturalmente cae en (origenMonth, origenYear) hacia
+// cualquier otra quincena/mes/año destino (incluso cruzando de mes), sin
+// cambiar la configuración general del préstamo.
+export async function setPrestamoQuincenaOverride(id, origenYear, origenMonth, destino) {
   await updateDoc(doc(db, "prestamos", id), {
-    [`quincenaOverrides.${month}-${year}`]: quincena,
+    [`quincenaOverrides.${origenMonth}-${origenYear}`]: destino,
   });
 }
 
-export async function quitarPrestamoQuincenaOverride(id, year, month) {
+export async function quitarPrestamoQuincenaOverride(id, origenYear, origenMonth) {
   await updateDoc(doc(db, "prestamos", id), {
-    [`quincenaOverrides.${month}-${year}`]: deleteField(),
+    [`quincenaOverrides.${origenMonth}-${origenYear}`]: deleteField(),
   });
 }
 

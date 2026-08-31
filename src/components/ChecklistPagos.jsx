@@ -17,6 +17,11 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const MES_NOMBRES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
 function celdaPrestamo(prestamo, year, mes) {
   if (!prestamo.fechaInicio || !prestamo.cuota) return { activo: false, quincena: null };
   const [sy, sm, sd] = prestamo.fechaInicio.split("-").map(Number);
@@ -25,10 +30,8 @@ function celdaPrestamo(prestamo, year, mes) {
   if (!mesesTotales) return { activo: false, quincena: null };
   const offset = (year - sy) * 12 + (mes - sm);
   const activo = offset >= 0 && offset < mesesTotales;
-  const quincenaBase = sd && sd > 15 ? "Q2" : "Q1";
-  const override = prestamo.quincenaOverrides?.[`${mes}-${year}`];
-  const quincena = override || quincenaBase;
-  return { activo, quincena, quincenaBase, tieneOverride: !!override };
+  const quincena = sd && sd > 15 ? "Q2" : "Q1";
+  return { activo, quincena };
 }
 
 function periodoActual() {
@@ -118,8 +121,17 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         }
         continue;
       }
-      const { activo, quincena, tieneOverride } = celdaPrestamo(p, periodo.year, periodo.month);
-      if (activo && quincena === periodo.quincena && p.cuota) {
+
+      const overrides = p.quincenaOverrides || {};
+      const origenKeyEsteMes = `${periodo.month}-${periodo.year}`;
+      const overrideEsteMesRaw = overrides[origenKeyEsteMes];
+      // Solo cuenta como "movida" si es un destino válido (objeto con
+      // year/month/quincena) — protege contra datos de un formato anterior.
+      const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
+
+      // 1) La cuota natural de ESTE mes, si no fue movida a otro lado.
+      const { activo, quincena } = celdaPrestamo(p, periodo.year, periodo.month);
+      if (activo && !overrideEsteMes && quincena === periodo.quincena && p.cuota) {
         list.push({
           key: `prestamo-${p.id}`,
           nombre: `Préstamo ${p.numero}`,
@@ -132,8 +144,30 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           entidadId: p.entidadId || "",
           entidadName: p.entidadName || "",
           bloqueadoPagado: saldado,
-          quincenaActual: periodo.quincena,
-          tieneOverride,
+          origenKey: origenKeyEsteMes,
+          tieneOverride: false,
+        });
+      }
+
+      // 2) Cuotas de OTROS meses que fueron movidas para caer aquí.
+      for (const [origenKey, destino] of Object.entries(overrides)) {
+        if (!destino || typeof destino !== "object") continue;
+        if (destino.year !== periodo.year || destino.month !== periodo.month || destino.quincena !== periodo.quincena) continue;
+        const [origMes, origYear] = origenKey.split("-").map(Number);
+        list.push({
+          key: `prestamo-${p.id}-mov-${origenKey}`,
+          nombre: `Préstamo ${p.numero} (movida de ${MES_NOMBRES[origMes - 1]})`,
+          monto: p.cuota,
+          icon: Landmark,
+          metodoDefault: null,
+          esPrestamo: true,
+          prestamoId: p.id,
+          prestamoNumero: p.numero,
+          entidadId: p.entidadId || "",
+          entidadName: p.entidadName || "",
+          bloqueadoPagado: saldado,
+          origenKey,
+          tieneOverride: true,
         });
       }
     }
@@ -164,18 +198,54 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
 
   const [confirmandoKey, setConfirmandoKey] = useState(null);
   const [moviendoKey, setMoviendoKey] = useState(null);
+  const [moviendoAbiertoKey, setMoviendoAbiertoKey] = useState(null);
+  const [destinoMes, setDestinoMes] = useState("");
+  const [destinoQuincena, setDestinoQuincena] = useState("Q1");
 
-  const moverQuincena = async (it) => {
+  const opcionesDestino = useMemo(() => {
+    const opciones = [];
+    let { year, month } = periodo;
+    for (let i = 0; i < 6; i++) {
+      for (const q of ["Q1", "Q2"]) {
+        opciones.push({ value: `${year}-${month}-${q}`, label: `${MES_NOMBRES[month - 1]} ${year} · ${q === "Q1" ? "1ra" : "2da"} quincena`, year, month, quincena: q });
+      }
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+    return opciones;
+  }, [periodo]);
+
+  const abrirMoverQuincena = (it) => {
+    setMoviendoAbiertoKey(it.key);
+    const primeraOpcionFutura = opcionesDestino.find((o) => `${o.year}-${o.month}` !== `${periodo.year}-${periodo.month}`);
+    setDestinoMes(primeraOpcionFutura ? `${primeraOpcionFutura.year}-${primeraOpcionFutura.month}` : "");
+    setDestinoQuincena(primeraOpcionFutura?.quincena || "Q1");
+  };
+
+  const confirmarMoverQuincena = async (it) => {
+    if (!destinoMes) return;
+    const [destYear, destMonth] = destinoMes.split("-").map(Number);
     setMoviendoKey(it.key);
     try {
-      if (it.tieneOverride) {
-        // Ya tiene un ajuste manual para este mes: lo quita, volviendo a la
-        // quincena que le corresponde según la configuración del préstamo.
-        await quitarPrestamoQuincenaOverride(it.prestamoId, periodo.year, periodo.month);
-      } else {
-        const otraQuincena = it.quincenaActual === "Q1" ? "Q2" : "Q1";
-        await setPrestamoQuincenaOverride(it.prestamoId, periodo.year, periodo.month, otraQuincena);
-      }
+      await setPrestamoQuincenaOverride(it.prestamoId, periodo.year, periodo.month, {
+        year: destYear,
+        month: destMonth,
+        quincena: destinoQuincena,
+      });
+      setMoviendoAbiertoKey(null);
+    } finally {
+      setMoviendoKey(null);
+    }
+  };
+
+  const quitarMover = async (it) => {
+    setMoviendoKey(it.key);
+    try {
+      const [origMes, origYear] = it.origenKey.split("-").map(Number);
+      await quitarPrestamoQuincenaOverride(it.prestamoId, origYear, origMes);
     } finally {
       setMoviendoKey(null);
     }
@@ -380,27 +450,63 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                       <Landmark size={10} /> Pagar a: {it.entidadName}
                     </div>
                   )}
-                  {it.esPrestamo && !it.bloqueadoPagado && it.quincenaActual && (
-                    <button
-                      onClick={() => moverQuincena(it)}
-                      disabled={moviendoKey === it.key}
-                      title={it.tieneOverride ? "Volver a la quincena original" : `Mover a la ${it.quincenaActual === "Q1" ? "2da" : "1ra"} quincena`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 3,
-                        marginTop: 3,
-                        padding: 0,
-                        fontSize: 10.5,
-                        color: "var(--sage)",
-                        background: "transparent",
-                        border: "none",
-                        cursor: moviendoKey === it.key ? "wait" : "pointer",
-                      }}
-                    >
-                      <ArrowLeftRight size={10} />
-                      {it.tieneOverride ? "Ajustada manualmente — volver a la original" : `Mover a la ${it.quincenaActual === "Q1" ? "2da" : "1ra"} quincena`}
-                    </button>
+                  {it.esPrestamo && !it.bloqueadoPagado && it.origenKey && (
+                    <div style={{ marginTop: 3 }}>
+                      {it.tieneOverride ? (
+                        <button
+                          onClick={() => quitarMover(it)}
+                          disabled={moviendoKey === it.key}
+                          title="Volver esta cuota a su quincena original"
+                          style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--amber)", background: "transparent", border: "none", cursor: moviendoKey === it.key ? "wait" : "pointer" }}
+                        >
+                          <ArrowLeftRight size={10} /> Movida manualmente — volver a la original
+                        </button>
+                      ) : moviendoAbiertoKey === it.key ? (
+                        <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                          <select
+                            value={destinoMes}
+                            onChange={(e) => setDestinoMes(e.target.value)}
+                            style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
+                          >
+                            {[...new Set(opcionesDestino.map((o) => `${o.year}-${o.month}`))].map((ym) => {
+                              const [y, m] = ym.split("-").map(Number);
+                              return (
+                                <option key={ym} value={ym}>{MES_NOMBRES[m - 1]} {y}</option>
+                              );
+                            })}
+                          </select>
+                          <select
+                            value={destinoQuincena}
+                            onChange={(e) => setDestinoQuincena(e.target.value)}
+                            style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
+                          >
+                            <option value="Q1">1ra quincena</option>
+                            <option value="Q2">2da quincena</option>
+                          </select>
+                          <button
+                            onClick={() => confirmarMoverQuincena(it)}
+                            disabled={moviendoKey === it.key}
+                            style={{ fontSize: 10.5, padding: "3px 8px", background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
+                          >
+                            {moviendoKey === it.key ? "…" : "Confirmar"}
+                          </button>
+                          <button
+                            onClick={() => setMoviendoAbiertoKey(null)}
+                            style={{ fontSize: 10.5, padding: "3px 8px", background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => abrirMoverQuincena(it)}
+                          title="Mover esta cuota a otra quincena, aunque sea de otro mes"
+                          style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer" }}
+                        >
+                          <ArrowLeftRight size={10} /> Mover a otra quincena
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
 
