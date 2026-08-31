@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena } from "./lib/db";
+import { periodoActual, periodoAnterior, periodoKey } from "./lib/racha";
+import { calcularResumenQuincena } from "./lib/quincenaResumen";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
@@ -301,6 +303,33 @@ export default function App() {
       unsubStatus();
     };
   }, [authorized]);
+
+  // Al abrir la app, revisa si la quincena que acaba de cerrar cumplió el
+  // presupuesto (sin excederse), y en ese caso otorga puntos. Protegido
+  // contra doble-evaluación desde db.js, así que es seguro que corra en cada
+  // sesión sin duplicar puntos.
+  const cumplimientoEvaluado = useRef(false);
+  useEffect(() => {
+    if (!authorized || cumplimientoEvaluado.current) return;
+    if (!presupuestoAnual || categoriasGasto.length === 0) return;
+
+    const periodoCerrado = periodoAnterior(periodoActual());
+    if (periodoCerrado.year !== presupuestoYear) return; // datos de otro año no disponibles aquí
+
+    cumplimientoEvaluado.current = true;
+    const resumen = calcularResumenQuincena({
+      year: periodoCerrado.year,
+      month: periodoCerrado.month,
+      quincena: periodoCerrado.quincena,
+      presupuesto: presupuestoAnual,
+      categoriasGasto,
+      prestamos,
+      movimientos,
+    });
+    evaluarCumplimientoQuincena(periodoKey(periodoCerrado), resumen.presupuestado, resumen.gastado).catch((err) =>
+      console.error("No se pudo evaluar el cumplimiento de la quincena:", err)
+    );
+  }, [authorized, presupuestoAnual, categoriasGasto, prestamos, movimientos, presupuestoYear]);
 
   useEffect(() => {
     if (!authorized) return;

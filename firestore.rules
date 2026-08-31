@@ -81,6 +81,9 @@ service cloud.firestore {
     match /ingresosPuntuales/{doc} {
       allow read, write: if esPropietario();
     }
+    match /presupuestoCumplimiento/{doc} {
+      allow read, write: if esPropietario();
+    }
     match /historialCompras/{doc} {
       allow read, write: if esPropietario();
     }

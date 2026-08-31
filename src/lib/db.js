@@ -315,6 +315,34 @@ export async function otorgarPuntos(motivo, puntos, tipo, movimientoId = null) {
   await setDoc(doc(db, "config", "puntos"), { total: increment(puntos) }, { merge: true });
 }
 
+// Evalúa si una quincena YA CERRADA cumplió el presupuesto (gastado <=
+// presupuestado). Se protege contra evaluar la misma quincena dos veces
+// usando un documento por periodo en "presupuestoCumplimiento". Otorga el 5%
+// de lo presupuestado como puntos si cumplió (mismo criterio que el resto del
+// sistema de puntos).
+export async function evaluarCumplimientoQuincena(periodoKey, presupuestado, gastado) {
+  if (!presupuestado || presupuestado <= 0) return;
+  const ref = doc(db, "presupuestoCumplimiento", periodoKey);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return; // ya evaluada antes, no repetir
+
+  const cumplio = gastado <= presupuestado;
+  await setDoc(ref, {
+    evaluado: true,
+    cumplio,
+    presupuestado,
+    gastado,
+    evaluadoEn: serverTimestamp(),
+  });
+
+  if (cumplio) {
+    const puntos = Math.round(presupuestado * 0.05);
+    if (puntos > 0) {
+      await otorgarPuntos(`Cumpliste el presupuesto de la quincena (${periodoKey})`, puntos, "cumplimientoPresupuesto");
+    }
+  }
+}
+
 export function watchPuntos(onChange, onError) {
   return onSnapshot(
     doc(db, "config", "puntos"),
