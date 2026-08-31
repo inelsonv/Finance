@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Home, CalendarDays, TrendingDown, ShoppingCart, Bell } from "lucide-react";
 import QuickGasto from "./QuickGasto.jsx";
+import { useNotificaciones } from "./NotificationBell.jsx";
 
 function activoEnGrupo(tab, grupoId) {
   if (tab === grupoId) return true;
@@ -10,8 +11,50 @@ function activoEnGrupo(tab, grupoId) {
   return (prefijosPorGrupo[grupoId] || []).includes(tab);
 }
 
-export default function BottomNav({ tab, setTab, categoriasGasto }) {
+function contarNoLeidas(notificaciones) {
+  let leidas;
+  try {
+    leidas = new Set(JSON.parse(localStorage.getItem("smart-finance-notif-leidas") || "[]"));
+  } catch (e) {
+    leidas = new Set();
+  }
+  return notificaciones.filter((n) => !leidas.has(`${n.id}:${n.dias}`)).length;
+}
+
+export default function BottomNav({
+  tab,
+  setTab,
+  categoriasGasto,
+  prestamos,
+  tarjetas,
+  membresias,
+  contratos,
+  movimientos,
+  products,
+  entidades,
+  fuentesIngreso,
+  eventos,
+  presupuesto,
+  presupuestoYear,
+  seguros,
+}) {
   const [showGasto, setShowGasto] = useState(false);
+
+  const notificaciones = useNotificaciones({
+    prestamos,
+    tarjetas,
+    membresias,
+    contratos,
+    movimientos,
+    products,
+    entidades,
+    eventos,
+    fuentesIngreso,
+    presupuesto,
+    presupuestoYear,
+    seguros,
+  });
+  const noLeidas = contarNoLeidas(notificaciones);
 
   return (
     <>
@@ -59,9 +102,33 @@ export default function BottomNav({ tab, setTab, categoriasGasto }) {
           onClick={() => setTab("notificaciones")}
           className="despensa-bottomnav-item"
           title="Notificaciones"
-          style={{ color: tab === "notificaciones" ? "var(--sage)" : "var(--ink-soft)" }}
+          style={{ color: tab === "notificaciones" ? "var(--sage)" : "var(--ink-soft)", position: "relative" }}
         >
           <Bell size={22} />
+          {noLeidas > 0 && (
+            <span
+              className="despensa-mono"
+              style={{
+                position: "absolute",
+                top: 0,
+                right: 6,
+                minWidth: 15,
+                height: 15,
+                borderRadius: 8,
+                background: "var(--stamp)",
+                color: "#fff",
+                fontSize: 9,
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "0 3px",
+                border: "1.5px solid var(--card)",
+              }}
+            >
+              {noLeidas > 9 ? "9+" : noLeidas}
+            </span>
+          )}
           {tab === "notificaciones" && <span className="despensa-bottomnav-dot" />}
         </button>
       </nav>

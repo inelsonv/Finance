@@ -361,7 +361,23 @@ export default function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
       />
-      <BottomNav tab={tab} setTab={setTab} categoriasGasto={categoriasGasto} />
+      <BottomNav
+        tab={tab}
+        setTab={setTab}
+        categoriasGasto={categoriasGasto}
+        prestamos={prestamos}
+        tarjetas={tarjetas}
+        membresias={membresias}
+        contratos={contratos}
+        movimientos={movimientos}
+        products={products}
+        entidades={entidades}
+        fuentesIngreso={fuentesIngreso}
+        eventos={eventos}
+        presupuesto={presupuestoAnual}
+        presupuestoYear={presupuestoYear}
+        seguros={seguros}
+      />
       <PullToRefresh />
       <main className="despensa-main">
         <div className="despensa-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
