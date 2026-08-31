@@ -66,7 +66,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros }) {
+export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -223,17 +223,21 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       const year = today.getFullYear();
       const month = today.getMonth() + 1;
       const quincena = today.getDate() <= 15 ? "Q1" : "Q2";
+      // Solo categorías de gasto reales (nunca préstamos u otras cosas que no
+      // sean gasto propiamente).
+      const nombresCategoriasGasto = new Set((categoriasGasto || []).map((c) => c.nombre));
       if (year === presupuestoYear) {
         for (const categoria of Object.keys(presupuesto)) {
+          if (!nombresCategoriasGasto.has(categoria)) continue;
           const resultado = consumoPresupuesto({ presupuesto, movimientos, categoria, year, month, quincena });
-          if (!resultado || resultado.pct < 50) continue;
-          const critico = resultado.pct >= 90;
+          if (!resultado || resultado.pct < 80) continue;
+          const excedido = resultado.pct >= 100;
           list.push({
             id: `presupuesto-${categoria}`,
-            icon: critico ? AlertCircle : Wallet,
+            icon: excedido ? AlertCircle : Wallet,
             titulo: `${categoria}: ${Math.round(resultado.pct)}% del presupuesto usado`,
-            subtitulo: critico ? "¡Crítico! Ya casi se agota esta quincena" : "Vas por la mitad o más de lo presupuestado",
-            dias: critico ? -1 : 0,
+            subtitulo: excedido ? "¡Te excediste de lo presupuestado esta quincena!" : "Ya pasaste el 80% de lo presupuestado",
+            dias: excedido ? -1 : 0,
             tab: "presupuesto-mensual",
           });
         }
@@ -241,7 +245,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto]);
 }
 
 export function etiquetaDias(dias) {
@@ -251,7 +255,7 @@ export function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -265,7 +269,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
     }
   });
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto });
 
   const firma = (n) => `${n.id}:${n.dias}`;
   const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));

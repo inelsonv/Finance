@@ -53,6 +53,7 @@ export default function BottomNav({
     presupuesto,
     presupuestoYear,
     seguros,
+    categoriasGasto,
   });
   const noLeidas = contarNoLeidas(notificaciones);
 

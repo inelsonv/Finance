@@ -511,6 +511,7 @@ export default function App() {
                   presupuestoYear={presupuestoYear}
                   seguros={seguros}
                   onNavigate={handleNavigate}
+                  categoriasGasto={categoriasGasto}
                 />
               </div>
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} synced={synced} />
@@ -537,6 +538,7 @@ export default function App() {
             presupuestoYear={presupuestoYear}
             seguros={seguros}
             onNavigate={handleNavigate}
+            categoriasGasto={categoriasGasto}
           />
         )}
         {tab === "puntos" && <Puntos puntos={puntos} puntosHistorial={puntosHistorial} categoriasGasto={categoriasGasto} checklistTodos={checklistTodos} categoriasPuntos={categoriasPuntos} />}
