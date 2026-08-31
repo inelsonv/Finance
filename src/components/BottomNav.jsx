@@ -37,6 +37,7 @@ export default function BottomNav({
   presupuesto,
   presupuestoYear,
   seguros,
+  ingresosPuntuales,
 }) {
   const [showGasto, setShowGasto] = useState(false);
 
@@ -54,6 +55,7 @@ export default function BottomNav({
     presupuestoYear,
     seguros,
     categoriasGasto,
+    ingresosPuntuales,
   });
   const noLeidas = contarNoLeidas(notificaciones);
 

@@ -397,6 +397,7 @@ export default function App() {
         tab={tab}
         setTab={setTab}
         categoriasGasto={categoriasGasto}
+        ingresosPuntuales={ingresosPuntuales}
         prestamos={prestamos}
         tarjetas={tarjetas}
         membresias={membresias}
@@ -512,6 +513,7 @@ export default function App() {
                   seguros={seguros}
                   onNavigate={handleNavigate}
                   categoriasGasto={categoriasGasto}
+                  ingresosPuntuales={ingresosPuntuales}
                 />
               </div>
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} synced={synced} />
@@ -539,6 +541,7 @@ export default function App() {
             seguros={seguros}
             onNavigate={handleNavigate}
             categoriasGasto={categoriasGasto}
+            ingresosPuntuales={ingresosPuntuales}
           />
         )}
         {tab === "puntos" && <Puntos puntos={puntos} puntosHistorial={puntosHistorial} categoriasGasto={categoriasGasto} checklistTodos={checklistTodos} categoriasPuntos={categoriasPuntos} />}

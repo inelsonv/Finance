@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { diasRestantesProducto } from "../lib/inventario";
@@ -13,6 +13,21 @@ function todayInfo() {
 
 function ymPrefix(year, month) {
   return `${year}-${String(month).padStart(2, "0")}`;
+}
+
+// Días restantes hasta una fecha completa "YYYY-MM-DD" (a diferencia de
+// diasHasta, que asume un día del mes recurrente).
+function diasHastaFecha(fecha) {
+  if (!fecha) return null;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const target = new Date(fecha + "T00:00:00");
+  return Math.round((target - hoy) / 86400000);
+}
+
+function formatMoneyNotif(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function diasHasta(diaPago, today) {
@@ -66,7 +81,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto }) {
+export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -218,6 +233,20 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       }
     }
 
+    for (const ip of ingresosPuntuales || []) {
+      if (ip.recibido || !ip.fecha) continue;
+      const dias = diasHastaFecha(ip.fecha);
+      if (dias == null || dias > UMBRAL_DIAS) continue;
+      list.push({
+        id: `ingreso-puntual-${ip.id}`,
+        icon: Gift,
+        titulo: `${ip.tipo} próximo: ${formatMoneyNotif(ip.monto)}`,
+        subtitulo: `${ip.fuenteIngresoNombre || "Sin fuente"} — decide qué harás con ese ingreso`,
+        dias,
+        tab: "ingresos",
+      });
+    }
+
     if (presupuesto && presupuestoYear) {
       const today = new Date();
       const year = today.getFullYear();
@@ -245,7 +274,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales]);
 }
 
 export function etiquetaDias(dias) {
@@ -255,7 +284,7 @@ export function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -269,7 +298,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
     }
   });
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales });
 
   const firma = (n) => `${n.id}:${n.dias}`;
   const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));

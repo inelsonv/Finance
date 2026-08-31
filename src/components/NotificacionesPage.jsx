@@ -91,6 +91,7 @@ export default function NotificacionesPage({
   seguros,
   onNavigate,
   categoriasGasto,
+  ingresosPuntuales,
 }) {
   const [leidas, setLeidas] = useState(() => {
     try {
@@ -114,6 +115,7 @@ export default function NotificacionesPage({
     presupuestoYear,
     seguros,
     categoriasGasto,
+    ingresosPuntuales,
   });
 
   const codigoEmpleado = (fuentesIngreso || []).find((f) => f.estado === "Activo" && f.codigoEmpleado)?.codigoEmpleado || "";
