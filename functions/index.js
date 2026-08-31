@@ -404,8 +404,7 @@ exports.avisoDiarioAlertas = onSchedule(
 
     // El día 1 de cada mes, envía el resumen financiero del mes que acaba de
     // terminar (comportamiento del presupuesto y puntos ganados).
-    if (true) {
-      // 👆 TEMPORAL para probar — normalmente es: if (today.day === 1) {
+    if (today.day === 1) {
       const { year: yearAnterior, month: monthAnterior } = mesAnterior(today);
       const resumen = await construirResumenMensual(yearAnterior, monthAnterior);
       const nombreMesAnterior = [
