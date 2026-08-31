@@ -28,7 +28,7 @@ function formatDateDisplay(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-export default function Puntos({ puntos, puntosHistorial, categoriasGasto, checklistTodos }) {
+export default function Puntos({ puntos, puntosHistorial, categoriasGasto, checklistTodos, categoriasPuntos }) {
   const [categoria, setCategoria] = useState("");
   const [monto, setMonto] = useState("");
   const [quincena, setQuincena] = useState("Q1");
@@ -50,17 +50,15 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
     return { mesObjetivo: mes, yearObjetivo: year };
   }, []);
 
-  // Categorías que ya generan puntos por sí mismas (préstamos, y en general
-  // cualquier gasto Fijo). No deben aparecer como destino de canje, para no
-  // crear un círculo donde la misma vía da y recibe puntos.
-  const NOMBRES_RESERVADOS_PUNTOS = ["pago de préstamo", "pago de prestamo"];
-
+  // Las categorías marcadas en Configuración → "Categorías que generan
+  // puntos" no pueden recibir puntos por canje, para no crear un círculo
+  // donde la misma vía da y recibe puntos.
   const categoriasVariables = useMemo(
     () =>
       (categoriasGasto || []).filter(
-        (c) => c.clasificacion === "Variable" && !NOMBRES_RESERVADOS_PUNTOS.includes((c.nombre || "").trim().toLowerCase())
+        (c) => c.clasificacion === "Variable" && !(categoriasPuntos || []).includes(c.nombre)
       ),
-    [categoriasGasto]
+    [categoriasGasto, categoriasPuntos]
   );
 
   const handleCanjear = async () => {

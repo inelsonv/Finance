@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig } from "../lib/db";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy } from "lucide-react";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 
-export default function Configuracion({ theme, onToggleTheme, user, onSignOut }) {
+export default function Configuracion({ theme, onToggleTheme, user, onSignOut, categoriasGasto }) {
   const [emailConfig, setEmailConfig] = useState(undefined);
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
@@ -23,16 +23,21 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
   const [ahorroPorcentaje, setAhorroPorcentaje] = useState("10");
   const [savingAhorro, setSavingAhorro] = useState(false);
 
+  const [categoriasPuntos, setCategoriasPuntos] = useState([]);
+  const [savingCategoriasPuntos, setSavingCategoriasPuntos] = useState(false);
+
   useEffect(() => {
     const unsub1 = watchNotifConfig(setEmailConfig, () => {});
     const unsub2 = watchAccionesConfig(setAccionesConfig, () => {});
     const unsub3 = watchDiezmoConfig(setDiezmoConfig, () => {});
     const unsub4 = watchAhorroAutoConfig(setAhorroConfig, () => {});
+    const unsub5 = watchCategoriasPuntosConfig(setCategoriasPuntos, () => {});
     return () => {
       unsub1();
       unsub2();
       unsub3();
       unsub4();
+      unsub5();
     };
   }, []);
 
@@ -130,6 +135,18 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
       });
     } finally {
       setSavingAhorro(false);
+    }
+  };
+
+  const toggleCategoriaPuntos = async (nombre) => {
+    setSavingCategoriasPuntos(true);
+    try {
+      const nuevaLista = categoriasPuntos.includes(nombre)
+        ? categoriasPuntos.filter((n) => n !== nombre)
+        : [...categoriasPuntos, nombre];
+      await saveCategoriasPuntosConfig(nuevaLista);
+    } finally {
+      setSavingCategoriasPuntos(false);
     }
   };
 
@@ -355,6 +372,34 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut })
               <Switch checked={ahorroConfig?.condicionadoADeuda !== false} onChange={handleToggleCondicionado} disabled={savingAhorro} />
             </div>
           </>
+        )}
+      </Section>
+
+      <Section icon={Trophy} title="Categorías que generan puntos">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Elige exactamente qué categorías de gasto otorgan puntos al pagarlas (además de los préstamos y aportes a
+          metas de ahorro, que siempre generan puntos). Estas categorías no podrán recibir puntos por canje.
+        </div>
+        {(categoriasGasto || []).length === 0 ? (
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+            Todavía no tienes categorías de gasto creadas. Ve a Presupuesto → Categoría de gasto para crear una.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {categoriasGasto.map((c) => (
+              <label
+                key={c.id}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "7px 2px", cursor: "pointer" }}
+              >
+                <span style={{ fontSize: 13 }}>{c.nombre}</span>
+                <Switch
+                  checked={categoriasPuntos.includes(c.nombre)}
+                  onChange={() => toggleCategoriaPuntos(c.nombre)}
+                  disabled={savingCategoriasPuntos}
+                />
+              </label>
+            ))}
+          </div>
         )}
       </Section>
     </div>

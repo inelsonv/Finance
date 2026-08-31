@@ -243,15 +243,20 @@ export async function addMovimiento({
   // (cumplir una obligación rígida genera puntos). No debe romper el guardado
   // del movimiento si algo falla aquí.
   // 1 punto = $1 peso disponible para gastos flexibles. Se otorga el 5% del
-  // monto de cada obligación cumplida (préstamo, gasto fijo, aporte a ahorro).
+  // monto de cada obligación cumplida (préstamo, categoría configurada como
+  // generadora de puntos, aporte a ahorro).
   const PORCENTAJE_PUNTOS = 0.05;
   try {
     const montoNum = Number(amount) || 0;
     const puntosGanados = Math.round(montoNum * PORCENTAJE_PUNTOS);
     if (category === "Pago de préstamo" && prestamoId && puntosGanados > 0) {
       await otorgarPuntos(`Pago de préstamo ${prestamoNumero || ""}`.trim(), puntosGanados, "prestamo", docRef.id);
-    } else if (type === "Gasto" && clasificacion === "Fijo" && puntosGanados > 0) {
-      await otorgarPuntos(`Pago de gasto fijo: ${category}`, puntosGanados, "gastoFijo", docRef.id);
+    } else if (type === "Gasto" && puntosGanados > 0) {
+      const categoriasPuntosSnap = await getDoc(doc(db, "config", "categoriasPuntos"));
+      const categoriasQueGeneranPuntos = categoriasPuntosSnap.exists() ? categoriasPuntosSnap.data().nombres || [] : [];
+      if (categoriasQueGeneranPuntos.includes(category)) {
+        await otorgarPuntos(`Pago de "${category}"`, puntosGanados, "gastoFijo", docRef.id);
+      }
     } else if (cuentaId && montoNum > 0 && puntosGanados > 0) {
       const metasSnap = await getDocs(
         query(collection(db, "metasAhorro"), where("cuentaId", "==", cuentaId), where("estado", "==", "Activa"))
@@ -329,12 +334,25 @@ export function watchPuntosHistorial(onChange, onError) {
 // extra en una categoría de gasto variable, para una quincena específica
 // (normalmente del mes siguiente). Lee y suma sobre el valor ya presupuestado
 // en esa celda, en vez de sobreescribirlo.
+export function watchCategoriasPuntosConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "categoriasPuntos"),
+    (snap) => onChange(snap.exists() ? snap.data().nombres || [] : []),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveCategoriasPuntosConfig(nombres) {
+  await setDoc(doc(db, "config", "categoriasPuntos"), { nombres: nombres || [] });
+}
+
 export async function canjearPuntos({ montoACanjear, year, month, quincena, categoria }) {
   const monto = Math.round(Number(montoACanjear) || 0);
   if (monto <= 0) throw new Error("El monto a canjear debe ser mayor a cero");
 
-  const NOMBRES_RESERVADOS_PUNTOS = ["pago de préstamo", "pago de prestamo"];
-  if (NOMBRES_RESERVADOS_PUNTOS.includes((categoria || "").trim().toLowerCase())) {
+  const categoriasPuntosSnap = await getDoc(doc(db, "config", "categoriasPuntos"));
+  const categoriasQueGeneranPuntos = categoriasPuntosSnap.exists() ? categoriasPuntosSnap.data().nombres || [] : [];
+  if (categoriasQueGeneranPuntos.includes(categoria)) {
     throw new Error("No puedes canjear puntos hacia una categoría que también los genera");
   }
 
