@@ -354,6 +354,11 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                       </span>
                     )}
                   </div>
+                  {it.esPrestamo && it.entidadName && (
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
+                      <Landmark size={10} /> Pagar a: {it.entidadName}
+                    </div>
+                  )}
                 </div>
 
                 <select
