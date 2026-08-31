@@ -527,7 +527,15 @@ export default function App() {
           />
         )}
         {tab === "entidades" && <Entidades entidades={entidades} tiposPersonalizados={tiposEntidad} />}
-        {tab === "presupuesto" && <Presupuesto movimientos={movimientos} onOpenMovimientos={() => setTab("movimientos")} />}
+        {tab === "presupuesto" && (
+          <Presupuesto
+            movimientos={movimientos}
+            onOpenMovimientos={() => setTab("movimientos")}
+            presupuesto={presupuestoAnual}
+            categoriasGasto={categoriasGasto}
+            prestamos={prestamos}
+          />
+        )}
         {tab === "movimientos" && (
           <Movimientos
             movimientos={movimientos}

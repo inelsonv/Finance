@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowRight, TrendingUp, Landmark, CreditCard, Ticket, Zap, PiggyBank, Tag, Workflow } from "lucide-react";
+import { ArrowRight, TrendingUp, Landmark, CreditCard, Ticket, Zap, PiggyBank, Tag, Workflow, CalendarClock } from "lucide-react";
 
 const FLOW_COLORS = [
   "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a",
@@ -13,8 +13,58 @@ function formatMoney(n) {
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function Presupuesto({ movimientos, onOpenMovimientos }) {
+export default function Presupuesto({ movimientos, onOpenMovimientos, presupuesto, categoriasGasto, prestamos }) {
   const [showGastoDesglose, setShowGastoDesglose] = useState(false);
+
+  // Quincena actual: rango de fechas y cuánto se presupuestó vs. cuánto se ha
+  // gastado realmente en ese rango, para ver el cumplimiento en vivo.
+  const quincenaActual = useMemo(() => {
+    const hoy = new Date();
+    const year = hoy.getFullYear();
+    const month = hoy.getMonth() + 1;
+    const esQ1 = hoy.getDate() <= 15;
+    const quincena = esQ1 ? "Q1" : "Q2";
+    const diasEnMes = new Date(year, month, 0).getDate();
+    const diaInicio = esQ1 ? 1 : 16;
+    const diaFin = esQ1 ? 15 : diasEnMes;
+    const pad = (n) => String(n).padStart(2, "0");
+    const fechaInicio = `${year}-${pad(month)}-${pad(diaInicio)}`;
+    const fechaFin = `${year}-${pad(month)}-${pad(diaFin)}`;
+
+    let presupuestado = 0;
+    for (const c of categoriasGasto || []) {
+      const val = presupuesto?.[c.nombre]?.[String(month)]?.[quincena];
+      if (typeof val === "number") presupuestado += val;
+    }
+    for (const p of prestamos || []) {
+      if (p.estado !== "Activo") continue;
+      if (p.frecuenciaCuota === "Personalizado") {
+        for (const c of p.cuotasPersonalizadas || []) {
+          if (!c.fecha || !c.monto) continue;
+          if (c.fecha >= fechaInicio && c.fecha <= fechaFin) presupuestado += Number(c.monto) || 0;
+        }
+        continue;
+      }
+      if (!p.fechaInicio || !p.cuota) continue;
+      const [sy, sm, sd] = p.fechaInicio.split("-").map(Number);
+      if (!sy || !sm) continue;
+      const mesesTotales = p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
+      const offset = (year - sy) * 12 + (month - sm);
+      const activo = offset >= 0 && offset < mesesTotales;
+      const quincenaCuota = sd && sd > 15 ? "Q2" : "Q1";
+      if (activo && quincenaCuota === quincena) presupuestado += Number(p.cuota) || 0;
+    }
+
+    let gastado = 0;
+    for (const m of movimientos || []) {
+      if (m.type !== "Gasto") continue;
+      if (!m.date || m.date < fechaInicio || m.date > fechaFin) continue;
+      gastado += Number(m.amount) || 0;
+    }
+
+    return { fechaInicio, fechaFin, quincena, month, year, presupuestado, gastado };
+  }, [movimientos, presupuesto, categoriasGasto, prestamos]);
+
   const totals = useMemo(() => {
     let ingresos = 0;
     let gastos = 0;
@@ -55,6 +105,10 @@ export default function Presupuesto({ movimientos, onOpenMovimientos }) {
 
   return (
     <div>
+      {quincenaActual.presupuestado > 0 && (
+        <QuincenaActualCard {...quincenaActual} />
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 6 }}>
         <SummaryCard label="Ingresos" value={totals.ingresos} color="var(--sage)" />
         <SummaryCard
@@ -164,6 +218,45 @@ export default function Presupuesto({ movimientos, onOpenMovimientos }) {
         >
           Registrar movimiento <ArrowRight size={14} />
         </button>
+      </div>
+    </div>
+  );
+}
+
+function formatDateDisplayCorto(dateStr) {
+  if (!dateStr) return "";
+  const [, m, d] = dateStr.split("-");
+  return `${d}/${m}`;
+}
+
+function QuincenaActualCard({ fechaInicio, fechaFin, presupuestado, gastado }) {
+  const pct = presupuestado > 0 ? Math.min(100, Math.round((gastado / presupuestado) * 100)) : 0;
+  const excedido = gastado > presupuestado;
+  const color = excedido ? "var(--stamp)" : pct >= 85 ? "var(--amber)" : "var(--sage)";
+  const restante = presupuestado - gastado;
+
+  return (
+    <div style={{ background: "var(--card)", border: `1px solid ${color}`, borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <CalendarClock size={15} style={{ color }} />
+        <span className="despensa-tab-font" style={{ fontSize: 13, fontWeight: 700 }}>
+          Quincena actual ({formatDateDisplayCorto(fechaInicio)} - {formatDateDisplayCorto(fechaFin)})
+        </span>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 6, flexWrap: "wrap", gap: 6 }}>
+        <span>Presupuestado: <strong className="despensa-mono">{formatMoney(presupuestado)}</strong></span>
+        <span>Gastado: <strong className="despensa-mono" style={{ color }}>{formatMoney(gastado)}</strong></span>
+      </div>
+
+      <div style={{ height: 8, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 4, transition: "width 0.3s ease" }} />
+      </div>
+
+      <div style={{ fontSize: 11.5, color, marginTop: 6 }}>
+        {excedido
+          ? `Te excediste por ${formatMoney(Math.abs(restante))} (${pct}% de lo presupuestado).`
+          : `${pct}% ejecutado — te quedan ${formatMoney(restante)} disponibles esta quincena.`}
       </div>
     </div>
   );
