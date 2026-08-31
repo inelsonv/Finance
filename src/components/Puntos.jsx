@@ -50,8 +50,16 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
     return { mesObjetivo: mes, yearObjetivo: year };
   }, []);
 
+  // Categorías que ya generan puntos por sí mismas (préstamos, y en general
+  // cualquier gasto Fijo). No deben aparecer como destino de canje, para no
+  // crear un círculo donde la misma vía da y recibe puntos.
+  const NOMBRES_RESERVADOS_PUNTOS = ["pago de préstamo", "pago de prestamo"];
+
   const categoriasVariables = useMemo(
-    () => (categoriasGasto || []).filter((c) => c.clasificacion === "Variable"),
+    () =>
+      (categoriasGasto || []).filter(
+        (c) => c.clasificacion === "Variable" && !NOMBRES_RESERVADOS_PUNTOS.includes((c.nombre || "").trim().toLowerCase())
+      ),
     [categoriasGasto]
   );
 

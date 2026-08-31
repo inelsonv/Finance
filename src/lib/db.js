@@ -333,6 +333,11 @@ export async function canjearPuntos({ montoACanjear, year, month, quincena, cate
   const monto = Math.round(Number(montoACanjear) || 0);
   if (monto <= 0) throw new Error("El monto a canjear debe ser mayor a cero");
 
+  const NOMBRES_RESERVADOS_PUNTOS = ["pago de préstamo", "pago de prestamo"];
+  if (NOMBRES_RESERVADOS_PUNTOS.includes((categoria || "").trim().toLowerCase())) {
+    throw new Error("No puedes canjear puntos hacia una categoría que también los genera");
+  }
+
   const puntosSnap = await getDoc(doc(db, "config", "puntos"));
   const puntosDisponibles = puntosSnap.exists() ? puntosSnap.data().total || 0 : 0;
   if (monto > puntosDisponibles) throw new Error("No tienes suficientes puntos para ese canje");
