@@ -113,6 +113,31 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   // de este componente ni los modifica.
   const ordenFlujoReferencia = useMemo(() => formatearOrdenPrioridad(flujo?.nodes, flujo?.edges), [flujo]);
 
+  // Quincena activa y próxima, para resaltar la cabecera de la tabla. Cálculo
+  // aislado, no depende de ningún otro dato del componente.
+  const { mesActivo, quincenaActiva, mesProximo, quincenaProxima, yearProximo } = useMemo(() => {
+    const hoy = new Date();
+    const mesHoy = hoy.getMonth() + 1;
+    const qHoy = hoy.getDate() > 15 ? "Q2" : "Q1";
+    let mesProx = mesHoy;
+    let yearProx = hoy.getFullYear();
+    let qProx = qHoy === "Q1" ? "Q2" : "Q1";
+    if (qHoy === "Q2") {
+      mesProx = mesHoy + 1;
+      if (mesProx > 12) {
+        mesProx = 1;
+        yearProx += 1;
+      }
+    }
+    return {
+      mesActivo: hoy.getFullYear() === year ? mesHoy : null,
+      quincenaActiva: qHoy,
+      mesProximo: yearProx === year ? mesProx : null,
+      quincenaProxima: qProx,
+      yearProximo: yearProx,
+    };
+  }, [year]);
+
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
@@ -722,46 +747,59 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
               >
                 Categoría
               </th>
-              {MESES.map((m) => (
-                <th
-                  key={m}
-                  colSpan={2}
-                  style={{
-                    padding: "6px 4px",
-                    borderBottom: "1px solid var(--line-soft)",
-                    borderLeft: "1px solid var(--line-soft)",
-                    textAlign: "center",
-                    fontWeight: 600,
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: 11,
-                  }}
-                >
-                  {m}
-                </th>
-              ))}
+              {MESES.map((m, i) => {
+                const mesNum = i + 1;
+                const esActivo = mesActivo === mesNum;
+                const esProximo = !esActivo && mesProximo === mesNum;
+                return (
+                  <th
+                    key={m}
+                    colSpan={2}
+                    style={{
+                      padding: "6px 4px",
+                      borderBottom: "1px solid var(--line-soft)",
+                      borderLeft: "1px solid var(--line-soft)",
+                      textAlign: "center",
+                      fontWeight: 600,
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: 11,
+                      background: esActivo ? "var(--sage-bg)" : esProximo ? "var(--amber-bg)" : "transparent",
+                      color: esActivo ? "var(--sage)" : esProximo ? "var(--amber)" : "var(--ink)",
+                    }}
+                  >
+                    {m}
+                  </th>
+                );
+              })}
               <th rowSpan={2} style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)", borderLeft: "1px solid var(--line)", textAlign: "right", fontWeight: 600, background: "var(--sage-bg)", color: "var(--sage)" }}>
                 Total
               </th>
             </tr>
             <tr>
-              {MESES.map((m) =>
-                QUINCENAS.map((q) => (
-                  <th
-                    key={`${m}-${q}`}
-                    style={{
-                      padding: "4px 4px",
-                      borderBottom: "1px solid var(--line)",
-                      borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
-                      textAlign: "right",
-                      fontWeight: 500,
-                      color: "var(--ink-soft)",
-                      fontSize: 9.5,
-                      minWidth: 52,
-                    }}
-                  >
-                    {q}
-                  </th>
-                ))
+              {MESES.map((m, i) =>
+                QUINCENAS.map((q) => {
+                  const mesNum = i + 1;
+                  const esActivo = mesActivo === mesNum && quincenaActiva === q;
+                  const esProximo = !esActivo && mesProximo === mesNum && quincenaProxima === q;
+                  return (
+                    <th
+                      key={`${m}-${q}`}
+                      style={{
+                        padding: "4px 4px",
+                        borderBottom: "1px solid var(--line)",
+                        borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                        textAlign: "right",
+                        fontWeight: esActivo || esProximo ? 700 : 500,
+                        color: esActivo ? "var(--sage)" : esProximo ? "var(--amber)" : "var(--ink-soft)",
+                        fontSize: 9.5,
+                        minWidth: 52,
+                        background: esActivo ? "var(--sage-bg)" : esProximo ? "var(--amber-bg)" : "transparent",
+                      }}
+                    >
+                      {q}
+                    </th>
+                  );
+                })
               )}
             </tr>
           </thead>
