@@ -392,12 +392,14 @@ exports.avisoDiarioAlertas = onSchedule(
   async () => {
     const today = todayInfo();
 
+    // Correo fijo para TODAS las notificaciones de esta función (alertas
+    // diarias, día de cobro, resumen mensual). No depende de ninguna
+    // configuración guardada en la app — así nunca puede llegar a otro correo
+    // por accidente.
+    const CORREO_NOTIFICACIONES = "iventuramena@gmail.com";
+
     // El día 1 de cada mes, envía el resumen financiero del mes que acaba de
-    // terminar (comportamiento del presupuesto y puntos ganados). Este correo
-    // va EXCLUSIVAMENTE a una dirección fija, y no depende en nada del correo
-    // de Bellón configurado para las demás alertas — corre primero e
-    // independiente, así nunca se ve afectado por esa configuración.
-    const CORREO_RESUMEN_MENSUAL = "iventuramena@gmail.com";
+    // terminar (comportamiento del presupuesto y puntos ganados).
     if (today.day === 1) {
       const { year: yearAnterior, month: monthAnterior } = mesAnterior(today);
       const resumen = await construirResumenMensual(yearAnterior, monthAnterior);
@@ -407,24 +409,13 @@ exports.avisoDiarioAlertas = onSchedule(
       ][monthAnterior - 1];
 
       await db.collection("mail").add({
-        to: [CORREO_RESUMEN_MENSUAL],
+        to: [CORREO_NOTIFICACIONES],
         message: {
           subject: `Smart Finance: resumen de ${nombreMesAnterior}`,
           html: construirHtmlResumenMensual(yearAnterior, monthAnterior, resumen),
         },
       });
-      console.log(`Correo de resumen mensual encolado para ${CORREO_RESUMEN_MENSUAL} (${nombreMesAnterior} ${yearAnterior}).`);
-    }
-
-    // A partir de aquí, las alertas diarias y el día de cobro — estas SÍ
-    // dependen del correo configurado en config/notificaciones (Bellón). Si
-    // no hay correo configurado ahí, se detienen solo estas, sin afectar el
-    // resumen mensual de arriba.
-    const configSnap = await db.collection("config").doc("notificaciones").get();
-    const email = configSnap.exists ? configSnap.data().email : null;
-    if (!email) {
-      console.log("Sin correo configurado en config/notificaciones — se omiten las alertas diarias y el día de cobro.");
-      return;
+      console.log(`Correo de resumen mensual encolado para ${CORREO_NOTIFICACIONES} (${nombreMesAnterior} ${yearAnterior}).`);
     }
 
     const [prestamos, tarjetas, membresias, contratos, productos, movimientos, fuentesIngreso] = await Promise.all([
@@ -441,13 +432,13 @@ exports.avisoDiarioAlertas = onSchedule(
 
     if (notificaciones.length > 0) {
       await db.collection("mail").add({
-        to: [email],
+        to: [CORREO_NOTIFICACIONES],
         message: {
           subject: `Smart Finance: ${notificaciones.length} alerta${notificaciones.length !== 1 ? "s" : ""} pendiente${notificaciones.length !== 1 ? "s" : ""}`,
           html: construirHtml(notificaciones),
         },
       });
-      console.log(`Correo de alertas encolado para ${email} con ${notificaciones.length} notificaciones.`);
+      console.log(`Correo de alertas encolado para ${CORREO_NOTIFICACIONES} con ${notificaciones.length} notificaciones.`);
     } else {
       console.log("No hay alertas pendientes hoy.");
     }
@@ -465,13 +456,13 @@ exports.avisoDiarioAlertas = onSchedule(
       const total = items.reduce((s, it) => s + it.monto, 0);
 
       await db.collection("mail").add({
-        to: [email],
+        to: [CORREO_NOTIFICACIONES],
         message: {
           subject: `Smart Finance: hoy es tu día de cobro (${f.nombre})`,
           html: construirHtmlChecklist(f.nombre, periodo, items, total),
         },
       });
-      console.log(`Correo de día de cobro encolado para ${email} (${f.nombre}), quincena ${periodo.quincena} de ${periodo.month}/${periodo.year}.`);
+      console.log(`Correo de día de cobro encolado para ${CORREO_NOTIFICACIONES} (${f.nombre}), quincena ${periodo.quincena} de ${periodo.month}/${periodo.year}.`);
     }
   }
 );
