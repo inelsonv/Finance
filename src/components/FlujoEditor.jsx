@@ -168,6 +168,21 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
+
+  const edgesConSeleccion = useMemo(
+    () =>
+      edges.map((e) =>
+        e.id === selectedEdgeId
+          ? {
+              ...e,
+              style: { ...e.style, stroke: "var(--stamp)", strokeWidth: 3 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: "#a23e2e" },
+              animated: true,
+            }
+          : e
+      ),
+    [edges, selectedEdgeId]
+  );
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [editLabel, setEditLabel] = useState("");
   const [editAmount, setEditAmount] = useState("");
@@ -566,7 +581,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
         )}
         <ReactFlow
           nodes={nodes}
-          edges={edges}
+          edges={edgesConSeleccion}
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
