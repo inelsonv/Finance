@@ -806,8 +806,8 @@ export function watchFlujo(onChange, onError) {
   );
 }
 
-export async function saveFlujo(nodes, edges) {
-  await setDoc(doc(db, "flujo", "diagrama"), { nodes, edges, updatedAt: serverTimestamp() });
+export async function saveFlujo(nodes, edges, viewport) {
+  await setDoc(doc(db, "flujo", "diagrama"), { nodes, edges, viewport: viewport || null, updatedAt: serverTimestamp() });
 }
 
 const accionesCol = collection(db, "acciones");

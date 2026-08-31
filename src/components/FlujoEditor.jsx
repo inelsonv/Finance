@@ -190,6 +190,8 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
   const [editTipo, setEditTipo] = useState("categoria");
   const [editCategoriaGasto, setEditCategoriaGasto] = useState("");
   const loadedOnce = useRef(false);
+  const viewportRef = useRef(null);
+  const [viewportInicial, setViewportInicial] = useState(null);
 
   const ingresoSugerido = useMemo(() => ingresoMensualCalculado(fuentesIngreso), [fuentesIngreso]);
 
@@ -198,6 +200,10 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
     if (flujo) {
       setNodes(flujo.nodes && flujo.nodes.length ? flujo.nodes : defaultNodes());
       setEdges((flujo.edges || defaultEdges()).map((e) => ({ ...e, type: "step" })));
+      if (flujo.viewport) {
+        setViewportInicial(flujo.viewport);
+        viewportRef.current = flujo.viewport;
+      }
       loadedOnce.current = true;
     } else if (flujo === null) {
       loadedOnce.current = true;
@@ -344,7 +350,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
     try {
       const cleanNodes = nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data }));
       const cleanEdges = edges.map((e) => ({ id: e.id, source: e.source, target: e.target, type: e.type || "straight", style: e.style, markerEnd: e.markerEnd }));
-      await saveFlujo(cleanNodes, cleanEdges);
+      await saveFlujo(cleanNodes, cleanEdges, viewportRef.current);
       setDirty(false);
     } finally {
       setSaving(false);
@@ -631,7 +637,10 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
             setSelectedEdgeId(null);
             setSelectedNodeId(null);
           }}
-          fitView
+          onMoveEnd={(_, viewport) => {
+            viewportRef.current = viewport;
+          }}
+          {...(viewportInicial ? { defaultViewport: viewportInicial } : { fitView: true })}
           deleteKeyCode={["Backspace", "Delete"]}
         >
           <Background color="var(--line)" gap={16} />
