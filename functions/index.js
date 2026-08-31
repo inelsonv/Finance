@@ -390,10 +390,40 @@ function construirHtmlResumenMensual(year, month, resumen) {
 exports.avisoDiarioAlertas = onSchedule(
   { schedule: "every day 08:00", timeZone: "America/Santo_Domingo" },
   async () => {
+    const today = todayInfo();
+
+    // El día 1 de cada mes, envía el resumen financiero del mes que acaba de
+    // terminar (comportamiento del presupuesto y puntos ganados). Este correo
+    // va EXCLUSIVAMENTE a una dirección fija, y no depende en nada del correo
+    // de Bellón configurado para las demás alertas — corre primero e
+    // independiente, así nunca se ve afectado por esa configuración.
+    const CORREO_RESUMEN_MENSUAL = "iventuramena@gmail.com";
+    if (today.day === 1) {
+      const { year: yearAnterior, month: monthAnterior } = mesAnterior(today);
+      const resumen = await construirResumenMensual(yearAnterior, monthAnterior);
+      const nombreMesAnterior = [
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+      ][monthAnterior - 1];
+
+      await db.collection("mail").add({
+        to: [CORREO_RESUMEN_MENSUAL],
+        message: {
+          subject: `Smart Finance: resumen de ${nombreMesAnterior}`,
+          html: construirHtmlResumenMensual(yearAnterior, monthAnterior, resumen),
+        },
+      });
+      console.log(`Correo de resumen mensual encolado para ${CORREO_RESUMEN_MENSUAL} (${nombreMesAnterior} ${yearAnterior}).`);
+    }
+
+    // A partir de aquí, las alertas diarias y el día de cobro — estas SÍ
+    // dependen del correo configurado en config/notificaciones (Bellón). Si
+    // no hay correo configurado ahí, se detienen solo estas, sin afectar el
+    // resumen mensual de arriba.
     const configSnap = await db.collection("config").doc("notificaciones").get();
     const email = configSnap.exists ? configSnap.data().email : null;
     if (!email) {
-      console.log("Sin correo configurado en config/notificaciones, no se envía nada.");
+      console.log("Sin correo configurado en config/notificaciones — se omiten las alertas diarias y el día de cobro.");
       return;
     }
 
@@ -407,7 +437,6 @@ exports.avisoDiarioAlertas = onSchedule(
       getAll("fuentesIngreso"),
     ]);
 
-    const today = todayInfo();
     const notificaciones = construirNotificaciones({ prestamos, tarjetas, membresias, contratos, productos, movimientos, today });
 
     if (notificaciones.length > 0) {
@@ -443,29 +472,6 @@ exports.avisoDiarioAlertas = onSchedule(
         },
       });
       console.log(`Correo de día de cobro encolado para ${email} (${f.nombre}), quincena ${periodo.quincena} de ${periodo.month}/${periodo.year}.`);
-    }
-
-    // El día 1 de cada mes, envía el resumen financiero del mes que acaba de
-    // terminar (comportamiento del presupuesto y puntos ganados). Este correo
-    // va exclusivamente a una dirección fija, aparte del correo configurado
-    // para las demás alertas.
-    const CORREO_RESUMEN_MENSUAL = "iventuramena@gmail.com";
-    if (today.day === 1) {
-      const { year: yearAnterior, month: monthAnterior } = mesAnterior(today);
-      const resumen = await construirResumenMensual(yearAnterior, monthAnterior);
-      const nombreMesAnterior = [
-        "enero", "febrero", "marzo", "abril", "mayo", "junio",
-        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-      ][monthAnterior - 1];
-
-      await db.collection("mail").add({
-        to: [CORREO_RESUMEN_MENSUAL],
-        message: {
-          subject: `Smart Finance: resumen de ${nombreMesAnterior}`,
-          html: construirHtmlResumenMensual(yearAnterior, monthAnterior, resumen),
-        },
-      });
-      console.log(`Correo de resumen mensual encolado para ${CORREO_RESUMEN_MENSUAL} (${nombreMesAnterior} ${yearAnterior}).`);
     }
   }
 );
