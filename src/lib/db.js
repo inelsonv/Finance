@@ -15,6 +15,7 @@ import {
   runTransaction,
   increment,
   arrayUnion,
+  deleteField,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "../firebase";
@@ -480,6 +481,20 @@ export async function updatePrestamoEstado(id, estado) {
 
 export async function updatePrestamo(id, fields) {
   await updateDoc(doc(db, "prestamos", id), fields);
+}
+
+// Mueve la cuota de un mes específico a la otra quincena, sin cambiar la
+// configuración general del préstamo (solo afecta ese mes puntual).
+export async function setPrestamoQuincenaOverride(id, year, month, quincena) {
+  await updateDoc(doc(db, "prestamos", id), {
+    [`quincenaOverrides.${month}-${year}`]: quincena,
+  });
+}
+
+export async function quitarPrestamoQuincenaOverride(id, year, month) {
+  await updateDoc(doc(db, "prestamos", id), {
+    [`quincenaOverrides.${month}-${year}`]: deleteField(),
+  });
 }
 
 export async function deletePrestamo(id) {

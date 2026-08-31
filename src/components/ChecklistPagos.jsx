@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle } from "lucide-react";
-import { watchChecklistPeriodo, setChecklistItem, addMovimiento } from "../lib/db";
+import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { GASTO_CATS_FIJO } from "../lib/categorias";
 
@@ -25,8 +25,10 @@ function celdaPrestamo(prestamo, year, mes) {
   if (!mesesTotales) return { activo: false, quincena: null };
   const offset = (year - sy) * 12 + (mes - sm);
   const activo = offset >= 0 && offset < mesesTotales;
-  const quincena = sd && sd > 15 ? "Q2" : "Q1";
-  return { activo, quincena };
+  const quincenaBase = sd && sd > 15 ? "Q2" : "Q1";
+  const override = prestamo.quincenaOverrides?.[`${mes}-${year}`];
+  const quincena = override || quincenaBase;
+  return { activo, quincena, quincenaBase, tieneOverride: !!override };
 }
 
 function periodoActual() {
@@ -116,7 +118,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         }
         continue;
       }
-      const { activo, quincena } = celdaPrestamo(p, periodo.year, periodo.month);
+      const { activo, quincena, tieneOverride } = celdaPrestamo(p, periodo.year, periodo.month);
       if (activo && quincena === periodo.quincena && p.cuota) {
         list.push({
           key: `prestamo-${p.id}`,
@@ -130,6 +132,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           entidadId: p.entidadId || "",
           entidadName: p.entidadName || "",
           bloqueadoPagado: saldado,
+          quincenaActual: periodo.quincena,
+          tieneOverride,
         });
       }
     }
@@ -159,6 +163,23 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   }, [items, checklist]);
 
   const [confirmandoKey, setConfirmandoKey] = useState(null);
+  const [moviendoKey, setMoviendoKey] = useState(null);
+
+  const moverQuincena = async (it) => {
+    setMoviendoKey(it.key);
+    try {
+      if (it.tieneOverride) {
+        // Ya tiene un ajuste manual para este mes: lo quita, volviendo a la
+        // quincena que le corresponde según la configuración del préstamo.
+        await quitarPrestamoQuincenaOverride(it.prestamoId, periodo.year, periodo.month);
+      } else {
+        const otraQuincena = it.quincenaActual === "Q1" ? "Q2" : "Q1";
+        await setPrestamoQuincenaOverride(it.prestamoId, periodo.year, periodo.month, otraQuincena);
+      }
+    } finally {
+      setMoviendoKey(null);
+    }
+  };
 
   const toggleItem = async (it) => {
     const actual = checklist?.items?.[it.key] || {};
@@ -358,6 +379,28 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
                       <Landmark size={10} /> Pagar a: {it.entidadName}
                     </div>
+                  )}
+                  {it.esPrestamo && !it.bloqueadoPagado && it.quincenaActual && (
+                    <button
+                      onClick={() => moverQuincena(it)}
+                      disabled={moviendoKey === it.key}
+                      title={it.tieneOverride ? "Volver a la quincena original" : `Mover a la ${it.quincenaActual === "Q1" ? "2da" : "1ra"} quincena`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 3,
+                        marginTop: 3,
+                        padding: 0,
+                        fontSize: 10.5,
+                        color: "var(--sage)",
+                        background: "transparent",
+                        border: "none",
+                        cursor: moviendoKey === it.key ? "wait" : "pointer",
+                      }}
+                    >
+                      <ArrowLeftRight size={10} />
+                      {it.tieneOverride ? "Ajustada manualmente — volver a la original" : `Mover a la ${it.quincenaActual === "Q1" ? "2da" : "1ra"} quincena`}
+                    </button>
                   )}
                 </div>
 
