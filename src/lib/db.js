@@ -300,6 +300,31 @@ export async function addMovimiento({
     console.error("No se pudo verificar/actualizar el estado del préstamo:", err);
   }
 
+  // Si este pago es de una tarjeta, descuenta el monto pagado del saldo
+  // actual guardado en la tarjeta (saldoActual en pesos), sin bajar de cero.
+  // Si en cambio es una compra hecha con tarjeta de crédito, lo suma. El
+  // saldo en USD no se toca aquí, ya que estos movimientos son en pesos.
+  try {
+    if (category === "Pago de tarjeta" && tarjetaId) {
+      const tarjetaSnap = await getDoc(doc(db, "tarjetas", tarjetaId));
+      if (tarjetaSnap.exists()) {
+        const t = tarjetaSnap.data();
+        const saldoActualPrevio = Number(t.saldoActual) || 0;
+        const nuevoSaldo = Math.max(saldoActualPrevio - (Number(amount) || 0), 0);
+        await updateDoc(doc(db, "tarjetas", tarjetaId), { saldoActual: nuevoSaldo });
+      }
+    } else if (type === "Gasto" && tarjetaId) {
+      const tarjetaSnap = await getDoc(doc(db, "tarjetas", tarjetaId));
+      if (tarjetaSnap.exists()) {
+        const t = tarjetaSnap.data();
+        const saldoActualPrevio = Number(t.saldoActual) || 0;
+        await updateDoc(doc(db, "tarjetas", tarjetaId), { saldoActual: saldoActualPrevio + (Number(amount) || 0) });
+      }
+    }
+  } catch (err) {
+    console.error("No se pudo actualizar el saldo de la tarjeta:", err);
+  }
+
   return docRef;
 }
 
