@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight, CreditCard } from "lucide-react";
 import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
@@ -11,6 +11,7 @@ const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "
 const TIPO_ICONS = {
   "Cita médica": Stethoscope,
   Vacaciones: Plane,
+  Tarjeta: CreditCard,
   Cumpleaños: Cake,
   Trabajo: Briefcase,
   Personal: User,
@@ -103,7 +104,7 @@ function toEditForm(e) {
   };
 }
 
-export default function Calendario({ eventos, entidades, categoriasGasto, vacaciones }) {
+export default function Calendario({ eventos, entidades, categoriasGasto, vacaciones, tarjetas }) {
   const hoy = todayStr();
   const [viewDate, setViewDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(hoy);
@@ -144,15 +145,62 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
     return sinteticos;
   }, [vacaciones]);
 
+  // Convierte las fechas de pago recurrentes y el vencimiento del plástico de
+  // cada tarjeta activa en "eventos" sintéticos, sin duplicar datos (siguen
+  // viviendo solo en Tarjetas). La fecha de pago se proyecta 12 meses hacia
+  // adelante desde hoy.
+  const eventosTarjetas = useMemo(() => {
+    const sinteticos = [];
+    const hoy = new Date();
+    for (const t of tarjetas || []) {
+      if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito") continue;
+
+      const diaPago = t.fechaPago || t.fechaCorte;
+      if (diaPago) {
+        for (let i = 0; i < 12; i++) {
+          const year = hoy.getFullYear();
+          const month = hoy.getMonth() + 1 + i;
+          const yearAjustado = year + Math.floor((month - 1) / 12);
+          const mesAjustado = ((month - 1) % 12) + 1;
+          const diasEnMes = new Date(yearAjustado, mesAjustado, 0).getDate();
+          const dia = Math.min(diaPago, diasEnMes);
+          const dateStr = `${yearAjustado}-${pad2(mesAjustado)}-${pad2(dia)}`;
+          sinteticos.push({
+            id: `tarjeta-pago-${t.id}-${dateStr}`,
+            titulo: `Pago tarjeta ${t.nombre || ""}${t.ultimos4 ? ` ····${t.ultimos4}` : ""}`,
+            tipo: "Tarjeta",
+            fecha: dateStr,
+            estado: "Pendiente",
+            notas: "Fecha de pago — gestiónalo en Tarjetas",
+            esTarjetaSintetica: true,
+          });
+        }
+      }
+
+      if (t.fechaVencimientoPlastico) {
+        sinteticos.push({
+          id: `tarjeta-venc-${t.id}`,
+          titulo: `Vence plástico ${t.nombre || ""}${t.ultimos4 ? ` ····${t.ultimos4}` : ""}`,
+          tipo: "Tarjeta",
+          fecha: `${t.fechaVencimientoPlastico}-01`,
+          estado: "Pendiente",
+          notas: "Vencimiento del plástico — gestiónalo en Tarjetas",
+          esTarjetaSintetica: true,
+        });
+      }
+    }
+    return sinteticos;
+  }, [tarjetas]);
+
   const eventosPorFecha = useMemo(() => {
     const map = {};
-    for (const e of [...eventos, ...eventosVacaciones]) {
+    for (const e of [...eventos, ...eventosVacaciones, ...eventosTarjetas]) {
       if (!e.fecha) continue;
       if (!map[e.fecha]) map[e.fecha] = [];
       map[e.fecha].push(e);
     }
     return map;
-  }, [eventos, eventosVacaciones]);
+  }, [eventos, eventosVacaciones, eventosTarjetas]);
 
   const grilla = useMemo(() => construirGrilla(viewDate), [viewDate]);
 

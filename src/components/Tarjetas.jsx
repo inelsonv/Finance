@@ -102,6 +102,7 @@ const emptyForm = () => ({
   tasaTAE: "",
   montoMora: "",
   diasGracia: "22",
+  fechaVencimientoPlastico: "",
 });
 
 function toEditForm(t) {
@@ -127,6 +128,7 @@ function toEditForm(t) {
     tasaTAE: t.tasaTAE != null ? String(t.tasaTAE) : "",
     montoMora: t.montoMora != null ? String(t.montoMora) : "",
     diasGracia: t.diasGracia != null ? String(t.diasGracia) : "22",
+    fechaVencimientoPlastico: t.fechaVencimientoPlastico || "",
   };
 }
 
@@ -207,6 +209,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         tasaTAE: parseFloat(form.tasaTAE) || null,
         montoMora: parseFloat(form.montoMora) || null,
         diasGracia: parseInt(form.diasGracia, 10) || 22,
+        fechaVencimientoPlastico: form.fechaVencimientoPlastico || null,
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -248,6 +251,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         tasaTAE: parseFloat(editForm.tasaTAE) || null,
         montoMora: parseFloat(editForm.montoMora) || null,
         diasGracia: parseInt(editForm.diasGracia, 10) || 22,
+        fechaVencimientoPlastico: editForm.fechaVencimientoPlastico || null,
       });
       cancelEdit();
     } catch (err) {
@@ -488,6 +492,19 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                     style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                   />
                 </div>
+              </div>
+
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
+                  Vencimiento del plástico (se refleja en el Calendario)
+                </div>
+                <input
+                  className="despensa-mono"
+                  type="month"
+                  value={form.fechaVencimientoPlastico}
+                  onChange={(e) => setForm({ ...form, fechaVencimientoPlastico: e.target.value })}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
               </div>
 
               <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
@@ -742,6 +759,19 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                             style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                           />
                         </div>
+                      </div>
+
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
+                          Vencimiento del plástico (se refleja en el Calendario)
+                        </div>
+                        <input
+                          className="despensa-mono"
+                          type="month"
+                          value={editForm.fechaVencimientoPlastico}
+                          onChange={(e) => setEditForm({ ...editForm, fechaVencimientoPlastico: e.target.value })}
+                          style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        />
                       </div>
                       <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                         <input
