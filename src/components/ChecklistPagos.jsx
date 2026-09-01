@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride } from "../lib/db";
+import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { confirm } from "../lib/confirm";
 import { GASTO_CATS_FIJO } from "../lib/categorias";
 
@@ -34,9 +35,8 @@ function celdaPrestamo(prestamo, year, mes) {
   return { activo, quincena };
 }
 
-function periodoActual() {
-  const now = new Date();
-  return { year: now.getFullYear(), month: now.getMonth() + 1, quincena: now.getDate() <= 15 ? "Q1" : "Q2" };
+function periodoActual(diasCobro) {
+  return periodoActualConfigurado(diasCobro);
 }
 
 function periodoAdyacente(periodo, dir) {
@@ -60,8 +60,8 @@ function periodoAdyacente(periodo, dir) {
   }
 }
 
-export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso }) {
-  const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual());
+export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro }) {
+  const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
 
   // Cuando llegamos aquí desde la notificación de "día de cobro", saltamos directo

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig } from "./lib/db";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActual, periodoAnterior, periodoKey } from "./lib/racha";
 import { calcularResumenQuincena, rangoFechasQuincena } from "./lib/quincenaResumen";
@@ -158,6 +158,7 @@ export default function App() {
   const [ajustesPresupuesto, setAjustesPresupuesto] = useState([]);
   const [comprasProrateadas, setComprasProrateadas] = useState([]);
   const [sugerenciasInversion, setSugerenciasInversion] = useState([]);
+  const [diasCobro, setDiasCobro] = useState([15, 30]);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -278,6 +279,7 @@ export default function App() {
     const unsubAjustesPresupuesto = watchAjustesPresupuestoHistorial(setAjustesPresupuesto, handleError);
     const unsubComprasProrateadas = watchComprasProrateadas(setComprasProrateadas, handleError);
     const unsubSugerenciasInversion = watchSugerenciasInversion(setSugerenciasInversion, handleError);
+    const unsubDiasCobro = watchDiasCobroConfig(setDiasCobro, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -313,6 +315,7 @@ export default function App() {
       unsubAjustesPresupuesto();
       unsubComprasProrateadas();
       unsubSugerenciasInversion();
+      unsubDiasCobro();
       unsubStatus();
     };
   }, [authorized]);
@@ -719,6 +722,7 @@ export default function App() {
             periodoInicial={checklistPeriodoInicial}
             onConsumePeriodoInicial={() => setChecklistPeriodoInicial(null)}
             fuentesIngreso={fuentesIngreso}
+            diasCobro={diasCobro}
           />
         )}
         {tab === "vacaciones" && (
