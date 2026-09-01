@@ -553,6 +553,22 @@ export async function evaluarInteresYMoraTarjeta(tarjetaId, cicloKey, saldoActua
   });
 }
 
+// Días de cobro configurables (por defecto 15 y 30), usados por la nueva
+// función de clasificación de quincena en lib/quincenaConfig.js.
+export function watchDiasCobroConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "diasCobro"),
+    (snap) => onChange(snap.exists() && snap.data().dias?.length ? snap.data().dias : [15, 30]),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveDiasCobroConfig(dias) {
+  const limpio = [...new Set((dias || []).map((d) => parseInt(d, 10)).filter((d) => Number.isFinite(d) && d >= 1 && d <= 31))].sort((a, b) => a - b);
+  if (limpio.length === 0) throw new Error("Debes tener al menos un día de cobro válido (1-31)");
+  await setDoc(doc(db, "config", "diasCobro"), { dias: limpio });
+}
+
 export function watchTarjetaCargosHistorial(onChange, onError) {
   return onSnapshot(
     query(collection(db, "tarjetaCargosHistorial"), orderBy("createdAt", "desc")),

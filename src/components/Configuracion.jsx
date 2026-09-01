@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste } from "../lib/db";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 
@@ -26,6 +26,10 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
   const [categoriasPuntos, setCategoriasPuntos] = useState([]);
   const [savingCategoriasPuntos, setSavingCategoriasPuntos] = useState(false);
   const [topesAjuste, setTopesAjuste] = useState({});
+  const [diasCobro, setDiasCobro] = useState([15, 30]);
+  const [diasCobroInput, setDiasCobroInput] = useState("15, 30");
+  const [savingDiasCobro, setSavingDiasCobro] = useState(false);
+  const [diasCobroError, setDiasCobroError] = useState(null);
 
   useEffect(() => {
     const unsub1 = watchNotifConfig(setEmailConfig, () => {});
@@ -34,6 +38,7 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
     const unsub4 = watchAhorroAutoConfig(setAhorroConfig, () => {});
     const unsub5 = watchCategoriasPuntosConfig(setCategoriasPuntos, () => {});
     const unsub6 = watchTopesAjusteConfig(setTopesAjuste, () => {});
+    const unsub7 = watchDiasCobroConfig(setDiasCobro, () => {});
     return () => {
       unsub1();
       unsub2();
@@ -41,8 +46,13 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       unsub4();
       unsub5();
       unsub6();
+      unsub7();
     };
   }, []);
+
+  useEffect(() => {
+    setDiasCobroInput(diasCobro.join(", "));
+  }, [diasCobro]);
 
   useEffect(() => {
     if (emailConfig?.email) setEmailInput(emailConfig.email);
@@ -150,6 +160,27 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       await saveCategoriasPuntosConfig(nuevaLista);
     } finally {
       setSavingCategoriasPuntos(false);
+    }
+  };
+
+  const handleGuardarDiasCobro = async () => {
+    setDiasCobroError(null);
+    const dias = diasCobroInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => parseInt(s, 10));
+    if (dias.some((d) => !Number.isFinite(d) || d < 1 || d > 31)) {
+      setDiasCobroError("Cada día debe ser un número entre 1 y 31");
+      return;
+    }
+    setSavingDiasCobro(true);
+    try {
+      await saveDiasCobroConfig(dias);
+    } catch (err) {
+      setDiasCobroError(err.message || String(err));
+    } finally {
+      setSavingDiasCobro(false);
     }
   };
 
@@ -436,6 +467,35 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
             ))}
           </div>
         )}
+      </Section>
+
+      <Section icon={Gauge} title="Días de cobro">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Los días en que recibes tu ingreso definen cómo se dividen tus quincenas. Por ejemplo, con 15 y 30: los días
+          1-14 son la quincena que empezó con el cobro del 30 del mes anterior, y los días 15-29 son la quincena
+          financiada por el cobro del 15 — el día 30/31 ya pertenece a la siguiente quincena, no a la de ese mes.
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            className="despensa-mono"
+            placeholder="Ej. 15, 30"
+            value={diasCobroInput}
+            onChange={(e) => setDiasCobroInput(e.target.value)}
+            style={{ flex: 1, minWidth: 140, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+          />
+          <button
+            onClick={handleGuardarDiasCobro}
+            disabled={savingDiasCobro}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: savingDiasCobro ? "not-allowed" : "pointer" }}
+          >
+            <Check size={13} /> {savingDiasCobro ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+        {diasCobroError && <div style={{ marginTop: 8, fontSize: 12, color: "var(--stamp)" }}>{diasCobroError}</div>}
+        <div style={{ marginTop: 10, fontSize: 11, color: "var(--sage)" }}>
+          Nota: por ahora este ajuste solo está guardado — todavía estamos migrando las pantallas de la app para que lo
+          usen (empezando por el Checklist de pagos). Te avisaré a medida que cada una quede lista.
+        </div>
       </Section>
     </div>
   );
