@@ -11,7 +11,7 @@ import ReactFlow, {
   MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt } from "lucide-react";
+import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt, Church } from "lucide-react";
 import { saveFlujo } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
@@ -38,6 +38,7 @@ const ICONOS = {
   coins: Coins,
   receipt: Receipt,
   dollarSign: DollarSign,
+  church: Church,
 };
 
 const ICONO_DEFAULT = "dollarSign";
@@ -48,7 +49,7 @@ const NODOS_PRECONFIGURADOS = [
   { label: "Pago de deudas", icon: "landmark", color: PALETTE[3] },
   { label: "Ahorro", icon: "piggyBank", color: PALETTE[0] },
   { label: "Inversión", icon: "trendingUp", color: PALETTE[4] },
-  { label: "Diezmo", icon: "coins", color: PALETTE[5] },
+  { label: "Diezmo", icon: "church", color: PALETTE[5] },
 ];
 
 function IconoNodo({ nombre, size = 13 }) {
