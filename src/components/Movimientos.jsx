@@ -56,7 +56,7 @@ const emptyForm = () => ({
   monedaTarjeta: "RDS",
 });
 
-export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas, membresias, fuentesIngreso, categoriasGasto, contratos, presupuesto, presupuestoYear }) {
+export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas, membresias, fuentesIngreso, categoriasGasto, contratos, presupuesto, presupuestoYear, diasCobro }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -115,9 +115,9 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
 
   const checkPresupuesto = (category, dateStr, amount) => {
     if (!presupuesto || !presupuestoYear) return;
-    const q = quincenaDeFecha(dateStr);
+    const q = quincenaDeFecha(dateStr, diasCobro);
     if (!q || q.year !== presupuestoYear) return;
-    const resultado = consumoPresupuesto({ presupuesto, movimientos, categoria: category, year: q.year, month: q.month, quincena: q.quincena });
+    const resultado = consumoPresupuesto({ presupuesto, movimientos, categoria: category, year: q.year, month: q.month, quincena: q.quincena, diasCobro });
     if (!resultado) return;
     const gastadoConNuevo = resultado.gastado + amount;
     const pct = (gastadoConNuevo / resultado.presupuestado) * 100;

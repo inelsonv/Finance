@@ -40,6 +40,7 @@ export default function BottomNav({
   ingresosPuntuales,
   ajustesPresupuesto,
   sugerenciasInversion,
+  diasCobro,
 }) {
   const [showGasto, setShowGasto] = useState(false);
 
@@ -60,6 +61,7 @@ export default function BottomNav({
     ingresosPuntuales,
     ajustesPresupuesto,
     sugerenciasInversion,
+    diasCobro,
   });
   const noLeidas = contarNoLeidas(notificaciones);
 

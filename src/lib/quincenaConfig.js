@@ -81,3 +81,30 @@ export function periodoActualConfigurado(diasCobroConfig, hoy = new Date()) {
 export function cantidadQuincenas(diasCobroConfig) {
   return normalizarDiasCobro(diasCobroConfig).length;
 }
+
+// Dado un periodo { year, month, quincena }, devuelve el periodo siguiente
+// (o anterior, si dir=-1), respetando cuántas quincenas tiene cada mes según
+// la configuración.
+export function periodoAdyacenteConfigurado({ year, month, quincena }, diasCobroConfig, dir = 1) {
+  const total = cantidadQuincenas(diasCobroConfig);
+  const num = parseInt(quincena.replace("Q", ""), 10);
+  if (dir > 0) {
+    if (num < total) return { year, month, quincena: `Q${num + 1}` };
+    let m = month + 1;
+    let y = year;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    return { year: y, month: m, quincena: "Q1" };
+  } else {
+    if (num > 1) return { year, month, quincena: `Q${num - 1}` };
+    let m = month - 1;
+    let y = year;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+    return { year: y, month: m, quincena: `Q${total}` };
+  }
+}

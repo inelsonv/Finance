@@ -3,6 +3,7 @@ import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft
 import { setPresupuestoCelda } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { formatearOrdenPrioridad } from "../lib/flujoPrioridad";
+import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "../lib/quincenaConfig";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
@@ -107,36 +108,25 @@ function totalItemsOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones, flujo }) {
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones, flujo, diasCobro }) {
   // Puramente informativo: el orden de prioridad definido en el Editor de
   // flujo, mostrado como referencia visual. No depende de ningún otro cálculo
   // de este componente ni los modifica.
   const ordenFlujoReferencia = useMemo(() => formatearOrdenPrioridad(flujo?.nodes, flujo?.edges), [flujo]);
 
-  // Quincena activa y próxima, para resaltar la cabecera de la tabla. Cálculo
-  // aislado, no depende de ningún otro dato del componente.
+  // Quincena activa y próxima, para resaltar la cabecera de la tabla. Usa la
+  // configuración de días de cobro (etapa 3 de la migración).
   const { mesActivo, quincenaActiva, mesProximo, quincenaProxima, yearProximo } = useMemo(() => {
-    const hoy = new Date();
-    const mesHoy = hoy.getMonth() + 1;
-    const qHoy = hoy.getDate() > 15 ? "Q2" : "Q1";
-    let mesProx = mesHoy;
-    let yearProx = hoy.getFullYear();
-    let qProx = qHoy === "Q1" ? "Q2" : "Q1";
-    if (qHoy === "Q2") {
-      mesProx = mesHoy + 1;
-      if (mesProx > 12) {
-        mesProx = 1;
-        yearProx += 1;
-      }
-    }
+    const actual = periodoActualConfigurado(diasCobro);
+    const siguiente = periodoAdyacenteConfigurado(actual, diasCobro, 1);
     return {
-      mesActivo: hoy.getFullYear() === year ? mesHoy : null,
-      quincenaActiva: qHoy,
-      mesProximo: yearProx === year ? mesProx : null,
-      quincenaProxima: qProx,
-      yearProximo: yearProx,
+      mesActivo: actual.year === year ? actual.month : null,
+      quincenaActiva: actual.quincena,
+      mesProximo: siguiente.year === year ? siguiente.month : null,
+      quincenaProxima: siguiente.quincena,
+      yearProximo: siguiente.year,
     };
-  }, [year]);
+  }, [year, diasCobro]);
 
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
@@ -511,10 +501,9 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const excedeQuincena = (mes, q) => ingresoQuincenal > 0 && (totalPorQuincenaGlobal[`${mes}-${q}`] || 0) > ingresoQuincenal;
 
   const hoy = new Date();
-  const mesActual = hoy.getMonth() + 1;
-  const quincenaActual = hoy.getDate() <= 15 ? "Q1" : "Q2";
+  const { year: yearActualConfig, month: mesActual, quincena: quincenaActual } = useMemo(() => periodoActualConfigurado(diasCobro, hoy), [diasCobro]);
   const excesoActual =
-    year === hoy.getFullYear() && ingresoQuincenal > 0
+    yearActualConfig === year && ingresoQuincenal > 0
       ? (totalPorQuincenaGlobal[`${mesActual}-${quincenaActual}`] || 0) - ingresoQuincenal
       : 0;
   const quincenasExcedidas = useMemo(() => {
@@ -528,7 +517,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   }, [totalPorQuincenaGlobal, ingresoQuincenal]);
 
   const comparacionActual = useMemo(() => {
-    if (year !== hoy.getFullYear()) return [];
+    if (year !== yearActualConfig) return [];
     return categorias
       .map((cat) => {
         const resultado = consumoPresupuesto({
@@ -538,13 +527,14 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
           year,
           month: mesActual,
           quincena: quincenaActual,
+          diasCobro,
         });
         if (!resultado) return null;
         return { nombre: cat.nombre, ...resultado };
       })
       .filter(Boolean)
       .sort((a, b) => b.pct - a.pct);
-  }, [categorias, presupuesto, movimientos, year, mesActual, quincenaActual]);
+  }, [categorias, presupuesto, movimientos, year, mesActual, quincenaActual, yearActualConfig, diasCobro]);
 
 
   if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0 && eventosConGasto.length === 0 && ordenesConGasto.length === 0 && vacacionesConGasto.length === 0 && renovacionesConGasto.length === 0) {

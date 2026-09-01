@@ -474,6 +474,7 @@ export default function App() {
         ingresosPuntuales={ingresosPuntuales}
         ajustesPresupuesto={ajustesPresupuesto}
         sugerenciasInversion={sugerenciasInversion}
+        diasCobro={diasCobro}
         prestamos={prestamos}
         tarjetas={tarjetas}
         membresias={membresias}
@@ -592,6 +593,7 @@ export default function App() {
                   ingresosPuntuales={ingresosPuntuales}
                   ajustesPresupuesto={ajustesPresupuesto}
                   sugerenciasInversion={sugerenciasInversion}
+                  diasCobro={diasCobro}
                 />
               </div>
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} synced={synced} />
@@ -622,6 +624,7 @@ export default function App() {
             ingresosPuntuales={ingresosPuntuales}
             ajustesPresupuesto={ajustesPresupuesto}
             sugerenciasInversion={sugerenciasInversion}
+            diasCobro={diasCobro}
           />
         )}
         {tab === "puntos" && (
@@ -678,6 +681,7 @@ export default function App() {
             contratos={contratos}
             presupuesto={presupuestoAnual}
             presupuestoYear={presupuestoYear}
+            diasCobro={diasCobro}
           />
         )}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} activos={activos} />}
@@ -708,6 +712,7 @@ export default function App() {
             diezmoConfig={diezmoConfig}
             tarjetas={tarjetas}
             ahorroConfig={ahorroAutoConfig}
+            diasCobro={diasCobro}
           />
         )}
         {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} />}

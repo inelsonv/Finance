@@ -94,6 +94,7 @@ export default function NotificacionesPage({
   ingresosPuntuales,
   ajustesPresupuesto,
   sugerenciasInversion,
+  diasCobro,
 }) {
   const [leidas, setLeidas] = useState(() => {
     try {
@@ -120,6 +121,7 @@ export default function NotificacionesPage({
     ingresosPuntuales,
     ajustesPresupuesto,
     sugerenciasInversion,
+    diasCobro,
   });
 
   const codigoEmpleado = (fuentesIngreso || []).find((f) => f.estado === "Activo" && f.codigoEmpleado)?.codigoEmpleado || "";
