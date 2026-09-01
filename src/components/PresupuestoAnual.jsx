@@ -305,10 +305,14 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
 
   // Varios eventos pueden compartir la misma categoría de gasto (ej. 3 citas
   // odontológicas en meses distintos) — se agrupan en UNA sola fila del
-  // presupuesto en vez de una fila por cada evento.
+  // presupuesto en vez de una fila por cada evento. Si esa categoría YA
+  // existe como categoría de gasto manual, no se crea una fila aparte (para
+  // no repetirla) — su monto sigue sumando al total general igual que antes,
+  // y se marca con un pequeño ícono de calendario junto al nombre.
+  const nombresCategoriasManuales = useMemo(() => new Set(categorias.map((c) => c.nombre)), [categorias]);
   const categoriasEventosUnicas = useMemo(
-    () => [...new Set(eventosConGasto.map((e) => e.categoriaGasto))],
-    [eventosConGasto]
+    () => [...new Set(eventosConGasto.map((e) => e.categoriaGasto))].filter((nombre) => !nombresCategoriasManuales.has(nombre)),
+    [eventosConGasto, nombresCategoriasManuales]
   );
 
   const getCeldaEventoCategoria = (categoriaNombre, mes, quincena) =>
@@ -840,6 +844,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                   title={cat.clasificacion}
                 >
                   {cat.nombre}
+                  {eventosConGasto.some((e) => e.categoriaGasto === cat.nombre) && (
+                    <span title="Esta categoría también tiene eventos del calendario sumados a su total" style={{ marginLeft: 4, opacity: 0.7 }}>
+                      <CalendarIcon size={10} style={{ display: "inline", verticalAlign: "middle" }} />
+                    </span>
+                  )}
                 </td>
                 {MESES.map((_, i) => {
                   const mes = i + 1;
