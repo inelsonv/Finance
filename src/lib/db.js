@@ -278,6 +278,13 @@ export async function addMovimiento({
         await otorgarPuntos("Aporte a meta de ahorro", puntosGanados, "metaAhorro", docRef.id);
       }
     }
+
+    // Punto fijo, pequeño, por el simple hecho de registrar el movimiento
+    // (no depende del monto ni de la categoría) — se suma aparte de
+    // cualquier otro punto ya otorgado arriba. No aplica a Ingresos.
+    if (type !== "Ingreso") {
+      await otorgarPuntos("Registraste un movimiento", 1, "registro", docRef.id);
+    }
   } catch (err) {
     console.error("No se pudieron otorgar puntos:", err);
   }
