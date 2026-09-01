@@ -91,7 +91,7 @@ function ActivityFlowNode({ data }) {
         boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
       }}
     >
-      <Handle type="target" position={Position.Left} style={{ background: "#fff", border: `2px solid ${color}` }} />
+      <Handle type="target" position={Position.Top} style={{ background: "#fff", border: `2px solid ${color}` }} />
       <div
         style={{
           width: 32,
@@ -125,7 +125,7 @@ function ActivityFlowNode({ data }) {
           <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.75)", marginTop: 1 }}>{data.categoriaGasto}</div>
         )}
       </div>
-      <Handle type="source" position={Position.Right} style={{ background: "#fff", border: `2px solid ${color}` }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: "#fff", border: `2px solid ${color}` }} />
     </div>
   );
 }
