@@ -96,6 +96,9 @@ service cloud.firestore {
     match /tarjetaCargosHistorial/{doc} {
       allow read, write: if esPropietario();
     }
+    match /comprasProrateadas/{doc} {
+      allow read, write: if esPropietario();
+    }
     match /historialCompras/{doc} {
       allow read, write: if esPropietario();
     }

@@ -585,6 +585,114 @@ function formatMoneyErr(n) {
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// Calcula, a partir de una fecha de inicio, la lista de quincenas
+// consecutivas (year, month, quincena) donde caerá cada cuota.
+function calcularQuincenasConsecutivas(fechaInicio, cantidad) {
+  const [y, m, d] = fechaInicio.split("-").map(Number);
+  let year = y;
+  let month = m;
+  let quincena = d > 15 ? "Q2" : "Q1";
+  const lista = [];
+  for (let i = 0; i < cantidad; i++) {
+    lista.push({ year, month, quincena });
+    if (quincena === "Q1") {
+      quincena = "Q2";
+    } else {
+      quincena = "Q1";
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+  }
+  return lista;
+}
+
+// Registra una compra prorateada: divide el monto total en N cuotas iguales
+// (la última absorbe el redondeo) y suma cada cuota al presupuesto de la
+// categoría indicada, en quincenas consecutivas a partir de la fecha de
+// compra. Todo en una sola operación, para que quede reflejado de inmediato.
+export async function addCompraProrateada({ nombre, montoTotal, cuotas, categoria, fechaInicio }) {
+  const total = Math.round((Number(montoTotal) || 0) * 100) / 100;
+  const numCuotas = Math.max(1, parseInt(cuotas, 10) || 1);
+  if (total <= 0) throw new Error("El monto total debe ser mayor a cero");
+
+  const montoCuotaBase = Math.round((total / numCuotas) * 100) / 100;
+  const quincenas = calcularQuincenasConsecutivas(fechaInicio, numCuotas);
+
+  const cuotasDetalle = quincenas.map((q, i) => {
+    const esUltima = i === numCuotas - 1;
+    const montoAcumuladoPrevio = montoCuotaBase * i;
+    const monto = esUltima ? Math.round((total - montoAcumuladoPrevio) * 100) / 100 : montoCuotaBase;
+    return { ...q, monto };
+  });
+
+  // Suma cada cuota al presupuesto de su quincena correspondiente, agrupando
+  // las escrituras por año para minimizar operaciones.
+  const porAño = {};
+  for (const c of cuotasDetalle) {
+    if (!porAño[c.year]) porAño[c.year] = [];
+    porAño[c.year].push(c);
+  }
+  for (const [year, lista] of Object.entries(porAño)) {
+    const presupuestoSnap = await getDoc(doc(db, "presupuestos", year));
+    const data = presupuestoSnap.exists() ? presupuestoSnap.data() : {};
+    const merge = {};
+    for (const c of lista) {
+      const valorActual = data?.[categoria]?.[String(c.month)]?.[c.quincena] || 0;
+      if (!merge[categoria]) merge[categoria] = {};
+      if (!merge[categoria][String(c.month)]) merge[categoria][String(c.month)] = {};
+      merge[categoria][String(c.month)][c.quincena] = valorActual + c.monto;
+    }
+    await setDoc(doc(db, "presupuestos", year), merge, { merge: true });
+  }
+
+  await addDoc(collection(db, "comprasProrateadas"), {
+    nombre: nombre || "Compra prorateada",
+    montoTotal: total,
+    cuotas: numCuotas,
+    montoCuota: montoCuotaBase,
+    categoria,
+    fechaInicio,
+    cuotasDetalle,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export function watchComprasProrateadas(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "comprasProrateadas"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+// Elimina una compra prorateada y revierte los montos que había sumado al
+// presupuesto de cada quincena afectada.
+export async function deleteCompraProrateada(id, compra) {
+  const porAño = {};
+  for (const c of compra.cuotasDetalle || []) {
+    if (!porAño[c.year]) porAño[c.year] = [];
+    porAño[c.year].push(c);
+  }
+  for (const [year, lista] of Object.entries(porAño)) {
+    const presupuestoSnap = await getDoc(doc(db, "presupuestos", year));
+    if (!presupuestoSnap.exists()) continue;
+    const data = presupuestoSnap.data();
+    const merge = {};
+    for (const c of lista) {
+      const valorActual = data?.[compra.categoria]?.[String(c.month)]?.[c.quincena] || 0;
+      const nuevoValor = Math.max(valorActual - c.monto, 0);
+      if (!merge[compra.categoria]) merge[compra.categoria] = {};
+      if (!merge[compra.categoria][String(c.month)]) merge[compra.categoria][String(c.month)] = {};
+      merge[compra.categoria][String(c.month)][c.quincena] = nuevoValor;
+    }
+    await setDoc(doc(db, "presupuestos", year), merge, { merge: true });
+  }
+  await deleteDoc(doc(db, "comprasProrateadas", id));
+}
+
 // Cambia la fecha de un movimiento, exigiendo un motivo de justificación.
 // Guarda un historial de cambios (no sobreescribe el motivo anterior).
 export async function updateMovimientoFecha(id, nuevaFecha, motivo, fechaAnterior) {

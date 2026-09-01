@@ -13,6 +13,7 @@ import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
 import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
 import { confirm } from "../lib/confirm";
 import BarcodeScanner from "./BarcodeScanner.jsx";
+import ComprasProrateadas from "./ComprasProrateadas.jsx";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
@@ -31,7 +32,7 @@ async function buscarProductoPorCodigo(codigo) {
   }
 }
 
-export default function Catalogo({ products, entidades, historialCompras, ordenesCompra, onNavigate }) {
+export default function Catalogo({ products, entidades, historialCompras, ordenesCompra, onNavigate, categoriasGasto, comprasProrateadas }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "" });
@@ -222,6 +223,8 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
 
   return (
     <div>
+      <ComprasProrateadas compras={comprasProrateadas} categoriasGasto={categoriasGasto} />
+
       {ordenVigente && (ordenVigente.items || []).length > 0 && (
         <div
           style={{

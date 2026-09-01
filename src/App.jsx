@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas } from "./lib/db";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActual, periodoAnterior, periodoKey } from "./lib/racha";
 import { calcularResumenQuincena, rangoFechasQuincena } from "./lib/quincenaResumen";
@@ -156,6 +156,7 @@ export default function App() {
   const [categoriasPuntos, setCategoriasPuntos] = useState([]);
   const [topesAjuste, setTopesAjuste] = useState({});
   const [ajustesPresupuesto, setAjustesPresupuesto] = useState([]);
+  const [comprasProrateadas, setComprasProrateadas] = useState([]);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -274,6 +275,7 @@ export default function App() {
     const unsubCategoriasPuntos = watchCategoriasPuntosConfig(setCategoriasPuntos, handleError);
     const unsubTopesAjuste = watchTopesAjusteConfig(setTopesAjuste, handleError);
     const unsubAjustesPresupuesto = watchAjustesPresupuestoHistorial(setAjustesPresupuesto, handleError);
+    const unsubComprasProrateadas = watchComprasProrateadas(setComprasProrateadas, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -307,6 +309,7 @@ export default function App() {
       unsubCategoriasPuntos();
       unsubTopesAjuste();
       unsubAjustesPresupuesto();
+      unsubComprasProrateadas();
       unsubStatus();
     };
   }, [authorized]);
@@ -636,6 +639,8 @@ export default function App() {
             historialCompras={historialCompras}
             ordenesCompra={ordenesCompra}
             onNavigate={setTab}
+            categoriasGasto={categoriasGasto}
+            comprasProrateadas={comprasProrateadas}
           />
         )}
         {tab === "entidades" && <Entidades entidades={entidades} tiposPersonalizados={tiposEntidad} />}
