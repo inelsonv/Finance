@@ -157,10 +157,11 @@ function edgeStyle(color) {
   };
 }
 
-let idCounter = 100;
+// Genera un ID único basado en tiempo + azar — nunca se repite entre
+// sesiones, a diferencia de un contador que siempre arrancaba desde el mismo
+// número y podía chocar con nodos ya guardados de sesiones anteriores.
 function nextId() {
-  idCounter += 1;
-  return `n${idCounter}`;
+  return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
 export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) {
