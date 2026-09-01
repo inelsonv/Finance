@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, X, Trash2 } from "lucide-react";
+import { Plus, X, Trash2, Landmark } from "lucide-react";
 import { addCategoriaGasto, deleteCategoriaGasto, updateCategoriaGasto } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
@@ -179,6 +179,24 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
               >
                 <span style={{ color: c.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)" }}>{c.nombre}</span>
                 <span style={{ color: "var(--ink-soft)", fontSize: 10.5 }}>{c.clasificacion}</span>
+                <button
+                  onClick={() => updateCategoriaGasto(c.id, { agruparConCompromisos: !c.agruparConCompromisos })}
+                  title={c.agruparConCompromisos ? "Mostrándose junto a Compromisos financieros — clic para quitar" : "Mostrar junto a Compromisos financieros"}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 18,
+                    height: 18,
+                    background: c.agruparConCompromisos ? "var(--stamp-bg)" : "transparent",
+                    color: c.agruparConCompromisos ? "var(--stamp)" : "var(--ink-soft)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 5,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Landmark size={10} />
+                </button>
                 <select
                   value={c.metodoPagoDefault || "Efectivo"}
                   onChange={(e) => updateCategoriaGasto(c.id, { metodoPagoDefault: e.target.value })}

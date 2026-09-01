@@ -143,7 +143,15 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
 
   const categorias = useMemo(() => {
-    return categoriasPersonalizadas.map((c) => ({ nombre: c.nombre, clasificacion: c.clasificacion }));
+    const list = categoriasPersonalizadas.map((c) => ({
+      nombre: c.nombre,
+      clasificacion: c.clasificacion,
+      agruparConCompromisos: !!c.agruparConCompromisos,
+    }));
+    // Las categorías marcadas para agruparse con "Compromisos financieros" se
+    // ordenan al final, para que queden justo antes de esa sección en la
+    // tabla (sin fusionarse — solo se acomodan una al lado de la otra).
+    return [...list].sort((a, b) => (a.agruparConCompromisos ? 1 : 0) - (b.agruparConCompromisos ? 1 : 0));
   }, [categoriasPersonalizadas]);
 
   const prestamosActivos = useMemo(
@@ -847,6 +855,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                   {eventosConGasto.some((e) => e.categoriaGasto === cat.nombre) && (
                     <span title="Esta categoría también tiene eventos del calendario sumados a su total" style={{ marginLeft: 4, opacity: 0.7 }}>
                       <CalendarIcon size={10} style={{ display: "inline", verticalAlign: "middle" }} />
+                    </span>
+                  )}
+                  {cat.agruparConCompromisos && (
+                    <span title="Agrupada junto a Compromisos financieros" style={{ marginLeft: 4, opacity: 0.7 }}>
+                      <Landmark size={10} style={{ display: "inline", verticalAlign: "middle" }} />
                     </span>
                   )}
                 </td>
