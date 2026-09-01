@@ -240,9 +240,14 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
     (connection) => {
       const sourceNode = nodes.find((n) => n.id === connection.source);
       const esIngreso = sourceNode?.data?.tipo === "ingreso" || sourceNode?.data?.role === "ingreso";
+      const esDiezmo = sourceNode?.data?.label === "Diezmo";
 
-      if (esIngreso && edges.some((e) => e.source === connection.source)) {
-        setAvisoIngreso("El nodo Ingreso solo puede tener una conexión de salida. Elimina la actual antes de crear otra.");
+      if ((esIngreso || esDiezmo) && edges.some((e) => e.source === connection.source)) {
+        setAvisoIngreso(
+          esIngreso
+            ? "El nodo Ingreso solo puede tener una conexión de salida. Elimina la actual antes de crear otra."
+            : "El nodo Diezmo solo puede tener una conexión de salida (no derivan otros gastos de él). Elimina la actual antes de crear otra."
+        );
         setTimeout(() => setAvisoIngreso(null), 3500);
         return;
       }
