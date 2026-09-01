@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Landmark, Pencil, Check } from "lucide-react";
 import { addTarjeta, deleteTarjeta, updateTarjetaEstado, updateTarjeta } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import Switch from "./Switch.jsx";
 
 const ESTADOS = ["Activa", "Bloqueada", "Cancelada"];
 const TIPOS_TARJETA = ["Crédito", "Débito"];
@@ -94,6 +95,10 @@ const emptyForm = () => ({
   color: "azul",
   marca: "Visa",
   saldoActual: "",
+  tieneMonedaSecundaria: false,
+  limiteCreditoUSD: "",
+  pagoMinimoUSD: "",
+  saldoActualUSD: "",
 });
 
 function toEditForm(t) {
@@ -112,6 +117,10 @@ function toEditForm(t) {
     color: t.color || "azul",
     marca: t.marca || "Visa",
     saldoActual: t.saldoActual != null ? String(t.saldoActual) : "",
+    tieneMonedaSecundaria: !!t.tieneMonedaSecundaria,
+    limiteCreditoUSD: t.limiteCreditoUSD != null ? String(t.limiteCreditoUSD) : "",
+    pagoMinimoUSD: t.pagoMinimoUSD != null ? String(t.pagoMinimoUSD) : "",
+    saldoActualUSD: t.saldoActualUSD != null ? String(t.saldoActualUSD) : "",
   };
 }
 
@@ -185,6 +194,10 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         color: form.color,
         marca: form.marca,
         saldoActual: parseFloat(form.saldoActual) || null,
+        tieneMonedaSecundaria: !!form.tieneMonedaSecundaria,
+        limiteCreditoUSD: form.tieneMonedaSecundaria ? parseFloat(form.limiteCreditoUSD) || null : null,
+        pagoMinimoUSD: form.tieneMonedaSecundaria ? parseFloat(form.pagoMinimoUSD) || null : null,
+        saldoActualUSD: form.tieneMonedaSecundaria ? parseFloat(form.saldoActualUSD) || null : null,
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -219,6 +232,10 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         color: editForm.color,
         marca: editForm.marca,
         saldoActual: parseFloat(editForm.saldoActual) || null,
+        tieneMonedaSecundaria: !!editForm.tieneMonedaSecundaria,
+        limiteCreditoUSD: editForm.tieneMonedaSecundaria ? parseFloat(editForm.limiteCreditoUSD) || null : null,
+        pagoMinimoUSD: editForm.tieneMonedaSecundaria ? parseFloat(editForm.pagoMinimoUSD) || null : null,
+        saldoActualUSD: editForm.tieneMonedaSecundaria ? parseFloat(editForm.saldoActualUSD) || null : null,
       });
       cancelEdit();
     } catch (err) {
@@ -379,6 +396,49 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                   style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                 />
               </div>
+
+              <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8, cursor: "pointer" }}>
+                <span style={{ fontSize: 12.5 }}>Esta tarjeta también tiene saldo en USD</span>
+                <Switch checked={form.tieneMonedaSecundaria} onChange={() => setForm({ ...form, tieneMonedaSecundaria: !form.tieneMonedaSecundaria })} />
+              </label>
+
+              {form.tieneMonedaSecundaria && (
+                <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Saldo en USD</div>
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Límite (USD)"
+                      value={form.limiteCreditoUSD}
+                      onChange={(e) => setForm({ ...form, limiteCreditoUSD: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Pago mínimo (USD)"
+                      value={form.pagoMinimoUSD}
+                      onChange={(e) => setForm({ ...form, pagoMinimoUSD: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                  </div>
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Saldo actual (USD)"
+                    value={form.saldoActualUSD}
+                    onChange={(e) => setForm({ ...form, saldoActualUSD: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                </div>
+              )}
 
               <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                 <input
@@ -549,6 +609,52 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                           style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                         />
                       </div>
+
+                      <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8, cursor: "pointer" }}>
+                        <span style={{ fontSize: 12.5 }}>Esta tarjeta también tiene saldo en USD</span>
+                        <Switch
+                          checked={editForm.tieneMonedaSecundaria}
+                          onChange={() => setEditForm({ ...editForm, tieneMonedaSecundaria: !editForm.tieneMonedaSecundaria })}
+                        />
+                      </label>
+
+                      {editForm.tieneMonedaSecundaria && (
+                        <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Saldo en USD</div>
+                          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                            <input
+                              className="despensa-mono"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Límite (USD)"
+                              value={editForm.limiteCreditoUSD}
+                              onChange={(e) => setEditForm({ ...editForm, limiteCreditoUSD: e.target.value })}
+                              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                            />
+                            <input
+                              className="despensa-mono"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Pago mínimo (USD)"
+                              value={editForm.pagoMinimoUSD}
+                              onChange={(e) => setEditForm({ ...editForm, pagoMinimoUSD: e.target.value })}
+                              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                            />
+                          </div>
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Saldo actual (USD)"
+                            value={editForm.saldoActualUSD}
+                            onChange={(e) => setEditForm({ ...editForm, saldoActualUSD: e.target.value })}
+                            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                          />
+                        </div>
+                      )}
                       <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                         <input
                           className="despensa-mono"
@@ -673,6 +779,35 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                             </div>
                             <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 4 }}>
                               Disponible: {formatMoney(disponible)}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {t.tieneMonedaSecundaria && t.limiteCreditoUSD != null && t.limiteCreditoUSD > 0 && (() => {
+                        const saldoUSD = t.saldoActualUSD || 0;
+                        const pctUSD = Math.min(100, Math.round((saldoUSD / t.limiteCreditoUSD) * 100));
+                        const excedidoUSD = saldoUSD > t.limiteCreditoUSD;
+                        const barColorUSD = excedidoUSD ? "var(--stamp)" : pctUSD >= 90 ? "var(--stamp)" : pctUSD >= 60 ? "var(--amber)" : "var(--sage)";
+                        const disponibleUSD = Math.max(t.limiteCreditoUSD - saldoUSD, 0);
+                        return (
+                          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                              <span style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                Saldo en USD
+                              </span>
+                              <span className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 600, color: barColorUSD }}>
+                                {pctUSD}% · US${saldoUSD.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${pctUSD}%`, background: barColorUSD, borderRadius: 4 }} />
+                            </div>
+                            <div style={{ fontSize: 10.5, color: excedidoUSD ? "var(--stamp)" : "var(--ink-soft)", marginTop: 4 }}>
+                              {excedidoUSD
+                                ? `Sobregiro de US$${(saldoUSD - t.limiteCreditoUSD).toLocaleString("es", { minimumFractionDigits: 2 })}`
+                                : `Disponible: US$${disponibleUSD.toLocaleString("es", { minimumFractionDigits: 2 })}`}
+                              {t.pagoMinimoUSD != null && ` · Pago mínimo: US$${t.pagoMinimoUSD.toLocaleString("es", { minimumFractionDigits: 2 })}`}
                             </div>
                           </div>
                         );

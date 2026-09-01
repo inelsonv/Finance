@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial } from "./lib/db";
 import { periodoActual, periodoAnterior, periodoKey } from "./lib/racha";
-import { calcularResumenQuincena } from "./lib/quincenaResumen";
+import { calcularResumenQuincena, rangoFechasQuincena } from "./lib/quincenaResumen";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
@@ -153,6 +153,8 @@ export default function App() {
   const [puntosHistorial, setPuntosHistorial] = useState([]);
   const [checklistTodos, setChecklistTodos] = useState({});
   const [categoriasPuntos, setCategoriasPuntos] = useState([]);
+  const [topesAjuste, setTopesAjuste] = useState({});
+  const [ajustesPresupuesto, setAjustesPresupuesto] = useState([]);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -269,6 +271,8 @@ export default function App() {
     const unsubPuntosHistorial = watchPuntosHistorial(setPuntosHistorial, handleError);
     const unsubChecklistTodos = watchChecklistTodos(setChecklistTodos, handleError);
     const unsubCategoriasPuntos = watchCategoriasPuntosConfig(setCategoriasPuntos, handleError);
+    const unsubTopesAjuste = watchTopesAjusteConfig(setTopesAjuste, handleError);
+    const unsubAjustesPresupuesto = watchAjustesPresupuestoHistorial(setAjustesPresupuesto, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -300,6 +304,8 @@ export default function App() {
       unsubPuntosHistorial();
       unsubChecklistTodos();
       unsubCategoriasPuntos();
+      unsubTopesAjuste();
+      unsubAjustesPresupuesto();
       unsubStatus();
     };
   }, [authorized]);
@@ -330,6 +336,39 @@ export default function App() {
       console.error("No se pudo evaluar el cumplimiento de la quincena:", err)
     );
   }, [authorized, presupuestoAnual, categoriasGasto, prestamos, movimientos, presupuestoYear]);
+
+  // Al abrir la app, revisa si alguna categoría con tope configurado se
+  // excedió en la quincena que acaba de cerrar, y si es así, ajusta
+  // automáticamente el presupuesto de la quincena actual (la "próxima" desde
+  // el punto de vista de la que cerró) hasta el tope definido.
+  const topesAjusteEvaluado = useRef(false);
+  useEffect(() => {
+    if (!authorized || topesAjusteEvaluado.current) return;
+    if (!presupuestoAnual || categoriasGasto.length === 0) return;
+    if (Object.keys(topesAjuste).length === 0) return;
+
+    const periodoCerrado = periodoAnterior(periodoActual());
+    if (periodoCerrado.year !== presupuestoYear) return;
+
+    topesAjusteEvaluado.current = true;
+
+    const { fechaInicio, fechaFin } = rangoFechasQuincena(periodoCerrado.year, periodoCerrado.month, periodoCerrado.quincena);
+    const gastoPorCategoria = {};
+    for (const m of movimientos) {
+      if (m.type !== "Gasto") continue;
+      if (!m.date || m.date < fechaInicio || m.date > fechaFin) continue;
+      gastoPorCategoria[m.category] = (gastoPorCategoria[m.category] || 0) + (Number(m.amount) || 0);
+    }
+    const presupuestoPorCategoria = {};
+    for (const c of categoriasGasto) {
+      const val = presupuestoAnual?.[c.nombre]?.[String(periodoCerrado.month)]?.[periodoCerrado.quincena];
+      if (typeof val === "number") presupuestoPorCategoria[c.nombre] = val;
+    }
+
+    evaluarAjustesPresupuesto(periodoKey(periodoCerrado), gastoPorCategoria, presupuestoPorCategoria, topesAjuste, periodoActual()).catch((err) =>
+      console.error("No se pudieron evaluar los ajustes automáticos de presupuesto:", err)
+    );
+  }, [authorized, presupuestoAnual, categoriasGasto, movimientos, presupuestoYear, topesAjuste]);
 
   useEffect(() => {
     if (!authorized) return;
@@ -398,6 +437,7 @@ export default function App() {
         setTab={setTab}
         categoriasGasto={categoriasGasto}
         ingresosPuntuales={ingresosPuntuales}
+        ajustesPresupuesto={ajustesPresupuesto}
         prestamos={prestamos}
         tarjetas={tarjetas}
         membresias={membresias}
@@ -514,6 +554,7 @@ export default function App() {
                   onNavigate={handleNavigate}
                   categoriasGasto={categoriasGasto}
                   ingresosPuntuales={ingresosPuntuales}
+                  ajustesPresupuesto={ajustesPresupuesto}
                 />
               </div>
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} synced={synced} />
@@ -542,6 +583,7 @@ export default function App() {
             onNavigate={handleNavigate}
             categoriasGasto={categoriasGasto}
             ingresosPuntuales={ingresosPuntuales}
+            ajustesPresupuesto={ajustesPresupuesto}
           />
         )}
         {tab === "puntos" && <Puntos puntos={puntos} puntosHistorial={puntosHistorial} categoriasGasto={categoriasGasto} checklistTodos={checklistTodos} categoriasPuntos={categoriasPuntos} />}

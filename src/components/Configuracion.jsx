@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig } from "../lib/db";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge } from "lucide-react";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 
@@ -25,6 +25,7 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
 
   const [categoriasPuntos, setCategoriasPuntos] = useState([]);
   const [savingCategoriasPuntos, setSavingCategoriasPuntos] = useState(false);
+  const [topesAjuste, setTopesAjuste] = useState({});
 
   useEffect(() => {
     const unsub1 = watchNotifConfig(setEmailConfig, () => {});
@@ -32,12 +33,14 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
     const unsub3 = watchDiezmoConfig(setDiezmoConfig, () => {});
     const unsub4 = watchAhorroAutoConfig(setAhorroConfig, () => {});
     const unsub5 = watchCategoriasPuntosConfig(setCategoriasPuntos, () => {});
+    const unsub6 = watchTopesAjusteConfig(setTopesAjuste, () => {});
     return () => {
       unsub1();
       unsub2();
       unsub3();
       unsub4();
       unsub5();
+      unsub6();
     };
   }, []);
 
@@ -398,6 +401,38 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
                   disabled={savingCategoriasPuntos}
                 />
               </label>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section icon={Gauge} title="Tope de ajuste automático de presupuesto">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Si te excedes del presupuesto de una categoría en una quincena, la app puede ajustar automáticamente el
+          presupuesto de la <strong>próxima</strong> quincena para reflejar lo que realmente gastas (ej. si tu
+          transporte diario cuesta más de lo presupuestado). El ajuste nunca pasa del tope que definas aquí. Deja el
+          campo vacío para desactivar el ajuste automático en esa categoría.
+        </div>
+        {(categoriasGasto || []).length === 0 ? (
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+            Todavía no tienes categorías de gasto creadas. Ve a Presupuesto → Categoría de gasto para crear una.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {categoriasGasto.map((c) => (
+              <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <span style={{ fontSize: 13 }}>{c.nombre}</span>
+                <input
+                  className="despensa-mono"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Sin tope"
+                  defaultValue={topesAjuste[c.nombre] || ""}
+                  onBlur={(e) => saveTopeAjuste(c.nombre, e.target.value)}
+                  style={{ width: 100, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5, textAlign: "right" }}
+                />
+              </div>
             ))}
           </div>
         )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { diasRestantesProducto } from "../lib/inventario";
@@ -81,7 +81,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales }) {
+export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -233,6 +233,22 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       }
     }
 
+    for (const aj of ajustesPresupuesto || []) {
+      // Solo mostrar ajustes de los últimos 3 días, para no acumular ruido.
+      const fechaAjuste = aj.createdAt?.toDate ? aj.createdAt.toDate() : null;
+      if (!fechaAjuste) continue;
+      const diasDesde = Math.floor((Date.now() - fechaAjuste.getTime()) / 86400000);
+      if (diasDesde > 3) continue;
+      list.push({
+        id: `ajuste-presupuesto-${aj.id}`,
+        icon: Gauge,
+        titulo: `Ajustamos "${aj.categoria}" a ${formatMoneyNotif(aj.montoNuevo)}`,
+        subtitulo: `Te excediste la quincena pasada (gastaste ${formatMoneyNotif(aj.gastado)}) — ajustamos tu presupuesto de esta quincena.`,
+        dias: -1,
+        tab: "presupuesto-mensual",
+      });
+    }
+
     for (const ip of ingresosPuntuales || []) {
       if (ip.recibido || !ip.fecha) continue;
       const dias = diasHastaFecha(ip.fecha);
@@ -274,7 +290,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto]);
 }
 
 export function etiquetaDias(dias) {
@@ -284,7 +300,7 @@ export function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -298,7 +314,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
     }
   });
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto });
 
   const firma = (n) => `${n.id}:${n.dias}`;
   const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));

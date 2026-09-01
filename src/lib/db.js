@@ -375,6 +375,77 @@ export async function saveCategoriasPuntosConfig(nombres) {
   await setDoc(doc(db, "config", "categoriasPuntos"), { nombres: nombres || [] });
 }
 
+export function watchTopesAjusteConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "topesAjusteAutomatico"),
+    (snap) => onChange(snap.exists() ? snap.data().topes || {} : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveTopeAjuste(categoria, monto) {
+  const montoNum = monto === null || monto === "" ? null : Number(monto);
+  if (montoNum === null || !Number.isFinite(montoNum) || montoNum <= 0) {
+    await updateDoc(doc(db, "config", "topesAjusteAutomatico"), { [`topes.${categoria}`]: deleteField() }).catch(async () => {
+      // El doc puede no existir aún; en ese caso no hay nada que borrar.
+    });
+    return;
+  }
+  await setDoc(doc(db, "config", "topesAjusteAutomatico"), { topes: { [categoria]: montoNum } }, { merge: true });
+}
+
+export function watchAjustesPresupuestoHistorial(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "ajustesPresupuestoHistorial"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+// Revisa, para una quincena YA CERRADA, cada categoría con un tope
+// configurado que se haya excedido, y ajusta automáticamente el presupuesto
+// de la PRÓXIMA quincena a lo que realmente se gastó (sin pasar del tope).
+// Protegido contra doble-ejecución con un documento por periodo, igual que la
+// evaluación de cumplimiento general.
+export async function evaluarAjustesPresupuesto(periodoKey, gastoPorCategoria, presupuestoPorCategoria, topes, destino) {
+  const ref = doc(db, "presupuestoAjustesEvaluados", periodoKey);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return;
+  await setDoc(ref, { evaluado: true, evaluadoEn: serverTimestamp() });
+
+  for (const categoria of Object.keys(topes || {})) {
+    const tope = Number(topes[categoria]);
+    if (!Number.isFinite(tope) || tope <= 0) continue;
+    const gastado = Number(gastoPorCategoria[categoria]) || 0;
+    const presupuestado = Number(presupuestoPorCategoria[categoria]) || 0;
+    if (gastado <= presupuestado) continue; // no se excedió, nada que ajustar
+
+    const nuevoMonto = Math.min(Math.round(gastado), tope);
+
+    const presupuestoSnap = await getDoc(doc(db, "presupuestos", String(destino.year)));
+    const valorActualDestino = presupuestoSnap.exists()
+      ? presupuestoSnap.data()?.[categoria]?.[String(destino.month)]?.[destino.quincena] || 0
+      : 0;
+    if (nuevoMonto <= valorActualDestino) continue; // no bajamos un presupuesto ya mayor
+
+    await setDoc(
+      doc(db, "presupuestos", String(destino.year)),
+      { [categoria]: { [String(destino.month)]: { [destino.quincena]: nuevoMonto } } },
+      { merge: true }
+    );
+
+    await addDoc(collection(db, "ajustesPresupuestoHistorial"), {
+      categoria,
+      periodoOrigen: periodoKey,
+      montoAnterior: valorActualDestino,
+      montoNuevo: nuevoMonto,
+      gastado,
+      tope,
+      createdAt: serverTimestamp(),
+    });
+  }
+}
+
 export async function canjearPuntos({ montoACanjear, year, month, quincena, categoria }) {
   const monto = Math.round(Number(montoACanjear) || 0);
   if (monto <= 0) throw new Error("El monto a canjear debe ser mayor a cero");
