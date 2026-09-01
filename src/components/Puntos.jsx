@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame, Target } from "lucide-react";
+import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame, Target, CreditCard } from "lucide-react";
 import { canjearPuntos } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { calcularRacha, historialRachaVisual } from "../lib/racha";
@@ -15,6 +15,7 @@ const TIPO_ICONS = {
   metaAhorro: PiggyBank,
   canje: Gift,
   cumplimientoPresupuesto: Target,
+  tarjeta: CreditCard,
 };
 
 function formatMoney(n) {

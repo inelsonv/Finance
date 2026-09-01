@@ -251,9 +251,19 @@ export async function addMovimiento({
   const PORCENTAJE_PUNTOS = 0.05;
   try {
     const montoNum = Number(amount) || 0;
-    const puntosGanados = Math.round(montoNum * PORCENTAJE_PUNTOS);
+    let montoParaPuntos = montoNum;
+    if (category === "Pago de tarjeta" && monedaTarjeta === "USD") {
+      // Convierte el pago en USD a su equivalente en pesos usando la misma
+      // caché de tipo de cambio que usa la tarjeta de Dólar en Inicio.
+      const tipoCambioSnap = await getDoc(doc(db, "config", "tipoCambioCache"));
+      const tasaUSD = tipoCambioSnap.exists() ? tipoCambioSnap.data()?.rates?.USD : null;
+      if (tasaUSD) montoParaPuntos = montoNum * tasaUSD;
+    }
+    const puntosGanados = Math.round(montoParaPuntos * PORCENTAJE_PUNTOS);
     if (category === "Pago de préstamo" && prestamoId && puntosGanados > 0) {
       await otorgarPuntos(`Pago de préstamo ${prestamoNumero || ""}`.trim(), puntosGanados, "prestamo", docRef.id);
+    } else if (category === "Pago de tarjeta" && tarjetaId && puntosGanados > 0) {
+      await otorgarPuntos(`Pago de tarjeta ${tarjetaNombre || ""}`.trim(), puntosGanados, "tarjeta", docRef.id);
     } else if (type === "Gasto" && puntosGanados > 0) {
       const categoriasPuntosSnap = await getDoc(doc(db, "config", "categoriasPuntos"));
       const categoriasQueGeneranPuntos = categoriasPuntosSnap.exists() ? categoriasPuntosSnap.data().nombres || [] : [];
