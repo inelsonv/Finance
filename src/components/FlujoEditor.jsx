@@ -193,6 +193,16 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
   const loadedOnce = useRef(false);
   const viewportRef = useRef(null);
   const [viewportInicial, setViewportInicial] = useState(null);
+  // Evita marcar "cambios sin guardar" por el ajuste automático de vista al
+  // abrir el editor — solo después de este pequeño margen se considera que
+  // un cambio de zoom/posición viene realmente del usuario.
+  const viewportListo = useRef(false);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      viewportListo.current = true;
+    }, 600);
+    return () => clearTimeout(t);
+  }, []);
 
   const ingresoSugerido = useMemo(() => ingresoMensualCalculado(fuentesIngreso), [fuentesIngreso]);
 
@@ -640,6 +650,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
           }}
           onMoveEnd={(_, viewport) => {
             viewportRef.current = viewport;
+            if (viewportListo.current) setDirty(true);
           }}
           {...(viewportInicial ? { defaultViewport: viewportInicial } : { fitView: true })}
           deleteKeyCode={["Backspace", "Delete"]}
