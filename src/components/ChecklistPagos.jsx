@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride } from "../lib/db";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
+import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { confirm } from "../lib/confirm";
 import { GASTO_CATS_FIJO } from "../lib/categorias";
 
@@ -60,7 +61,7 @@ function periodoAdyacente(periodo, dir) {
   }
 }
 
-export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro }) {
+export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
 
@@ -91,7 +92,31 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       for (const c of categoriasGasto) {
         const val = presupuesto?.[c.nombre]?.[String(periodo.month)]?.[periodo.quincena];
         if (typeof val === "number" && val > 0) {
-          list.push({ key: c.nombre, nombre: c.nombre, monto: val, icon: Wallet, metodoDefault: c.metodoPagoDefault || null, esPrestamo: false });
+          const esVariable = c.clasificacion === "Variable";
+          let gastadoReal = 0;
+          if (esVariable) {
+            const resultado = consumoPresupuesto({
+              presupuesto,
+              movimientos: movimientos || [],
+              categoria: c.nombre,
+              year: periodo.year,
+              month: periodo.month,
+              quincena: periodo.quincena,
+              diasCobro,
+            });
+            gastadoReal = resultado?.gastado || 0;
+          }
+          list.push({
+            key: c.nombre,
+            nombre: c.nombre,
+            monto: val,
+            icon: Wallet,
+            metodoDefault: c.metodoPagoDefault || null,
+            esPrestamo: false,
+            clasificacion: c.clasificacion || "Fijo",
+            esVariable,
+            gastadoReal,
+          });
         }
       }
     }
@@ -172,7 +197,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       }
     }
     return list.sort((a, b) => b.monto - a.monto);
-  }, [categoriasGasto, presupuesto, prestamos, periodo, presupuestoDisponible]);
+  }, [categoriasGasto, presupuesto, prestamos, periodo, presupuestoDisponible, movimientos, diasCobro]);
 
   const totales = useMemo(() => {
     let total = 0;
@@ -405,6 +430,38 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           {items.map((it) => {
             const estado = it.bloqueadoPagado ? { pagado: true } : checklist?.items?.[it.key] || {};
             const Icon = it.icon;
+
+            if (it.esVariable) {
+              const pct = it.monto > 0 ? Math.min((it.gastadoReal / it.monto) * 100, 100) : 0;
+              const excedido = it.gastadoReal > it.monto;
+              return (
+                <div
+                  key={it.key}
+                  style={{
+                    background: "var(--card)",
+                    border: `1px solid ${excedido ? "var(--stamp)" : "var(--line)"}`,
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <Icon size={14} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
+                    <span style={{ fontSize: 13.5, fontWeight: 500, flex: 1 }}>{it.nombre}</span>
+                    <span
+                      title="Se calcula solo, según lo que registres en Movimientos — no requiere marcarse"
+                      className="despensa-mono"
+                      style={{ fontSize: 12, fontWeight: 600, color: excedido ? "var(--stamp)" : "var(--ink)" }}
+                    >
+                      {formatMoney(it.gastadoReal)} / {formatMoney(it.monto)}
+                    </span>
+                  </div>
+                  <div style={{ height: 6, background: "var(--line-soft)", borderRadius: 4, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${pct}%`, background: excedido ? "var(--stamp)" : "var(--sage)", borderRadius: 4 }} />
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div
                 key={it.key}

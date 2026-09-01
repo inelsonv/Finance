@@ -731,6 +731,7 @@ export default function App() {
             onConsumePeriodoInicial={() => setChecklistPeriodoInicial(null)}
             fuentesIngreso={fuentesIngreso}
             diasCobro={diasCobro}
+            movimientos={movimientos}
           />
         )}
         {tab === "vacaciones" && (
