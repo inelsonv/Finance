@@ -290,20 +290,15 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
   const addNodoPreconfigurado = (preset) => {
     const id = nextId();
     const tipo = preset.tipo || "categoria";
+    const data = { label: preset.label, amount: null, color: preset.color, icon: preset.icon, tipo };
+    if (tipo === "ingreso") data.role = "ingreso";
     setNodes((nds) => [
       ...nds,
       {
         id,
         type: "activity",
         position: { x: 120 + (nds.length % 4) * 60, y: 60 + Math.floor(nds.length / 4) * 100 },
-        data: {
-          label: preset.label,
-          amount: null,
-          color: preset.color,
-          icon: preset.icon,
-          tipo,
-          role: tipo === "ingreso" ? "ingreso" : undefined,
-        },
+        data,
       },
     ]);
     setDirty(true);
@@ -338,22 +333,25 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
   const applyEdit = () => {
     const num = parseFloat(editAmount);
     setNodes((nds) =>
-      nds.map((n) =>
-        n.id === editingId
-          ? {
-              ...n,
-              data: {
-                ...n.data,
-                label: editLabel.trim() || n.data.label,
-                amount: Number.isFinite(num) && editAmount !== "" ? num : null,
-                icon: editIcon,
-                tipo: editTipo,
-                role: editTipo === "ingreso" ? "ingreso" : undefined,
-                categoriaGasto: editTipo === "ingreso" ? undefined : editCategoriaGasto || undefined,
-              },
-            }
-          : n
-      )
+      nds.map((n) => {
+        if (n.id !== editingId) return n;
+        const data = {
+          ...n.data,
+          label: editLabel.trim() || n.data.label,
+          amount: Number.isFinite(num) && editAmount !== "" ? num : null,
+          icon: editIcon,
+          tipo: editTipo,
+        };
+        if (editTipo === "ingreso") {
+          data.role = "ingreso";
+          delete data.categoriaGasto;
+        } else {
+          delete data.role;
+          if (editCategoriaGasto) data.categoriaGasto = editCategoriaGasto;
+          else delete data.categoriaGasto;
+        }
+        return { ...n, data };
+      })
     );
     setDirty(true);
     cancelEdit();
