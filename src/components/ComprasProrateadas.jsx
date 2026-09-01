@@ -24,15 +24,30 @@ function cuotaYaPaso(c) {
   return idxCuota < idxHoy;
 }
 
-export default function ComprasProrateadas({ compras, categoriasGasto }) {
+export default function ComprasProrateadas({ compras, categoriasGasto, products }) {
   const [showForm, setShowForm] = useState(false);
-  const [nombre, setNombre] = useState("");
+  const [productoId, setProductoId] = useState("");
+  const [nombreManual, setNombreManual] = useState("");
   const [montoTotal, setMontoTotal] = useState("");
   const [cuotas, setCuotas] = useState("2");
   const [categoria, setCategoria] = useState("");
   const [fechaInicio, setFechaInicio] = useState(todayStr());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+
+  const productosOrdenados = useMemo(
+    () => [...(products || [])].sort((a, b) => (a.name || "").localeCompare(b.name || "")),
+    [products]
+  );
+
+  const handleSeleccionarProducto = (id) => {
+    setProductoId(id);
+    if (id === "__otro__") return;
+    const p = productosOrdenados.find((prod) => prod.id === id);
+    if (p && p.price) setMontoTotal(String(Number(p.price)));
+  };
+
+  const nombreFinal = productoId === "__otro__" ? nombreManual.trim() : productosOrdenados.find((p) => p.id === productoId)?.name || "";
 
   const cuotaPreview = useMemo(() => {
     const total = parseFloat(montoTotal);
@@ -42,7 +57,8 @@ export default function ComprasProrateadas({ compras, categoriasGasto }) {
   }, [montoTotal, cuotas]);
 
   const resetForm = () => {
-    setNombre("");
+    setProductoId("");
+    setNombreManual("");
     setMontoTotal("");
     setCuotas("2");
     setCategoria("");
@@ -51,8 +67,8 @@ export default function ComprasProrateadas({ compras, categoriasGasto }) {
   };
 
   const handleGuardar = async () => {
-    if (!nombre.trim()) {
-      setError("Ponle un nombre a la compra");
+    if (!nombreFinal) {
+      setError("Elige un producto o escribe un nombre para la compra");
       return;
     }
     const total = parseFloat(montoTotal);
@@ -72,7 +88,7 @@ export default function ComprasProrateadas({ compras, categoriasGasto }) {
     setSaving(true);
     setError(null);
     try {
-      await addCompraProrateada({ nombre: nombre.trim(), montoTotal: total, cuotas: n, categoria, fechaInicio });
+      await addCompraProrateada({ nombre: nombreFinal, montoTotal: total, cuotas: n, categoria, fechaInicio });
       resetForm();
       setShowForm(false);
     } catch (err) {
@@ -103,12 +119,28 @@ export default function ComprasProrateadas({ compras, categoriasGasto }) {
 
       {showForm && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, marginBottom: 12 }}>
-          <input
-            placeholder="Nombre del artículo o compra (ej. Farmacia Los Hidalgos)"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
-          />
+          <select
+            value={productoId}
+            onChange={(e) => handleSeleccionarProducto(e.target.value)}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)", marginBottom: 8 }}
+          >
+            <option value="">Elige un producto del catálogo…</option>
+            {productosOrdenados.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}{p.price ? ` — ${formatMoney(Number(p.price))}` : ""}
+              </option>
+            ))}
+            <option value="__otro__">Otro (escribir manualmente)…</option>
+          </select>
+
+          {productoId === "__otro__" && (
+            <input
+              placeholder="Nombre del artículo o compra (ej. Farmacia Los Hidalgos)"
+              value={nombreManual}
+              onChange={(e) => setNombreManual(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+            />
+          )}
           <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
             <input
               className="despensa-mono"

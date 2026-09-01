@@ -223,7 +223,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
 
   return (
     <div>
-      <ComprasProrateadas compras={comprasProrateadas} categoriasGasto={categoriasGasto} />
+      <ComprasProrateadas compras={comprasProrateadas} categoriasGasto={categoriasGasto} products={products} />
 
       {ordenVigente && (ordenVigente.items || []).length > 0 && (
         <div
