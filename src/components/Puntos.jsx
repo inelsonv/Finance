@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame, Target, CreditCard } from "lucide-react";
 import { canjearPuntos } from "../lib/db";
+import { calcularIngresoQuincenal } from "../lib/quincenaResumen";
 import { confirm } from "../lib/confirm";
 import { calcularRacha, historialRachaVisual } from "../lib/racha";
 
@@ -30,7 +31,7 @@ function formatDateDisplay(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-export default function Puntos({ puntos, puntosHistorial, categoriasGasto, checklistTodos, categoriasPuntos }) {
+export default function Puntos({ puntos, puntosHistorial, categoriasGasto, checklistTodos, categoriasPuntos, fuentesIngreso, topesAjuste }) {
   const [categoria, setCategoria] = useState("");
   const [monto, setMonto] = useState("");
   const [quincena, setQuincena] = useState("Q1");
@@ -55,6 +56,8 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
   // Las categorías marcadas en Configuración → "Categorías que generan
   // puntos" no pueden recibir puntos por canje, para no crear un círculo
   // donde la misma vía da y recibe puntos.
+  const ingresoQuincenalFijo = useMemo(() => calcularIngresoQuincenal(fuentesIngreso), [fuentesIngreso]);
+
   const categoriasVariables = useMemo(
     () =>
       (categoriasGasto || []).filter(
@@ -87,7 +90,15 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
     setSaving(true);
     setError(null);
     try {
-      await canjearPuntos({ montoACanjear: montoNum, year: yearObjetivo, month: mesObjetivo, quincena, categoria });
+      await canjearPuntos({
+        montoACanjear: montoNum,
+        year: yearObjetivo,
+        month: mesObjetivo,
+        quincena,
+        categoria,
+        topeCategoria: topesAjuste?.[categoria] ?? null,
+        ingresoQuincenalFijo,
+      });
       setExito(`Listo: se agregaron ${formatMoney(montoNum)} a "${categoria}" para esa quincena.`);
       setMonto("");
       setCategoria("");
@@ -204,6 +215,17 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
                 <option value="Q2">2da quincena</option>
               </select>
             </div>
+
+            {categoria && topesAjuste?.[categoria] != null && (
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+                Tope configurado para "{categoria}": <strong>{formatMoney(topesAjuste[categoria])}</strong> (no se permite pasarlo)
+              </div>
+            )}
+            {ingresoQuincenalFijo > 0 && (
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+                Tu ingreso fijo estimado esa quincena es <strong>{formatMoney(ingresoQuincenalFijo)}</strong> — no se permite canjear más que eso en total hacia esa quincena.
+              </div>
+            )}
 
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <input

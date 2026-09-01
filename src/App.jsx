@@ -609,7 +609,17 @@ export default function App() {
             ajustesPresupuesto={ajustesPresupuesto}
           />
         )}
-        {tab === "puntos" && <Puntos puntos={puntos} puntosHistorial={puntosHistorial} categoriasGasto={categoriasGasto} checklistTodos={checklistTodos} categoriasPuntos={categoriasPuntos} />}
+        {tab === "puntos" && (
+          <Puntos
+            puntos={puntos}
+            puntosHistorial={puntosHistorial}
+            categoriasGasto={categoriasGasto}
+            checklistTodos={checklistTodos}
+            categoriasPuntos={categoriasPuntos}
+            fuentesIngreso={fuentesIngreso}
+            topesAjuste={topesAjuste}
+          />
+        )}
         {tab === "compras" && (
           <Compras products={products} ordenesCompra={ordenesCompra} historialCompras={historialCompras} onNavigate={setTab} />
         )}

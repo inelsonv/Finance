@@ -52,3 +52,18 @@ export function calcularResumenQuincena({ year, month, quincena, presupuesto, ca
 
   return { fechaInicio, fechaFin, presupuestado, gastado };
 }
+
+// Convierte el monto esperado de cada fuente de ingreso activa a un
+// equivalente MENSUAL según su frecuencia, y lo divide entre 2 para obtener
+// un estimado de ingreso fijo por quincena (aproximado cuando hay fuentes con
+// distintas frecuencias mezcladas).
+const FRECUENCIA_FACTOR = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1 / 12, Único: 0 };
+
+export function calcularIngresoQuincenal(fuentesIngreso) {
+  let mensual = 0;
+  for (const f of fuentesIngreso || []) {
+    if (f.estado !== "Activo" || f.montoEsperado == null) continue;
+    mensual += f.montoEsperado * (FRECUENCIA_FACTOR[f.frecuencia] ?? 1);
+  }
+  return mensual / 2;
+}

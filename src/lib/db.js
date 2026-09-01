@@ -522,7 +522,7 @@ export function watchTarjetaCargosHistorial(onChange, onError) {
   );
 }
 
-export async function canjearPuntos({ montoACanjear, year, month, quincena, categoria }) {
+export async function canjearPuntos({ montoACanjear, year, month, quincena, categoria, topeCategoria, ingresoQuincenalFijo }) {
   const monto = Math.round(Number(montoACanjear) || 0);
   if (monto <= 0) throw new Error("El monto a canjear debe ser mayor a cero");
 
@@ -540,6 +540,29 @@ export async function canjearPuntos({ montoACanjear, year, month, quincena, cate
   const valorActual = presupuestoSnap.exists() ? presupuestoSnap.data()?.[categoria]?.[String(month)]?.[quincena] || 0 : 0;
   const nuevoValor = valorActual + monto;
 
+  // No permitir que el canje haga que la categoría supere su tope
+  // configurado en Configuración → "Tope de ajuste automático de
+  // presupuesto" (el mismo usado para los ajustes automáticos por exceso).
+  if (topeCategoria != null && Number.isFinite(topeCategoria) && topeCategoria > 0 && nuevoValor > topeCategoria) {
+    throw new Error(`Ese canje haría que "${categoria}" supere su tope configurado (${formatMoneyErr(topeCategoria)})`);
+  }
+
+  // No permitir canjear, en total hacia esta misma quincena, más de lo que
+  // realmente vas a percibir de ingreso fijo esa quincena (sin descontar
+  // impuestos ni deducciones) — evita desbloquear más gasto del que tu
+  // ingreso real puede sostener, sin importar cuántos puntos tengas.
+  const destinoPeriodoKey = `${year}-${month}-${quincena}`;
+  if (ingresoQuincenalFijo != null && Number.isFinite(ingresoQuincenalFijo) && ingresoQuincenalFijo > 0) {
+    const canjesPreviosSnap = await getDocs(
+      query(collection(db, "puntosHistorial"), where("destinoPeriodoKey", "==", destinoPeriodoKey))
+    );
+    const totalYaCanjeadoDestino = canjesPreviosSnap.docs.reduce((s, d) => s + Math.abs(Number(d.data().puntos) || 0), 0);
+    if (totalYaCanjeadoDestino + monto > ingresoQuincenalFijo) {
+      const disponible = Math.max(ingresoQuincenalFijo - totalYaCanjeadoDestino, 0);
+      throw new Error(`No puedes canjear más de tu ingreso fijo de esa quincena. Disponible: ${formatMoneyErr(disponible)}`);
+    }
+  }
+
   await setDoc(
     doc(db, "presupuestos", String(year)),
     { [categoria]: { [String(month)]: { [quincena]: nuevoValor } } },
@@ -551,9 +574,15 @@ export async function canjearPuntos({ montoACanjear, year, month, quincena, cate
     puntos: -monto,
     tipo: "canje",
     fecha: new Date().toISOString().slice(0, 10),
+    destinoPeriodoKey,
     createdAt: serverTimestamp(),
   });
   await setDoc(doc(db, "config", "puntos"), { total: increment(-monto) }, { merge: true });
+}
+
+function formatMoneyErr(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Cambia la fecha de un movimiento, exigiendo un motivo de justificación.
