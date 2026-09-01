@@ -385,6 +385,38 @@ export async function evaluarCumplimientoQuincena(periodoKey, presupuestado, gas
   }
 }
 
+// Detecta si sobró una cantidad significativa de dinero en una quincena ya
+// cerrada (presupuestado - gastado), después de cumplir las obligaciones. Si
+// el excedente supera el umbral, guarda una sugerencia genérica para que se
+// muestre como notificación. No recomienda instrumentos específicos, solo
+// categorías generales (fondo de emergencia, ahorro, inversión).
+export async function evaluarExcedenteQuincena(periodoKey, presupuestado, gastado) {
+  if (!presupuestado || presupuestado <= 0) return;
+  const ref = doc(db, "sugerenciasInversion", periodoKey);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return; // ya evaluada antes, no repetir
+
+  const excedente = Math.round((presupuestado - gastado) * 100) / 100;
+  const umbral = Math.max(1000, presupuestado * 0.1);
+
+  await setDoc(ref, {
+    evaluado: true,
+    excedente,
+    superaUmbral: excedente >= umbral,
+    presupuestado,
+    gastado,
+    evaluadoEn: serverTimestamp(),
+  });
+}
+
+export function watchSugerenciasInversion(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "sugerenciasInversion"), orderBy("evaluadoEn", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
 export function watchPuntos(onChange, onError) {
   return onSnapshot(
     doc(db, "config", "puntos"),
