@@ -53,6 +53,7 @@ const emptyForm = () => ({
   fuenteIngresoId: "",
   contratoId: "",
   metodoPago: "Efectivo",
+  monedaTarjeta: "RDS",
 });
 
 export default function Movimientos({ movimientos, entidades, prestamos, cuentas, tarjetas, membresias, fuentesIngreso, categoriasGasto, contratos, presupuesto, presupuestoYear }) {
@@ -318,6 +319,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         cuentaNombre: isCuentaTipo ? cuenta?.nombre || "" : "",
         tarjetaId: form.tipo === "Pago de tarjeta" || (form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito") ? form.tarjetaId : null,
         tarjetaNombre: form.tipo === "Pago de tarjeta" || (form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito") ? tarjeta?.nombre || "" : "",
+        monedaTarjeta:
+          form.tipo === "Pago de tarjeta" || (form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito")
+            ? form.monedaTarjeta || "RDS"
+            : null,
         membresiaId: form.tipo === "Pago de membresía" ? form.membresiaId : null,
         membresiaNombre: form.tipo === "Pago de membresía" ? membresia?.nombre || "" : "",
         fuenteIngresoId: form.tipo === "Ingreso" ? form.fuenteIngresoId || null : null,
@@ -557,6 +562,33 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                       Pago mínimo: <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 500 }}>{formatMoney(selectedTarjeta.pagoMinimo)}</span> (ya lo pre-llenamos en el monto, puedes ajustarlo)
                     </div>
                   )}
+                  {selectedTarjeta && selectedTarjeta.tieneMonedaSecundaria && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 4 }}>¿En qué moneda es este pago?</div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {["RDS", "USD"].map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setForm({ ...form, monedaTarjeta: m })}
+                            style={{
+                              flex: 1,
+                              padding: "7px 10px",
+                              fontSize: 12.5,
+                              fontWeight: 600,
+                              borderRadius: 7,
+                              border: `1px solid ${(form.monedaTarjeta || "RDS") === m ? "var(--sage)" : "var(--line)"}`,
+                              background: (form.monedaTarjeta || "RDS") === m ? "var(--sage-bg)" : "var(--card)",
+                              color: (form.monedaTarjeta || "RDS") === m ? "var(--sage)" : "var(--ink-soft)",
+                              cursor: "pointer",
+                            }}
+                          >
+                            {m === "RDS" ? "RD$" : "US$"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -705,6 +737,33 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                               </option>
                             ))}
                         </select>
+                      )}
+                      {selectedTarjeta && selectedTarjeta.tieneMonedaSecundaria && (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 4 }}>¿En qué moneda fue esta compra?</div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {["RDS", "USD"].map((m) => (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setForm({ ...form, monedaTarjeta: m })}
+                                style={{
+                                  flex: 1,
+                                  padding: "7px 10px",
+                                  fontSize: 12.5,
+                                  fontWeight: 600,
+                                  borderRadius: 7,
+                                  border: `1px solid ${(form.monedaTarjeta || "RDS") === m ? "var(--sage)" : "var(--line)"}`,
+                                  background: (form.monedaTarjeta || "RDS") === m ? "var(--sage-bg)" : "var(--card)",
+                                  color: (form.monedaTarjeta || "RDS") === m ? "var(--sage)" : "var(--ink-soft)",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                {m === "RDS" ? "RD$" : "US$"}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}

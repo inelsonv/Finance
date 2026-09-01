@@ -208,6 +208,7 @@ export async function addMovimiento({
   cuentaNombre,
   tarjetaId,
   tarjetaNombre,
+  monedaTarjeta,
   membresiaId,
   membresiaNombre,
   fuenteIngresoId,
@@ -231,6 +232,7 @@ export async function addMovimiento({
     cuentaNombre: cuentaNombre || "",
     tarjetaId: tarjetaId || null,
     tarjetaNombre: tarjetaNombre || "",
+    monedaTarjeta: monedaTarjeta || null,
     membresiaId: membresiaId || null,
     membresiaNombre: membresiaNombre || "",
     fuenteIngresoId: fuenteIngresoId || null,
@@ -300,25 +302,23 @@ export async function addMovimiento({
     console.error("No se pudo verificar/actualizar el estado del préstamo:", err);
   }
 
-  // Si este pago es de una tarjeta, descuenta el monto pagado del saldo
-  // actual guardado en la tarjeta (saldoActual en pesos), sin bajar de cero.
-  // Si en cambio es una compra hecha con tarjeta de crédito, lo suma. El
-  // saldo en USD no se toca aquí, ya que estos movimientos son en pesos.
+  // Si este pago/compra es de una tarjeta, ajusta el saldo correspondiente
+  // (en pesos o en USD según lo que se haya elegido en Movimientos), sin
+  // bajar de cero.
   try {
-    if (category === "Pago de tarjeta" && tarjetaId) {
+    const esPagoTarjeta = category === "Pago de tarjeta" && tarjetaId;
+    const esCompraTarjeta = type === "Gasto" && tarjetaId;
+    if (esPagoTarjeta || esCompraTarjeta) {
       const tarjetaSnap = await getDoc(doc(db, "tarjetas", tarjetaId));
       if (tarjetaSnap.exists()) {
         const t = tarjetaSnap.data();
-        const saldoActualPrevio = Number(t.saldoActual) || 0;
-        const nuevoSaldo = Math.max(saldoActualPrevio - (Number(amount) || 0), 0);
-        await updateDoc(doc(db, "tarjetas", tarjetaId), { saldoActual: nuevoSaldo });
-      }
-    } else if (type === "Gasto" && tarjetaId) {
-      const tarjetaSnap = await getDoc(doc(db, "tarjetas", tarjetaId));
-      if (tarjetaSnap.exists()) {
-        const t = tarjetaSnap.data();
-        const saldoActualPrevio = Number(t.saldoActual) || 0;
-        await updateDoc(doc(db, "tarjetas", tarjetaId), { saldoActual: saldoActualPrevio + (Number(amount) || 0) });
+        const esUSD = monedaTarjeta === "USD" && t.tieneMonedaSecundaria;
+        const campo = esUSD ? "saldoActualUSD" : "saldoActual";
+        const saldoPrevio = Number(t[campo]) || 0;
+        const nuevoSaldo = esPagoTarjeta
+          ? Math.max(saldoPrevio - (Number(amount) || 0), 0)
+          : saldoPrevio + (Number(amount) || 0);
+        await updateDoc(doc(db, "tarjetas", tarjetaId), { [campo]: nuevoSaldo });
       }
     }
   } catch (err) {
