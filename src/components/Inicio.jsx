@@ -801,6 +801,29 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
     [tarjetas]
   );
 
+  // Tasa de cambio (de la misma caché que usa la tarjeta de Dólar), solo para
+  // convertir saldos en USD a pesos en el KPI de deuda total. No dispara una
+  // consulta nueva a la API — usa lo que ya haya en caché.
+  const [tipoCambioUSD, setTipoCambioUSD] = useState(null);
+  useEffect(() => {
+    const unsub = watchTipoCambioCache((cache) => {
+      if (cache?.rates?.USD) setTipoCambioUSD(cache.rates.USD);
+    }, () => {});
+    return () => unsub();
+  }, []);
+
+  const deudaTotalTarjetas = useMemo(() => {
+    return tarjetas
+      .filter((t) => t.estado === "Activa")
+      .reduce((s, t) => {
+        let deuda = Number(t.saldoActual) || 0;
+        if (t.tieneMonedaSecundaria && t.saldoActualUSD && tipoCambioUSD) {
+          deuda += Number(t.saldoActualUSD) * tipoCambioUSD;
+        }
+        return s + deuda;
+      }, 0);
+  }, [tarjetas, tipoCambioUSD]);
+
   const ingresoMensual = useMemo(() => {
     let total = 0;
     for (const f of fuentesIngreso) {
@@ -874,10 +897,11 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
                 {clasificacion.label}
               </span>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
                 <MiniStat icon={Briefcase} label="Ingreso mensual" value={formatMoney(ingresoMensual)} color="var(--sage)" compact />
                 <MiniStat icon={Banknote} label="Cuotas préstamos" value={formatMoney(cuotaPrestamos)} color="var(--stamp)" compact />
                 <MiniStat icon={CreditCard} label="Pago mín. tarjetas" value={formatMoney(pagoTarjetas)} color="var(--stamp)" compact />
+                <MiniStat icon={CreditCard} label="Deuda total tarjetas" value={formatMoney(deudaTotalTarjetas)} color="var(--stamp)" compact />
               </div>
             </>
           )}
