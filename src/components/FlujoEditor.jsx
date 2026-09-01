@@ -44,6 +44,7 @@ const ICONOS = {
 const ICONO_DEFAULT = "dollarSign";
 
 const NODOS_PRECONFIGURADOS = [
+  { label: "Ingreso", icon: "trendingUp", color: PALETTE[0], tipo: "ingreso" },
   { label: "Gastos fijos", icon: "home", color: PALETTE[1] },
   { label: "Gastos variables", icon: "shoppingBag", color: PALETTE[2] },
   { label: "Pago de deudas", icon: "landmark", color: PALETTE[3] },
@@ -287,13 +288,21 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
 
   const addNodoPreconfigurado = (preset) => {
     const id = nextId();
+    const tipo = preset.tipo || "categoria";
     setNodes((nds) => [
       ...nds,
       {
         id,
         type: "activity",
         position: { x: 120 + (nds.length % 4) * 60, y: 60 + Math.floor(nds.length / 4) * 100 },
-        data: { label: preset.label, amount: null, color: preset.color, icon: preset.icon, tipo: "categoria" },
+        data: {
+          label: preset.label,
+          amount: null,
+          color: preset.color,
+          icon: preset.icon,
+          tipo,
+          role: tipo === "ingreso" ? "ingreso" : undefined,
+        },
       },
     ]);
     setDirty(true);
