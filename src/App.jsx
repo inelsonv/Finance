@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta } from "./lib/db";
+import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActual, periodoAnterior, periodoKey } from "./lib/racha";
 import { calcularResumenQuincena, rangoFechasQuincena } from "./lib/quincenaResumen";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
@@ -369,6 +370,28 @@ export default function App() {
       console.error("No se pudieron evaluar los ajustes automáticos de presupuesto:", err)
     );
   }, [authorized, presupuestoAnual, categoriasGasto, movimientos, presupuestoYear, topesAjuste]);
+
+  // Al abrir la app, revisa cada tarjeta activa con TAE configurada: si su
+  // ciclo de corte más reciente ya venció el plazo de gracia sin saldarse,
+  // aplica automáticamente el interés (y la mora, si está configurada) al
+  // saldo actual. Protegido contra doble-aplicación desde db.js (un ciclo
+  // solo se evalúa una vez).
+  const interesTarjetasEvaluado = useRef(false);
+  useEffect(() => {
+    if (!authorized || interesTarjetasEvaluado.current) return;
+    if (!tarjetas || tarjetas.length === 0) return;
+    interesTarjetasEvaluado.current = true;
+
+    const hoy = new Date();
+    for (const t of tarjetas) {
+      if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito") continue;
+      const ciclo = cicloVencidoParaTarjeta(t, hoy);
+      if (!ciclo) continue;
+      evaluarInteresYMoraTarjeta(t.id, ciclo.cicloKey, Number(t.saldoActual) || 0, t.tasaTAE, t.montoMora).catch((err) =>
+        console.error(`No se pudo evaluar interés/mora de la tarjeta ${t.id}:`, err)
+      );
+    }
+  }, [authorized, tarjetas]);
 
   useEffect(() => {
     if (!authorized) return;

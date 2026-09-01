@@ -481,6 +481,47 @@ export async function evaluarAjustesPresupuesto(periodoKey, gastoPorCategoria, p
   }
 }
 
+// Si una tarjeta con TAE configurada no fue saldada dentro de su plazo de
+// gracia (días desde el corte), suma automáticamente al saldo actual el
+// interés mensual (TAE/12) sobre el saldo, más la mora configurada (si hay).
+// Protegido contra doble-aplicación con un documento por ciclo (tarjeta +
+// mes de corte).
+export async function evaluarInteresYMoraTarjeta(tarjetaId, cicloKey, saldoActual, tasaTAE, montoMora) {
+  const ref = doc(db, "tarjetaCiclosEvaluados", `${tarjetaId}_${cicloKey}`);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return;
+  await setDoc(ref, { evaluado: true, evaluadoEn: serverTimestamp() });
+
+  if (!saldoActual || saldoActual <= 0) return; // nada pendiente, no genera cargos
+
+  const tasaMensual = (Number(tasaTAE) || 0) / 100 / 12;
+  const interes = Math.round(saldoActual * tasaMensual * 100) / 100;
+  const mora = Number(montoMora) || 0;
+  if (interes <= 0 && mora <= 0) return;
+
+  const nuevoSaldo = saldoActual + interes + mora;
+
+  await updateDoc(doc(db, "tarjetas", tarjetaId), { saldoActual: nuevoSaldo });
+
+  await addDoc(collection(db, "tarjetaCargosHistorial"), {
+    tarjetaId,
+    cicloKey,
+    interes,
+    mora,
+    saldoAnterior: saldoActual,
+    saldoNuevo: nuevoSaldo,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export function watchTarjetaCargosHistorial(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "tarjetaCargosHistorial"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
 export async function canjearPuntos({ montoACanjear, year, month, quincena, categoria }) {
   const monto = Math.round(Number(montoACanjear) || 0);
   if (monto <= 0) throw new Error("El monto a canjear debe ser mayor a cero");

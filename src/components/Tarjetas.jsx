@@ -99,6 +99,9 @@ const emptyForm = () => ({
   limiteCreditoUSD: "",
   pagoMinimoUSD: "",
   saldoActualUSD: "",
+  tasaTAE: "",
+  montoMora: "",
+  diasGracia: "22",
 });
 
 function toEditForm(t) {
@@ -121,6 +124,9 @@ function toEditForm(t) {
     limiteCreditoUSD: t.limiteCreditoUSD != null ? String(t.limiteCreditoUSD) : "",
     pagoMinimoUSD: t.pagoMinimoUSD != null ? String(t.pagoMinimoUSD) : "",
     saldoActualUSD: t.saldoActualUSD != null ? String(t.saldoActualUSD) : "",
+    tasaTAE: t.tasaTAE != null ? String(t.tasaTAE) : "",
+    montoMora: t.montoMora != null ? String(t.montoMora) : "",
+    diasGracia: t.diasGracia != null ? String(t.diasGracia) : "22",
   };
 }
 
@@ -198,6 +204,9 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         limiteCreditoUSD: form.tieneMonedaSecundaria ? parseFloat(form.limiteCreditoUSD) || null : null,
         pagoMinimoUSD: form.tieneMonedaSecundaria ? parseFloat(form.pagoMinimoUSD) || null : null,
         saldoActualUSD: form.tieneMonedaSecundaria ? parseFloat(form.saldoActualUSD) || null : null,
+        tasaTAE: parseFloat(form.tasaTAE) || null,
+        montoMora: parseFloat(form.montoMora) || null,
+        diasGracia: parseInt(form.diasGracia, 10) || 22,
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -236,6 +245,9 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         limiteCreditoUSD: editForm.tieneMonedaSecundaria ? parseFloat(editForm.limiteCreditoUSD) || null : null,
         pagoMinimoUSD: editForm.tieneMonedaSecundaria ? parseFloat(editForm.pagoMinimoUSD) || null : null,
         saldoActualUSD: editForm.tieneMonedaSecundaria ? parseFloat(editForm.saldoActualUSD) || null : null,
+        tasaTAE: parseFloat(editForm.tasaTAE) || null,
+        montoMora: parseFloat(editForm.montoMora) || null,
+        diasGracia: parseInt(editForm.diasGracia, 10) || 22,
       });
       cancelEdit();
     } catch (err) {
@@ -439,6 +451,44 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                   />
                 </div>
               )}
+
+              <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+                  Interés y mora por atraso (si no pagas dentro del plazo de gracia, se suma automáticamente al saldo)
+                </div>
+                <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="TAE %"
+                    value={form.tasaTAE}
+                    onChange={(e) => setForm({ ...form, tasaTAE: e.target.value })}
+                    style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Mora RD$ (opcional)"
+                    value={form.montoMora}
+                    onChange={(e) => setForm({ ...form, montoMora: e.target.value })}
+                    style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="Días de gracia"
+                    value={form.diasGracia}
+                    onChange={(e) => setForm({ ...form, diasGracia: e.target.value })}
+                    style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                </div>
+              </div>
 
               <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                 <input
@@ -655,6 +705,44 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                           />
                         </div>
                       )}
+
+                      <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+                          Interés y mora por atraso
+                        </div>
+                        <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="TAE %"
+                            value={editForm.tasaTAE}
+                            onChange={(e) => setEditForm({ ...editForm, tasaTAE: e.target.value })}
+                            style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                          />
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Mora RD$ (opcional)"
+                            value={editForm.montoMora}
+                            onChange={(e) => setEditForm({ ...editForm, montoMora: e.target.value })}
+                            style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                          />
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            step="1"
+                            min="0"
+                            placeholder="Días de gracia"
+                            value={editForm.diasGracia}
+                            onChange={(e) => setEditForm({ ...editForm, diasGracia: e.target.value })}
+                            style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                          />
+                        </div>
+                      </div>
                       <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                         <input
                           className="despensa-mono"
