@@ -381,6 +381,17 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
 
   const isIngresoNode = editTipo === "ingreso";
 
+  // No renderizar el editor (ni el mapa) hasta saber si hay un viewport
+  // guardado — si se monta antes de tiempo, el editor arranca con el "ajuste
+  // automático" y luego ya no hay forma de aplicarle el zoom guardado.
+  if (flujo === undefined) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 300, color: "var(--ink-soft)", fontSize: 13 }}>
+        Cargando…
+      </div>
+    );
+  }
+
   return (
     <div>
       {avisoIngreso && (
