@@ -193,6 +193,8 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
   const loadedOnce = useRef(false);
   const viewportRef = useRef(null);
   const [viewportInicial, setViewportInicial] = useState(null);
+  const rfInstance = useRef(null);
+  const [zoomPct, setZoomPct] = useState(100);
   // Evita marcar "cambios sin guardar" por el ajuste automático de vista al
   // abrir el editor — solo después de este pequeño margen se considera que
   // un cambio de zoom/posición viene realmente del usuario.
@@ -214,6 +216,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
       if (flujo.viewport) {
         setViewportInicial(flujo.viewport);
         viewportRef.current = flujo.viewport;
+        if (flujo.viewport.zoom) setZoomPct(Math.round(flujo.viewport.zoom * 100));
       }
       loadedOnce.current = true;
     } else if (flujo === null) {
@@ -361,7 +364,8 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
     try {
       const cleanNodes = nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data }));
       const cleanEdges = edges.map((e) => ({ id: e.id, source: e.source, target: e.target, type: e.type || "straight", style: e.style, markerEnd: e.markerEnd }));
-      await saveFlujo(cleanNodes, cleanEdges, viewportRef.current);
+      const viewportAGuardar = rfInstance.current ? rfInstance.current.getViewport() : viewportRef.current;
+      await saveFlujo(cleanNodes, cleanEdges, viewportAGuardar);
       setDirty(false);
     } finally {
       setSaving(false);
@@ -463,6 +467,23 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
         <button onClick={resetDefault} style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}>
           <RotateCcw size={14} /> Restaurar ejemplo
         </button>
+        <select
+          value={zoomPct}
+          onChange={(e) => {
+            const pct = Number(e.target.value);
+            setZoomPct(pct);
+            if (rfInstance.current) {
+              rfInstance.current.zoomTo(pct / 100, { duration: 200 });
+            }
+            setDirty(true);
+          }}
+          title="Nivel de zoom guardado"
+          style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--paper)", color: "var(--ink)", cursor: "pointer" }}
+        >
+          {[25, 50, 75, 100, 125, 150, 200].map((p) => (
+            <option key={p} value={p}>Zoom {p}%</option>
+          ))}
+        </select>
         <button onClick={clearAll} style={btnStyle("var(--card)", "var(--stamp)", false, true)}>
           <Trash2 size={14} /> Vaciar
         </button>
@@ -661,7 +682,16 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
           }}
           onMoveEnd={(_, viewport) => {
             viewportRef.current = viewport;
+            setZoomPct(Math.round(viewport.zoom * 100));
             if (viewportListo.current) setDirty(true);
+          }}
+          onInit={(instance) => {
+            rfInstance.current = instance;
+            // Refuerzo: aplica el zoom guardado explícitamente al iniciar,
+            // por si "defaultViewport" no toma efecto a tiempo.
+            if (viewportInicial) {
+              instance.setViewport(viewportInicial, { duration: 0 });
+            }
           }}
           {...(viewportInicial ? { defaultViewport: viewportInicial } : { fitView: true })}
           deleteKeyCode={["Backspace", "Delete"]}
