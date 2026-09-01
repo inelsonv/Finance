@@ -117,6 +117,7 @@ function ActivityFlowNode({ data }) {
         {!esIngreso && data.amount != null && (
           <div className="despensa-mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2 }}>
             {formatMoney(data.amount)}
+            {data.calculado && <span style={{ fontWeight: 400, opacity: 0.85 }}> · 10% auto</span>}
           </div>
         )}
         {!esIngreso && data.categoriaGasto && (
@@ -377,16 +378,44 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
     }
   };
 
+  // El nodo "Diezmo" calcula su propio monto solo: 10% de lo que trae el
+  // nodo que se conecta hacia él (normalmente Ingreso), en vez de requerir
+  // que se le asigne un monto a mano.
+  const montosCalculados = useMemo(() => {
+    const map = new Map();
+    for (const n of nodes) {
+      if (n.data.label !== "Diezmo") continue;
+      const edgeEntrante = edges.find((e) => e.target === n.id);
+      if (!edgeEntrante) continue;
+      const sourceNode = nodes.find((nn) => nn.id === edgeEntrante.source);
+      if (!sourceNode) continue;
+      const montoOrigen = Number(sourceNode.data.amount) || 0;
+      map.set(n.id, Math.round(montoOrigen * 0.1 * 100) / 100);
+    }
+    return map;
+  }, [nodes, edges]);
+
+  const nodesParaRender = useMemo(
+    () =>
+      nodes.map((n) =>
+        montosCalculados.has(n.id)
+          ? { ...n, data: { ...n.data, amount: montosCalculados.get(n.id), calculado: true } }
+          : n
+      ),
+    [nodes, montosCalculados]
+  );
+
   const resumen = useMemo(() => {
     const esIngresoNodo = (n) => n.data.tipo === "ingreso" || n.data.role === "ingreso";
     let ingresoMonto = 0;
     let asignado = 0;
     for (const n of nodes) {
-      if (esIngresoNodo(n)) ingresoMonto += Number(n.data.amount) || 0;
-      else asignado += Number(n.data.amount) || 0;
+      const monto = montosCalculados.get(n.id) ?? (Number(n.data.amount) || 0);
+      if (esIngresoNodo(n)) ingresoMonto += monto;
+      else asignado += monto;
     }
     return { ingresoMonto, asignado, restante: ingresoMonto - asignado };
-  }, [nodes]);
+  }, [nodes, montosCalculados]);
 
   const isIngresoNode = editTipo === "ingreso";
 
@@ -566,7 +595,16 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
               onChange={(e) => setEditAmount(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && applyEdit()}
               placeholder={isIngresoNode ? "Monto de ingreso" : "Monto (opcional)"}
-              style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, width: 140 }}
+              disabled={montosCalculados.has(editingId)}
+              style={{
+                padding: "7px 10px",
+                border: "1px solid var(--line)",
+                borderRadius: 7,
+                fontSize: 13,
+                width: 140,
+                background: montosCalculados.has(editingId) ? "var(--line-soft)" : "#fff",
+                cursor: montosCalculados.has(editingId) ? "not-allowed" : "text",
+              }}
             />
             {isIngresoNode && ingresoSugerido > 0 && (
               <button onClick={useIngresoSugerido} style={btnStyle("var(--sage-bg)", "var(--sage)", false, false)}>
@@ -574,6 +612,11 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
               </button>
             )}
           </div>
+          {montosCalculados.has(editingId) && (
+            <div style={{ fontSize: 11, color: "var(--sage)", marginTop: -4, marginBottom: 10 }}>
+              Este monto se calcula solo: 10% de lo que trae el nodo conectado a este.
+            </div>
+          )}
 
           <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Ícono</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
@@ -667,7 +710,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
           </button>
         )}
         <ReactFlow
-          nodes={nodes}
+          nodes={nodesParaRender}
           edges={edgesConSeleccion}
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
