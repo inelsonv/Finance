@@ -709,6 +709,7 @@ export default function App() {
             presupuestoYear={presupuestoYear}
             periodoInicial={checklistPeriodoInicial}
             onConsumePeriodoInicial={() => setChecklistPeriodoInicial(null)}
+            fuentesIngreso={fuentesIngreso}
           />
         )}
         {tab === "vacaciones" && (

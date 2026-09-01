@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { GASTO_CATS_FIJO } from "../lib/categorias";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-const METODOS = ["Efectivo", "Transferencia", "Tarjeta", "Otro"];
-const METODO_ICONS = { Efectivo: Banknote, Transferencia: ArrowLeftRight, Tarjeta: CreditCard, Otro: HelpCircle, "Sin definir": HelpCircle };
+const METODOS = ["Efectivo", "Transferencia", "Tarjeta", "Descuento Nómina", "Otro"];
+const METODO_ICONS = { Efectivo: Banknote, Transferencia: ArrowLeftRight, Tarjeta: CreditCard, "Descuento Nómina": Briefcase, Otro: HelpCircle, "Sin definir": HelpCircle };
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -60,7 +60,7 @@ function periodoAdyacente(periodo, dir) {
   }
 }
 
-export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, presupuestoYear, periodoInicial, onConsumePeriodoInicial }) {
+export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual());
   const [checklist, setChecklist] = useState({});
 
@@ -302,9 +302,15 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     }
   };
 
+  const fuenteIngresoActiva = useMemo(() => (fuentesIngreso || []).find((f) => f.estado === "Activo"), [fuentesIngreso]);
+
   const setMetodo = (key, metodo) => {
     const actual = checklist?.items?.[key] || {};
-    setChecklistItem(periodoKey, key, { ...actual, metodoPago: metodo });
+    const extra =
+      metodo === "Descuento Nómina" && fuenteIngresoActiva
+        ? { fuenteIngresoId: fuenteIngresoActiva.id, fuenteIngresoNombre: fuenteIngresoActiva.nombre }
+        : { fuenteIngresoId: null, fuenteIngresoNombre: null };
+    setChecklistItem(periodoKey, key, { ...actual, metodoPago: metodo, ...extra });
   };
 
   return (
@@ -448,6 +454,11 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                   {it.esPrestamo && it.entidadName && (
                     <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
                       <Landmark size={10} /> Pagar a: {it.entidadName}
+                    </div>
+                  )}
+                  {estado.metodoPago === "Descuento Nómina" && estado.fuenteIngresoNombre && (
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
+                      <Briefcase size={10} /> Descontado de: {estado.fuenteIngresoNombre}
                     </div>
                   )}
                   {it.esPrestamo && !it.bloqueadoPagado && it.origenKey && (
