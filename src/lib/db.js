@@ -283,7 +283,7 @@ export async function addMovimiento({
     // (no depende del monto ni de la categoría) — se suma aparte de
     // cualquier otro punto ya otorgado arriba. No aplica a Ingresos.
     if (type !== "Ingreso") {
-      await otorgarPuntos("Registraste un movimiento", 1, "registro", docRef.id);
+      await otorgarPuntos("Registraste un movimiento", 10, "registro", docRef.id);
     }
   } catch (err) {
     console.error("No se pudieron otorgar puntos:", err);
