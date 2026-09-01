@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ArrowRight, TrendingUp, Landmark, CreditCard, Ticket, Zap, PiggyBank, Tag, Workflow, CalendarClock } from "lucide-react";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
+import { periodoActualConfigurado } from "../lib/quincenaConfig";
 
 const FLOW_COLORS = [
   "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a",
@@ -14,19 +15,16 @@ function formatMoney(n) {
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function Presupuesto({ movimientos, onOpenMovimientos, presupuesto, categoriasGasto, prestamos }) {
+export default function Presupuesto({ movimientos, onOpenMovimientos, presupuesto, categoriasGasto, prestamos, diasCobro }) {
   const [showGastoDesglose, setShowGastoDesglose] = useState(false);
 
   // Quincena actual: rango de fechas y cuánto se presupuestó vs. cuánto se ha
   // gastado realmente en ese rango, para ver el cumplimiento en vivo.
   const quincenaActual = useMemo(() => {
-    const hoy = new Date();
-    const year = hoy.getFullYear();
-    const month = hoy.getMonth() + 1;
-    const quincena = hoy.getDate() <= 15 ? "Q1" : "Q2";
-    const resumen = calcularResumenQuincena({ year, month, quincena, presupuesto, categoriasGasto, prestamos, movimientos });
+    const { year, month, quincena } = periodoActualConfigurado(diasCobro);
+    const resumen = calcularResumenQuincena({ year, month, quincena, presupuesto, categoriasGasto, prestamos, movimientos, diasCobro });
     return { ...resumen, quincena, month, year };
-  }, [movimientos, presupuesto, categoriasGasto, prestamos]);
+  }, [movimientos, presupuesto, categoriasGasto, prestamos, diasCobro]);
 
   const totals = useMemo(() => {
     let ingresos = 0;

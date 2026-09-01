@@ -1,23 +1,14 @@
 // Calcula cuánto se presupuestó y cuánto se gastó realmente en un rango de
 // fechas de una quincena específica (year, month, quincena). Reutilizado por
 // la tarjeta "Quincena actual" y por la evaluación de cumplimiento de puntos.
+import { rangoFechasQuincenaConfigurado } from "./quincenaConfig";
 
-function pad2(n) {
-  return String(n).padStart(2, "0");
+export function rangoFechasQuincena(year, month, quincena, diasCobro) {
+  return rangoFechasQuincenaConfigurado(year, month, quincena, diasCobro);
 }
 
-export function rangoFechasQuincena(year, month, quincena) {
-  const diasEnMes = new Date(year, month, 0).getDate();
-  const diaInicio = quincena === "Q1" ? 1 : 16;
-  const diaFin = quincena === "Q1" ? 15 : diasEnMes;
-  return {
-    fechaInicio: `${year}-${pad2(month)}-${pad2(diaInicio)}`,
-    fechaFin: `${year}-${pad2(month)}-${pad2(diaFin)}`,
-  };
-}
-
-export function calcularResumenQuincena({ year, month, quincena, presupuesto, categoriasGasto, prestamos, movimientos }) {
-  const { fechaInicio, fechaFin } = rangoFechasQuincena(year, month, quincena);
+export function calcularResumenQuincena({ year, month, quincena, presupuesto, categoriasGasto, prestamos, movimientos, diasCobro }) {
+  const { fechaInicio, fechaFin } = rangoFechasQuincena(year, month, quincena, diasCobro);
 
   let presupuestado = 0;
   for (const c of categoriasGasto || []) {

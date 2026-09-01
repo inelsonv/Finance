@@ -3,7 +3,8 @@ import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig } from "./lib/db";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
-import { periodoActual, periodoAnterior, periodoKey } from "./lib/racha";
+import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/quincenaConfig";
+import { periodoKey } from "./lib/racha";
 import { calcularResumenQuincena, rangoFechasQuincena } from "./lib/quincenaResumen";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
@@ -329,7 +330,7 @@ export default function App() {
     if (!authorized || cumplimientoEvaluado.current) return;
     if (!presupuestoAnual || categoriasGasto.length === 0) return;
 
-    const periodoCerrado = periodoAnterior(periodoActual());
+    const periodoCerrado = periodoAdyacenteConfigurado(periodoActualConfigurado(diasCobro), diasCobro, -1);
     if (periodoCerrado.year !== presupuestoYear) return; // datos de otro año no disponibles aquí
 
     cumplimientoEvaluado.current = true;
@@ -341,6 +342,7 @@ export default function App() {
       categoriasGasto,
       prestamos,
       movimientos,
+      diasCobro,
     });
     evaluarCumplimientoQuincena(periodoKey(periodoCerrado), resumen.presupuestado, resumen.gastado).catch((err) =>
       console.error("No se pudo evaluar el cumplimiento de la quincena:", err)
@@ -348,7 +350,7 @@ export default function App() {
     evaluarExcedenteQuincena(periodoKey(periodoCerrado), resumen.presupuestado, resumen.gastado).catch((err) =>
       console.error("No se pudo evaluar el excedente de la quincena:", err)
     );
-  }, [authorized, presupuestoAnual, categoriasGasto, prestamos, movimientos, presupuestoYear]);
+  }, [authorized, presupuestoAnual, categoriasGasto, prestamos, movimientos, presupuestoYear, diasCobro]);
 
   // Al abrir la app, revisa si alguna categoría con tope configurado se
   // excedió en la quincena que acaba de cerrar, y si es así, ajusta
@@ -360,12 +362,12 @@ export default function App() {
     if (!presupuestoAnual || categoriasGasto.length === 0) return;
     if (Object.keys(topesAjuste).length === 0) return;
 
-    const periodoCerrado = periodoAnterior(periodoActual());
+    const periodoCerrado = periodoAdyacenteConfigurado(periodoActualConfigurado(diasCobro), diasCobro, -1);
     if (periodoCerrado.year !== presupuestoYear) return;
 
     topesAjusteEvaluado.current = true;
 
-    const { fechaInicio, fechaFin } = rangoFechasQuincena(periodoCerrado.year, periodoCerrado.month, periodoCerrado.quincena);
+    const { fechaInicio, fechaFin } = rangoFechasQuincena(periodoCerrado.year, periodoCerrado.month, periodoCerrado.quincena, diasCobro);
     const gastoPorCategoria = {};
     for (const m of movimientos) {
       if (m.type !== "Gasto") continue;
@@ -378,10 +380,10 @@ export default function App() {
       if (typeof val === "number") presupuestoPorCategoria[c.nombre] = val;
     }
 
-    evaluarAjustesPresupuesto(periodoKey(periodoCerrado), gastoPorCategoria, presupuestoPorCategoria, topesAjuste, periodoActual()).catch((err) =>
+    evaluarAjustesPresupuesto(periodoKey(periodoCerrado), gastoPorCategoria, presupuestoPorCategoria, topesAjuste, periodoActualConfigurado(diasCobro)).catch((err) =>
       console.error("No se pudieron evaluar los ajustes automáticos de presupuesto:", err)
     );
-  }, [authorized, presupuestoAnual, categoriasGasto, movimientos, presupuestoYear, topesAjuste]);
+  }, [authorized, presupuestoAnual, categoriasGasto, movimientos, presupuestoYear, topesAjuste, diasCobro]);
 
   // Al abrir la app, revisa cada tarjeta activa con TAE configurada: si su
   // ciclo de corte más reciente ya venció el plazo de gracia sin saldarse,
@@ -666,6 +668,7 @@ export default function App() {
             presupuesto={presupuestoAnual}
             categoriasGasto={categoriasGasto}
             prestamos={prestamos}
+            diasCobro={diasCobro}
           />
         )}
         {tab === "movimientos" && (

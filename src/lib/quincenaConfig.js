@@ -82,6 +82,39 @@ export function cantidadQuincenas(diasCobroConfig) {
   return normalizarDiasCobro(diasCobroConfig).length;
 }
 
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+// Operación inversa de clasificarFecha: dado un periodo { year, month,
+// quincena }, devuelve el rango real de fechas que cubre — que puede
+// empezar en el mes ANTERIOR cuando quincena es "Q1" (ver la nota al
+// principio del archivo).
+export function rangoFechasQuincenaConfigurado(year, month, quincena, diasCobroConfig) {
+  const diasCobro = normalizarDiasCobro(diasCobroConfig);
+  const cortes = cortesDelMes(diasCobro, year, month);
+  const num = parseInt(quincena.replace("Q", ""), 10);
+
+  if (num === 1) {
+    const mesAnterior = month === 1 ? 12 : month - 1;
+    const yearAnterior = month === 1 ? year - 1 : year;
+    const cortesMesAnterior = cortesDelMes(diasCobro, yearAnterior, mesAnterior);
+    const inicioDia = cortesMesAnterior[cortesMesAnterior.length - 1];
+    const finDia = cortes[0] - 1;
+    return {
+      fechaInicio: `${yearAnterior}-${pad2(mesAnterior)}-${pad2(inicioDia)}`,
+      fechaFin: `${year}-${pad2(month)}-${pad2(finDia)}`,
+    };
+  }
+
+  const inicioDia = cortes[num - 2];
+  const finDia = cortes[num - 1] - 1;
+  return {
+    fechaInicio: `${year}-${pad2(month)}-${pad2(inicioDia)}`,
+    fechaFin: `${year}-${pad2(month)}-${pad2(finDia)}`,
+  };
+}
+
 // Dado un periodo { year, month, quincena }, devuelve el periodo siguiente
 // (o anterior, si dir=-1), respetando cuántas quincenas tiene cada mes según
 // la configuración.
