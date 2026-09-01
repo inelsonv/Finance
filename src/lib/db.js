@@ -561,23 +561,6 @@ export function watchTarjetaCargosHistorial(onChange, onError) {
   );
 }
 
-// Notificaciones push — guarda o quita la suscripción de este dispositivo.
-// La suscripción del navegador (endpoint + claves) se usa como ID del
-// documento (codificada) para poder detectar fácilmente si este mismo
-// dispositivo ya estaba suscrito.
-export async function guardarSuscripcionPush(subscription) {
-  const id = btoa(subscription.endpoint).replace(/[/+=]/g, "").slice(0, 300);
-  await setDoc(doc(db, "pushSubscriptions", id), {
-    subscription: subscription.toJSON ? subscription.toJSON() : subscription,
-    createdAt: serverTimestamp(),
-  });
-}
-
-export async function quitarSuscripcionPush(endpoint) {
-  const id = btoa(endpoint).replace(/[/+=]/g, "").slice(0, 300);
-  await deleteDoc(doc(db, "pushSubscriptions", id));
-}
-
 export async function canjearPuntos({ montoACanjear, year, month, quincena, categoria, topeCategoria, ingresoQuincenalFijo }) {
   const monto = Math.round(Number(montoACanjear) || 0);
   if (monto <= 0) throw new Error("El monto a canjear debe ser mayor a cero");

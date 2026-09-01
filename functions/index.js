@@ -3,39 +3,12 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
-const webpush = require("web-push");
 
 initializeApp();
 const db = getFirestore();
 
 const ALLOWED_EMAIL = "iventuramena@gmail.com";
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
-const vapidPrivateKey = defineSecret("VAPID_PRIVATE_KEY");
-
-// Misma clave pública que usa el cliente al suscribirse (Configuracion.jsx) —
-// esta SÍ es segura de tener en el código, no es secreta por diseño.
-const VAPID_PUBLIC_KEY = "BJx47uMHVq7BN74Y_uV0UHzX0QL9F45O5QzoUtnkt3C1ey0shcWjHK9mu7B_LwhmsrPGpw8ylV6oYuBNFgeXxu4";
-
-// Envía una notificación push a todos los dispositivos suscritos. Si alguna
-// suscripción ya no es válida (410/404), la borra de Firestore.
-async function enviarPushATodos({ title, body, url }) {
-  webpush.setVapidDetails("mailto:iventuramena@gmail.com", VAPID_PUBLIC_KEY, vapidPrivateKey.value());
-  const subsSnap = await db.collection("pushSubscriptions").get();
-  const payload = JSON.stringify({ title, body, url: url || "/Finance/" });
-  await Promise.all(
-    subsSnap.docs.map(async (docSnap) => {
-      try {
-        await webpush.sendNotification(docSnap.data().subscription, payload);
-      } catch (err) {
-        if (err.statusCode === 404 || err.statusCode === 410) {
-          await docSnap.ref.delete().catch(() => {});
-        } else {
-          console.error("Error enviando push a", docSnap.id, err.message);
-        }
-      }
-    })
-  );
-}
 
 const UMBRAL_DIAS = 7;
 
@@ -415,7 +388,7 @@ function construirHtmlResumenMensual(year, month, resumen) {
 }
 
 exports.avisoDiarioAlertas = onSchedule(
-  { schedule: "every day 08:00", timeZone: "America/Santo_Domingo", secrets: [vapidPrivateKey] },
+  { schedule: "every day 08:00", timeZone: "America/Santo_Domingo" },
   async () => {
     const today = todayInfo();
 
@@ -447,11 +420,6 @@ exports.avisoDiarioAlertas = onSchedule(
         },
       });
       console.log(`Correo de resumen mensual encolado para ${email} (${nombreMesAnterior} ${yearAnterior}).`);
-      await enviarPushATodos({
-        title: `Resumen de ${nombreMesAnterior}`,
-        body: resumen.gastado <= resumen.presupuestado ? "¡Mes exitoso! Revisa el detalle en la app." : "Te excediste este mes — revisa el detalle en la app.",
-        url: "/Finance/?tab=presupuesto-mensual",
-      }).catch((err) => console.error("Error enviando push de resumen mensual:", err));
     }
 
     const [prestamos, tarjetas, membresias, contratos, productos, movimientos, fuentesIngreso] = await Promise.all([
@@ -475,11 +443,6 @@ exports.avisoDiarioAlertas = onSchedule(
         },
       });
       console.log(`Correo de alertas encolado para ${email} con ${notificaciones.length} notificaciones.`);
-      await enviarPushATodos({
-        title: `${notificaciones.length} alerta${notificaciones.length !== 1 ? "s" : ""} pendiente${notificaciones.length !== 1 ? "s" : ""}`,
-        body: notificaciones[0]?.titulo || "Revisa la app para ver el detalle.",
-        url: "/Finance/?tab=notificaciones",
-      }).catch((err) => console.error("Error enviando push de alertas:", err));
     } else {
       console.log("No hay alertas pendientes hoy.");
     }
@@ -504,11 +467,6 @@ exports.avisoDiarioAlertas = onSchedule(
         },
       });
       console.log(`Correo de día de cobro encolado para ${email} (${f.nombre}), quincena ${periodo.quincena} de ${periodo.month}/${periodo.year}.`);
-      await enviarPushATodos({
-        title: `Hoy es tu día de cobro (${f.nombre})`,
-        body: `Total de esta quincena: ${formatMoneyMail(total)}`,
-        url: `/Finance/?tab=checklist-pagos&year=${periodo.year}&month=${periodo.month}&quincena=${periodo.quincena}`,
-      }).catch((err) => console.error("Error enviando push de día de cobro:", err));
     }
   }
 );

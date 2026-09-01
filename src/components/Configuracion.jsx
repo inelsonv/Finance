@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bell, BellOff } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, guardarSuscripcionPush, quitarSuscripcionPush } from "../lib/db";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge } from "lucide-react";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 
@@ -26,9 +26,6 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
   const [categoriasPuntos, setCategoriasPuntos] = useState([]);
   const [savingCategoriasPuntos, setSavingCategoriasPuntos] = useState(false);
   const [topesAjuste, setTopesAjuste] = useState({});
-  const [pushEstado, setPushEstado] = useState("verificando"); // verificando | activo | inactivo | no-soportado
-  const [pushSaving, setPushSaving] = useState(false);
-  const [pushError, setPushError] = useState(null);
 
   useEffect(() => {
     const unsub1 = watchNotifConfig(setEmailConfig, () => {});
@@ -50,69 +47,6 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
   useEffect(() => {
     if (emailConfig?.email) setEmailInput(emailConfig.email);
   }, [emailConfig]);
-
-  // Revisa si este dispositivo ya tiene una suscripción push activa.
-  useEffect(() => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setPushEstado("no-soportado");
-      return;
-    }
-    navigator.serviceWorker.ready
-      .then((reg) => reg.pushManager.getSubscription())
-      .then((sub) => setPushEstado(sub ? "activo" : "inactivo"))
-      .catch(() => setPushEstado("inactivo"));
-  }, []);
-
-  const VAPID_PUBLIC_KEY = "BJx47uMHVq7BN74Y_uV0UHzX0QL9F45O5QzoUtnkt3C1ey0shcWjHK9mu7B_LwhmsrPGpw8ylV6oYuBNFgeXxu4";
-
-  function urlBase64ToUint8Array(base64String) {
-    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-    const rawData = atob(base64);
-    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
-  }
-
-  const handleActivarPush = async () => {
-    setPushSaving(true);
-    setPushError(null);
-    try {
-      const permiso = await Notification.requestPermission();
-      if (permiso !== "granted") {
-        setPushError("No diste permiso de notificaciones — actívalo en la configuración del navegador/teléfono.");
-        setPushSaving(false);
-        return;
-      }
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-      });
-      await guardarSuscripcionPush(sub);
-      setPushEstado("activo");
-    } catch (err) {
-      setPushError(err.message || String(err));
-    } finally {
-      setPushSaving(false);
-    }
-  };
-
-  const handleDesactivarPush = async () => {
-    setPushSaving(true);
-    setPushError(null);
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        await quitarSuscripcionPush(sub.endpoint);
-        await sub.unsubscribe();
-      }
-      setPushEstado("inactivo");
-    } catch (err) {
-      setPushError(err.message || String(err));
-    } finally {
-      setPushSaving(false);
-    }
-  };
 
   useEffect(() => {
     if (accionesConfig?.apiKey) setApiKeyInput(accionesConfig.apiKey);
@@ -501,51 +435,6 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
               </div>
             ))}
           </div>
-        )}
-      </Section>
-
-      <Section icon={Bell} title="Notificaciones push en este dispositivo">
-        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
-          Recibe las alertas de la app directo en tu teléfono, aunque no la tengas abierta (préstamos por vencer, día
-          de cobro, excesos de presupuesto, etc.). Debes activarlo por separado en cada dispositivo donde quieras
-          recibirlas.
-        </div>
-        {pushEstado === "no-soportado" ? (
-          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-            Este navegador no soporta notificaciones push. En iPhone, agrega la app a tu pantalla de inicio primero
-            (Safari → Compartir → Añadir a inicio) y ábrela desde ahí.
-          </div>
-        ) : pushEstado === "verificando" ? (
-          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Verificando…</div>
-        ) : (
-          <>
-            <button
-              onClick={pushEstado === "activo" ? handleDesactivarPush : handleActivarPush}
-              disabled={pushSaving}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 14px",
-                fontSize: 13,
-                fontWeight: 600,
-                background: pushEstado === "activo" ? "var(--card)" : "var(--sage)",
-                color: pushEstado === "activo" ? "var(--stamp)" : "#fff",
-                border: pushEstado === "activo" ? "1px solid var(--stamp)" : "none",
-                borderRadius: 8,
-                cursor: pushSaving ? "not-allowed" : "pointer",
-              }}
-            >
-              {pushEstado === "activo" ? <BellOff size={14} /> : <Bell size={14} />}
-              {pushSaving ? "Un momento…" : pushEstado === "activo" ? "Desactivar en este dispositivo" : "Activar en este dispositivo"}
-            </button>
-            {pushEstado === "activo" && (
-              <div style={{ fontSize: 11.5, color: "var(--sage)", marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}>
-                <Check size={12} /> Activadas en este dispositivo
-              </div>
-            )}
-            {pushError && <div style={{ marginTop: 8, fontSize: 12, color: "var(--stamp)" }}>{pushError}</div>}
-          </>
         )}
       </Section>
     </div>

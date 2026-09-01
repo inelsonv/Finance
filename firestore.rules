@@ -102,9 +102,6 @@ service cloud.firestore {
     match /sugerenciasInversion/{doc} {
       allow read, write: if esPropietario();
     }
-    match /pushSubscriptions/{doc} {
-      allow read, write: if esPropietario();
-    }
     match /historialCompras/{doc} {
       allow read, write: if esPropietario();
     }
