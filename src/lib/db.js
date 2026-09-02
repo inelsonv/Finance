@@ -370,12 +370,13 @@ export function watchHabitos(onChange, onError) {
   );
 }
 
-export async function addHabito(nombre, icono) {
+export async function addHabito(nombre, icono, frecuencia) {
   const nombreTrim = (nombre || "").trim();
   if (!nombreTrim) throw new Error("Ponle un nombre al hábito");
   await addDoc(collection(db, "habitos"), {
     nombre: nombreTrim,
     icono: icono || "check",
+    frecuencia: frecuencia || "Diario",
     activo: true,
     createdAt: serverTimestamp(),
   });

@@ -43,7 +43,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos, updateHabito } from "../lib/db";
-import { calcularRachaHabito, historialHabitoVisual } from "../lib/rachaHabito";
+import { calcularRachaHabito, historialHabitoVisual, periodoDeFecha } from "../lib/rachaHabito";
 import { confirm } from "../lib/confirm";
 
 // Lucide no tiene un ícono de "manos orando" — este es de Phosphor Icons
@@ -102,10 +102,11 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
   const [showForm, setShowForm] = useState(false);
   const [nombre, setNombre] = useState("");
   const [icono, setIcono] = useState("check");
+  const [frecuencia, setFrecuencia] = useState("Diario");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const hoy = todayStr();
+  const hoy = new Date();
   const [dragId, setDragId] = useState(null);
   const [ordenLocal, setOrdenLocal] = useState(null);
 
@@ -152,6 +153,7 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
   const [editingId, setEditingId] = useState(null);
   const [editNombre, setEditNombre] = useState("");
   const [editIcono, setEditIcono] = useState("check");
+  const [editFrecuencia, setEditFrecuencia] = useState("Diario");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
 
@@ -159,6 +161,7 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
     setEditingId(h.id);
     setEditNombre(h.nombre);
     setEditIcono(h.icono || "check");
+    setEditFrecuencia(h.frecuencia || "Diario");
     setEditError(null);
   };
 
@@ -175,7 +178,7 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
     setEditSaving(true);
     setEditError(null);
     try {
-      await updateHabito(editingId, { nombre: editNombre.trim(), icono: editIcono });
+      await updateHabito(editingId, { nombre: editNombre.trim(), icono: editIcono, frecuencia: editFrecuencia });
       setEditingId(null);
     } catch (err) {
       setEditError(err.message || String(err));
@@ -202,9 +205,10 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
     setSaving(true);
     setError(null);
     try {
-      await addHabito(nombre, icono);
+      await addHabito(nombre, icono, frecuencia);
       setNombre("");
       setIcono("check");
+      setFrecuencia("Diario");
       setShowForm(false);
     } catch (err) {
       setError(err.message || String(err));
@@ -252,6 +256,28 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
           />
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            {["Diario", "Semanal", "Mensual"].map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFrecuencia(f)}
+                style={{
+                  flex: 1,
+                  padding: "7px 4px",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  borderRadius: 8,
+                  border: frecuencia === f ? "2px solid var(--sage)" : "1px solid var(--line)",
+                  background: frecuencia === f ? "var(--sage-bg)" : "var(--paper)",
+                  color: frecuencia === f ? "var(--sage)" : "var(--ink-soft)",
+                  cursor: "pointer",
+                }}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
           <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
             {Object.keys(ICONOS_HABITO).map((key) => {
               const Icon = ICONOS_HABITO[key];
@@ -297,10 +323,13 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {habitosOrdenados.map((h, idx) => {
             const Icon = ICONOS_HABITO[h.icono] || Check;
+            const frecuenciaHabito = h.frecuencia || "Diario";
             const fechas = fechasPorHabito[h.id] || [];
-            const racha = calcularRachaHabito(fechas);
-            const historial = historialHabitoVisual(fechas);
-            const cumplidoHoy = fechas.includes(hoy);
+            const racha = calcularRachaHabito(fechas, frecuenciaHabito, hoy);
+            const historial = historialHabitoVisual(fechas, frecuenciaHabito, hoy);
+            const periodoActual = periodoDeFecha(frecuenciaHabito, hoy);
+            const cumplidoHoy = fechas.includes(periodoActual);
+            const etiquetaPeriodo = frecuenciaHabito === "Semanal" ? "esta semana" : frecuenciaHabito === "Mensual" ? "este mes" : "hoy";
             return (
               <div
                 key={h.id}
@@ -325,6 +354,28 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                       onKeyDown={(e) => e.key === "Enter" && saveEdit()}
                       style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
                     />
+                    <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                      {["Diario", "Semanal", "Mensual"].map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          onClick={() => setEditFrecuencia(f)}
+                          style={{
+                            flex: 1,
+                            padding: "6px 4px",
+                            fontSize: 11.5,
+                            fontWeight: 500,
+                            borderRadius: 8,
+                            border: editFrecuencia === f ? "2px solid var(--sage)" : "1px solid var(--line)",
+                            background: editFrecuencia === f ? "var(--sage-bg)" : "var(--paper)",
+                            color: editFrecuencia === f ? "var(--sage)" : "var(--ink-soft)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {f}
+                        </button>
+                      ))}
+                    </div>
                     <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
                       {Object.keys(ICONOS_HABITO).map((key) => {
                         const IconOpt = ICONOS_HABITO[key];
@@ -378,15 +429,22 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                     <Icon size={15} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 600 }}>{h.nombre}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                      {h.nombre}
+                      {frecuenciaHabito !== "Diario" && (
+                        <span style={{ fontSize: 9.5, fontWeight: 500, color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 10, padding: "1px 6px" }}>
+                          {frecuenciaHabito}
+                        </span>
+                      )}
+                    </div>
                     {racha > 0 && (
                       <div style={{ fontSize: 11, color: "var(--stamp)", display: "flex", alignItems: "center", gap: 3 }}>
-                        <Flame size={11} /> {racha} día{racha !== 1 ? "s" : ""} seguido{racha !== 1 ? "s" : ""}
+                        <Flame size={11} /> {racha} {frecuenciaHabito === "Semanal" ? `semana${racha !== 1 ? "s" : ""}` : frecuenciaHabito === "Mensual" ? `mes${racha !== 1 ? "es" : ""}` : `día${racha !== 1 ? "s" : ""}`} seguido{racha !== 1 ? "s" : ""}
                       </div>
                     )}
                   </div>
                   <button
-                    onClick={() => toggleHabitoRegistro(h.id, hoy, h.nombre)}
+                    onClick={() => toggleHabitoRegistro(h.id, periodoActual, h.nombre)}
                     style={{
                       display: "flex",
                       alignItems: "center",
@@ -401,7 +459,7 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                       cursor: "pointer",
                     }}
                   >
-                    <Check size={13} /> {cumplidoHoy ? "Cumplido hoy" : "Marcar hoy"}
+                    <Check size={13} /> {cumplidoHoy ? `Cumplido ${etiquetaPeriodo}` : `Marcar ${etiquetaPeriodo}`}
                   </button>
                   <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                     <button
@@ -438,14 +496,14 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                 <div style={{ display: "flex", gap: 4 }}>
                   {historial.map((d) => (
                     <div
-                      key={d.fecha}
-                      title={d.fecha}
+                      key={d.periodo}
+                      title={d.periodo}
                       style={{
                         flex: 1,
                         height: 6,
                         borderRadius: 4,
                         background: d.completado ? "var(--sage)" : "var(--line-soft)",
-                        border: d.esHoy ? "1px solid var(--ink)" : "none",
+                        border: d.esActual ? "1px solid var(--ink)" : "none",
                       }}
                     />
                   ))}
