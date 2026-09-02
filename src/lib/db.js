@@ -313,7 +313,10 @@ export async function addMovimiento({
   }
 
   // Si este pago es de un préstamo, verifica si con él queda completamente
-  // saldado, y en ese caso marca el estado como "Pagado" automáticamente.
+  // saldado, y en ese caso marca el estado como "Pagado" automáticamente y
+  // otorga un bono de puntos por cancelar la deuda. También revisa si el
+  // pago se hizo antes de lo que tocaba (adelantado), y en ese caso otorga
+  // un bono extra sobre los puntos ya ganados por el pago.
   // Este estado ya no se puede revertir manualmente (ver Prestamos.jsx).
   try {
     if (category === "Pago de préstamo" && prestamoId) {
@@ -322,17 +325,59 @@ export async function addMovimiento({
         const p = prestamoSnap.data();
         if (p.estado !== "Pagado") {
           let totalAPagar = 0;
+          let meses = 0;
           if (p.frecuenciaCuota === "Personalizado") {
             totalAPagar = (p.cuotasPersonalizadas || []).reduce((s, c) => s + (Number(c.monto) || 0), 0);
           } else {
-            const meses = p.plazoUnidad === "años" ? (Number(p.plazo) || 0) * 12 : Number(p.plazo) || 0;
+            meses = p.plazoUnidad === "años" ? (Number(p.plazo) || 0) * 12 : Number(p.plazo) || 0;
             totalAPagar = (Number(p.cuota) || 0) * meses;
           }
           if (totalAPagar > 0) {
             const pagosSnap = await getDocs(query(collection(db, "movimientos"), where("prestamoId", "==", prestamoId)));
             const totalPagado = pagosSnap.docs.reduce((s, d) => s + (Number(d.data().amount) || 0), 0);
+
+            // Bono por adelantar cuota: compara lo pagado ANTES de este pago
+            // contra lo que técnicamente tocaba pagar hasta hoy. Si ya
+            // estaba al día (o adelantado) antes de este pago, este pago
+            // cuenta como adelanto.
+            const hoyStr = new Date().toISOString().slice(0, 10);
+            let debidoHastaHoy = null;
+            if (p.frecuenciaCuota === "Personalizado") {
+              debidoHastaHoy = (p.cuotasPersonalizadas || [])
+                .filter((c) => c.fecha && c.fecha <= hoyStr)
+                .reduce((s, c) => s + (Number(c.monto) || 0), 0);
+            } else if (p.fechaInicio) {
+              const fechaInicioP = new Date(p.fechaInicio);
+              const hoyDate = new Date();
+              let mesesTranscurridos =
+                (hoyDate.getFullYear() - fechaInicioP.getFullYear()) * 12 + (hoyDate.getMonth() - fechaInicioP.getMonth()) + 1;
+              mesesTranscurridos = Math.max(0, Math.min(mesesTranscurridos, meses));
+              debidoHastaHoy = (Number(p.cuota) || 0) * mesesTranscurridos;
+            }
+            const totalPagadoAntes = totalPagado - montoNum;
+            if (debidoHastaHoy != null && totalPagadoAntes >= debidoHastaHoy && puntosGanados > 0) {
+              const bonoAdelanto = Math.round(puntosGanados * 0.2);
+              if (bonoAdelanto > 0) {
+                await otorgarPuntos(
+                  `Bono por adelantar cuota de préstamo ${p.numero || ""}`.trim(),
+                  bonoAdelanto,
+                  "prestamoAdelanto",
+                  docRef.id
+                );
+              }
+            }
+
             if (totalPagado >= totalAPagar) {
               await updateDoc(doc(db, "prestamos", prestamoId), { estado: "Pagado" });
+              const bonoCancelacion = Math.round(totalAPagar * 0.08);
+              if (bonoCancelacion > 0) {
+                await otorgarPuntos(
+                  `¡Cancelaste el préstamo ${p.numero || ""}! Bono por deuda saldada`.trim(),
+                  bonoCancelacion,
+                  "prestamoCancelado",
+                  docRef.id
+                );
+              }
             }
           }
         }
