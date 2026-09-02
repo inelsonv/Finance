@@ -79,6 +79,29 @@ export async function uploadProductImage(id, file) {
   return url;
 }
 
+// Descarga una imagen desde una URL externa y la guarda en Firebase Storage
+// (no solo enlaza la URL externa) — así la imagen sigue disponible aunque el
+// sitio original la borre o cambie. Puede fallar si el sitio de origen no
+// permite descargas desde el navegador (CORS); en ese caso se informa al
+// usuario para que la descargue y suba manualmente.
+export async function uploadProductImageFromUrl(id, url) {
+  let response;
+  try {
+    response = await fetch(url, { mode: "cors" });
+  } catch (err) {
+    throw new Error("No se pudo descargar esa imagen — el sitio de origen no permite descargarla directo desde aquí. Descárgala tú y súbela como archivo.");
+  }
+  if (!response.ok) throw new Error("No se pudo descargar la imagen de esa URL (respuesta " + response.status + ")");
+  const blob = await response.blob();
+  if (!blob.type.startsWith("image/")) throw new Error("Esa URL no parece apuntar a una imagen");
+
+  const imgRef = ref(storage, `productos/${id}`);
+  await uploadBytes(imgRef, blob, { contentType: blob.type });
+  const downloadUrl = await getDownloadURL(imgRef);
+  await updateDoc(doc(db, "productos", id), { imageUrl: downloadUrl });
+  return downloadUrl;
+}
+
 export async function removeProductImage(id) {
   try {
     await deleteObject(ref(storage, `productos/${id}`));

@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine } from "lucide-react";
+import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine, Link as LinkIcon } from "lucide-react";
 import {
   addProduct,
   deleteProduct,
@@ -7,6 +7,7 @@ import {
   updateProducto,
   agregarItemABorrador,
   uploadProductImage,
+  uploadProductImageFromUrl,
   removeProductImage,
 } from "../lib/db";
 import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
@@ -41,6 +42,9 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [uploadingId, setUploadingId] = useState(null);
+  const [urlPickerId, setUrlPickerId] = useState(null);
+  const [urlValue, setUrlValue] = useState("");
+  const [urlError, setUrlError] = useState(null);
   const [configuringId, setConfiguringId] = useState(null);
   const [configForm, setConfigForm] = useState(null);
   const [configSaving, setConfigSaving] = useState(false);
@@ -158,6 +162,24 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
       await uploadProductImage(id, file);
     } catch (err) {
       // el error se ve reflejado si el producto no actualiza su imagen
+    } finally {
+      setUploadingId(null);
+    }
+  };
+
+  const handleGuardarImagenPorUrl = async (id) => {
+    if (!urlValue.trim()) {
+      setUrlError("Pega una URL de imagen");
+      return;
+    }
+    setUploadingId(id);
+    setUrlError(null);
+    try {
+      await uploadProductImageFromUrl(id, urlValue.trim());
+      setUrlPickerId(null);
+      setUrlValue("");
+    } catch (err) {
+      setUrlError(err.message || String(err));
     } finally {
       setUploadingId(null);
     }
@@ -526,34 +548,106 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                 flexDirection: "column",
               }}
             >
-              <input
-                ref={(el) => (rowFileRefs.current[p.id] = el)}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleRowImagePick(p.id, e.target.files[0])}
-                style={{ display: "none" }}
-              />
-              <button
-                type="button"
-                onClick={() => rowFileRefs.current[p.id]?.click()}
-                title={p.imageUrl ? "Cambiar foto" : "Agregar foto"}
-                style={{
-                  width: "100%",
-                  aspectRatio: "1 / 1",
-                  border: "none",
-                  borderBottom: "1px solid var(--line-soft)",
-                  background: p.imageUrl ? `url(${p.imageUrl}) center/cover` : "var(--paper)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "var(--ink-soft)",
-                  cursor: "pointer",
-                  padding: 0,
-                  opacity: uploadingId === p.id ? 0.5 : 1,
-                }}
-              >
-                {!p.imageUrl && <ImageIcon size={26} />}
-              </button>
+              <div style={{ position: "relative" }}>
+                <input
+                  ref={(el) => (rowFileRefs.current[p.id] = el)}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleRowImagePick(p.id, e.target.files[0])}
+                  style={{ display: "none" }}
+                />
+                <button
+                  type="button"
+                  onClick={() => rowFileRefs.current[p.id]?.click()}
+                  title={p.imageUrl ? "Cambiar foto" : "Agregar foto"}
+                  style={{
+                    width: "100%",
+                    aspectRatio: "1 / 1",
+                    border: "none",
+                    borderBottom: "1px solid var(--line-soft)",
+                    background: p.imageUrl ? `url(${p.imageUrl}) center/cover` : "var(--paper)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--ink-soft)",
+                    cursor: "pointer",
+                    padding: 0,
+                    opacity: uploadingId === p.id ? 0.5 : 1,
+                  }}
+                >
+                  {!p.imageUrl && <ImageIcon size={26} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setUrlPickerId(urlPickerId === p.id ? null : p.id);
+                    setUrlValue("");
+                    setUrlError(null);
+                  }}
+                  title="Agregar foto desde una URL"
+                  style={{
+                    position: "absolute",
+                    bottom: 6,
+                    right: 6,
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: "rgba(0,0,0,0.55)",
+                    color: "#fff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <LinkIcon size={12} />
+                </button>
+                {urlPickerId === p.id && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      zIndex: 5,
+                      background: "rgba(0,0,0,0.75)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      padding: 10,
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      placeholder="Pega la URL de una imagen"
+                      value={urlValue}
+                      onChange={(e) => setUrlValue(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleGuardarImagenPorUrl(p.id)}
+                      style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 11.5, marginBottom: 6, boxSizing: "border-box" }}
+                    />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        onClick={() => handleGuardarImagenPorUrl(p.id)}
+                        disabled={uploadingId === p.id}
+                        style={{ flex: 1, padding: "5px 8px", fontSize: 11, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
+                      >
+                        {uploadingId === p.id ? "Descargando…" : "Guardar"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setUrlPickerId(null);
+                          setUrlError(null);
+                        }}
+                        style={{ padding: "5px 8px", fontSize: 11, background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 6, cursor: "pointer" }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                    {urlError && <div style={{ marginTop: 6, fontSize: 10.5, color: "#ffb4b4" }}>{urlError}</div>}
+                  </div>
+                )}
+              </div>
 
               <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", flex: 1 }}>
                 <div
