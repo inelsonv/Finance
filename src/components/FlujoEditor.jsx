@@ -118,7 +118,8 @@ function ActivityFlowNode({ data }) {
         borderRadius: 10,
         padding: "8px 12px",
         fontFamily: "Inter, sans-serif",
-        minWidth: 150,
+        width: 190,
+        boxSizing: "border-box",
         boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
       }}
     >
@@ -143,22 +144,29 @@ function ActivityFlowNode({ data }) {
           <IconoNodo nombre={data.icon} size={16} />
         )}
       </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", color: "#fff" }}>{data.label}</div>
+      <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
+        <div
+          title={data.label}
+          style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#fff" }}
+        >
+          {data.label}
+        </div>
         {esIngreso && (
-          <div className="despensa-mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2 }}>
+          <div className="despensa-mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {data.amount != null ? formatMoney(data.amount) : "Sin monto"}
           </div>
         )}
         {!esIngreso && data.amount != null && (
-          <div className="despensa-mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2 }}>
+          <div className="despensa-mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {formatMoney(data.amount)}
             {data.calculado && <span style={{ fontWeight: 400, opacity: 0.85 }}> · 10% auto</span>}
             {data.progresoPct != null && <span style={{ fontWeight: 400, opacity: 0.85 }}> · {Math.round(data.progresoPct)}% pagado</span>}
           </div>
         )}
         {!esIngreso && data.categoriaGasto && (
-          <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.75)", marginTop: 1 }}>{data.categoriaGasto}</div>
+          <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.75)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {data.categoriaGasto}
+          </div>
         )}
       </div>
       <Handle type="source" position={Position.Bottom} style={{ background: "#fff", border: `2px solid ${color}` }} />
@@ -463,13 +471,13 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     ];
     if (nodosDeuda.length > 0) {
       const yPrestamos = y + step;
-      const anchoTotal = (nodosDeuda.length - 1) * 160;
+      const anchoTotal = (nodosDeuda.length - 1) * 210;
       nodosDeuda.forEach((d, i) => {
         const pid = nextId();
         nuevosNodos.push({
           id: pid,
           type: "activity",
-          position: { x: centerX - anchoTotal / 2 + i * 160, y: yPrestamos },
+          position: { x: centerX - anchoTotal / 2 + i * 210, y: yPrestamos },
           data: { label: d.label, amount: d.amount, color: PALETTE[3], icon: d.icon, tipo: "categoria", ...(d.prestamoId ? { prestamoId: d.prestamoId } : {}), ...(d.tarjetaId ? { tarjetaId: d.tarjetaId } : {}) },
         });
         conectar(deudasId, pid);
@@ -484,13 +492,13 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     conectar(deudasId, ahorroId);
     if (metasActivas.length > 0) {
       const yMetas = y + step;
-      const anchoTotal = (metasActivas.length - 1) * 160;
+      const anchoTotal = (metasActivas.length - 1) * 210;
       metasActivas.forEach((m, i) => {
         const mid = nextId();
         nuevosNodos.push({
           id: mid,
           type: "activity",
-          position: { x: centerX - anchoTotal / 2 + i * 160, y: yMetas },
+          position: { x: centerX - anchoTotal / 2 + i * 210, y: yMetas },
           data: { label: m.nombre || "Meta", amount: null, color: PALETTE[0], icon: "piggyBank", tipo: "categoria" },
         });
         conectar(ahorroId, mid);
@@ -512,13 +520,13 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     conectar(ahorroId, fijosId);
     if (categoriasFijas.length > 0) {
       const yFijos = y + step;
-      const anchoTotal = (categoriasFijas.length - 1) * 160;
+      const anchoTotal = (categoriasFijas.length - 1) * 210;
       categoriasFijas.forEach((c, i) => {
         const cid = nextId();
         nuevosNodos.push({
           id: cid,
           type: "activity",
-          position: { x: centerX - anchoTotal / 2 + i * 160, y: yFijos },
+          position: { x: centerX - anchoTotal / 2 + i * 210, y: yFijos },
           data: { label: c.nombre, amount: montoPresupuestado(c.nombre), color: PALETTE[1], icon: c.metodoPagoDefault === "Tarjeta" ? "creditCard" : "receipt", tipo: "categoria" },
         });
         conectar(fijosId, cid);
@@ -534,13 +542,13 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     conectar(fijosId, variablesId);
     if (categoriasVariables.length > 0) {
       const yVariables = y + step;
-      const anchoTotal = (categoriasVariables.length - 1) * 160;
+      const anchoTotal = (categoriasVariables.length - 1) * 210;
       categoriasVariables.forEach((c, i) => {
         const cid = nextId();
         nuevosNodos.push({
           id: cid,
           type: "activity",
-          position: { x: centerX - anchoTotal / 2 + i * 160, y: yVariables },
+          position: { x: centerX - anchoTotal / 2 + i * 210, y: yVariables },
           data: { label: c.nombre, amount: montoPresupuestado(c.nombre), color: PALETTE[2], icon: "receipt", tipo: "categoria" },
         });
         conectar(variablesId, cid);
