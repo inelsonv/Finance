@@ -120,5 +120,8 @@ service cloud.firestore {
     match /habitosRegistro/{doc} {
       allow read, write: if esPropietario();
     }
+    match /habitosPenalizaciones/{doc} {
+      allow read, write: if esPropietario();
+    }
   }
 }

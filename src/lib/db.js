@@ -419,6 +419,45 @@ export async function reordenarHabitos(habitosEnOrden) {
   await Promise.all(habitosEnOrden.map((id, index) => updateDoc(doc(db, "habitos", id), { orden: index })));
 }
 
+const PENALIZACION_RACHA_ROTA = 2;
+
+// Si un hábito rompió una racha de al menos 3 periodos (día/semana/mes,
+// según su frecuencia), resta 2 puntos y deja un registro para poder
+// notificarlo — protegido contra evaluar el mismo hueco dos veces con un
+// documento por (habitoId + periodoFaltante).
+export async function evaluarPenalizacionHabito(habitoId, periodoFaltante, rachaPrevia, habitoNombre) {
+  const evalId = `${habitoId}_${periodoFaltante}`;
+  const ref = doc(db, "habitosPenalizaciones", evalId);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return;
+
+  await setDoc(ref, {
+    habitoId,
+    habitoNombre,
+    periodoFaltante,
+    rachaPrevia,
+    puntos: -PENALIZACION_RACHA_ROTA,
+    createdAt: serverTimestamp(),
+  });
+
+  await addDoc(collection(db, "puntosHistorial"), {
+    motivo: `Se rompió tu racha de "${habitoNombre}" (llevabas ${rachaPrevia})`,
+    puntos: -PENALIZACION_RACHA_ROTA,
+    tipo: "habitoRoto",
+    fecha: new Date().toISOString().slice(0, 10),
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(-PENALIZACION_RACHA_ROTA) }, { merge: true });
+}
+
+export function watchHabitosPenalizaciones(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "habitosPenalizaciones"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
 export function watchHabitosRegistro(onChange, onError) {
   return onSnapshot(
     collection(db, "habitosRegistro"),

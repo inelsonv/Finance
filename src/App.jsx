@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones } from "./lib/db";
+import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/quincenaConfig";
 import { periodoKey } from "./lib/racha";
@@ -163,6 +164,7 @@ export default function App() {
   const [diasCobro, setDiasCobro] = useState([15, 30]);
   const [habitos, setHabitos] = useState([]);
   const [habitosRegistro, setHabitosRegistro] = useState([]);
+  const [habitosPenalizaciones, setHabitosPenalizaciones] = useState([]);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -286,6 +288,7 @@ export default function App() {
     const unsubDiasCobro = watchDiasCobroConfig(setDiasCobro, handleError);
     const unsubHabitos = watchHabitos(setHabitos, handleError);
     const unsubHabitosRegistro = watchHabitosRegistro(setHabitosRegistro, handleError);
+    const unsubHabitosPenalizaciones = watchHabitosPenalizaciones(setHabitosPenalizaciones, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -324,6 +327,7 @@ export default function App() {
       unsubDiasCobro();
       unsubHabitos();
       unsubHabitosRegistro();
+      unsubHabitosPenalizaciones();
       unsubStatus();
     };
   }, [authorized]);
@@ -358,6 +362,32 @@ export default function App() {
       console.error("No se pudo evaluar el excedente de la quincena:", err)
     );
   }, [authorized, presupuestoAnual, categoriasGasto, prestamos, movimientos, presupuestoYear, diasCobro]);
+
+  // Al abrir la app, revisa si algún hábito activo rompió una racha de al
+  // menos 3 periodos (día/semana/mes según su frecuencia) — si es así,
+  // aplica la penalización de puntos una sola vez por hueco.
+  const habitosPenalizacionEvaluada = useRef(false);
+  useEffect(() => {
+    if (!authorized || habitosPenalizacionEvaluada.current) return;
+    if (!habitos || habitos.length === 0) return;
+    habitosPenalizacionEvaluada.current = true;
+
+    const registrosPorHabito = {};
+    for (const r of habitosRegistro || []) {
+      if (!registrosPorHabito[r.habitoId]) registrosPorHabito[r.habitoId] = [];
+      registrosPorHabito[r.habitoId].push(r.fecha);
+    }
+
+    for (const h of habitos) {
+      if (h.activo === false) continue;
+      const periodos = registrosPorHabito[h.id] || [];
+      const resultado = detectarRachaRota(periodos, h.frecuencia || "Diario");
+      if (!resultado) continue;
+      evaluarPenalizacionHabito(h.id, resultado.periodoFaltante, resultado.rachaPrevia, h.nombre).catch((err) =>
+        console.error(`No se pudo evaluar la penalización del hábito ${h.nombre}:`, err)
+      );
+    }
+  }, [authorized, habitos, habitosRegistro]);
 
   // Al abrir la app, revisa si alguna categoría con tope configurado se
   // excedió en la quincena que acaba de cerrar, y si es así, ajusta
@@ -484,6 +514,7 @@ export default function App() {
         ajustesPresupuesto={ajustesPresupuesto}
         sugerenciasInversion={sugerenciasInversion}
         diasCobro={diasCobro}
+        habitosPenalizaciones={habitosPenalizaciones}
         prestamos={prestamos}
         tarjetas={tarjetas}
         membresias={membresias}
@@ -603,6 +634,7 @@ export default function App() {
                   ajustesPresupuesto={ajustesPresupuesto}
                   sugerenciasInversion={sugerenciasInversion}
                   diasCobro={diasCobro}
+                  habitosPenalizaciones={habitosPenalizaciones}
                 />
               </div>
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} synced={synced} />
@@ -634,6 +666,7 @@ export default function App() {
             ajustesPresupuesto={ajustesPresupuesto}
             sugerenciasInversion={sugerenciasInversion}
             diasCobro={diasCobro}
+            habitosPenalizaciones={habitosPenalizaciones}
           />
         )}
         {tab === "puntos" && (

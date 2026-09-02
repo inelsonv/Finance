@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, Flame } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
@@ -82,7 +82,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro }) {
+export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -251,6 +251,21 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       });
     }
 
+    for (const pen of habitosPenalizaciones || []) {
+      const fechaEval = pen.createdAt?.toDate ? pen.createdAt.toDate() : null;
+      if (!fechaEval) continue;
+      const diasDesde = Math.floor((Date.now() - fechaEval.getTime()) / 86400000);
+      if (diasDesde > 5) continue;
+      list.push({
+        id: `habito-penalizacion-${pen.id}`,
+        icon: Flame,
+        titulo: `Se rompió tu racha de "${pen.habitoNombre}"`,
+        subtitulo: `Llevabas ${pen.rachaPrevia} seguidos — se restaron ${Math.abs(pen.puntos)} puntos. Vuelve a marcarlo para empezar de nuevo.`,
+        dias: 0,
+        tab: "habitos",
+      });
+    }
+
     for (const aj of ajustesPresupuesto || []) {
       // Solo mostrar ajustes de los últimos 3 días, para no acumular ruido.
       const fechaAjuste = aj.createdAt?.toDate ? aj.createdAt.toDate() : null;
@@ -305,7 +320,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones]);
 }
 
 export function etiquetaDias(dias) {
@@ -315,7 +330,7 @@ export function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -329,7 +344,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
     }
   });
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones });
 
   const firma = (n) => `${n.id}:${n.dias}`;
   const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));

@@ -85,3 +85,25 @@ export function historialHabitoVisual(periodosCompletados, frecuencia = "Diario"
   }
   return lista;
 }
+
+// Revisa si el periodo INMEDIATAMENTE ANTERIOR al actual (ej. "ayer" para un
+// hábito diario) se quedó sin marcar, y si justo antes de ese hueco había
+// una racha de al menos `umbral` periodos consecutivos cumplidos. Si es así,
+// devuelve { rachaRota: true, periodoFaltante, rachaPrevia }; si no, null.
+// Se usa para decidir si corresponde una penalización de puntos.
+export function detectarRachaRota(periodosCompletados, frecuencia = "Diario", hoy = new Date(), umbral = 3) {
+  const set = new Set(periodosCompletados);
+  const periodoFaltante = periodoAnterior(frecuencia, periodoDeFecha(frecuencia, hoy));
+  if (set.has(periodoFaltante)) return null; // sí se cumplió, no hay hueco
+
+  let cursor = periodoAnterior(frecuencia, periodoFaltante);
+  let rachaPrevia = 0;
+  while (set.has(cursor)) {
+    rachaPrevia++;
+    cursor = periodoAnterior(frecuencia, cursor);
+  }
+
+  if (rachaPrevia < umbral) return null;
+  return { rachaRota: true, periodoFaltante, rachaPrevia };
+}
+
