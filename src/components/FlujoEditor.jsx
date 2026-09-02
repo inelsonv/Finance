@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ReactFlow, {
   Background,
   Controls,
-  MiniMap,
   Handle,
   Position,
   addEdge,
@@ -914,8 +913,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
         >
           <Background color="var(--line)" gap={16} />
           <Controls position="top-right" />
-          <MiniMap nodeColor={() => "var(--sage)"} style={{ background: "var(--paper)" }} maskColor="rgba(0,0,0,0.05)" />
-        </ReactFlow>
+                  </ReactFlow>
       </div>
 
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
