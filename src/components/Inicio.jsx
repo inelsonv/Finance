@@ -272,7 +272,9 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
             style={{ cursor: "pointer", transition: "opacity 0.15s" }}
             onMouseEnter={() => setActivo(a.category)}
             onClick={() => setActivo((prev) => (prev === a.category ? null : a.category))}
-          />
+          >
+            <title>{`${a.category}: ${formatMoney(a.value)} (${Math.round((a.value / total) * 100)}%)`}</title>
+          </path>
         ))}
         <circle cx={cx} cy={cy} r={44} fill="var(--card)" style={{ pointerEvents: "none" }} />
         {activoData ? (
