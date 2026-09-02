@@ -300,3 +300,23 @@ button:hover {
   animation: despensa-highlight-flash 2.4s ease-out;
   border-radius: 10px;
 }
+
+/* Scrollbar discreta, del color del tema, para tiras horizontales como
+   Acciones — en vez del scrollbar grueso y claro por defecto del navegador. */
+.despensa-scroll-x {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.despensa-scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+.despensa-scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+.despensa-scroll-x::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 10px;
+}
+.despensa-scroll-x::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-soft);
+}

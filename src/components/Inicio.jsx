@@ -687,7 +687,7 @@ function StocksCard() {
               {fetchError}
             </div>
           )}
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+          <div className="despensa-scroll-x" style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
             {acciones.map((a) => {
             const p = prices[a.symbol];
             const up = p && p.change >= 0;
