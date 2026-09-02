@@ -116,6 +116,7 @@ function ActivityFlowNode({ data }) {
     tooltipLineas.push("Sin monto asignado");
   }
   if (data.progresoPct != null) tooltipLineas.push(`${Math.round(data.progresoPct)}% pagado del total`);
+  if (data.entidadName) tooltipLineas.push(`Se paga a: ${data.entidadName}`);
   if (data.categoriaGasto) tooltipLineas.push(`Categoría de gasto: ${data.categoriaGasto}`);
   if (data.clasificacion) tooltipLineas.push(data.clasificacion);
   const tooltip = tooltipLineas.join("\n");
@@ -482,8 +483,8 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     nuevosNodos.push({ id: deudasId, type: "activity", position: { x: centerX, y }, data: { label: "Pago de deudas", amount: totalDeudas > 0 ? totalDeudas : null, color: PALETTE[3], icon: "landmark", tipo: "categoria" } });
     conectar(diezmoId, deudasId);
     const nodosDeuda = [
-      ...prestamosActivos.map((p, i) => ({ label: `Préstamo ${p.numero || i + 1}`, amount: Number(p.cuota) || null, icon: "landmark", prestamoId: p.id })),
-      ...tarjetasActivas.map((t) => ({ label: `Tarjeta ${t.nombre || ""}${t.ultimos4 ? ` ····${t.ultimos4}` : ""}`, amount: Number(t.pagoMinimo) || null, icon: "creditCard", tarjetaId: t.id })),
+      ...prestamosActivos.map((p, i) => ({ label: `Préstamo ${p.numero || i + 1}`, amount: Number(p.cuota) || null, icon: "landmark", prestamoId: p.id, entidadName: p.entidadName || null })),
+      ...tarjetasActivas.map((t) => ({ label: `Tarjeta ${t.nombre || ""}${t.ultimos4 ? ` ····${t.ultimos4}` : ""}`, amount: Number(t.pagoMinimo) || null, icon: "creditCard", tarjetaId: t.id, entidadName: t.entidadName || null })),
     ];
     if (nodosDeuda.length > 0) {
       const yPrestamos = y + step;
@@ -494,7 +495,16 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
           id: pid,
           type: "activity",
           position: { x: centerX - anchoTotal / 2 + i * 210, y: yPrestamos },
-          data: { label: d.label, amount: d.amount, color: PALETTE[3], icon: d.icon, tipo: "categoria", ...(d.prestamoId ? { prestamoId: d.prestamoId } : {}), ...(d.tarjetaId ? { tarjetaId: d.tarjetaId } : {}) },
+          data: {
+            label: d.label,
+            amount: d.amount,
+            color: PALETTE[3],
+            icon: d.icon,
+            tipo: "categoria",
+            ...(d.prestamoId ? { prestamoId: d.prestamoId } : {}),
+            ...(d.tarjetaId ? { tarjetaId: d.tarjetaId } : {}),
+            ...(d.entidadName ? { entidadName: d.entidadName } : {}),
+          },
         });
         conectar(deudasId, pid);
       });
