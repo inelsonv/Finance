@@ -13,6 +13,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt, Church, ListOrdered, Maximize2, Minimize2 } from "lucide-react";
 import { saveFlujo } from "../lib/db";
+import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { confirm } from "../lib/confirm";
 
 const PALETTE = ["#5b7a5b", "#a23e2e", "#b8892b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a"];
@@ -199,7 +200,7 @@ function nextId() {
   return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos, tarjetas }) {
+export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos, tarjetas, presupuesto, diasCobro }) {
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
   const [colorIndex, setColorIndex] = useState(0);
@@ -474,7 +475,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
         conectar(deudasId, pid);
       });
     }
-    y += step;
+    y += nodosDeuda.length > 0 ? step * 2 : step;
 
     // 4. Ahorro + un nodo por cada meta activa
     const metasActivas = (metasAhorro || []).filter((m) => m.estado === "Activa");
@@ -495,19 +496,57 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
         conectar(ahorroId, mid);
       });
     }
-    y += step;
+    y += metasActivas.length > 0 ? step * 2 : step;
 
-    // 5. Gastos fijos
+    // Quincena actual, para traer los montos presupuestados reales de cada
+    // categoría (mismos datos que ves en Presupuesto mensual).
+    const periodoActualParaCascada = periodoActualConfigurado(diasCobro);
+    const montoPresupuestado = (nombreCategoria) =>
+      Number(presupuesto?.[nombreCategoria]?.[String(periodoActualParaCascada.month)]?.[periodoActualParaCascada.quincena]) || 0;
+
+    // 5. Gastos fijos + un nodo hijo por cada categoría "Fijo" con presupuesto
+    const categoriasFijas = (categoriasGasto || []).filter((c) => c.clasificacion === "Fijo" && montoPresupuestado(c.nombre) > 0);
+    const totalFijos = categoriasFijas.reduce((s, c) => s + montoPresupuestado(c.nombre), 0);
     const fijosId = nextId();
-    nuevosNodos.push({ id: fijosId, type: "activity", position: { x: centerX, y }, data: { label: "Gastos fijos", amount: null, color: PALETTE[1], icon: "home", tipo: "categoria" } });
+    nuevosNodos.push({ id: fijosId, type: "activity", position: { x: centerX, y }, data: { label: "Gastos fijos", amount: totalFijos > 0 ? totalFijos : null, color: PALETTE[1], icon: "home", tipo: "categoria" } });
     conectar(ahorroId, fijosId);
-    y += step;
+    if (categoriasFijas.length > 0) {
+      const yFijos = y + step;
+      const anchoTotal = (categoriasFijas.length - 1) * 160;
+      categoriasFijas.forEach((c, i) => {
+        const cid = nextId();
+        nuevosNodos.push({
+          id: cid,
+          type: "activity",
+          position: { x: centerX - anchoTotal / 2 + i * 160, y: yFijos },
+          data: { label: c.nombre, amount: montoPresupuestado(c.nombre), color: PALETTE[1], icon: c.metodoPagoDefault === "Tarjeta" ? "creditCard" : "receipt", tipo: "categoria" },
+        });
+        conectar(fijosId, cid);
+      });
+    }
+    y += categoriasFijas.length > 0 ? step * 2 : step;
 
-    // 6. Gastos variables
+    // 6. Gastos variables + un nodo hijo por cada categoría "Variable" con presupuesto
+    const categoriasVariables = (categoriasGasto || []).filter((c) => c.clasificacion === "Variable" && montoPresupuestado(c.nombre) > 0);
+    const totalVariables = categoriasVariables.reduce((s, c) => s + montoPresupuestado(c.nombre), 0);
     const variablesId = nextId();
-    nuevosNodos.push({ id: variablesId, type: "activity", position: { x: centerX, y }, data: { label: "Gastos variables", amount: null, color: PALETTE[2], icon: "shoppingBag", tipo: "categoria" } });
+    nuevosNodos.push({ id: variablesId, type: "activity", position: { x: centerX, y }, data: { label: "Gastos variables", amount: totalVariables > 0 ? totalVariables : null, color: PALETTE[2], icon: "shoppingBag", tipo: "categoria" } });
     conectar(fijosId, variablesId);
-    y += step;
+    if (categoriasVariables.length > 0) {
+      const yVariables = y + step;
+      const anchoTotal = (categoriasVariables.length - 1) * 160;
+      categoriasVariables.forEach((c, i) => {
+        const cid = nextId();
+        nuevosNodos.push({
+          id: cid,
+          type: "activity",
+          position: { x: centerX - anchoTotal / 2 + i * 160, y: yVariables },
+          data: { label: c.nombre, amount: montoPresupuestado(c.nombre), color: PALETTE[2], icon: "receipt", tipo: "categoria" },
+        });
+        conectar(variablesId, cid);
+      });
+    }
+    y += categoriasVariables.length > 0 ? step * 2 : step;
 
     // 7. Inversión
     const inversionId = nextId();
