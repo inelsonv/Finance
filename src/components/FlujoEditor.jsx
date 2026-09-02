@@ -11,7 +11,7 @@ import ReactFlow, {
   MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt, Church, ListOrdered } from "lucide-react";
+import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt, Church, ListOrdered, Maximize2, Minimize2 } from "lucide-react";
 import { saveFlujo } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
@@ -233,6 +233,9 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
   const [viewportInicial, setViewportInicial] = useState(null);
   const rfInstance = useRef(null);
   const [zoomPct, setZoomPct] = useState(100);
+  const [canvasAltura, setCanvasAltura] = useState(680);
+  const ALTURA_BASE = 680;
+  const ALTURA_MAX = 680 + 400 * 4;
   // Evita marcar "cambios sin guardar" por el ajuste automático de vista al
   // abrir el editor — solo después de este pequeño margen se considera que
   // un cambio de zoom/posición viene realmente del usuario.
@@ -702,6 +705,17 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
         <button onClick={clearAll} style={btnStyle("var(--card)", "var(--stamp)", false, true)}>
           <Trash2 size={14} /> Vaciar
         </button>
+        <button
+          onClick={() => setCanvasAltura((h) => (h >= ALTURA_MAX ? ALTURA_BASE : h + 400))}
+          style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}
+        >
+          <Maximize2 size={14} /> {canvasAltura > ALTURA_BASE ? "Ampliar más" : "Ampliar lienzo"}
+        </button>
+        {canvasAltura > ALTURA_BASE && (
+          <button onClick={() => setCanvasAltura(ALTURA_BASE)} style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}>
+            <Minimize2 size={14} /> Reducir
+          </button>
+        )}
         <span style={{ fontSize: 11.5, color: "var(--ink-soft)", marginLeft: "auto" }}>
           Arrastra para mover · Conecta desde el borde de un nodo · Doble clic en un nodo para editar monto
         </span>
@@ -835,7 +849,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
         </div>
       )}
 
-      <div style={{ height: 680, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)", position: "relative" }}>
+      <div style={{ height: canvasAltura, transition: "height 0.25s ease", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)", position: "relative" }}>
         {selectedEdgeId && (
           <button
             onClick={() => {
