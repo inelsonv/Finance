@@ -118,6 +118,7 @@ function ActivityFlowNode({ data }) {
   if (data.entidadName) tooltipLineas.push(`Se paga a: ${data.entidadName}`);
   if (data.categoriaGasto) tooltipLineas.push(`Categoría de gasto: ${data.categoriaGasto}`);
   if (data.clasificacion) tooltipLineas.push(data.clasificacion);
+  if (data.advertencia) tooltipLineas.push("⚠ Supera el 30% de tu ingreso — nivel de endeudamiento alto");
   const tooltip = tooltipLineas.join("\n");
 
   return (
@@ -129,15 +130,39 @@ function ActivityFlowNode({ data }) {
         gap: 10,
         background: color,
         color: "#fff",
-        border: `2px solid ${color}`,
+        border: data.advertencia ? "2px solid #e0a52e" : `2px solid ${color}`,
         borderRadius: 10,
         padding: "8px 12px",
         fontFamily: "Inter, sans-serif",
         width: 190,
         boxSizing: "border-box",
         boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+        position: "relative",
       }}
     >
+      {data.advertencia && (
+        <div
+          title="Supera el 30% de tu ingreso"
+          style={{
+            position: "absolute",
+            top: -8,
+            right: -8,
+            width: 18,
+            height: 18,
+            borderRadius: "50%",
+            background: "#e0a52e",
+            color: "#1a1a1a",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 12,
+            fontWeight: 800,
+            border: "2px solid var(--card)",
+          }}
+        >
+          !
+        </div>
+      )}
       <Handle type="target" position={Position.Top} style={{ background: "#fff", border: `2px solid ${color}` }} />
       <div
         style={{
@@ -478,8 +503,24 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     const totalPrestamos = prestamosActivos.reduce((s, p) => s + (Number(p.cuota) || 0), 0);
     const totalTarjetas = tarjetasActivas.reduce((s, t) => s + (Number(t.pagoMinimo) || 0), 0);
     const totalDeudas = totalPrestamos + totalTarjetas;
+    // Mismo cálculo que el indicador "Nivel de endeudamiento" de Inicio
+    // (cuotas de préstamos + pago mínimo de tarjetas ÷ ingreso mensual) —
+    // aquí se marca con un "!" si supera el 30%.
+    const pctDeudaSobreIngreso = ingresoSugerido > 0 ? (totalDeudas / ingresoSugerido) * 100 : 0;
     const deudasId = nextId();
-    nuevosNodos.push({ id: deudasId, type: "activity", position: { x: centerX, y }, data: { label: "Pago de deudas", amount: totalDeudas > 0 ? totalDeudas : null, color: PALETTE[3], icon: "landmark", tipo: "categoria" } });
+    nuevosNodos.push({
+      id: deudasId,
+      type: "activity",
+      position: { x: centerX, y },
+      data: {
+        label: "Pago de deudas",
+        amount: totalDeudas > 0 ? totalDeudas : null,
+        color: PALETTE[3],
+        icon: "landmark",
+        tipo: "categoria",
+        advertencia: pctDeudaSobreIngreso > 30,
+      },
+    });
     conectar(diezmoId, deudasId);
     const nodosDeuda = [
       ...prestamosActivos.map((p, i) => ({ label: `Préstamo ${p.numero || i + 1}`, amount: Number(p.cuota) || null, icon: "landmark", prestamoId: p.id, entidadName: p.entidadName || null })),
