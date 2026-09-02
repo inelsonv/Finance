@@ -726,6 +726,7 @@ export default function App() {
             prestamos={prestamos}
             metasAhorro={metasAhorro}
             movimientos={movimientos}
+            tarjetas={tarjetas}
           />
         )}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}

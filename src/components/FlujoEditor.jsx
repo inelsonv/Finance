@@ -199,7 +199,7 @@ function nextId() {
   return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos }) {
+export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos, tarjetas }) {
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
   const [colorIndex, setColorIndex] = useState(0);
@@ -447,22 +447,29 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     conectar(ingresoId, diezmoId);
     y += step;
 
-    // 3. Pago de deudas + un nodo por cada préstamo activo
+    // 3. Pago de deudas + un nodo por cada préstamo y tarjeta de crédito activos
     const prestamosActivos = (prestamos || []).filter((p) => p.estado === "Activo");
-    const totalDeudas = prestamosActivos.reduce((s, p) => s + (Number(p.cuota) || 0), 0);
+    const tarjetasActivas = (tarjetas || []).filter((t) => t.estado === "Activa" && (t.tipoTarjeta || "Crédito") === "Crédito");
+    const totalPrestamos = prestamosActivos.reduce((s, p) => s + (Number(p.cuota) || 0), 0);
+    const totalTarjetas = tarjetasActivas.reduce((s, t) => s + (Number(t.pagoMinimo) || 0), 0);
+    const totalDeudas = totalPrestamos + totalTarjetas;
     const deudasId = nextId();
     nuevosNodos.push({ id: deudasId, type: "activity", position: { x: centerX, y }, data: { label: "Pago de deudas", amount: totalDeudas > 0 ? totalDeudas : null, color: PALETTE[3], icon: "landmark", tipo: "categoria" } });
     conectar(diezmoId, deudasId);
-    if (prestamosActivos.length > 0) {
+    const nodosDeuda = [
+      ...prestamosActivos.map((p, i) => ({ label: `Préstamo ${p.numero || i + 1}`, amount: Number(p.cuota) || null, icon: "landmark", prestamoId: p.id })),
+      ...tarjetasActivas.map((t) => ({ label: `Tarjeta ${t.nombre || ""}${t.ultimos4 ? ` ····${t.ultimos4}` : ""}`, amount: Number(t.pagoMinimo) || null, icon: "creditCard", tarjetaId: t.id })),
+    ];
+    if (nodosDeuda.length > 0) {
       const yPrestamos = y + step;
-      const anchoTotal = (prestamosActivos.length - 1) * 160;
-      prestamosActivos.forEach((p, i) => {
+      const anchoTotal = (nodosDeuda.length - 1) * 160;
+      nodosDeuda.forEach((d, i) => {
         const pid = nextId();
         nuevosNodos.push({
           id: pid,
           type: "activity",
           position: { x: centerX - anchoTotal / 2 + i * 160, y: yPrestamos },
-          data: { label: `Préstamo ${p.numero || i + 1}`, amount: Number(p.cuota) || null, color: PALETTE[3], icon: "landmark", tipo: "categoria", prestamoId: p.id },
+          data: { label: d.label, amount: d.amount, color: PALETTE[3], icon: d.icon, tipo: "categoria", ...(d.prestamoId ? { prestamoId: d.prestamoId } : {}), ...(d.tarjetaId ? { tarjetaId: d.tarjetaId } : {}) },
         });
         conectar(deudasId, pid);
       });
