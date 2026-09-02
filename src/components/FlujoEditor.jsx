@@ -257,6 +257,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
   const rfInstance = useRef(null);
   const [zoomPct, setZoomPct] = useState(100);
   const [canvasAltura, setCanvasAltura] = useState(680);
+  const [panelTab, setPanelTab] = useState("resumen");
   const ALTURA_BASE = 680;
   const ALTURA_MAX = 680 + 400 * 4;
   // Evita marcar "cambios sin guardar" por el ajuste automático de vista al
@@ -374,6 +375,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
   };
 
   const openEdit = (node) => {
+    setPanelTab("detalles");
     setEditingId(node.id);
     setEditLabel(node.data.label);
     setEditAmount(node.data.amount != null ? String(node.data.amount) : "");
@@ -700,46 +702,6 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
         </div>
       )}
 
-      {resumen.ingresoMonto > 0 && (
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginBottom: 10, display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12 }}>
-          <span>Ingreso del nodo: <strong className="despensa-mono">{formatMoney(resumen.ingresoMonto)}</strong></span>
-          <span>Asignado: <strong className="despensa-mono" style={{ color: "var(--stamp)" }}>{formatMoney(resumen.asignado)}</strong></span>
-          <span>
-            Sin asignar:{" "}
-            <strong className="despensa-mono" style={{ color: resumen.restante >= 0 ? "var(--sage)" : "var(--stamp)" }}>
-              {formatMoney(resumen.restante)}
-            </strong>
-          </span>
-        </div>
-      )}
-
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Nodos comunes — toca para agregar:</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {NODOS_PRECONFIGURADOS.map((preset) => (
-            <button
-              key={preset.label}
-              onClick={() => addNodoPreconfigurado(preset)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 12px",
-                fontSize: 12,
-                fontWeight: 500,
-                borderRadius: 20,
-                border: `1px solid ${preset.color}`,
-                background: "var(--card)",
-                color: preset.color,
-                cursor: "pointer",
-              }}
-            >
-              <IconoNodo nombre={preset.icon} size={12} /> {preset.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div
         style={{
           display: "flex",
@@ -814,7 +776,182 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
         </span>
       </div>
 
-      {editingId && (
+      <div style={{ height: canvasAltura, transition: "height 0.25s ease", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)", position: "relative" }}>
+        {selectedEdgeId && (
+          <button
+            onClick={() => {
+              setEdges((eds) => eds.filter((e) => e.id !== selectedEdgeId));
+              setDirty(true);
+              setSelectedEdgeId(null);
+            }}
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 12px",
+              fontSize: 12,
+              fontWeight: 500,
+              background: "var(--stamp)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            }}
+          >
+            <Trash2 size={13} /> Eliminar conexión
+          </button>
+        )}
+        {selectedNodeId && !selectedEdgeId && (
+          <button
+            onClick={() => deleteNode(selectedNodeId)}
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 12px",
+              fontSize: 12,
+              fontWeight: 500,
+              background: "var(--stamp)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            }}
+          >
+            <Trash2 size={13} /> Eliminar nodo
+          </button>
+        )}
+        <ReactFlow
+          nodes={nodesParaRender}
+          edges={edgesConSeleccion}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onEdgeDoubleClick={(_, edge) => {
+            setEdges((eds) => eds.filter((e) => e.id !== edge.id));
+            setDirty(true);
+            setSelectedEdgeId(null);
+          }}
+          onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
+          onNodeDoubleClick={(_, node) => openEdit(node)}
+          onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+          onPaneClick={() => {
+            setSelectedEdgeId(null);
+            setSelectedNodeId(null);
+          }}
+          onMoveEnd={(_, viewport) => {
+            viewportRef.current = viewport;
+            setZoomPct(Math.round(viewport.zoom * 100));
+            if (viewportListo.current) setDirty(true);
+          }}
+          onInit={(instance) => {
+            rfInstance.current = instance;
+            // Refuerzo: aplica el zoom guardado explícitamente al iniciar,
+            // por si "defaultViewport" no toma efecto a tiempo.
+            if (viewportInicial) {
+              instance.setViewport(viewportInicial, { duration: 0 });
+            }
+          }}
+          {...(viewportInicial ? { defaultViewport: viewportInicial } : { fitView: true })}
+          deleteKeyCode={["Backspace", "Delete"]}
+        >
+          <Background color="var(--line)" gap={16} />
+          <Controls position="top-right" />
+          <MiniMap nodeColor={() => "var(--sage)"} style={{ background: "var(--paper)" }} maskColor="rgba(0,0,0,0.05)" />
+        </ReactFlow>
+      </div>
+
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ display: "flex", borderBottom: "1px solid var(--line)" }}>
+          {[
+            { id: "resumen", label: "Resumen" },
+            { id: "agregar", label: "Nodos comunes" },
+            { id: "detalles", label: "Detalles" },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setPanelTab(t.id)}
+              style={{
+                padding: "9px 16px",
+                fontSize: 12.5,
+                fontWeight: 600,
+                background: "transparent",
+                color: panelTab === t.id ? "var(--sage)" : "var(--ink-soft)",
+                border: "none",
+                borderBottom: panelTab === t.id ? "2px solid var(--sage)" : "2px solid transparent",
+                marginBottom: -1,
+                cursor: "pointer",
+              }}
+            >
+              {t.label}
+              {t.id === "detalles" && editingId && (
+                <span style={{ marginLeft: 6, width: 6, height: 6, borderRadius: "50%", background: "var(--stamp)", display: "inline-block" }} />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ padding: 14 }}>
+          {panelTab === "resumen" &&
+            (resumen.ingresoMonto > 0 ? (
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 12 }}>
+                <span>Ingreso del nodo: <strong className="despensa-mono">{formatMoney(resumen.ingresoMonto)}</strong></span>
+                <span>Asignado: <strong className="despensa-mono" style={{ color: "var(--stamp)" }}>{formatMoney(resumen.asignado)}</strong></span>
+                <span>
+                  Sin asignar:{" "}
+                  <strong className="despensa-mono" style={{ color: resumen.restante >= 0 ? "var(--sage)" : "var(--stamp)" }}>
+                    {formatMoney(resumen.restante)}
+                  </strong>
+                </span>
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                Agrega un nodo "Ingreso" con un monto para ver el resumen de lo asignado.
+              </div>
+            ))}
+
+          {panelTab === "agregar" && (
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Toca para agregar un nodo:</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {NODOS_PRECONFIGURADOS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => addNodoPreconfigurado(preset)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      borderRadius: 20,
+                      border: `1px solid ${preset.color}`,
+                      background: "var(--paper)",
+                      color: preset.color,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <IconoNodo nombre={preset.icon} size={12} /> {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {panelTab === "detalles" &&
+            (editingId ? (
         <div style={{ background: "var(--card)", border: "1px solid var(--stamp)", borderRadius: 10, padding: 12, marginBottom: 10 }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
             <button
@@ -940,102 +1077,12 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
             </button>
           </div>
         </div>
-      )}
-
-      <div style={{ height: canvasAltura, transition: "height 0.25s ease", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)", position: "relative" }}>
-        {selectedEdgeId && (
-          <button
-            onClick={() => {
-              setEdges((eds) => eds.filter((e) => e.id !== selectedEdgeId));
-              setDirty(true);
-              setSelectedEdgeId(null);
-            }}
-            style={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              zIndex: 10,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "7px 12px",
-              fontSize: 12,
-              fontWeight: 500,
-              background: "var(--stamp)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-            }}
-          >
-            <Trash2 size={13} /> Eliminar conexión
-          </button>
-        )}
-        {selectedNodeId && !selectedEdgeId && (
-          <button
-            onClick={() => deleteNode(selectedNodeId)}
-            style={{
-              position: "absolute",
-              top: 10,
-              right: 10,
-              zIndex: 10,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "7px 12px",
-              fontSize: 12,
-              fontWeight: 500,
-              background: "var(--stamp)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
-            }}
-          >
-            <Trash2 size={13} /> Eliminar nodo
-          </button>
-        )}
-        <ReactFlow
-          nodes={nodesParaRender}
-          edges={edgesConSeleccion}
-          nodeTypes={nodeTypes}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onEdgeDoubleClick={(_, edge) => {
-            setEdges((eds) => eds.filter((e) => e.id !== edge.id));
-            setDirty(true);
-            setSelectedEdgeId(null);
-          }}
-          onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
-          onNodeDoubleClick={(_, node) => openEdit(node)}
-          onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-          onPaneClick={() => {
-            setSelectedEdgeId(null);
-            setSelectedNodeId(null);
-          }}
-          onMoveEnd={(_, viewport) => {
-            viewportRef.current = viewport;
-            setZoomPct(Math.round(viewport.zoom * 100));
-            if (viewportListo.current) setDirty(true);
-          }}
-          onInit={(instance) => {
-            rfInstance.current = instance;
-            // Refuerzo: aplica el zoom guardado explícitamente al iniciar,
-            // por si "defaultViewport" no toma efecto a tiempo.
-            if (viewportInicial) {
-              instance.setViewport(viewportInicial, { duration: 0 });
-            }
-          }}
-          {...(viewportInicial ? { defaultViewport: viewportInicial } : { fitView: true })}
-          deleteKeyCode={["Backspace", "Delete"]}
-        >
-          <Background color="var(--line)" gap={16} />
-          <Controls position="top-right" />
-          <MiniMap nodeColor={() => "var(--sage)"} style={{ background: "var(--paper)" }} maskColor="rgba(0,0,0,0.05)" />
-        </ReactFlow>
+            ) : (
+              <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                Toca un nodo o doble clic en él para ver o editar sus detalles aquí.
+              </div>
+            ))}
+        </div>
       </div>
 
       <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8 }}>
