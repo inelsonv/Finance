@@ -719,7 +719,14 @@ export default function App() {
           />
         )}
         {tab === "presupuesto-flujo" && (
-          <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} prestamos={prestamos} metasAhorro={metasAhorro} />
+          <FlujoEditor
+            flujo={flujo}
+            fuentesIngreso={fuentesIngreso}
+            categoriasGasto={categoriasGasto}
+            prestamos={prestamos}
+            metasAhorro={metasAhorro}
+            movimientos={movimientos}
+          />
         )}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
         {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} />}

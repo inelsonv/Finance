@@ -58,6 +58,36 @@ function IconoNodo({ nombre, size = 13 }) {
   return <Icon size={size} />;
 }
 
+// Anillo de progreso alrededor del ícono, usado en los nodos de préstamo
+// para mostrar cuánto se ha pagado del total.
+function IconoNodoConProgreso({ nombre, pct, size = 32 }) {
+  const r = (size - 4) / 2;
+  const c = size / 2;
+  const circunferencia = 2 * Math.PI * r;
+  const offset = circunferencia * (1 - Math.min(Math.max(pct, 0), 100) / 100);
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)" }}>
+        <circle cx={c} cy={c} r={r} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={2.5} />
+        <circle
+          cx={c}
+          cy={c}
+          r={r}
+          fill="none"
+          stroke="#fff"
+          strokeWidth={2.5}
+          strokeDasharray={circunferencia}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+        <IconoNodo nombre={nombre} size={14} />
+      </div>
+    </div>
+  );
+}
+
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -97,7 +127,7 @@ function ActivityFlowNode({ data }) {
           width: 32,
           height: 32,
           borderRadius: "50%",
-          background: "rgba(255,255,255,0.25)",
+          background: data.progresoPct == null ? "rgba(255,255,255,0.25)" : "transparent",
           opacity: 1,
           display: "flex",
           alignItems: "center",
@@ -106,7 +136,11 @@ function ActivityFlowNode({ data }) {
           color: "#fff",
         }}
       >
-        <IconoNodo nombre={data.icon} size={16} />
+        {data.progresoPct != null ? (
+          <IconoNodoConProgreso nombre={data.icon} pct={data.progresoPct} />
+        ) : (
+          <IconoNodo nombre={data.icon} size={16} />
+        )}
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", color: "#fff" }}>{data.label}</div>
@@ -119,6 +153,7 @@ function ActivityFlowNode({ data }) {
           <div className="despensa-mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2 }}>
             {formatMoney(data.amount)}
             {data.calculado && <span style={{ fontWeight: 400, opacity: 0.85 }}> · 10% auto</span>}
+            {data.progresoPct != null && <span style={{ fontWeight: 400, opacity: 0.85 }}> · {Math.round(data.progresoPct)}% pagado</span>}
           </div>
         )}
         {!esIngreso && data.categoriaGasto && (
@@ -164,7 +199,7 @@ function nextId() {
   return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro }) {
+export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos }) {
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
   const [colorIndex, setColorIndex] = useState(0);
@@ -424,7 +459,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
           id: pid,
           type: "activity",
           position: { x: centerX - anchoTotal / 2 + i * 160, y: yPrestamos },
-          data: { label: `Préstamo ${p.numero || i + 1}`, amount: Number(p.cuota) || null, color: PALETTE[3], icon: "landmark", tipo: "categoria" },
+          data: { label: `Préstamo ${p.numero || i + 1}`, amount: Number(p.cuota) || null, color: PALETTE[3], icon: "landmark", tipo: "categoria", prestamoId: p.id },
         });
         conectar(deudasId, pid);
       });
@@ -511,14 +546,41 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     return map;
   }, [nodes, edges]);
 
+  // Progreso de pago de los nodos vinculados a un préstamo real (data.prestamoId).
+  const pagadoPorPrestamo = useMemo(() => {
+    const map = {};
+    for (const m of movimientos || []) {
+      if (m.category !== "Pago de préstamo" || !m.prestamoId) continue;
+      map[m.prestamoId] = (map[m.prestamoId] || 0) + (Number(m.amount) || 0);
+    }
+    return map;
+  }, [movimientos]);
+
+  const progresoPorNodo = useMemo(() => {
+    const map = new Map();
+    for (const n of nodes) {
+      if (!n.data.prestamoId) continue;
+      const prestamo = (prestamos || []).find((p) => p.id === n.data.prestamoId);
+      const montoTotal = Number(prestamo?.montoAprobado) || 0;
+      if (montoTotal <= 0) continue;
+      const pagado = pagadoPorPrestamo[n.data.prestamoId] || 0;
+      map.set(n.id, Math.min((pagado / montoTotal) * 100, 100));
+    }
+    return map;
+  }, [nodes, prestamos, pagadoPorPrestamo]);
+
   const nodesParaRender = useMemo(
     () =>
-      nodes.map((n) =>
-        montosCalculados.has(n.id)
-          ? { ...n, data: { ...n.data, amount: montosCalculados.get(n.id), calculado: true } }
-          : n
-      ),
-    [nodes, montosCalculados]
+      nodes.map((n) => {
+        if (montosCalculados.has(n.id)) {
+          return { ...n, data: { ...n.data, amount: montosCalculados.get(n.id), calculado: true } };
+        }
+        if (progresoPorNodo.has(n.id)) {
+          return { ...n, data: { ...n.data, progresoPct: progresoPorNodo.get(n.id) } };
+        }
+        return n;
+      }),
+    [nodes, montosCalculados, progresoPorNodo]
   );
 
   const resumen = useMemo(() => {
