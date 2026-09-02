@@ -553,7 +553,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
           id: cid,
           type: "activity",
           position: { x: centerX - anchoTotal / 2 + i * 210, y: yFijos },
-          data: { label: c.nombre, amount: montoPresupuestado(c.nombre), color: PALETTE[1], icon: c.metodoPagoDefault === "Tarjeta" ? "creditCard" : "receipt", tipo: "categoria" },
+          data: { label: c.nombre, amount: montoPresupuestado(c.nombre), color: c.color || PALETTE[1], icon: c.metodoPagoDefault === "Tarjeta" ? "creditCard" : "receipt", tipo: "categoria" },
         });
         conectar(fijosId, cid);
       });
@@ -575,7 +575,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
           id: cid,
           type: "activity",
           position: { x: centerX - anchoTotal / 2 + i * 210, y: yVariables },
-          data: { label: c.nombre, amount: montoPresupuestado(c.nombre), color: PALETTE[2], icon: "receipt", tipo: "categoria" },
+          data: { label: c.nombre, amount: montoPresupuestado(c.nombre), color: c.color || PALETTE[2], icon: "receipt", tipo: "categoria" },
         });
         conectar(variablesId, cid);
       });

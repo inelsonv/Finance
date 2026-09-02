@@ -18,6 +18,7 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
   const [nombre, setNombre] = useState("");
   const [clasificacion, setClasificacion] = useState("Variable");
   const [metodoPagoDefault, setMetodoPagoDefault] = useState("Efectivo");
+  const [color, setColor] = useState(FLOW_COLORS[0]);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -50,10 +51,11 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
     setSaving(true);
     setError(null);
     try {
-      await addCategoriaGasto({ nombre: nombreTrim, clasificacion, metodoPagoDefault });
+      await addCategoriaGasto({ nombre: nombreTrim, clasificacion, metodoPagoDefault, color });
       setNombre("");
       setClasificacion("Variable");
       setMetodoPagoDefault("Efectivo");
+      setColor(FLOW_COLORS[0]);
       setShowForm(false);
     } catch (err) {
       setError(err.message || String(err));
@@ -137,6 +139,30 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
               ))}
             </select>
           </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+              Color (se usa también en Presupuesto mensual y en el Editor de flujo):
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {FLOW_COLORS.map((col) => (
+                <button
+                  key={col}
+                  type="button"
+                  onClick={() => setColor(col)}
+                  title={col}
+                  style={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: "50%",
+                    background: col,
+                    border: color === col ? "2px solid var(--ink)" : "2px solid transparent",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
+                />
+              ))}
+            </div>
+          </div>
           <button
             onClick={handleAdd}
             disabled={saving}
@@ -177,7 +203,25 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
                   background: "var(--card)",
                 }}
               >
-                <span style={{ color: c.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)" }}>{c.nombre}</span>
+                <button
+                  onClick={() => {
+                    const idx = FLOW_COLORS.indexOf(c.color);
+                    const siguiente = FLOW_COLORS[(idx + 1) % FLOW_COLORS.length];
+                    updateCategoriaGasto(c.id, { color: siguiente });
+                  }}
+                  title="Clic para cambiar el color"
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: "50%",
+                    background: c.color || (c.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)"),
+                    border: "1px solid rgba(0,0,0,0.15)",
+                    cursor: "pointer",
+                    padding: 0,
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ color: c.color || (c.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)") }}>{c.nombre}</span>
                 <button
                   onClick={() => updateCategoriaGasto(c.id, { clasificacion: c.clasificacion === "Fijo" ? "Variable" : "Fijo" })}
                   title="Clic para cambiar entre Fijo y Variable"

@@ -137,6 +137,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
       nombre: c.nombre,
       clasificacion: c.clasificacion,
       agruparConCompromisos: !!c.agruparConCompromisos,
+      color: c.color || null,
     }));
     // Las categorías marcadas para agruparse con "Compromisos financieros" se
     // ordenan al final, para que queden justo antes de esa sección en la
@@ -837,7 +838,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     borderBottom: "1px solid var(--line-soft)",
                     fontFamily: "Inter, sans-serif",
                     fontSize: 12.5,
-                    color: cat.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)",
+                    color: cat.color || (cat.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)"),
                   }}
                   title={cat.clasificacion}
                 >
