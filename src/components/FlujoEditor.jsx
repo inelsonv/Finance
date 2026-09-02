@@ -137,32 +137,8 @@ function ActivityFlowNode({ data }) {
         width: 190,
         boxSizing: "border-box",
         boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
-        position: "relative",
       }}
     >
-      {data.advertencia && (
-        <div
-          title="Supera el 30% de tu ingreso"
-          style={{
-            position: "absolute",
-            top: -8,
-            right: -8,
-            width: 18,
-            height: 18,
-            borderRadius: "50%",
-            background: "#e0a52e",
-            color: "#1a1a1a",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 12,
-            fontWeight: 800,
-            border: "2px solid var(--card)",
-          }}
-        >
-          !
-        </div>
-      )}
       <Handle type="target" position={Position.Top} style={{ background: "#fff", border: `2px solid ${color}` }} />
       <div
         style={{
@@ -208,6 +184,26 @@ function ActivityFlowNode({ data }) {
           </div>
         )}
       </div>
+      {data.advertencia && (
+        <div
+          title="Supera el 30% de tu ingreso — nivel de endeudamiento alto"
+          style={{
+            flexShrink: 0,
+            width: 20,
+            height: 20,
+            borderRadius: "50%",
+            background: "#e0a52e",
+            color: "#1a1a1a",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            fontWeight: 800,
+          }}
+        >
+          !
+        </div>
+      )}
       <Handle type="source" position={Position.Bottom} style={{ background: "#fff", border: `2px solid ${color}` }} />
     </div>
   );
@@ -503,10 +499,13 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     const totalPrestamos = prestamosActivos.reduce((s, p) => s + (Number(p.cuota) || 0), 0);
     const totalTarjetas = tarjetasActivas.reduce((s, t) => s + (Number(t.pagoMinimo) || 0), 0);
     const totalDeudas = totalPrestamos + totalTarjetas;
-    // Mismo cálculo que el indicador "Nivel de endeudamiento" de Inicio
-    // (cuotas de préstamos + pago mínimo de tarjetas ÷ ingreso mensual) —
-    // aquí se marca con un "!" si supera el 30%.
-    const pctDeudaSobreIngreso = ingresoSugerido > 0 ? (totalDeudas / ingresoSugerido) * 100 : 0;
+    // Mismo cálculo EXACTO que el indicador "Nivel de endeudamiento" de
+    // Inicio (incluye todas las tarjetas activas, no solo las de tipo
+    // "Crédito", a diferencia de los nodos hijos de abajo) — se marca con un
+    // "!" si supera el 30% del ingreso.
+    const totalPrestamosKPI = (prestamos || []).filter((p) => p.estado === "Activo").reduce((s, p) => s + (Number(p.cuota) || 0), 0);
+    const totalTarjetasKPI = (tarjetas || []).filter((t) => t.estado === "Activa").reduce((s, t) => s + (Number(t.pagoMinimo) || 0), 0);
+    const pctDeudaSobreIngreso = ingresoSugerido > 0 ? ((totalPrestamosKPI + totalTarjetasKPI) / ingresoSugerido) * 100 : 0;
     const deudasId = nextId();
     nuevosNodos.push({
       id: deudasId,
