@@ -538,57 +538,71 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     const montoPresupuestado = (nombreCategoria) =>
       Number(presupuesto?.[nombreCategoria]?.[String(periodoActualParaCascada.month)]?.[periodoActualParaCascada.quincena]) || 0;
 
-    // 5. Gastos fijos + un nodo hijo por cada categoría "Fijo" con presupuesto
+    // 5. Gastos (nodo padre) — se divide en Gastos fijos y Gastos variables,
+    // cada uno como rama hermana con sus propias categorías reales debajo.
     const categoriasFijas = (categoriasGasto || []).filter((c) => c.clasificacion === "Fijo" && montoPresupuestado(c.nombre) > 0);
+    const categoriasVariables = (categoriasGasto || []).filter((c) => c.clasificacion === "Variable" && montoPresupuestado(c.nombre) > 0);
     const totalFijos = categoriasFijas.reduce((s, c) => s + montoPresupuestado(c.nombre), 0);
+    const totalVariables = categoriasVariables.reduce((s, c) => s + montoPresupuestado(c.nombre), 0);
+    const totalGastos = totalFijos + totalVariables;
+
+    const gastosId = nextId();
+    nuevosNodos.push({ id: gastosId, type: "activity", position: { x: centerX, y }, data: { label: "Gastos", amount: totalGastos > 0 ? totalGastos : null, color: PALETTE[1], icon: "wallet", tipo: "categoria" } });
+    conectar(ahorroId, gastosId);
+    const yRamas = y + step;
+    const xFijos = centerX - 220;
+    const xVariables = centerX + 220;
+
+    // Rama Gastos fijos (izquierda)
     const fijosId = nextId();
-    nuevosNodos.push({ id: fijosId, type: "activity", position: { x: centerX, y }, data: { label: "Gastos fijos", amount: totalFijos > 0 ? totalFijos : null, color: PALETTE[1], icon: "home", tipo: "categoria" } });
-    conectar(ahorroId, fijosId);
+    nuevosNodos.push({ id: fijosId, type: "activity", position: { x: xFijos, y: yRamas }, data: { label: "Gastos fijos", amount: totalFijos > 0 ? totalFijos : null, color: PALETTE[1], icon: "home", tipo: "categoria" } });
+    conectar(gastosId, fijosId);
     if (categoriasFijas.length > 0) {
-      const yFijos = y + step;
+      const yFijos = yRamas + step;
       const anchoTotal = (categoriasFijas.length - 1) * 210;
       categoriasFijas.forEach((c, i) => {
         const cid = nextId();
         nuevosNodos.push({
           id: cid,
           type: "activity",
-          position: { x: centerX - anchoTotal / 2 + i * 210, y: yFijos },
+          position: { x: xFijos - anchoTotal / 2 + i * 210, y: yFijos },
           data: { label: c.nombre, amount: montoPresupuestado(c.nombre), color: c.color || PALETTE[1], icon: c.metodoPagoDefault === "Tarjeta" ? "creditCard" : "receipt", tipo: "categoria" },
         });
         conectar(fijosId, cid);
       });
     }
-    y += categoriasFijas.length > 0 ? step * 2 : step;
 
-    // 6. Gastos variables + un nodo hijo por cada categoría "Variable" con presupuesto
-    const categoriasVariables = (categoriasGasto || []).filter((c) => c.clasificacion === "Variable" && montoPresupuestado(c.nombre) > 0);
-    const totalVariables = categoriasVariables.reduce((s, c) => s + montoPresupuestado(c.nombre), 0);
+    // Rama Gastos variables (derecha)
     const variablesId = nextId();
-    nuevosNodos.push({ id: variablesId, type: "activity", position: { x: centerX, y }, data: { label: "Gastos variables", amount: totalVariables > 0 ? totalVariables : null, color: PALETTE[2], icon: "shoppingBag", tipo: "categoria" } });
-    conectar(fijosId, variablesId);
+    nuevosNodos.push({ id: variablesId, type: "activity", position: { x: xVariables, y: yRamas }, data: { label: "Gastos variables", amount: totalVariables > 0 ? totalVariables : null, color: PALETTE[2], icon: "shoppingBag", tipo: "categoria" } });
+    conectar(gastosId, variablesId);
     if (categoriasVariables.length > 0) {
-      const yVariables = y + step;
+      const yVariables = yRamas + step;
       const anchoTotal = (categoriasVariables.length - 1) * 210;
       categoriasVariables.forEach((c, i) => {
         const cid = nextId();
         nuevosNodos.push({
           id: cid,
           type: "activity",
-          position: { x: centerX - anchoTotal / 2 + i * 210, y: yVariables },
+          position: { x: xVariables - anchoTotal / 2 + i * 210, y: yVariables },
           data: { label: c.nombre, amount: montoPresupuestado(c.nombre), color: c.color || PALETTE[2], icon: "receipt", tipo: "categoria" },
         });
         conectar(variablesId, cid);
       });
     }
-    y += categoriasVariables.length > 0 ? step * 2 : step;
 
-    // 7. Inversión
+    const hayHijosGastos = categoriasFijas.length > 0 || categoriasVariables.length > 0;
+    y += hayHijosGastos ? step * 3 : step * 2;
+
+    // 6. Inversión — continúa desde el nodo "Gastos" (no desde sus ramas),
+    // igual que "Pago de deudas" y "Ahorro" continúan la cadena principal
+    // desde su propio nodo, no desde sus hijos.
     const inversionId = nextId();
     nuevosNodos.push({ id: inversionId, type: "activity", position: { x: centerX, y }, data: { label: "Inversión", amount: null, color: PALETTE[4], icon: "trendingUp", tipo: "categoria" } });
-    conectar(variablesId, inversionId);
+    conectar(gastosId, inversionId);
     y += step;
 
-    // 8. Excedente — lo que sobre después de todo lo anterior
+    // 7. Excedente — lo que sobre después de todo lo anterior
     const excedenteId = nextId();
     nuevosNodos.push({ id: excedenteId, type: "activity", position: { x: centerX, y }, data: { label: "Excedente", amount: null, color: PALETTE[5], icon: "coins", tipo: "categoria" } });
     conectar(inversionId, excedenteId);
