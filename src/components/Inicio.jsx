@@ -211,6 +211,8 @@ function GastosPorMesChart({ movimientos }) {
 
 function GastosPorCategoriaMesActual({ movimientos, compact }) {
   const [activo, setActivo] = useState(null);
+  const [tooltipPos, setTooltipPos] = useState(null);
+  const wrapperRef = useRef(null);
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
@@ -256,12 +258,21 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
 
   const activoData = arcs.find((a) => a.category === activo);
 
+  const handleMouseMove = (e) => {
+    if (!wrapperRef.current) return;
+    const rect = wrapperRef.current.getBoundingClientRect();
+    setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
   return (
-    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: compact ? 0 : 20 }}>
+    <div ref={wrapperRef} style={{ position: "relative", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: compact ? 0 : 20 }}>
       <svg
         viewBox="0 0 180 180"
         style={{ width: compact ? "100%" : 160, maxWidth: compact ? 220 : 160, height: "auto", flexShrink: 0, display: "block", margin: compact ? "0 auto" : undefined }}
-        onMouseLeave={() => setActivo(null)}
+        onMouseLeave={() => {
+          setActivo(null);
+          setTooltipPos(null);
+        }}
       >
         {arcs.map((a) => (
           <path
@@ -271,10 +282,9 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
             opacity={activo && activo !== a.category ? 0.45 : 1}
             style={{ cursor: "pointer", transition: "opacity 0.15s" }}
             onMouseEnter={() => setActivo(a.category)}
+            onMouseMove={handleMouseMove}
             onClick={() => setActivo((prev) => (prev === a.category ? null : a.category))}
-          >
-            <title>{`${a.category}: ${formatMoney(a.value)} (${Math.round((a.value / total) * 100)}%)`}</title>
-          </path>
+          />
         ))}
         <circle cx={cx} cy={cy} r={44} fill="var(--card)" style={{ pointerEvents: "none" }} />
         {activoData ? (
@@ -297,6 +307,32 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
           </>
         )}
       </svg>
+      {activoData && tooltipPos && (
+        <div
+          style={{
+            position: "absolute",
+            left: tooltipPos.x + 14,
+            top: tooltipPos.y + 14,
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            padding: "6px 10px",
+            fontSize: 11.5,
+            color: "var(--ink)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+            boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+            zIndex: 10,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, marginBottom: 2 }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: activoData.color, flexShrink: 0 }} />
+            {activoData.category}
+          </div>
+          <span className="despensa-mono">{formatMoney(activoData.value)}</span>
+          <span style={{ color: "var(--ink-soft)" }}> · {Math.round((activoData.value / total) * 100)}%</span>
+        </div>
+      )}
       {!compact && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 140 }}>
           {arcs.map((a) => (
