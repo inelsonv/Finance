@@ -13,6 +13,7 @@ import "reactflow/dist/style.css";
 import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt, Church, ListOrdered, Maximize2, Minimize2 } from "lucide-react";
 import { saveFlujo } from "../lib/db";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
+import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { confirm } from "../lib/confirm";
 
 const PALETTE = ["#5b7a5b", "#a23e2e", "#b8892b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a"];
@@ -94,12 +95,7 @@ function formatMoney(n) {
 }
 
 function ingresoMensualCalculado(fuentesIngreso) {
-  let total = 0;
-  for (const f of fuentesIngreso || []) {
-    if (f.estado !== "Activo" || f.montoEsperado == null) continue;
-    total += f.montoEsperado * (FRECUENCIA_FACTOR[f.frecuencia] ?? 1);
-  }
-  return total;
+  return ingresoMensualNeto(fuentesIngreso);
 }
 
 function ActivityFlowNode({ data }) {

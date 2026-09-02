@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Briefcase, Pencil, Check, Landmark, Gift } from "lucide-react";
 import { addFuenteIngreso, deleteFuenteIngreso, updateFuenteIngresoEstado, updateFuenteIngreso, addIngresoPuntual, deleteIngresoPuntual, marcarIngresoPuntualRecibido } from "../lib/db";
+import { calcularDeduccionesLey } from "../lib/deduccionesLey";
 import { confirm } from "../lib/confirm";
 
 export const FUENTE_TIPOS = ["Salario", "Freelance", "Negocio propio", "Renta", "Otro"];
@@ -30,6 +31,7 @@ const emptyForm = () => ({
   notas: "",
   codigoEmpleado: "",
   diasVacacionesAnuales: "",
+  aplicaDeduccionesLey: false,
 });
 
 function toEditForm(f) {
@@ -44,6 +46,7 @@ function toEditForm(f) {
     notas: f.notas || "",
     codigoEmpleado: f.codigoEmpleado || "",
     diasVacacionesAnuales: f.diasVacacionesAnuales != null ? String(f.diasVacacionesAnuales) : "",
+    aplicaDeduccionesLey: !!f.aplicaDeduccionesLey,
   };
 }
 
@@ -172,6 +175,7 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos, ingres
         notas: form.notas.trim(),
         codigoEmpleado: form.codigoEmpleado.trim(),
         diasVacacionesAnuales: parseInt(form.diasVacacionesAnuales, 10) || null,
+        aplicaDeduccionesLey: form.aplicaDeduccionesLey,
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -198,6 +202,7 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos, ingres
         notas: editForm.notas.trim(),
         codigoEmpleado: editForm.codigoEmpleado.trim(),
         diasVacacionesAnuales: parseInt(editForm.diasVacacionesAnuales, 10) || null,
+        aplicaDeduccionesLey: editForm.aplicaDeduccionesLey,
       });
       cancelEdit();
     } catch (err) {
@@ -307,6 +312,33 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos, ingres
                 <option key={e} value={e}>{e}</option>
               ))}
             </select>
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-soft)", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={form.aplicaDeduccionesLey}
+                onChange={(e) => setForm({ ...form, aplicaDeduccionesLey: e.target.checked })}
+              />
+              Este ingreso tiene deducciones de ley (AFP, SFS, ISR) — el monto de arriba es bruto
+            </label>
+            {form.aplicaDeduccionesLey &&
+              (() => {
+                const monto = parseFloat(form.montoEsperado);
+                if (!Number.isFinite(monto) || monto <= 0) return null;
+                const factor = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1 / 12, Único: 0 }[form.frecuencia] ?? 1;
+                const bruto = monto * factor;
+                const { afp, sfs, isr, neto } = calcularDeduccionesLey(bruto);
+                const netoPorPago = factor > 0 ? neto / factor : neto;
+                return (
+                  <div style={{ fontSize: 11, color: "var(--sage)", marginTop: 6, lineHeight: 1.5 }}>
+                    AFP: {formatMoney(afp / (factor || 1))} · SFS: {formatMoney(sfs / (factor || 1))} · ISR: {formatMoney(isr / (factor || 1))}
+                    <br />
+                    Neto estimado por pago: <strong>{formatMoney(netoPorPago)}</strong>
+                  </div>
+                );
+              })()}
           </div>
 
           <input
@@ -422,6 +454,32 @@ export default function FuentesIngreso({ fuentes, entidades, movimientos, ingres
                         <option key={e} value={e}>{e}</option>
                       ))}
                     </select>
+                  </div>
+                  <div style={{ marginBottom: 8 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-soft)", cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={editForm.aplicaDeduccionesLey}
+                        onChange={(e) => setEditForm({ ...editForm, aplicaDeduccionesLey: e.target.checked })}
+                      />
+                      Este ingreso tiene deducciones de ley (AFP, SFS, ISR) — el monto de arriba es bruto
+                    </label>
+                    {editForm.aplicaDeduccionesLey &&
+                      (() => {
+                        const monto = parseFloat(editForm.montoEsperado);
+                        if (!Number.isFinite(monto) || monto <= 0) return null;
+                        const factor = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1 / 12, Único: 0 }[editForm.frecuencia] ?? 1;
+                        const bruto = monto * factor;
+                        const { afp, sfs, isr, neto } = calcularDeduccionesLey(bruto);
+                        const netoPorPago = factor > 0 ? neto / factor : neto;
+                        return (
+                          <div style={{ fontSize: 11, color: "var(--sage)", marginTop: 6, lineHeight: 1.5 }}>
+                            AFP: {formatMoney(afp / (factor || 1))} · SFS: {formatMoney(sfs / (factor || 1))} · ISR: {formatMoney(isr / (factor || 1))}
+                            <br />
+                            Neto estimado por pago: <strong>{formatMoney(netoPorPago)}</strong>
+                          </div>
+                        );
+                      })()}
                   </div>
                   <input
                     placeholder="Código de empleado (opcional)"

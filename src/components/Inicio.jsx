@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import { ingresoMensualNeto } from "../lib/deduccionesLey";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -824,14 +825,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
       }, 0);
   }, [tarjetas, tipoCambioUSD]);
 
-  const ingresoMensual = useMemo(() => {
-    let total = 0;
-    for (const f of fuentesIngreso) {
-      if (f.estado !== "Activo" || f.montoEsperado == null) continue;
-      total += f.montoEsperado * (FRECUENCIA_FACTOR[f.frecuencia] ?? 1);
-    }
-    return total;
-  }, [fuentesIngreso]);
+  const ingresoMensual = useMemo(() => ingresoMensualNeto(fuentesIngreso), [fuentesIngreso]);
 
   const deudaMensual = cuotaPrestamos + pagoTarjetas;
   const pct = ingresoMensual > 0 ? (deudaMensual / ingresoMensual) * 100 : null;
