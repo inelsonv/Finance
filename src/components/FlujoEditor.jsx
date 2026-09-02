@@ -106,8 +106,23 @@ function ingresoMensualCalculado(fuentesIngreso) {
 function ActivityFlowNode({ data }) {
   const color = data.color || "#5b7a5b";
   const esIngreso = data.tipo === "ingreso";
+
+  const tooltipLineas = [data.label];
+  if (data.amount != null) {
+    let lineaMonto = formatMoney(data.amount);
+    if (data.calculado) lineaMonto += " (10% automático)";
+    tooltipLineas.push(lineaMonto);
+  } else if (!esIngreso) {
+    tooltipLineas.push("Sin monto asignado");
+  }
+  if (data.progresoPct != null) tooltipLineas.push(`${Math.round(data.progresoPct)}% pagado del total`);
+  if (data.categoriaGasto) tooltipLineas.push(`Categoría de gasto: ${data.categoriaGasto}`);
+  if (data.clasificacion) tooltipLineas.push(data.clasificacion);
+  const tooltip = tooltipLineas.join("\n");
+
   return (
     <div
+      title={tooltip}
       style={{
         display: "flex",
         alignItems: "center",
@@ -146,7 +161,6 @@ function ActivityFlowNode({ data }) {
       </div>
       <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
         <div
-          title={data.label}
           style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#fff" }}
         >
           {data.label}
