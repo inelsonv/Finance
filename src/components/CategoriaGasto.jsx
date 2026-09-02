@@ -178,7 +178,22 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
                 }}
               >
                 <span style={{ color: c.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)" }}>{c.nombre}</span>
-                <span style={{ color: "var(--ink-soft)", fontSize: 10.5 }}>{c.clasificacion}</span>
+                <button
+                  onClick={() => updateCategoriaGasto(c.id, { clasificacion: c.clasificacion === "Fijo" ? "Variable" : "Fijo" })}
+                  title="Clic para cambiar entre Fijo y Variable"
+                  style={{
+                    fontSize: 10.5,
+                    padding: "2px 8px",
+                    borderRadius: 20,
+                    border: `1px solid ${c.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)"}`,
+                    background: "transparent",
+                    color: c.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)",
+                    cursor: "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  {c.clasificacion}
+                </button>
                 <button
                   onClick={() => updateCategoriaGasto(c.id, { agruparConCompromisos: !c.agruparConCompromisos })}
                   title={c.agruparConCompromisos ? "Mostrándose junto a Compromisos financieros — clic para quitar" : "Mostrar junto a Compromisos financieros"}
