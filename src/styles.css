@@ -320,3 +320,25 @@ button:hover {
 .despensa-scroll-x::-webkit-scrollbar-thumb:hover {
   background: var(--ink-soft);
 }
+
+.despensa-acciones-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+.despensa-acciones-card {
+  flex: 0 0 120px;
+}
+
+/* En móvil, en vez de una sola fila con scroll lateral, se acomodan en una
+   cuadrícula de 3 columnas (ej. 6 acciones = 2 filas de 3). */
+@media (max-width: 640px) {
+  .despensa-acciones-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    overflow-x: visible;
+  }
+  .despensa-acciones-card {
+    flex: none;
+  }
+}
