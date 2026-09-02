@@ -740,50 +740,75 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
         </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10, alignItems: "center" }}>
-        <button onClick={addNode} style={btnStyle("var(--ink)", "var(--paper)")}>
-          <Plus size={14} /> Agregar actividad personalizada
-        </button>
-        <button onClick={handleSave} disabled={saving || !dirty} style={btnStyle(dirty ? "var(--sage)" : "var(--line)", "#fff", !dirty)}>
-          <Save size={14} /> {saving ? "Guardando…" : dirty ? "Guardar cambios" : "Guardado"}
-        </button>
-        <button onClick={resetDefault} style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}>
-          <RotateCcw size={14} /> Restaurar ejemplo
-        </button>
-        <button onClick={generarPlantillaCompleta} style={btnStyle("var(--sage-bg)", "var(--sage)", false, false)}>
-          <ListOrdered size={14} /> Generar cascada de prioridad
-        </button>
-        <select
-          value={zoomPct}
-          onChange={(e) => {
-            const pct = Number(e.target.value);
-            setZoomPct(pct);
-            if (rfInstance.current) {
-              rfInstance.current.zoomTo(pct / 100, { duration: 200 });
-            }
-            setDirty(true);
-          }}
-          title="Nivel de zoom guardado"
-          style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--paper)", color: "var(--ink)", cursor: "pointer" }}
-        >
-          {[25, 50, 75, 100, 125, 150, 200].map((p) => (
-            <option key={p} value={p}>Zoom {p}%</option>
-          ))}
-        </select>
-        <button onClick={clearAll} style={btnStyle("var(--card)", "var(--stamp)", false, true)}>
-          <Trash2 size={14} /> Vaciar
-        </button>
-        <button
-          onClick={() => setCanvasAltura((h) => (h >= ALTURA_MAX ? ALTURA_BASE : h + 400))}
-          style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}
-        >
-          <Maximize2 size={14} /> {canvasAltura > ALTURA_BASE ? "Ampliar más" : "Ampliar lienzo"}
-        </button>
-        {canvasAltura > ALTURA_BASE && (
-          <button onClick={() => setCanvasAltura(ALTURA_BASE)} style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}>
-            <Minimize2 size={14} /> Reducir
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 10,
+          marginBottom: 10,
+          alignItems: "center",
+          background: "var(--card)",
+          border: "1px solid var(--line)",
+          borderRadius: 10,
+          padding: "8px 10px",
+        }}
+      >
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={addNode} style={btnStyle("var(--ink)", "var(--paper)")}>
+            <Plus size={14} /> Agregar actividad
           </button>
-        )}
+          <button onClick={generarPlantillaCompleta} style={btnStyle("var(--sage-bg)", "var(--sage)", false, false)}>
+            <ListOrdered size={14} /> Generar cascada de prioridad
+          </button>
+        </div>
+
+        <div style={{ width: 1, alignSelf: "stretch", background: "var(--line)" }} />
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={handleSave} disabled={saving || !dirty} style={btnStyle(dirty ? "var(--sage)" : "var(--line)", "#fff", !dirty)}>
+            <Save size={14} /> {saving ? "Guardando…" : dirty ? "Guardar cambios" : "Guardado"}
+          </button>
+          <button onClick={resetDefault} style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}>
+            <RotateCcw size={14} /> Restaurar ejemplo
+          </button>
+          <button onClick={clearAll} style={btnStyle("var(--card)", "var(--stamp)", false, true)}>
+            <Trash2 size={14} /> Vaciar
+          </button>
+        </div>
+
+        <div style={{ width: 1, alignSelf: "stretch", background: "var(--line)" }} />
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select
+            value={zoomPct}
+            onChange={(e) => {
+              const pct = Number(e.target.value);
+              setZoomPct(pct);
+              if (rfInstance.current) {
+                rfInstance.current.zoomTo(pct / 100, { duration: 200 });
+              }
+              setDirty(true);
+            }}
+            title="Nivel de zoom guardado"
+            style={{ padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--paper)", color: "var(--ink)", cursor: "pointer" }}
+          >
+            {[25, 50, 75, 100, 125, 150, 200].map((p) => (
+              <option key={p} value={p}>Zoom {p}%</option>
+            ))}
+          </select>
+          <button
+            onClick={() => setCanvasAltura((h) => (h >= ALTURA_MAX ? ALTURA_BASE : h + 400))}
+            style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}
+          >
+            <Maximize2 size={14} /> {canvasAltura > ALTURA_BASE ? "Ampliar más" : "Ampliar lienzo"}
+          </button>
+          {canvasAltura > ALTURA_BASE && (
+            <button onClick={() => setCanvasAltura(ALTURA_BASE)} style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}>
+              <Minimize2 size={14} /> Reducir
+            </button>
+          )}
+        </div>
+
         <span style={{ fontSize: 11.5, color: "var(--ink-soft)", marginLeft: "auto" }}>
           Arrastra para mover · Conecta desde el borde de un nodo · Doble clic en un nodo para editar monto
         </span>
@@ -1008,7 +1033,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
           deleteKeyCode={["Backspace", "Delete"]}
         >
           <Background color="var(--line)" gap={16} />
-          <Controls />
+          <Controls position="top-right" />
           <MiniMap nodeColor={() => "var(--sage)"} style={{ background: "var(--paper)" }} maskColor="rgba(0,0,0,0.05)" />
         </ReactFlow>
       </div>
