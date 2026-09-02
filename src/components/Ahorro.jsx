@@ -100,6 +100,23 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
     return total;
   }, [fuentesIngreso]);
 
+  // Mismo cálculo que el KPI "Fondo de emergencia" de Inicio: gasto total del
+  // año en curso ÷ mes actual, para sugerir cuánto se necesita ahorrar (3
+  // meses de ese promedio) sin tener que calcularlo a mano.
+  const gastoMensualPromedio = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    let total = 0;
+    for (const m of movimientos) {
+      if (m.type !== "Gasto" || !m.date) continue;
+      const [y] = m.date.split("-").map(Number);
+      if (y !== year) continue;
+      total += Number(m.amount) || 0;
+    }
+    return total / Math.max(currentMonth, 1);
+  }, [movimientos]);
+
   const aportadoPorCuenta = useMemo(() => {
     const map = {};
     for (const c of cuentas) {
@@ -283,6 +300,28 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
             onChange={(e) => setF({ ...f, montoObjetivo: e.target.value })}
             style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
           />
+          {gastoMensualPromedio > 0 && (
+            <button
+              type="button"
+              onClick={() => setF({ ...f, montoObjetivo: String(Math.round(gastoMensualPromedio * 3 * 100) / 100) })}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                padding: "7px 10px",
+                fontSize: 11.5,
+                fontWeight: 500,
+                background: "var(--sage-bg)",
+                color: "var(--sage)",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              Usar 3 meses de gasto promedio: {formatMoney(gastoMensualPromedio * 3)}
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ marginBottom: 8 }}>
