@@ -11,7 +11,7 @@ import ReactFlow, {
   MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt, Church } from "lucide-react";
+import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt, Church, ListOrdered } from "lucide-react";
 import { saveFlujo } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
@@ -164,7 +164,7 @@ function nextId() {
   return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) {
+export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro }) {
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
   const [colorIndex, setColorIndex] = useState(0);
@@ -373,6 +373,114 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
     setDirty(true);
   };
 
+  // Arma automáticamente la cascada completa de prioridad, usando tus datos
+  // reales de préstamos y metas de ahorro: Ingreso → Diezmo (10% auto) →
+  // Pago de deudas (con un nodo por cada préstamo activo) → Ahorro (con un
+  // nodo por cada meta activa) → Gastos fijos → Gastos variables →
+  // Inversión → Excedente.
+  const generarPlantillaCompleta = async () => {
+    if (!(await confirm("¿Generar la cascada completa de prioridad? Se perderán tus cambios actuales en el diagrama."))) return;
+
+    const nuevosNodos = [];
+    const nuevasAristas = [];
+    let colorIdx = 0;
+    const color = () => PALETTE[colorIdx++ % PALETTE.length];
+    const conectar = (sourceId, targetId) => {
+      nuevasAristas.push({ id: `e-${sourceId}-${targetId}`, source: sourceId, target: targetId, ...edgeStyle(color()) });
+    };
+
+    let y = 20;
+    const centerX = 260;
+    const step = 130;
+
+    // 1. Ingreso
+    const ingresoId = nextId();
+    nuevosNodos.push({
+      id: ingresoId,
+      type: "activity",
+      position: { x: centerX, y },
+      data: { label: "Ingreso", amount: ingresoSugerido > 0 ? Math.round(ingresoSugerido * 100) / 100 : null, color: PALETTE[0], icon: "trendingUp", tipo: "ingreso", role: "ingreso" },
+    });
+    y += step;
+
+    // 2. Diezmo (calcula solo, 10% del Ingreso)
+    const diezmoId = nextId();
+    nuevosNodos.push({ id: diezmoId, type: "activity", position: { x: centerX, y }, data: { label: "Diezmo", amount: null, color: PALETTE[5], icon: "church", tipo: "categoria" } });
+    conectar(ingresoId, diezmoId);
+    y += step;
+
+    // 3. Pago de deudas + un nodo por cada préstamo activo
+    const prestamosActivos = (prestamos || []).filter((p) => p.estado === "Activo");
+    const totalDeudas = prestamosActivos.reduce((s, p) => s + (Number(p.cuota) || 0), 0);
+    const deudasId = nextId();
+    nuevosNodos.push({ id: deudasId, type: "activity", position: { x: centerX, y }, data: { label: "Pago de deudas", amount: totalDeudas > 0 ? totalDeudas : null, color: PALETTE[3], icon: "landmark", tipo: "categoria" } });
+    conectar(diezmoId, deudasId);
+    if (prestamosActivos.length > 0) {
+      const yPrestamos = y + step;
+      const anchoTotal = (prestamosActivos.length - 1) * 160;
+      prestamosActivos.forEach((p, i) => {
+        const pid = nextId();
+        nuevosNodos.push({
+          id: pid,
+          type: "activity",
+          position: { x: centerX - anchoTotal / 2 + i * 160, y: yPrestamos },
+          data: { label: `Préstamo ${p.numero || i + 1}`, amount: Number(p.cuota) || null, color: PALETTE[3], icon: "landmark", tipo: "categoria" },
+        });
+        conectar(deudasId, pid);
+      });
+    }
+    y += step;
+
+    // 4. Ahorro + un nodo por cada meta activa
+    const metasActivas = (metasAhorro || []).filter((m) => m.estado === "Activa");
+    const ahorroId = nextId();
+    nuevosNodos.push({ id: ahorroId, type: "activity", position: { x: centerX, y }, data: { label: "Ahorro", amount: null, color: PALETTE[0], icon: "piggyBank", tipo: "categoria" } });
+    conectar(deudasId, ahorroId);
+    if (metasActivas.length > 0) {
+      const yMetas = y + step;
+      const anchoTotal = (metasActivas.length - 1) * 160;
+      metasActivas.forEach((m, i) => {
+        const mid = nextId();
+        nuevosNodos.push({
+          id: mid,
+          type: "activity",
+          position: { x: centerX - anchoTotal / 2 + i * 160, y: yMetas },
+          data: { label: m.nombre || "Meta", amount: null, color: PALETTE[0], icon: "piggyBank", tipo: "categoria" },
+        });
+        conectar(ahorroId, mid);
+      });
+    }
+    y += step;
+
+    // 5. Gastos fijos
+    const fijosId = nextId();
+    nuevosNodos.push({ id: fijosId, type: "activity", position: { x: centerX, y }, data: { label: "Gastos fijos", amount: null, color: PALETTE[1], icon: "home", tipo: "categoria" } });
+    conectar(ahorroId, fijosId);
+    y += step;
+
+    // 6. Gastos variables
+    const variablesId = nextId();
+    nuevosNodos.push({ id: variablesId, type: "activity", position: { x: centerX, y }, data: { label: "Gastos variables", amount: null, color: PALETTE[2], icon: "shoppingBag", tipo: "categoria" } });
+    conectar(fijosId, variablesId);
+    y += step;
+
+    // 7. Inversión
+    const inversionId = nextId();
+    nuevosNodos.push({ id: inversionId, type: "activity", position: { x: centerX, y }, data: { label: "Inversión", amount: null, color: PALETTE[4], icon: "trendingUp", tipo: "categoria" } });
+    conectar(variablesId, inversionId);
+    y += step;
+
+    // 8. Excedente — lo que sobre después de todo lo anterior
+    const excedenteId = nextId();
+    nuevosNodos.push({ id: excedenteId, type: "activity", position: { x: centerX, y }, data: { label: "Excedente", amount: null, color: PALETTE[5], icon: "coins", tipo: "categoria" } });
+    conectar(inversionId, excedenteId);
+
+    setNodes(nuevosNodos);
+    setEdges(nuevasAristas);
+    setColorIndex(colorIdx);
+    setDirty(true);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -508,6 +616,9 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto }) 
         </button>
         <button onClick={resetDefault} style={btnStyle("var(--card)", "var(--ink-soft)", false, true)}>
           <RotateCcw size={14} /> Restaurar ejemplo
+        </button>
+        <button onClick={generarPlantillaCompleta} style={btnStyle("var(--sage-bg)", "var(--sage)", false, false)}>
+          <ListOrdered size={14} /> Generar cascada de prioridad
         </button>
         <select
           value={zoomPct}

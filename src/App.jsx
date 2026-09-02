@@ -718,7 +718,9 @@ export default function App() {
             diasCobro={diasCobro}
           />
         )}
-        {tab === "presupuesto-flujo" && <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} />}
+        {tab === "presupuesto-flujo" && (
+          <FlujoEditor flujo={flujo} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} prestamos={prestamos} metasAhorro={metasAhorro} />
+        )}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
         {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} />}
         {tab === "checklist-pagos" && (
