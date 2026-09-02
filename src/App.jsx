@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro } from "./lib/db";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/quincenaConfig";
 import { periodoKey } from "./lib/racha";
@@ -44,6 +44,7 @@ import Configuracion from "./components/Configuracion.jsx";
 import EscanearFactura from "./components/EscanearFactura.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
 import Puntos from "./components/Puntos.jsx";
+import HabitTracker from "./components/HabitTracker.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import NotificacionesPage from "./components/NotificacionesPage.jsx";
@@ -160,6 +161,8 @@ export default function App() {
   const [comprasProrateadas, setComprasProrateadas] = useState([]);
   const [sugerenciasInversion, setSugerenciasInversion] = useState([]);
   const [diasCobro, setDiasCobro] = useState([15, 30]);
+  const [habitos, setHabitos] = useState([]);
+  const [habitosRegistro, setHabitosRegistro] = useState([]);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -281,6 +284,8 @@ export default function App() {
     const unsubComprasProrateadas = watchComprasProrateadas(setComprasProrateadas, handleError);
     const unsubSugerenciasInversion = watchSugerenciasInversion(setSugerenciasInversion, handleError);
     const unsubDiasCobro = watchDiasCobroConfig(setDiasCobro, handleError);
+    const unsubHabitos = watchHabitos(setHabitos, handleError);
+    const unsubHabitosRegistro = watchHabitosRegistro(setHabitosRegistro, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -317,6 +322,8 @@ export default function App() {
       unsubComprasProrateadas();
       unsubSugerenciasInversion();
       unsubDiasCobro();
+      unsubHabitos();
+      unsubHabitosRegistro();
       unsubStatus();
     };
   }, [authorized]);
@@ -640,6 +647,7 @@ export default function App() {
             topesAjuste={topesAjuste}
           />
         )}
+        {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} />}
         {tab === "compras" && (
           <Compras products={products} ordenesCompra={ordenesCompra} historialCompras={historialCompras} onNavigate={setTab} />
         )}

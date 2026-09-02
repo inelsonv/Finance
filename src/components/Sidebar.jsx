@@ -22,6 +22,7 @@ import {
   Zap,
   LineChart,
   Coins,
+  Flame,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -82,6 +83,7 @@ const NAV_ITEMS = [
     ],
   },
   { id: "entidades", label: "Entidades", icon: Landmark },
+  { id: "habitos", label: "Hábitos", icon: Flame },
 ];
 
 export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {

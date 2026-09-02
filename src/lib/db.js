@@ -357,6 +357,73 @@ export async function otorgarPuntos(motivo, puntos, tipo, movimientoId = null) {
   await setDoc(doc(db, "config", "puntos"), { total: increment(puntos) }, { merge: true });
 }
 
+// ---- Habit Tracker ----
+// Hábitos definidos libremente por el usuario (ej. "Buena alimentación",
+// "Consumo de agua"), con seguimiento diario y puntos por cumplirlos.
+const PUNTOS_POR_HABITO = 5;
+
+export function watchHabitos(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "habitos"), orderBy("createdAt", "asc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addHabito(nombre, icono) {
+  const nombreTrim = (nombre || "").trim();
+  if (!nombreTrim) throw new Error("Ponle un nombre al hábito");
+  await addDoc(collection(db, "habitos"), {
+    nombre: nombreTrim,
+    icono: icono || "check",
+    activo: true,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteHabito(id) {
+  await deleteDoc(doc(db, "habitos", id));
+}
+
+export function watchHabitosRegistro(onChange, onError) {
+  return onSnapshot(
+    collection(db, "habitosRegistro"),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+// Marca o desmarca un hábito para una fecha específica. Al marcarlo, otorga
+// puntos fijos; al desmarcarlo, revierte esos mismos puntos (protegido
+// contra doble-otorgamiento usando el ID del registro como llave del
+// documento).
+export async function toggleHabitoRegistro(habitoId, fecha, habitoNombre) {
+  const regId = `${habitoId}_${fecha}`;
+  const ref = doc(db, "habitosRegistro", regId);
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    await deleteDoc(ref);
+    const puntosSnap = await getDocs(query(collection(db, "puntosHistorial"), where("habitoRegistroId", "==", regId)));
+    for (const d of puntosSnap.docs) {
+      const puntos = Number(d.data().puntos) || 0;
+      await setDoc(doc(db, "config", "puntos"), { total: increment(-puntos) }, { merge: true });
+      await deleteDoc(d.ref);
+    }
+  } else {
+    await setDoc(ref, { habitoId, fecha, createdAt: serverTimestamp() });
+    await addDoc(collection(db, "puntosHistorial"), {
+      motivo: `Hábito cumplido: ${habitoNombre}`,
+      puntos: PUNTOS_POR_HABITO,
+      tipo: "habito",
+      fecha,
+      habitoRegistroId: regId,
+      createdAt: serverTimestamp(),
+    });
+    await setDoc(doc(db, "config", "puntos"), { total: increment(PUNTOS_POR_HABITO) }, { merge: true });
+  }
+}
+
 // Evalúa si una quincena YA CERRADA cumplió el presupuesto (gastado <=
 // presupuestado). Se protege contra evaluar la misma quincena dos veces
 // usando un documento por periodo en "presupuestoCumplimiento". Otorga el 5%
