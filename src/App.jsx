@@ -770,6 +770,7 @@ export default function App() {
             tarjetas={tarjetas}
             presupuesto={presupuestoAnual}
             diasCobro={diasCobro}
+            cuentas={cuentas}
           />
         )}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}

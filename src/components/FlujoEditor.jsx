@@ -223,7 +223,7 @@ function nextId() {
   return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos, tarjetas, presupuesto, diasCobro }) {
+export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos, tarjetas, presupuesto, diasCobro, cuentas }) {
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
   const [colorIndex, setColorIndex] = useState(0);
@@ -525,7 +525,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
           id: mid,
           type: "activity",
           position: { x: centerX - anchoTotal / 2 + i * 210, y: yMetas },
-          data: { label: m.nombre || "Meta", amount: null, color: PALETTE[0], icon: "piggyBank", tipo: "categoria" },
+          data: { label: m.nombre || "Meta", amount: null, color: PALETTE[0], icon: "piggyBank", tipo: "categoria", metaId: m.id },
         });
         conectar(ahorroId, mid);
       });
@@ -653,18 +653,39 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     return map;
   }, [movimientos]);
 
+  // Saldo actual de cada cuenta (mismo cálculo que usa el módulo de Ahorro):
+  // saldo inicial + todos los movimientos de esa cuenta cuya categoría
+  // coincide con el tipo de la cuenta.
+  const saldoPorCuenta = useMemo(() => {
+    const map = {};
+    for (const c of cuentas || []) {
+      let total = c.saldoInicial || 0;
+      for (const mv of movimientos || []) {
+        if (mv.cuentaId === c.id && mv.category === c.tipo) total += Number(mv.amount) || 0;
+      }
+      map[c.id] = total;
+    }
+    return map;
+  }, [cuentas, movimientos]);
+
   const progresoPorNodo = useMemo(() => {
     const map = new Map();
     for (const n of nodes) {
-      if (!n.data.prestamoId) continue;
-      const prestamo = (prestamos || []).find((p) => p.id === n.data.prestamoId);
-      const montoTotal = Number(prestamo?.montoAprobado) || 0;
-      if (montoTotal <= 0) continue;
-      const pagado = pagadoPorPrestamo[n.data.prestamoId] || 0;
-      map.set(n.id, Math.min((pagado / montoTotal) * 100, 100));
+      if (n.data.prestamoId) {
+        const prestamo = (prestamos || []).find((p) => p.id === n.data.prestamoId);
+        const montoTotal = Number(prestamo?.montoAprobado) || 0;
+        if (montoTotal <= 0) continue;
+        const pagado = pagadoPorPrestamo[n.data.prestamoId] || 0;
+        map.set(n.id, { pct: Math.min((pagado / montoTotal) * 100, 100) });
+      } else if (n.data.metaId) {
+        const meta = (metasAhorro || []).find((m) => m.id === n.data.metaId);
+        if (!meta || !meta.montoObjetivo || !meta.cuentaId) continue;
+        const saldo = saldoPorCuenta[meta.cuentaId] || 0;
+        map.set(n.id, { pct: Math.min((saldo / meta.montoObjetivo) * 100, 100), monto: saldo });
+      }
     }
     return map;
-  }, [nodes, prestamos, pagadoPorPrestamo]);
+  }, [nodes, prestamos, pagadoPorPrestamo, metasAhorro, saldoPorCuenta]);
 
   const nodesParaRender = useMemo(
     () =>
@@ -673,7 +694,8 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
           return { ...n, data: { ...n.data, amount: montosCalculados.get(n.id), calculado: true } };
         }
         if (progresoPorNodo.has(n.id)) {
-          return { ...n, data: { ...n.data, progresoPct: progresoPorNodo.get(n.id) } };
+          const info = progresoPorNodo.get(n.id);
+          return { ...n, data: { ...n.data, progresoPct: info.pct, ...(info.monto != null ? { amount: info.monto } : {}) } };
         }
         return n;
       }),
