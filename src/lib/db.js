@@ -385,6 +385,10 @@ export async function deleteHabito(id) {
   await deleteDoc(doc(db, "habitos", id));
 }
 
+export async function updateHabito(id, fields) {
+  await updateDoc(doc(db, "habitos", id), fields);
+}
+
 // Guarda el nuevo orden de los hábitos (arrastrar y soltar en la lista).
 // habitosEnOrden es un array de IDs en el orden deseado, de arriba a abajo.
 export async function reordenarHabitos(habitosEnOrden) {

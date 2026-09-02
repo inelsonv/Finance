@@ -40,8 +40,9 @@ import {
   GripVertical,
   ChevronUp,
   ChevronDown,
+  Pencil,
 } from "lucide-react";
-import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos } from "../lib/db";
+import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos, updateHabito } from "../lib/db";
 import { calcularRachaHabito, historialHabitoVisual } from "../lib/rachaHabito";
 import { confirm } from "../lib/confirm";
 
@@ -134,6 +135,41 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
     const nuevaLista = [...habitosOrdenados];
     [nuevaLista[idx], nuevaLista[otroIdx]] = [nuevaLista[otroIdx], nuevaLista[idx]];
     await reordenarHabitos(nuevaLista.map((h) => h.id));
+  };
+
+  const [editingId, setEditingId] = useState(null);
+  const [editNombre, setEditNombre] = useState("");
+  const [editIcono, setEditIcono] = useState("check");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
+
+  const openEdit = (h) => {
+    setEditingId(h.id);
+    setEditNombre(h.nombre);
+    setEditIcono(h.icono || "check");
+    setEditError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditError(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editNombre.trim()) {
+      setEditError("Ponle un nombre al hábito");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      await updateHabito(editingId, { nombre: editNombre.trim(), icono: editIcono });
+      setEditingId(null);
+    } catch (err) {
+      setEditError(err.message || String(err));
+    } finally {
+      setEditSaving(false);
+    }
   };
 
 
@@ -256,7 +292,7 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
             return (
               <div
                 key={h.id}
-                draggable
+                draggable={editingId !== h.id}
                 onDragStart={() => handleDragStart(h.id)}
                 onDragOver={(e) => handleDragOver(e, h.id)}
                 onDragEnd={handleDragEnd}
@@ -268,6 +304,60 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                   opacity: dragId === h.id ? 0.5 : 1,
                 }}
               >
+                {editingId === h.id ? (
+                  <div>
+                    <input
+                      autoFocus
+                      value={editNombre}
+                      onChange={(e) => setEditNombre(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && saveEdit()}
+                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+                    />
+                    <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+                      {Object.keys(ICONOS_HABITO).map((key) => {
+                        const IconOpt = ICONOS_HABITO[key];
+                        return (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setEditIcono(key)}
+                            style={{
+                              width: 28,
+                              height: 28,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              borderRadius: 8,
+                              border: editIcono === key ? "2px solid var(--sage)" : "1px solid var(--line)",
+                              background: editIcono === key ? "var(--sage-bg)" : "var(--paper)",
+                              color: editIcono === key ? "var(--sage)" : "var(--ink-soft)",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <IconOpt size={13} />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        onClick={saveEdit}
+                        disabled={editSaving}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: editSaving ? "not-allowed" : "pointer" }}
+                      >
+                        <Check size={12} /> {editSaving ? "Guardando…" : "Guardar"}
+                      </button>
+                      <button
+                        onClick={cancelEdit}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", fontSize: 12.5, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+                      >
+                        <X size={12} /> Cancelar
+                      </button>
+                    </div>
+                    {editError && <div style={{ marginTop: 8, fontSize: 12, color: "var(--stamp)" }}>{editError}</div>}
+                  </div>
+                ) : (
+                  <>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                   <div title="Arrastra para reordenar" style={{ cursor: "grab", color: "var(--ink-soft)", flexShrink: 0, touchAction: "none" }}>
                     <GripVertical size={14} />
@@ -320,6 +410,13 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                     </button>
                   </div>
                   <button
+                    onClick={() => openEdit(h)}
+                    title="Editar hábito"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, background: "transparent", color: "var(--ink-soft)", border: "none", borderRadius: 6, cursor: "pointer" }}
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
                     onClick={() => handleEliminar(h)}
                     title="Eliminar hábito"
                     style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, background: "transparent", color: "var(--ink-soft)", border: "none", borderRadius: 6, cursor: "pointer" }}
@@ -341,6 +438,8 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                     />
                   ))}
                 </div>
+                  </>
+                )}
               </div>
             );
           })}
