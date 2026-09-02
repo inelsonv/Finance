@@ -385,6 +385,12 @@ export async function deleteHabito(id) {
   await deleteDoc(doc(db, "habitos", id));
 }
 
+// Guarda el nuevo orden de los hábitos (arrastrar y soltar en la lista).
+// habitosEnOrden es un array de IDs en el orden deseado, de arriba a abajo.
+export async function reordenarHabitos(habitosEnOrden) {
+  await Promise.all(habitosEnOrden.map((id, index) => updateDoc(doc(db, "habitos", id), { orden: index })));
+}
+
 export function watchHabitosRegistro(onChange, onError) {
   return onSnapshot(
     collection(db, "habitosRegistro"),

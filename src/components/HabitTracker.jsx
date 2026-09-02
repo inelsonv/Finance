@@ -37,8 +37,11 @@ import {
   Pill,
   Wallet,
   PiggyBank,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
-import { addHabito, deleteHabito, toggleHabitoRegistro } from "../lib/db";
+import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos } from "../lib/db";
 import { calcularRachaHabito, historialHabitoVisual } from "../lib/rachaHabito";
 import { confirm } from "../lib/confirm";
 
@@ -90,6 +93,49 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
   const [error, setError] = useState(null);
 
   const hoy = todayStr();
+  const [dragId, setDragId] = useState(null);
+  const [ordenLocal, setOrdenLocal] = useState(null);
+
+  const habitosOrdenados = useMemo(() => {
+    if (ordenLocal) return ordenLocal;
+    return [...(habitos || [])].sort((a, b) => {
+      const oa = a.orden ?? 999999;
+      const ob = b.orden ?? 999999;
+      return oa - ob;
+    });
+  }, [habitos, ordenLocal]);
+
+  const handleDragStart = (id) => setDragId(id);
+
+  const handleDragOver = (e, sobreId) => {
+    e.preventDefault();
+    if (!dragId || dragId === sobreId) return;
+    const listaBase = ordenLocal || habitosOrdenados;
+    const desdeIdx = listaBase.findIndex((h) => h.id === dragId);
+    const haciaIdx = listaBase.findIndex((h) => h.id === sobreId);
+    if (desdeIdx === -1 || haciaIdx === -1) return;
+    const nuevaLista = [...listaBase];
+    const [movido] = nuevaLista.splice(desdeIdx, 1);
+    nuevaLista.splice(haciaIdx, 0, movido);
+    setOrdenLocal(nuevaLista);
+  };
+
+  const handleDragEnd = async () => {
+    setDragId(null);
+    if (ordenLocal) {
+      await reordenarHabitos(ordenLocal.map((h) => h.id));
+      setOrdenLocal(null);
+    }
+  };
+
+  const moverHabito = async (idx, dir) => {
+    const otroIdx = idx + dir;
+    if (otroIdx < 0 || otroIdx >= habitosOrdenados.length) return;
+    const nuevaLista = [...habitosOrdenados];
+    [nuevaLista[idx], nuevaLista[otroIdx]] = [nuevaLista[otroIdx], nuevaLista[idx]];
+    await reordenarHabitos(nuevaLista.map((h) => h.id));
+  };
+
 
   const fechasPorHabito = useMemo(() => {
     const map = {};
@@ -201,15 +247,31 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {habitos.map((h) => {
+          {habitosOrdenados.map((h, idx) => {
             const Icon = ICONOS_HABITO[h.icono] || Check;
             const fechas = fechasPorHabito[h.id] || [];
             const racha = calcularRachaHabito(fechas);
             const historial = historialHabitoVisual(fechas);
             const cumplidoHoy = fechas.includes(hoy);
             return (
-              <div key={h.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 12 }}>
+              <div
+                key={h.id}
+                draggable
+                onDragStart={() => handleDragStart(h.id)}
+                onDragOver={(e) => handleDragOver(e, h.id)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 10,
+                  padding: 12,
+                  opacity: dragId === h.id ? 0.5 : 1,
+                }}
+              >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div title="Arrastra para reordenar" style={{ cursor: "grab", color: "var(--ink-soft)", flexShrink: 0, touchAction: "none" }}>
+                    <GripVertical size={14} />
+                  </div>
                   <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--sage-bg)", color: "var(--sage)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     <Icon size={15} />
                   </div>
@@ -239,14 +301,31 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                   >
                     <Check size={13} /> {cumplidoHoy ? "Cumplido hoy" : "Marcar hoy"}
                   </button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                    <button
+                      onClick={() => moverHabito(idx, -1)}
+                      disabled={idx === 0}
+                      title="Subir"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 13, background: "transparent", color: idx === 0 ? "var(--line)" : "var(--ink-soft)", border: "none", cursor: idx === 0 ? "default" : "pointer" }}
+                    >
+                      <ChevronUp size={12} />
+                    </button>
+                    <button
+                      onClick={() => moverHabito(idx, 1)}
+                      disabled={idx === habitosOrdenados.length - 1}
+                      title="Bajar"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 13, background: "transparent", color: idx === habitosOrdenados.length - 1 ? "var(--line)" : "var(--ink-soft)", border: "none", cursor: idx === habitosOrdenados.length - 1 ? "default" : "pointer" }}
+                    >
+                      <ChevronDown size={12} />
+                    </button>
+                  </div>
                   <button
                     onClick={() => handleEliminar(h)}
                     title="Eliminar hábito"
                     style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, background: "transparent", color: "var(--ink-soft)", border: "none", borderRadius: 6, cursor: "pointer" }}
                   >
                     <Trash2 size={12} />
-                  </button>
-                </div>
+                  </button>                </div>
                 <div style={{ display: "flex", gap: 4 }}>
                   {historial.map((d) => (
                     <div
