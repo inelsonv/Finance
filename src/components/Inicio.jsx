@@ -687,12 +687,12 @@ function StocksCard() {
               {fetchError}
             </div>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
             {acciones.map((a) => {
             const p = prices[a.symbol];
             const up = p && p.change >= 0;
             return (
-              <div key={a.id} style={{ position: "relative", padding: "10px 10px 8px", background: "var(--paper)", borderRadius: 8, border: "1px solid var(--line-soft)" }}>
+              <div key={a.id} style={{ position: "relative", flex: "0 0 120px", padding: "10px 10px 8px", background: "var(--paper)", borderRadius: 8, border: "1px solid var(--line-soft)" }}>
                 <button
                   onClick={async () => {
                     if (await confirm("¿Quitar esta acción de tu lista de seguimiento?")) deleteAccion(a.id);
