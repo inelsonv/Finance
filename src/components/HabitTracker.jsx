@@ -44,7 +44,6 @@ import {
 } from "lucide-react";
 import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos, updateHabito } from "../lib/db";
 import { calcularRachaHabito, historialHabitoVisual, periodoDeFecha, periodosSinCumplir } from "../lib/rachaHabito";
-import { lanzarMonedaHaciaTrofeo } from "../lib/monedaVolando";
 import { confirm } from "../lib/confirm";
 
 // Lucide no tiene un ícono de "manos orando" — este es de Phosphor Icons
@@ -430,13 +429,7 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                     <GripVertical size={14} />
                   </div>
                   <button
-                    onClick={(e) => {
-                      if (!cumplidoHoy) {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        lanzarMonedaHaciaTrofeo(rect.left + rect.width / 2, rect.top + rect.height / 2);
-                      }
-                      toggleHabitoRegistro(h.id, periodoActual, h.nombre);
-                    }}
+                    onClick={() => toggleHabitoRegistro(h.id, periodoActual, h.nombre)}
                     title={cumplidoHoy ? `Cumplido ${etiquetaPeriodo} — toca para desmarcar` : `Marcar ${etiquetaPeriodo}`}
                     style={{
                       position: "relative",

@@ -3,6 +3,21 @@
 // hábito. Es un efecto puramente visual (DOM directo, sin estado de React)
 // para que sea liviano y no dependa de en qué componente se dispare.
 
+// Efecto visual: monedas que "vuelan" desde donde se generaron los puntos
+// hasta el trofeo de puntos en el encabezado. La cantidad de monedas es
+// proporcional a los puntos ganados (con un tope para no saturar la
+// pantalla en bonos grandes).
+export function lanzarMonedasHaciaTrofeo(origenX, origenY, puntosGanados = 5) {
+  const cantidad = Math.min(Math.max(Math.round(puntosGanados / 5), 1), 10);
+  for (let i = 0; i < cantidad; i++) {
+    setTimeout(() => {
+      const jitterX = origenX + (Math.random() - 0.5) * 40;
+      const jitterY = origenY + (Math.random() - 0.5) * 20;
+      lanzarMonedaHaciaTrofeo(jitterX, jitterY);
+    }, i * 70);
+  }
+}
+
 export function lanzarMonedaHaciaTrofeo(origenX, origenY) {
   const trofeo = document.getElementById("despensa-trofeo-header");
   if (!trofeo) return;

@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
+import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/quincenaConfig";
@@ -409,6 +410,27 @@ export default function App() {
       console.error("No se pudo evaluar el versículo diario:", err)
     );
   }, [authorized]);
+
+  // Cuando el total de puntos sube (sin importar de dónde vengan — hábitos,
+  // pagos de préstamo, cumplimiento de presupuesto, bonos, etc.), lanza una
+  // ráfaga de monedas hacia el trofeo del encabezado, proporcional a cuántos
+  // puntos se ganaron. No se dispara en la primera carga (solo en aumentos
+  // reales durante la sesión) ni cuando el total baja (canjes, reversiones).
+  const puntosAnteriores = useRef(null);
+  useEffect(() => {
+    if (typeof puntos !== "number") return;
+    if (puntosAnteriores.current === null) {
+      puntosAnteriores.current = puntos;
+      return;
+    }
+    const delta = puntos - puntosAnteriores.current;
+    puntosAnteriores.current = puntos;
+    if (delta > 0) {
+      const origenX = window.innerWidth / 2;
+      const origenY = window.innerHeight * 0.65;
+      lanzarMonedasHaciaTrofeo(origenX, origenY, delta);
+    }
+  }, [puntos]);
 
 
   // Al abrir la app, revisa si alguna categoría con tope configurado se
