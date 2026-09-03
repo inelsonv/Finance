@@ -616,6 +616,7 @@ export default function App() {
                 onOpenChange={setSearchOpen}
               />
               <button
+                id="despensa-trofeo-header"
                 onClick={() => setTab("puntos")}
                 title="Ver tus puntos"
                 className={`despensa-puntos-btn${searchOpen ? " despensa-header-left--search-open" : ""}`}
