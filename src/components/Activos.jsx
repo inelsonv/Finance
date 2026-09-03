@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Car, Home, Laptop, Package2, Wrench, Calendar, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, X, Pencil, Check, Car, Home, Laptop, Package2, Wrench, Calendar, DollarSign, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
 import { addActivo, deleteActivo, updateActivoEstado, updateActivo, addMantenimiento, deleteMantenimiento } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
@@ -36,6 +36,56 @@ function diasHasta(fecha) {
   hoy.setHours(0, 0, 0, 0);
   const target = new Date(fecha + "T00:00:00");
   return Math.round((target - hoy) / 86400000);
+}
+
+// Barra de vigencia de un seguro: 100% justo cuando empieza la póliza, baja
+// linealmente hasta 0% en la fecha de vencimiento. El color cambia según
+// cuánto quede: verde con tranquilidad, ámbar cerca del vencimiento, rojo
+// si ya venció.
+function SeguroVigenciaBar({ seguro }) {
+  if (!seguro?.fechaVencimiento) return null;
+
+  const inicio = seguro.fechaInicio ? new Date(seguro.fechaInicio + "T00:00:00") : null;
+  const fin = new Date(seguro.fechaVencimiento + "T00:00:00");
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const diasRestantes = diasHasta(seguro.fechaVencimiento);
+  let pct;
+  if (!inicio || inicio >= fin) {
+    // Sin fecha de inicio válida: solo se sabe cuánto falta, no el total
+    // de la vigencia — se muestra 100% si falta más de un año, escalando
+    // desde ahí hasta 0%.
+    pct = Math.max(0, Math.min(100, (diasRestantes / 365) * 100));
+  } else {
+    const totalDias = (fin - inicio) / 86400000;
+    const transcurridos = (hoy - inicio) / 86400000;
+    pct = Math.max(0, Math.min(100, 100 - (transcurridos / totalDias) * 100));
+  }
+
+  const color = diasRestantes < 0 ? "var(--stamp)" : diasRestantes <= 30 ? "#d9a441" : "var(--sage)";
+  const etiqueta =
+    diasRestantes < 0
+      ? `Vencido hace ${Math.abs(diasRestantes)}d`
+      : diasRestantes === 0
+      ? "Vence hoy"
+      : `${diasRestantes}d de cobertura restante`;
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4 }}>
+          <ShieldCheck size={11} /> {seguro.entidadName || seguro.tipo || "Seguro"}
+        </span>
+        <span className="despensa-mono" style={{ fontSize: 10.5, fontWeight: 600, color }}>
+          {etiqueta}
+        </span>
+      </div>
+      <div style={{ width: "100%", height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 4, transition: "width 0.3s ease" }} />
+      </div>
+    </div>
+  );
 }
 
 const emptyForm = () => ({
@@ -76,7 +126,7 @@ const emptyMantForm = () => ({
   notas: "",
 });
 
-export default function Activos({ activos, mantenimientos }) {
+export default function Activos({ activos, mantenimientos, seguros }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -99,6 +149,19 @@ export default function Activos({ activos, mantenimientos }) {
     }
     return map;
   }, [mantenimientos]);
+
+  // Para cada activo, el seguro vigente más relevante (el que vence más
+  // adelante, si tiene varios registrados) — para mostrar su vigencia con
+  // una barra de progreso decreciente.
+  const seguroPorActivo = useMemo(() => {
+    const map = {};
+    for (const s of seguros || []) {
+      if (!s.activoId || !s.fechaVencimiento) continue;
+      const actual = map[s.activoId];
+      if (!actual || s.fechaVencimiento > actual.fechaVencimiento) map[s.activoId] = s;
+    }
+    return map;
+  }, [seguros]);
 
   const startEdit = (a) => {
     setEditingId(a.id);
@@ -341,6 +404,7 @@ export default function Activos({ activos, mantenimientos }) {
             const Icon = TIPO_ICONS[a.tipo] || Package2;
             const isEditing = editingId === a.id;
             const historial = mantenimientosPorActivo[a.id] || [];
+            const seguroActivo = seguroPorActivo[a.id];
             const totalMantenimiento = historial.reduce((s, m) => s + (Number(m.costo) || 0), 0);
             const diasProximo = diasHasta(a.proximoMantenimiento);
             const expandido = expandidoId === a.id;
@@ -516,6 +580,8 @@ export default function Activos({ activos, mantenimientos }) {
                   <Field label="Próx. mantenimiento" value={a.proximoMantenimiento ? formatDateDisplay(a.proximoMantenimiento) : "—"} />
                   <Field label="Gastado en mantenimiento" value={<span style={{ color: totalMantenimiento > 0 ? "var(--stamp)" : "var(--ink)" }}>{formatMoney(totalMantenimiento)}</span>} />
                 </div>
+
+                {seguroActivo && <SeguroVigenciaBar seguro={seguroActivo} />}
 
                 {a.notas && <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 8 }}>{a.notas}</div>}
 

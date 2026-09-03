@@ -849,7 +849,7 @@ export default function App() {
         {tab === "calendario" && (
           <Calendario eventos={eventos} entidades={entidades} categoriasGasto={categoriasGasto} vacaciones={vacaciones} tarjetas={tarjetas} />
         )}
-        {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} />}
+        {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} seguros={seguros} />}
         {tab === "ahorro" && (
           <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} onNavigate={setTab} />
         )}
