@@ -1,6 +1,7 @@
-import React, { useMemo } from "react";
-import { Package, ClipboardList, Sparkles, ArrowRight, ShoppingCart } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Package, ClipboardList, Sparkles, ArrowRight, ShoppingCart, ChevronDown, ChevronUp } from "lucide-react";
 import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
+import Catalogo from "./Catalogo.jsx";
 
 const ESTADO_COLORES = {
   Borrador: { bg: "var(--line-soft)", color: "var(--ink-soft)" },
@@ -25,7 +26,8 @@ function totalOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function Compras({ products, ordenesCompra, historialCompras, onNavigate }) {
+export default function Compras({ products, ordenesCompra, historialCompras, onNavigate, entidades, categoriasGasto, comprasProrateadas }) {
+  const [showCatalogo, setShowCatalogo] = useState(true);
   const ordenesVigentes = useMemo(
     () => (ordenesCompra || []).filter((o) => o.estado !== "Completada" && o.estado !== "Cancelada"),
     [ordenesCompra]
@@ -51,10 +53,10 @@ export default function Compras({ products, ordenesCompra, historialCompras, onN
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
         <button
-          onClick={() => onNavigate("catalogo")}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 12.5, fontWeight: 500, background: "var(--card)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+          onClick={() => setShowCatalogo((s) => !s)}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 12.5, fontWeight: 500, background: showCatalogo ? "var(--sage)" : "var(--card)", color: showCatalogo ? "#fff" : "var(--ink)", border: showCatalogo ? "none" : "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
         >
-          <Package size={14} /> Ir a Catálogo <ArrowRight size={12} />
+          <Package size={14} /> {showCatalogo ? "Ocultar" : "Mostrar"} catálogo {showCatalogo ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </button>
         <button
           onClick={() => onNavigate("ordenes-compra")}
@@ -63,6 +65,20 @@ export default function Compras({ products, ordenesCompra, historialCompras, onN
           <ClipboardList size={14} /> Ir a Órdenes de compra <ArrowRight size={12} />
         </button>
       </div>
+
+      {showCatalogo && (
+        <div style={{ marginBottom: 24, paddingBottom: 4, borderBottom: "1px solid var(--line)" }}>
+          <Catalogo
+            products={products}
+            entidades={entidades}
+            historialCompras={historialCompras}
+            ordenesCompra={ordenesCompra}
+            onNavigate={onNavigate}
+            categoriasGasto={categoriasGasto}
+            comprasProrateadas={comprasProrateadas}
+          />
+        </div>
+      )}
 
       {sugerencias.length > 0 && (
         <div style={{ marginBottom: 20 }}>

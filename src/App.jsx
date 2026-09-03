@@ -726,7 +726,15 @@ export default function App() {
         )}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} />}
         {tab === "compras" && (
-          <Compras products={products} ordenesCompra={ordenesCompra} historialCompras={historialCompras} onNavigate={setTab} />
+          <Compras
+            products={products}
+            ordenesCompra={ordenesCompra}
+            historialCompras={historialCompras}
+            onNavigate={setTab}
+            entidades={entidades}
+            categoriasGasto={categoriasGasto}
+            comprasProrateadas={comprasProrateadas}
+          />
         )}
         {tab === "dinero-cuentas" && (
           <Finanzas cuentas={cuentas} metasAhorro={metasAhorro} fuentesIngreso={fuentesIngreso} movimientos={movimientos} onNavigate={setTab} />
