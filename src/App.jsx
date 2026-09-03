@@ -156,6 +156,7 @@ export default function App() {
   const [diezmoConfig, setDiezmoConfig] = useState(undefined);
   const [ahorroAutoConfig, setAhorroAutoConfig] = useState(undefined);
   const [puntos, setPuntos] = useState(0);
+  const puntosAnteriores = useRef(null);
   const [puntosHistorial, setPuntosHistorial] = useState([]);
   const [checklistTodos, setChecklistTodos] = useState({});
   const [categoriasPuntos, setCategoriasPuntos] = useState([]);
@@ -285,7 +286,18 @@ export default function App() {
     const unsubVacaciones = watchVacaciones(setVacaciones, handleError);
     const unsubDiezmo = watchDiezmoConfig(setDiezmoConfig, handleError);
     const unsubAhorroAuto = watchAhorroAutoConfig(setAhorroAutoConfig, handleError);
-    const unsubPuntos = watchPuntos(setPuntos, handleError);
+    const unsubPuntos = watchPuntos((val) => {
+      setPuntos(val);
+      if (puntosAnteriores.current !== null) {
+        const delta = val - puntosAnteriores.current;
+        if (delta > 0) {
+          const origenX = window.innerWidth / 2;
+          const origenY = window.innerHeight * 0.65;
+          lanzarMonedasHaciaTrofeo(origenX, origenY, delta);
+        }
+      }
+      puntosAnteriores.current = val;
+    }, handleError);
     const unsubPuntosHistorial = watchPuntosHistorial(setPuntosHistorial, handleError);
     const unsubChecklistTodos = watchChecklistTodos(setChecklistTodos, handleError);
     const unsubCategoriasPuntos = watchCategoriasPuntosConfig(setCategoriasPuntos, handleError);
@@ -411,26 +423,10 @@ export default function App() {
     );
   }, [authorized]);
 
-  // Cuando el total de puntos sube (sin importar de dónde vengan — hábitos,
-  // pagos de préstamo, cumplimiento de presupuesto, bonos, etc.), lanza una
-  // ráfaga de monedas hacia el trofeo del encabezado, proporcional a cuántos
-  // puntos se ganaron. No se dispara en la primera carga (solo en aumentos
-  // reales durante la sesión) ni cuando el total baja (canjes, reversiones).
-  const puntosAnteriores = useRef(null);
-  useEffect(() => {
-    if (typeof puntos !== "number") return;
-    if (puntosAnteriores.current === null) {
-      puntosAnteriores.current = puntos;
-      return;
-    }
-    const delta = puntos - puntosAnteriores.current;
-    puntosAnteriores.current = puntos;
-    if (delta > 0) {
-      const origenX = window.innerWidth / 2;
-      const origenY = window.innerHeight * 0.65;
-      lanzarMonedasHaciaTrofeo(origenX, origenY, delta);
-    }
-  }, [puntos]);
+  // Referencia usada por la suscripción a puntos (más abajo) para comparar
+  // cada valor nuevo contra el anterior REAL de Firestore, y así lanzar
+  // monedas solo en aumentos genuinos durante la sesión — nunca en la carga
+  // inicial de la app, que es cuando ocurría el falso positivo antes.
 
 
   // Al abrir la app, revisa si alguna categoría con tope configurado se
