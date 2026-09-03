@@ -46,3 +46,23 @@ export function elegirVersiculoAlAzar() {
   const idx = Math.floor(Math.random() * VERSICULOS.length);
   return VERSICULOS[idx];
 }
+
+// Intenta obtener un versículo al azar desde una API pública en vivo
+// (bolls.life, traducción RVR1960 en español, sin necesidad de clave). Si
+// falla por cualquier razón (sin internet, CORS, el servicio caído, etc.),
+// usa la lista local de respaldo — así el versículo diario nunca se rompe
+// por completo, aunque la fuente en línea no esté disponible.
+export async function obtenerVersiculoDelDia() {
+  try {
+    const res = await fetch("https://bolls.life/get-random-verse/RVR1960/");
+    if (!res.ok) throw new Error(`Respuesta ${res.status}`);
+    const data = await res.json();
+    const texto = (data.text || "").replace(/<[^>]+>/g, "").trim();
+    if (!texto) throw new Error("Respuesta sin texto");
+    const referencia = `${data.book_name || ""} ${data.chapter || ""}:${data.verse || ""}`.trim();
+    return { referencia, texto, fuente: "api" };
+  } catch (err) {
+    console.warn("No se pudo obtener el versículo desde la API en vivo, usando la lista local:", err);
+    return { ...elegirVersiculoAlAzar(), fuente: "local" };
+  }
+}

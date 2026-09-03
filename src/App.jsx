@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
-import { elegirVersiculoAlAzar, fechaHoyStr } from "./lib/versiculos";
+import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/quincenaConfig";
@@ -405,7 +405,7 @@ export default function App() {
   useEffect(() => {
     if (!authorized || versiculoEvaluado.current) return;
     versiculoEvaluado.current = true;
-    evaluarVersiculoDiario(fechaHoyStr(), elegirVersiculoAlAzar).catch((err) =>
+    evaluarVersiculoDiario(fechaHoyStr(), obtenerVersiculoDelDia).catch((err) =>
       console.error("No se pudo evaluar el versículo diario:", err)
     );
   }, [authorized]);

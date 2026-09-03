@@ -506,12 +506,12 @@ export function watchHabitosPenalizaciones(onChange, onError) {
 // Versículo diario — se elige uno al azar la primera vez que se abre la app
 // cada día, y se guarda (un documento por fecha) para que sea el mismo todo
 // el día, sin importar cuántas veces recargues.
-export async function evaluarVersiculoDiario(fechaStr, elegirVersiculoAlAzar) {
+export async function evaluarVersiculoDiario(fechaStr, obtenerVersiculo) {
   const ref = doc(db, "versiculoDiario", fechaStr);
   const snap = await getDoc(ref);
   if (snap.exists()) return;
-  const v = elegirVersiculoAlAzar();
-  await setDoc(ref, { fecha: fechaStr, referencia: v.referencia, texto: v.texto, createdAt: serverTimestamp() });
+  const v = await obtenerVersiculo();
+  await setDoc(ref, { fecha: fechaStr, referencia: v.referencia, texto: v.texto, fuente: v.fuente || "local", createdAt: serverTimestamp() });
 }
 
 export function watchVersiculoHoy(fechaStr, onChange, onError) {
