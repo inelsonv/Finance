@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Palmtree, Calendar, Briefcase, AlertTriangle } from "lucide-react";
-import { addVacacion, updateVacacion, deleteVacacion } from "../lib/db";
+import { Plus, Trash2, X, Pencil, Check, Palmtree, Calendar, Briefcase, AlertTriangle, Plane, ChevronDown, ChevronUp } from "lucide-react";
+import { addVacacion, updateVacacion, deleteVacacion, buscarVuelos } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import DateRangeCalendar from "./DateRangeCalendar.jsx";
 
@@ -290,6 +290,8 @@ export default function Vacaciones({ vacaciones, fuentesIngreso, categoriasGasto
         </div>
       )}
 
+      <BuscadorVuelos />
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
           <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4 }}>
@@ -381,6 +383,171 @@ export default function Vacaciones({ vacaciones, fuentesIngreso, categoriasGasto
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatDuracionISO(iso) {
+  // Convierte "PT4H30M" a "4h 30m".
+  if (!iso) return "";
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!m) return iso;
+  const h = m[1] ? `${m[1]}h` : "";
+  const min = m[2] ? `${m[2]}m` : "";
+  return [h, min].filter(Boolean).join(" ");
+}
+
+function formatHora(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+}
+
+function BuscadorVuelos() {
+  const [showBuscador, setShowBuscador] = useState(false);
+  const [origen, setOrigen] = useState("SDQ");
+  const [destino, setDestino] = useState("MIA");
+  const [fechaIda, setFechaIda] = useState("");
+  const [fechaVuelta, setFechaVuelta] = useState("");
+  const [adultos, setAdultos] = useState(1);
+  const [soloAA, setSoloAA] = useState(false);
+  const [buscando, setBuscando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const [error, setError] = useState(null);
+
+  const handleBuscar = async () => {
+    if (!origen.trim() || !destino.trim() || !fechaIda) {
+      setError("Completa origen, destino y fecha de ida");
+      return;
+    }
+    setBuscando(true);
+    setError(null);
+    setResultado(null);
+    try {
+      const data = await buscarVuelos({
+        origen: origen.trim().toUpperCase(),
+        destino: destino.trim().toUpperCase(),
+        fechaIda,
+        fechaVuelta: fechaVuelta || null,
+        adultos: Number(adultos) || 1,
+        aerolinea: soloAA ? "AA" : null,
+      });
+      setResultado(data);
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: 16, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+      <button
+        onClick={() => setShowBuscador((s) => !s)}
+        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "transparent", border: "none", cursor: "pointer", color: "var(--ink)" }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 600 }}>
+          <Plane size={15} /> Buscar y cotizar vuelos
+        </span>
+        {showBuscador ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
+
+      {showBuscador && (
+        <div style={{ padding: "0 14px 14px" }}>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 10, lineHeight: 1.5 }}>
+            Usa códigos de aeropuerto de 3 letras (ej. SDQ = Las Américas, MIA = Miami, JFK = Nueva York). Los precios vienen del entorno de pruebas de Amadeus — son representativos, no siempre coinciden al centavo con el precio final de compra.
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <input
+              placeholder="Origen (SDQ)"
+              value={origen}
+              onChange={(e) => setOrigen(e.target.value)}
+              maxLength={3}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, textTransform: "uppercase" }}
+            />
+            <input
+              placeholder="Destino (MIA)"
+              value={destino}
+              onChange={(e) => setDestino(e.target.value)}
+              maxLength={3}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, textTransform: "uppercase" }}
+            />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <input
+              type="date"
+              value={fechaIda}
+              onChange={(e) => setFechaIda(e.target.value)}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+            <input
+              type="date"
+              placeholder="Vuelta (opcional)"
+              value={fechaVuelta}
+              onChange={(e) => setFechaVuelta(e.target.value)}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }}>
+              Pasajeros:
+              <input
+                type="number"
+                min="1"
+                max="9"
+                value={adultos}
+                onChange={(e) => setAdultos(e.target.value)}
+                style={{ width: 50, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 13 }}
+              />
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, cursor: "pointer" }}>
+              <input type="checkbox" checked={soloAA} onChange={(e) => setSoloAA(e.target.checked)} />
+              Solo American Airlines
+            </label>
+          </div>
+          <button
+            onClick={handleBuscar}
+            disabled={buscando}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 13, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: buscando ? "not-allowed" : "pointer" }}
+          >
+            <Plane size={13} /> {buscando ? "Buscando…" : "Buscar vuelos"}
+          </button>
+
+          {error && <div style={{ marginTop: 10, fontSize: 12, color: "var(--stamp)" }}>{error}</div>}
+
+          {resultado && (
+            <div style={{ marginTop: 14 }}>
+              {resultado.ofertas.length === 0 ? (
+                <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>No se encontraron vuelos para esa búsqueda.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {resultado.ofertas.map((o, idx) => (
+                    <div key={idx} style={{ background: "var(--paper)", border: "1px solid var(--line-soft)", borderRadius: 8, padding: "10px 12px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <span className="despensa-mono" style={{ fontSize: 16, fontWeight: 700, color: "var(--sage)" }}>
+                          ${Number(o.precio).toLocaleString("es", { minimumFractionDigits: 2 })} {o.moneda}
+                        </span>
+                      </div>
+                      {o.itinerarios.map((it, i) => (
+                        <div key={i} style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 4 }}>
+                          {i === 0 ? "Ida" : "Vuelta"} · {formatDuracionISO(it.duracion)} · {it.escalas === 0 ? "directo" : `${it.escalas} escala(s)`}
+                          <br />
+                          {it.segmentos.map((s, si) => (
+                            <span key={si}>
+                              {s.aerolinea}{s.vuelo} {s.origen} {formatHora(s.salida)} → {s.destino} {formatHora(s.llegada)}
+                              {si < it.segmentos.length - 1 ? " · " : ""}
+                            </span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

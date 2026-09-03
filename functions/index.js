@@ -9,6 +9,8 @@ const db = getFirestore();
 
 const ALLOWED_EMAIL = "iventuramena@gmail.com";
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
+const amadeusApiKey = defineSecret("AMADEUS_API_KEY");
+const amadeusApiSecret = defineSecret("AMADEUS_API_SECRET");
 
 const UMBRAL_DIAS = 7;
 
@@ -538,4 +540,88 @@ exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request)
 
   if (!Array.isArray(parsed.items)) parsed.items = [];
   return parsed;
+});
+
+// Busca vuelos usando la API de Amadeus (Self-Service, entorno de pruebas
+// "test.api.amadeus.com" — el nivel gratuito de Amadeus for Developers no da
+// acceso al entorno de producción, así que los precios son representativos
+// pero no siempre 100% en tiempo real). Nunca expone la API Key/Secret al
+// navegador — todo el llamado ocurre aquí, del lado del servidor.
+exports.buscarVuelos = onCall({ secrets: [amadeusApiKey, amadeusApiSecret] }, async (request) => {
+  if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
+    throw new HttpsError("permission-denied", "No autorizado");
+  }
+
+  const { origen, destino, fechaIda, fechaVuelta, adultos, aerolinea } = request.data || {};
+  if (!origen || !destino || !fechaIda) {
+    throw new HttpsError("invalid-argument", "Falta origen, destino o fecha de ida");
+  }
+
+  // 1. Autenticación OAuth2 (client_credentials) contra Amadeus.
+  let tokenResp;
+  try {
+    tokenResp = await fetch("https://test.api.amadeus.com/v1/security/oauth2/token", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: amadeusApiKey.value(),
+        client_secret: amadeusApiSecret.value(),
+      }),
+    });
+  } catch (err) {
+    throw new HttpsError("internal", "No se pudo contactar Amadeus: " + err.message);
+  }
+  const tokenData = await tokenResp.json().catch(() => ({}));
+  if (!tokenResp.ok || !tokenData.access_token) {
+    throw new HttpsError("internal", tokenData?.error_description || "No se pudo autenticar con Amadeus. Verifica la API Key/Secret.");
+  }
+
+  // 2. Búsqueda de vuelos.
+  const params = new URLSearchParams({
+    originLocationCode: origen,
+    destinationLocationCode: destino,
+    departureDate: fechaIda,
+    adults: String(adultos || 1),
+    max: "12",
+    currencyCode: "USD",
+  });
+  if (fechaVuelta) params.set("returnDate", fechaVuelta);
+  if (aerolinea) params.set("includedAirlineCodes", aerolinea);
+
+  let vuelosResp;
+  try {
+    vuelosResp = await fetch(`https://test.api.amadeus.com/v2/shopping/flight-offers?${params.toString()}`, {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+  } catch (err) {
+    throw new HttpsError("internal", "No se pudo buscar vuelos: " + err.message);
+  }
+  const vuelosData = await vuelosResp.json().catch(() => ({}));
+  if (!vuelosResp.ok) {
+    throw new HttpsError("internal", vuelosData?.errors?.[0]?.detail || `Error de Amadeus (HTTP ${vuelosResp.status})`);
+  }
+
+  // Simplifica cada oferta a lo esencial para la interfaz.
+  const ofertas = (vuelosData.data || []).map((o) => {
+    const itinerarios = (o.itineraries || []).map((it) => ({
+      duracion: it.duration,
+      escalas: (it.segments || []).length - 1,
+      segmentos: (it.segments || []).map((s) => ({
+        aerolinea: s.carrierCode,
+        vuelo: s.number,
+        origen: s.departure?.iataCode,
+        destino: s.arrival?.iataCode,
+        salida: s.departure?.at,
+        llegada: s.arrival?.at,
+      })),
+    }));
+    return {
+      precio: o.price?.grandTotal,
+      moneda: o.price?.currency,
+      itinerarios,
+    };
+  });
+
+  return { ofertas, esEntornoDePrueba: true };
 });
