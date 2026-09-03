@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle, Pencil, History } from "lucide-react";
-import { addMovimiento, deleteMovimiento, updateMovimientoFecha } from "../lib/db";
+import { addMovimiento, deleteMovimiento, updateMovimientoFecha, marcarConsumosComoPagados } from "../lib/db";
 import SwipeableRow from "./SwipeableRow.jsx";
 import Pagination from "./Pagination.jsx";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
 import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
 
 const PAGE_SIZE = 10;
-import { quincenaDeFecha, consumoPresupuesto } from "../lib/presupuestoConsumo";
+import { quincenaDeFecha, consumoPresupuesto, consumoPresupuestoConTarjeta } from "../lib/presupuestoConsumo";
 import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
 import { confirm } from "../lib/confirm";
 
@@ -61,6 +61,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
+  const [consumosSeleccionados, setConsumosSeleccionados] = useState([]);
   const [saving, setSaving] = useState(false);
   const [expresCategory, setExpresCategory] = useState(null);
   const [expresAmount, setExpresAmount] = useState("");
@@ -164,6 +165,16 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const cuentasDelTipo = cuentas.filter((c) => c.tipo === form.tipo);
   const selectedCuenta = cuentas.find((c) => c.id === form.cuentaId);
   const selectedTarjeta = tarjetas.find((t) => t.id === form.tarjetaId);
+
+  // Consumos con esa tarjeta que todavía no se han marcado como pagados —
+  // para elegir cuáles cubre este pago específico.
+  const consumosPendientesTarjeta = useMemo(() => {
+    if (form.tipo !== "Pago de tarjeta" || !form.tarjetaId) return [];
+    return movimientos
+      .filter((m) => m.type === "Gasto" && m.metodoPago === "Tarjeta de crédito" && m.tarjetaId === form.tarjetaId && m.pagado === false)
+      .sort((a, b) => (a.date > b.date ? 1 : -1));
+  }, [movimientos, form.tipo, form.tarjetaId]);
+
   const selectedMembresia = membresias.find((m) => m.id === form.membresiaId);
   const selectedFuente = fuentesIngreso.find((f) => f.id === form.fuenteIngresoId);
   const selectedContrato = contratos.find((c) => c.id === form.contratoId);
@@ -257,6 +268,34 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         setFormError(`No puedes registrar gastos de "${form.category}" con la tarjeta ${tarjetaElegida.nombre} — esa categoría no está habilitada para ella.`);
         return;
       }
+      // No dejar que se acumule más consumo de tarjeta sin pagar en la
+      // quincena donde tocará pagarlo, si eso superaría el presupuesto de
+      // esa categoría para esa quincena — hay que pagar lo pendiente
+      // primero para liberar espacio, en vez de seguir generando deuda.
+      if (tarjetaElegida && presupuesto && presupuestoYear) {
+        const montoNum = parseFloat(form.amount);
+        const info = calcularFechaPagoTarjeta(tarjetaElegida, form.date);
+        if (info && Number.isFinite(montoNum) && montoNum > 0) {
+          const q = quincenaDeFecha(info.fechaPagoStr, diasCobro);
+          if (q && q.year === presupuestoYear) {
+            const resultado = consumoPresupuestoConTarjeta({
+              presupuesto,
+              movimientos,
+              categoria: form.category,
+              year: q.year,
+              month: q.month,
+              quincena: q.quincena,
+              diasCobro,
+            });
+            if (resultado && resultado.gastado + montoNum > resultado.presupuestado) {
+              setFormError(
+                `Ya tienes ${formatMoney(resultado.gastado)} de "${form.category}" sin pagar para la quincena donde tocará este pago (${formatDateDisplay(info.fechaPagoStr)}), de un presupuesto de ${formatMoney(resultado.presupuestado)}. Paga lo pendiente de esa tarjeta antes de seguir consumiendo en esta categoría.`
+              );
+              return;
+            }
+          }
+        }
+      }
     }
     if (form.tipo === "Pago de membresía" && !form.membresiaId) {
       setFormError("Selecciona la membresía que estás pagando");
@@ -280,7 +319,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       const fuente = fuentesIngreso.find((f) => f.id === form.fuenteIngresoId);
       const contrato = contratos.find((c) => c.id === form.contratoId);
       const cuenta = cuentas.find((c) => c.id === form.cuentaId);
-      await addMovimiento({
+      const nuevoMovRef = await addMovimiento({
         type: form.tipo === "Ingreso" ? "Ingreso" : "Gasto",
         category:
           form.tipo === "Pago de préstamo" ||
@@ -343,6 +382,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         contratoNombre: form.tipo === "Pago de servicio" ? contrato?.nombre || "" : "",
       });
 
+      if (form.tipo === "Pago de tarjeta" && consumosSeleccionados.length > 0) {
+        await marcarConsumosComoPagados(consumosSeleccionados, nuevoMovRef.id);
+      }
+
       if (form.tipo === "Pago de préstamo" && prestamo?.notificarWhatsapp) {
         const entidadPrestamo = entidades.find((e) => e.docId === prestamo.entidadId);
         const telefono = entidadPrestamo?.phone?.replace(/\D/g, "");
@@ -357,6 +400,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       }
 
       setForm(emptyForm());
+      setConsumosSeleccionados([]);
       setShowForm(false);
     } catch (err) {
       setFormError(err.message || String(err));
@@ -599,6 +643,52 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                           </button>
                         ))}
                       </div>
+                    </div>
+                  )}
+                  {consumosPendientesTarjeta.length > 0 && (
+                    <div style={{ marginTop: 10, borderTop: "1px solid var(--line-soft)", paddingTop: 10 }}>
+                      <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 6 }}>
+                        ¿Qué consumos pendientes cubre este pago? (opcional, pero libera el presupuesto de esas categorías)
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 160, overflowY: "auto" }}>
+                        {consumosPendientesTarjeta.map((c) => {
+                          const marcado = consumosSeleccionados.includes(c.id);
+                          return (
+                            <label
+                              key={c.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                fontSize: 12,
+                                padding: "6px 8px",
+                                borderRadius: 6,
+                                background: marcado ? "var(--sage-bg)" : "var(--paper)",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={marcado}
+                                onChange={() =>
+                                  setConsumosSeleccionados((prev) =>
+                                    marcado ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                                  )
+                                }
+                              />
+                              <span style={{ flex: 1, color: "var(--ink-soft)" }}>
+                                {formatDateDisplay(c.date)} · {c.category}
+                              </span>
+                              <span className="despensa-mono" style={{ fontWeight: 600 }}>{formatMoney(c.amount)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {consumosSeleccionados.length > 0 && (
+                        <div style={{ fontSize: 11, color: "var(--sage)", marginTop: 6 }}>
+                          Total seleccionado: {formatMoney(consumosPendientesTarjeta.filter((c) => consumosSeleccionados.includes(c.id)).reduce((s, c) => s + (Number(c.amount) || 0), 0))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </>

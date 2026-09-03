@@ -258,6 +258,7 @@ export async function addMovimiento({
     tarjetaNombre: tarjetaNombre || "",
     monedaTarjeta: monedaTarjeta || null,
     fechaPagoTarjeta: fechaPagoTarjeta || null,
+    pagado: type === "Gasto" && metodoPago === "Tarjeta de crédito" ? false : null,
     membresiaId: membresiaId || null,
     membresiaNombre: membresiaNombre || "",
     fuenteIngresoId: fuenteIngresoId || null,
@@ -968,6 +969,15 @@ export async function updateMovimientoFecha(id, nuevaFecha, motivo, fechaAnterio
       cambiadoEn: new Date().toISOString(),
     }),
   });
+}
+
+// Marca una lista de consumos de tarjeta (movimientos de tipo Gasto con
+// tarjeta) como pagados, vinculándolos al pago que los saldó — se usa al
+// registrar un "Pago de tarjeta" y elegir cuáles consumos pendientes cubre.
+export async function marcarConsumosComoPagados(movimientoIds, pagoId) {
+  await Promise.all(
+    movimientoIds.map((id) => updateDoc(doc(db, "movimientos", id), { pagado: true, pagoTarjetaId: pagoId || null }))
+  );
 }
 
 export async function deleteMovimiento(id) {

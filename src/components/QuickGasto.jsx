@@ -37,6 +37,7 @@ import {
 import { addMovimiento } from "../lib/db";
 import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
 import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
+import { quincenaDeFecha, consumoPresupuestoConTarjeta } from "../lib/presupuestoConsumo";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import TarjetasApiladas from "./TarjetasApiladas.jsx";
 
@@ -79,7 +80,17 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function QuickGasto({ categoriasGasto, onClose, tarjetas }) {
+function formatMoney(n) {
+  return `$${(Number(n) || 0).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimientos, presupuesto, presupuestoYear, diasCobro }) {
   const [categoria, setCategoria] = useState("");
   const [monto, setMonto] = useState("");
   const [metodoPago, setMetodoPago] = useState("Efectivo");
@@ -113,6 +124,32 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas }) {
       if (tarjetaElegida && !categoriaPermitidaEnTarjeta(tarjetaElegida, categoria)) {
         setError(`No puedes registrar gastos de "${categoria}" con la tarjeta ${tarjetaElegida.nombre} — esa categoría no está habilitada para ella.`);
         return;
+      }
+      // No dejar que se acumule más consumo de tarjeta sin pagar en la
+      // quincena donde tocará pagarlo, si eso superaría el presupuesto de
+      // esa categoría para esa quincena.
+      if (tarjetaElegida && presupuesto && presupuestoYear) {
+        const info = calcularFechaPagoTarjeta(tarjetaElegida, todayStr());
+        if (info) {
+          const q = quincenaDeFecha(info.fechaPagoStr, diasCobro);
+          if (q && q.year === presupuestoYear) {
+            const resultado = consumoPresupuestoConTarjeta({
+              presupuesto,
+              movimientos: movimientos || [],
+              categoria,
+              year: q.year,
+              month: q.month,
+              quincena: q.quincena,
+              diasCobro,
+            });
+            if (resultado && resultado.gastado + amount > resultado.presupuestado) {
+              setError(
+                `Ya tienes ${formatMoney(resultado.gastado)} de "${categoria}" sin pagar para la quincena donde tocará este pago (${formatDateDisplay(info.fechaPagoStr)}), de un presupuesto de ${formatMoney(resultado.presupuestado)}. Paga lo pendiente de esa tarjeta antes de seguir consumiendo en esta categoría.`
+              );
+              return;
+            }
+          }
+        }
       }
     }
     setSaving(true);

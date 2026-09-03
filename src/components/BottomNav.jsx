@@ -146,7 +146,17 @@ export default function BottomNav({
         </button>
       </nav>
 
-      {showGasto && <QuickGasto categoriasGasto={categoriasGasto} onClose={() => setShowGasto(false)} tarjetas={tarjetas} />}
+      {showGasto && (
+        <QuickGasto
+          categoriasGasto={categoriasGasto}
+          onClose={() => setShowGasto(false)}
+          tarjetas={tarjetas}
+          movimientos={movimientos}
+          presupuesto={presupuesto}
+          presupuestoYear={presupuestoYear}
+          diasCobro={diasCobro}
+        />
+      )}
     </>
   );
 }
