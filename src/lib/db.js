@@ -18,8 +18,7 @@ import {
   deleteField,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { db, storage, functions } from "../firebase";
-import { httpsCallable } from "firebase/functions";
+import { db, storage } from "../firebase";
 
 const productsCol = collection(db, "productos");
 const listCol = collection(db, "listaCompra");
@@ -2036,13 +2035,4 @@ export async function updateVacacion(id, fields) {
 
 export async function deleteVacacion(id) {
   await deleteDoc(doc(db, "vacaciones", id));
-}
-
-// Busca vuelos vía la Cloud Function "buscarVuelos" (que a su vez consulta
-// la API de Amadeus del lado del servidor, sin exponer la clave/secreto al
-// navegador). origen/destino son códigos IATA de 3 letras (ej. "SDQ", "MIA").
-export async function buscarVuelos({ origen, destino, fechaIda, fechaVuelta, adultos, aerolinea }) {
-  const fn = httpsCallable(functions, "buscarVuelos");
-  const res = await fn({ origen, destino, fechaIda, fechaVuelta, adultos, aerolinea });
-  return res.data;
 }
