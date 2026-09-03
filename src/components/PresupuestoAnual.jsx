@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { formatearOrdenPrioridad } from "../lib/flujoPrioridad";
-import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "../lib/quincenaConfig";
+import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuincenaConfigurado } from "../lib/quincenaConfig";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
@@ -275,6 +275,21 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   const diezmoMensual = diezmoConfig?.activo && ingresoMensual > 0 ? ingresoMensual * ((diezmoConfig.porcentaje || 0) / 100) : 0;
   const getCeldaDiezmo = () => (diezmoMensual > 0 ? diezmoMensual / 2 : 0);
 
+  // Consumos de tarjeta de crédito cuya fecha de pago calculada (corte +
+  // días de gracia de cada tarjeta) cae dentro de esta quincena específica
+  // — mismo criterio que la tarjeta "Próximos pagos" en Presupuesto, pero
+  // aquí extendido a cualquier mes/quincena de la tabla anual.
+  const getCeldaTarjetaPendiente = (mes, quincena) => {
+    const { fechaInicio, fechaFin } = rangoFechasQuincenaConfigurado(year, mes, quincena, diasCobro);
+    return (movimientos || []).reduce((s, m) => {
+      if (m.type !== "Gasto" || m.metodoPago !== "Tarjeta de crédito" || !m.fechaPagoTarjeta) return s;
+      if (m.fechaPagoTarjeta < fechaInicio || m.fechaPagoTarjeta > fechaFin) return s;
+      return s + (Number(m.amount) || 0);
+    }, 0);
+  };
+  const totalMesTarjetaPendiente = (mes) => getCeldaTarjetaPendiente(mes, "Q1") + getCeldaTarjetaPendiente(mes, "Q2");
+  const tarjetaPendienteAnual = MESES.reduce((s, _, i) => s + totalMesTarjetaPendiente(i + 1), 0);
+
   // Nivel de endeudamiento: % del ingreso mensual comprometido en cuotas de
   // préstamos + pagos mínimos de tarjetas (misma fórmula que el indicador de Inicio).
   const cuotaPrestamosMensual = useMemo(
@@ -431,6 +446,8 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         totals[`${m}-Q1`] += getCeldaDiezmo();
         totals[`${m}-Q2`] += getCeldaDiezmo();
       }
+      totals[`${m}-Q1`] += getCeldaTarjetaPendiente(m, "Q1");
+      totals[`${m}-Q2`] += getCeldaTarjetaPendiente(m, "Q2");
       if (ahorroMensual > 0) {
         totals[`${m}-Q1`] += getCeldaAhorroAuto();
         totals[`${m}-Q2`] += getCeldaAhorroAuto();
@@ -1363,6 +1380,63 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                   }}
                 >
                   {formatMoney(diezmoMensual * 12)}
+                </td>
+              </tr>
+            )}
+            {tarjetaPendienteAnual > 0 && (
+              <tr style={{ background: "transparent" }}>
+                <td
+                  style={{
+                    position: "sticky",
+                    left: 0,
+                    background: "var(--card)",
+                    padding: "6px 10px",
+                    borderRight: "1px solid var(--line)",
+                    borderBottom: "1px solid var(--line-soft)",
+                    fontFamily: "Inter, sans-serif",
+                    fontSize: 12.5,
+                    color: "var(--amber)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                  }}
+                  title="Calculado automáticamente desde los consumos registrados con tarjeta de crédito, según el corte y días de gracia de cada tarjeta"
+                >
+                  <CreditCard size={11} /> Pago de tarjeta pendiente
+                </td>
+                {MESES.map((_, i) => {
+                  const mes = i + 1;
+                  return QUINCENAS.map((q) => {
+                    const val = getCeldaTarjetaPendiente(mes, q);
+                    return (
+                      <td
+                        key={`tarjeta-pendiente-${mes}-${q}`}
+                        style={{
+                          borderBottom: "1px solid var(--line-soft)",
+                          borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                          padding: "6px 4px",
+                          textAlign: "right",
+                          color: "var(--amber)",
+                          opacity: val ? 1 : 0.35,
+                        }}
+                      >
+                        {formatMoney(val) || "—"}
+                      </td>
+                    );
+                  });
+                })}
+                <td
+                  style={{
+                    borderLeft: "1px solid var(--line)",
+                    borderBottom: "1px solid var(--line-soft)",
+                    padding: "7px 10px",
+                    textAlign: "right",
+                    fontWeight: 600,
+                    background: "var(--amber-bg)",
+                    color: "var(--amber)",
+                  }}
+                >
+                  {formatMoney(tarjetaPendienteAnual)}
                 </td>
               </tr>
             )}
