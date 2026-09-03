@@ -86,7 +86,7 @@ function CategoriasToggleList({ f, setF, categoriasGasto }) {
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Restringir a categorías específicas</span>
+        <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Habilitar categorías de gasto</span>
         <Switch
           checked={f.restringirCategorias}
           onChange={() => setF({ ...f, restringirCategorias: !f.restringirCategorias })}
