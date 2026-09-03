@@ -16,7 +16,7 @@ const COLORES = {
   morado: { label: "Morado", bg: "linear-gradient(135deg, #7a5ba0 0%, #402a5e 100%)", text: "#f5f0fa" },
 };
 
-function MembershipCard({ membresia }) {
+export function MembershipCard({ membresia }) {
   const c = COLORES[membresia.color] || COLORES.azul;
   return (
     <div
