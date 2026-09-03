@@ -43,7 +43,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos, updateHabito } from "../lib/db";
-import { calcularRachaHabito, historialHabitoVisual, periodoDeFecha } from "../lib/rachaHabito";
+import { calcularRachaHabito, historialHabitoVisual, periodoDeFecha, periodosSinCumplir } from "../lib/rachaHabito";
 import { confirm } from "../lib/confirm";
 
 // Lucide no tiene un ícono de "manos orando" — este es de Phosphor Icons
@@ -330,6 +330,9 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
             const periodoActual = periodoDeFecha(frecuenciaHabito, hoy);
             const cumplidoHoy = fechas.includes(periodoActual);
             const etiquetaPeriodo = frecuenciaHabito === "Semanal" ? "esta semana" : frecuenciaHabito === "Mensual" ? "este mes" : "hoy";
+            const sinCumplir = periodosSinCumplir(fechas, frecuenciaHabito, hoy);
+            const colorEstado = cumplidoHoy ? "var(--sage)" : sinCumplir <= 2 ? "#d9a441" : "var(--stamp)";
+            const colorEstadoBg = cumplidoHoy ? "var(--sage-bg)" : sinCumplir <= 2 ? "rgba(217,164,65,0.15)" : "var(--stamp-bg)";
             return (
               <div
                 key={h.id}
@@ -425,9 +428,46 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                   <div title="Arrastra para reordenar" style={{ cursor: "grab", color: "var(--ink-soft)", flexShrink: 0, touchAction: "none" }}>
                     <GripVertical size={14} />
                   </div>
-                  <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--sage-bg)", color: "var(--sage)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <Icon size={15} />
-                  </div>
+                  <button
+                    onClick={() => toggleHabitoRegistro(h.id, periodoActual, h.nombre)}
+                    title={cumplidoHoy ? `Cumplido ${etiquetaPeriodo} — toca para desmarcar` : `Marcar ${etiquetaPeriodo}`}
+                    style={{
+                      position: "relative",
+                      width: 36,
+                      height: 36,
+                      borderRadius: "50%",
+                      background: colorEstadoBg,
+                      color: colorEstado,
+                      border: "none",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    <Icon size={16} />
+                    {cumplidoHoy && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          bottom: -2,
+                          right: -2,
+                          width: 15,
+                          height: 15,
+                          borderRadius: "50%",
+                          background: "var(--sage)",
+                          border: "2px solid var(--card)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Check size={9} color="#fff" strokeWidth={3} />
+                      </span>
+                    )}
+                  </button>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                       {h.nombre}
@@ -443,24 +483,6 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
                       </div>
                     )}
                   </div>
-                  <button
-                    onClick={() => toggleHabitoRegistro(h.id, periodoActual, h.nombre)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 5,
-                      padding: "7px 12px",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      borderRadius: 8,
-                      border: cumplidoHoy ? "none" : "1px solid var(--line)",
-                      background: cumplidoHoy ? "var(--sage)" : "var(--paper)",
-                      color: cumplidoHoy ? "#fff" : "var(--ink-soft)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <Check size={13} /> {cumplidoHoy ? `Cumplido ${etiquetaPeriodo}` : `Marcar ${etiquetaPeriodo}`}
-                  </button>
                   <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                     <button
                       onClick={() => moverHabito(idx, -1)}

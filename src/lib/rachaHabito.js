@@ -86,6 +86,20 @@ export function historialHabitoVisual(periodosCompletados, frecuencia = "Diario"
   return lista;
 }
 
+// Cuenta cuántos periodos consecutivos llevan SIN marcarse, contando hacia
+// atrás desde el periodo actual (inclusive). 0 = ya está cumplido en este
+// periodo. Se usa para decidir el color del ícono (verde/amarillo/rojo).
+export function periodosSinCumplir(periodosCompletados, frecuencia = "Diario", hoy = new Date()) {
+  const set = new Set(periodosCompletados);
+  let cursor = periodoDeFecha(frecuencia, hoy);
+  let dias = 0;
+  while (!set.has(cursor) && dias < 3650) {
+    dias++;
+    cursor = periodoAnterior(frecuencia, cursor);
+  }
+  return dias;
+}
+
 // Revisa si el periodo INMEDIATAMENTE ANTERIOR al actual (ej. "ayer" para un
 // hábito diario) se quedó sin marcar, y si justo antes de ese hueco había
 // una racha de al menos `umbral` periodos consecutivos cumplidos. Si es así,
