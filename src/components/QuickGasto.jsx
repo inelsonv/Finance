@@ -1,8 +1,76 @@
 import React, { useState } from "react";
-import { X, Check, TrendingDown } from "lucide-react";
+import {
+  X,
+  Check,
+  TrendingDown,
+  Fuel,
+  SquareParking,
+  UtensilsCrossed,
+  Coffee,
+  Dumbbell,
+  Church,
+  Wrench,
+  Car,
+  Landmark,
+  Scissors,
+  HeartPulse,
+  Stethoscope,
+  Pill,
+  Repeat,
+  CreditCard,
+  Wifi,
+  Home,
+  ShoppingBag,
+  Shirt,
+  GraduationCap,
+  Baby,
+  Dog,
+  Gift,
+  Plane,
+  Bus,
+  Music,
+  Film,
+  Gamepad2,
+  BookOpen,
+  Receipt,
+} from "lucide-react";
 import { addMovimiento } from "../lib/db";
 import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
 import { calcularFechaPagoTarjeta } from "../lib/tarjetaCiclos";
+import { iconoParaCategoria } from "../lib/categoriaIconos";
+
+const ICONOS_CATEGORIA = {
+  fuel: Fuel,
+  parking: SquareParking,
+  utensils: UtensilsCrossed,
+  coffee: Coffee,
+  dumbbell: Dumbbell,
+  church: Church,
+  wrench: Wrench,
+  car: Car,
+  landmark: Landmark,
+  scissors: Scissors,
+  heartpulse: HeartPulse,
+  stethoscope: Stethoscope,
+  pill: Pill,
+  repeat: Repeat,
+  creditcard: CreditCard,
+  wifi: Wifi,
+  home: Home,
+  shoppingbag: ShoppingBag,
+  shirt: Shirt,
+  graduationcap: GraduationCap,
+  baby: Baby,
+  dog: Dog,
+  gift: Gift,
+  plane: Plane,
+  bus: Bus,
+  music: Music,
+  film: Film,
+  gamepad: Gamepad2,
+  book: BookOpen,
+  receipt: Receipt,
+};
 
 const METODOS = ["Efectivo", "Transferencia", "Tarjeta de crédito", "Débito", "Otro"];
 
@@ -108,24 +176,31 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas }) {
               Categoría
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-              {opciones.map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setCategoria(c)}
-                  style={{
-                    padding: "8px 14px",
-                    fontSize: 12.5,
-                    fontWeight: 500,
-                    borderRadius: 20,
-                    border: `1px solid ${categoria === c ? "var(--sage)" : "var(--line)"}`,
-                    background: categoria === c ? "var(--sage-bg)" : "var(--paper)",
-                    color: categoria === c ? "var(--sage)" : "var(--ink)",
-                    cursor: "pointer",
-                  }}
-                >
-                  {c}
-                </button>
-              ))}
+              {opciones.map((c) => {
+                const Icon = ICONOS_CATEGORIA[iconoParaCategoria(c)] || Receipt;
+                return (
+                  <button
+                    key={c}
+                    onClick={() => setCategoria(c)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "8px 14px",
+                      fontSize: 12.5,
+                      fontWeight: 500,
+                      borderRadius: 20,
+                      border: `1px solid ${categoria === c ? "var(--sage)" : "var(--line)"}`,
+                      background: categoria === c ? "var(--sage-bg)" : "var(--paper)",
+                      color: categoria === c ? "var(--sage)" : "var(--ink)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Icon size={13} />
+                    {c}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 8 }}>
