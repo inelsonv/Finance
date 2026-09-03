@@ -106,9 +106,6 @@ function GastosPorMesChart({ movimientos }) {
   const now = new Date();
   const year = now.getFullYear();
   const currentMonth = now.getMonth() + 1; // 1-12
-  const [activo, setActivo] = useState(null);
-  const [tooltipPos, setTooltipPos] = useState(null);
-  const wrapperRef = useRef(null);
 
   const { series, maxVal } = useMemo(() => {
     const byCategory = {};
@@ -149,15 +146,8 @@ function GastosPorMesChart({ movimientos }) {
   const yFor = (v) => padT + plotH - (v / maxVal) * plotH;
 
   return (
-    <div ref={wrapperRef} style={{ overflowX: "auto", position: "relative" }}>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        style={{ width: "100%", minWidth: 300, display: "block" }}
-        onMouseLeave={() => {
-          setActivo(null);
-          setTooltipPos(null);
-        }}
-      >
+    <div style={{ overflowX: "auto" }}>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", minWidth: 300, display: "block" }}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
           <line
             key={f}
@@ -200,56 +190,13 @@ function GastosPorMesChart({ movimientos }) {
           return (
             <g key={s.category}>
               <polyline points={points} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-              {s.values.map((v, i) => {
-                const handleMouseMove = (e) => {
-                  if (!wrapperRef.current) return;
-                  const rect = wrapperRef.current.getBoundingClientRect();
-                  setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-                  setActivo({ category: s.category, monthIndex: i, valor: v, color });
-                };
-                return (
-                  <circle
-                    key={i}
-                    cx={xFor(i)}
-                    cy={yFor(v)}
-                    r={2.5}
-                    fill={color}
-                    style={{ cursor: "pointer" }}
-                    onMouseEnter={handleMouseMove}
-                    onMouseMove={handleMouseMove}
-                  />
-                );
-              })}
+              {s.values.map((v, i) => (
+                <circle key={i} cx={xFor(i)} cy={yFor(v)} r={2.5} fill={color} />
+              ))}
             </g>
           );
         })}
       </svg>
-      {activo && tooltipPos && (
-        <div
-          style={{
-            position: "absolute",
-            left: tooltipPos.x + 14,
-            top: tooltipPos.y + 14,
-            background: "var(--card)",
-            border: "1px solid var(--line)",
-            borderRadius: 8,
-            padding: "6px 10px",
-            fontSize: 11.5,
-            color: "var(--ink)",
-            pointerEvents: "none",
-            whiteSpace: "nowrap",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
-            zIndex: 10,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, marginBottom: 2 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: activo.color, flexShrink: 0 }} />
-            {activo.category}
-          </div>
-          <span style={{ color: "var(--ink-soft)" }}>{MESES[activo.monthIndex]}</span>
-          <span className="despensa-mono"> · {formatMoney(activo.valor)}</span>
-        </div>
-      )}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 10, justifyContent: "center" }}>
         {series.map((s, si) => (
           <span key={s.category} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--ink-soft)" }}>
