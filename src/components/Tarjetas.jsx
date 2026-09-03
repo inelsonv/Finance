@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, Pencil, Check } from "lucide-react";
+import { Plus, Trash2, X, Landmark, Pencil, Check, Layers, List } from "lucide-react";
 import { addTarjeta, deleteTarjeta, updateTarjetaEstado, updateTarjeta } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
+import TarjetasApiladas from "./TarjetasApiladas.jsx";
 
 const ESTADOS = ["Activa", "Bloqueada", "Cancelada"];
 const TIPOS_TARJETA = ["Crédito", "Débito"];
@@ -17,7 +18,7 @@ const COLORES = {
   verde: { label: "Verde", bg: "linear-gradient(135deg, #7a9d6f 0%, #3e5a35 100%)", text: "#f2f7ef" },
 };
 
-function CardVisual({ tarjeta }) {
+export function CardVisual({ tarjeta }) {
   const c = COLORES[tarjeta.color] || COLORES.azul;
   return (
     <div
@@ -134,6 +135,7 @@ function toEditForm(t) {
 
 export default function Tarjetas({ tarjetas, entidades, movimientos }) {
   const [showForm, setShowForm] = useState(false);
+  const [vistaApilada, setVistaApilada] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -263,7 +265,27 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+        <button
+          onClick={() => setVistaApilada((v) => !v)}
+          title={vistaApilada ? "Ver como lista" : "Ver tarjetas apiladas"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 12px",
+            fontSize: 13,
+            fontWeight: 500,
+            background: "var(--card)",
+            color: "var(--ink)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            cursor: "pointer",
+          }}
+        >
+          {vistaApilada ? <List size={14} /> : <Layers size={14} />}
+          {vistaApilada ? "Ver como lista" : "Ver apiladas"}
+        </button>
         <button
           onClick={() => setShowForm((s) => !s)}
           disabled={!showForm && entidades.length === 0}
@@ -566,6 +588,13 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
       {tarjetas.length === 0 ? (
         <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
           Todavía no registraste ninguna tarjeta de crédito.
+        </div>
+      ) : vistaApilada ? (
+        <div style={{ padding: "10px 0 30px" }}>
+          <TarjetasApiladas tarjetas={tarjetas} onTapFrente={(t) => startEdit(t)} />
+          <div style={{ textAlign: "center", fontSize: 11, color: "var(--ink-soft)", marginTop: 20 }}>
+            Arrastra la tarjeta de enfrente hacia abajo para pasar a la siguiente · Tócala para editarla
+          </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

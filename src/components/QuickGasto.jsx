@@ -38,6 +38,7 @@ import { addMovimiento } from "../lib/db";
 import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
 import { calcularFechaPagoTarjeta } from "../lib/tarjetaCiclos";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
+import TarjetasApiladas from "./TarjetasApiladas.jsx";
 
 const ICONOS_CATEGORIA = {
   fuel: Fuel,
@@ -254,25 +255,13 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas }) {
                 {tarjetasActivas.length === 0 ? (
                   <div style={{ fontSize: 12, color: "var(--stamp)" }}>No tienes tarjetas activas registradas.</div>
                 ) : (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {tarjetasActivas.map((t) => (
-                      <button
-                        key={t.id}
-                        onClick={() => setTarjetaId(t.id)}
-                        style={{
-                          padding: "8px 12px",
-                          fontSize: 12,
-                          fontWeight: 500,
-                          borderRadius: 8,
-                          border: `1px solid ${tarjetaId === t.id ? "var(--sage)" : "var(--line)"}`,
-                          background: tarjetaId === t.id ? "var(--sage-bg)" : "var(--paper)",
-                          color: tarjetaId === t.id ? "var(--sage)" : "var(--ink)",
-                          cursor: "pointer",
-                        }}
-                      >
-                        {t.nombre}{t.ultimos4 ? ` ····${t.ultimos4}` : ""}
-                      </button>
-                    ))}
+                  <div style={{ padding: "6px 0 26px" }}>
+                    <TarjetasApiladas tarjetas={tarjetasActivas} onChangeFrente={(t) => setTarjetaId(t.id)} />
+                    {tarjetasActivas.length > 1 && (
+                      <div style={{ textAlign: "center", fontSize: 10.5, color: "var(--ink-soft)", marginTop: 14 }}>
+                        Arrastra hacia abajo para cambiar de tarjeta
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
