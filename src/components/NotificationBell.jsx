@@ -256,14 +256,25 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       if (!fechaEval) continue;
       const diasDesde = Math.floor((Date.now() - fechaEval.getTime()) / 86400000);
       if (diasDesde > 5) continue;
-      list.push({
-        id: `habito-penalizacion-${pen.id}`,
-        icon: Flame,
-        titulo: `Se rompió tu racha de "${pen.habitoNombre}"`,
-        subtitulo: `Llevabas ${pen.rachaPrevia} seguidos — se restaron ${Math.abs(pen.puntos)} puntos. Vuelve a marcarlo para empezar de nuevo.`,
-        dias: 0,
-        tab: "habitos",
-      });
+      list.push(
+        pen.protegida
+          ? {
+              id: `habito-penalizacion-${pen.id}`,
+              icon: Shield,
+              titulo: `Tu racha de "${pen.habitoNombre}" quedó protegida`,
+              subtitulo: `Usaste un protector de racha (premio de un cofre) — llevabas ${pen.rachaPrevia} seguidos y no se perdió. Márcalo pronto para seguir la racha.`,
+              dias: 0,
+              tab: "habitos",
+            }
+          : {
+              id: `habito-penalizacion-${pen.id}`,
+              icon: Flame,
+              titulo: `Se rompió tu racha de "${pen.habitoNombre}"`,
+              subtitulo: `Llevabas ${pen.rachaPrevia} seguidos — se restaron ${Math.abs(pen.puntos)} puntos. Vuelve a marcarlo para empezar de nuevo.`,
+              dias: 0,
+              tab: "habitos",
+            }
+      );
     }
 
     if (versiculoHoy) {

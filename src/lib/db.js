@@ -381,6 +381,9 @@ export async function addMovimiento({
                   docRef.id
                 );
               }
+              await abrirCofre(docRef.id, `Cancelaste el préstamo ${p.numero || ""}`.trim()).catch((err) =>
+                console.error("No se pudo abrir el cofre de recompensa:", err)
+              );
             }
           }
         }
@@ -417,15 +420,92 @@ export async function addMovimiento({
 }
 
 export async function otorgarPuntos(motivo, puntos, tipo, movimientoId = null) {
+  // Si hay un multiplicador de puntos activo (premio de un cofre) y no ha
+  // expirado, se aplica automáticamente a cualquier otorgamiento positivo de
+  // puntos — así el jugador no tiene que hacer nada especial para
+  // beneficiarse de él.
+  let puntosFinales = puntos;
+  let multiplicadorAplicado = null;
+  if (puntos > 0) {
+    try {
+      const recompensasSnap = await getDoc(doc(db, "config", "recompensas"));
+      const mult = recompensasSnap.exists() ? recompensasSnap.data().multiplicador : null;
+      if (mult?.activo && mult.expiraEn && mult.expiraEn > Date.now()) {
+        puntosFinales = Math.round(puntos * (mult.factor || 1));
+        multiplicadorAplicado = mult.factor;
+      }
+    } catch (err) {
+      // Si falla la consulta del multiplicador, se otorgan los puntos
+      // normales sin bloquear el resto del flujo.
+    }
+  }
+
   await addDoc(collection(db, "puntosHistorial"), {
-    motivo,
-    puntos,
+    motivo: multiplicadorAplicado ? `${motivo} (x${multiplicadorAplicado} activo)` : motivo,
+    puntos: puntosFinales,
     tipo,
     movimientoId: movimientoId || null,
     fecha: new Date().toISOString().slice(0, 10),
     createdAt: serverTimestamp(),
   });
-  await setDoc(doc(db, "config", "puntos"), { total: increment(puntos) }, { merge: true });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(puntosFinales) }, { merge: true });
+}
+
+const PREMIOS_COFRE = ["puntosExtra", "multiplicador", "protectorRacha", "insignia"];
+const INSIGNIAS_POSIBLES = ["Cazador de Deudas", "Libre de Intereses", "Cero Deuda"];
+
+// Abre un cofre de recompensa (premio por cancelar una deuda por completo):
+// elige un premio al azar entre 4 tipos, lo aplica, y deja un registro para
+// poder mostrar la animación de apertura y notificar. Protegido contra
+// abrir dos cofres por el mismo evento (mismo movimientoId).
+export async function abrirCofre(movimientoId, contexto) {
+  const cofreId = `cofre_${movimientoId}`;
+  const ref = doc(db, "cofresGanados", cofreId);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return null;
+
+  const premio = PREMIOS_COFRE[Math.floor(Math.random() * PREMIOS_COFRE.length)];
+  let detalle = {};
+
+  if (premio === "puntosExtra") {
+    const monto = 50 + Math.floor(Math.random() * 251); // 50-300
+    await otorgarPuntos(`Cofre de recompensa: bono sorpresa (${contexto})`, monto, "cofrePuntos", movimientoId);
+    detalle = { monto };
+  } else if (premio === "multiplicador") {
+    const expiraEn = Date.now() + 48 * 60 * 60 * 1000; // 48 horas
+    await setDoc(doc(db, "config", "recompensas"), { multiplicador: { activo: true, factor: 2, expiraEn } }, { merge: true });
+    detalle = { factor: 2, expiraEn };
+  } else if (premio === "protectorRacha") {
+    await setDoc(doc(db, "config", "recompensas"), { protectoresRacha: increment(1) }, { merge: true });
+    detalle = { cantidad: 1 };
+  } else if (premio === "insignia") {
+    const insignia = INSIGNIAS_POSIBLES[Math.floor(Math.random() * INSIGNIAS_POSIBLES.length)];
+    await setDoc(doc(db, "config", "recompensas"), { insignias: arrayUnion(insignia) }, { merge: true });
+    detalle = { insignia };
+  }
+
+  await setDoc(ref, { movimientoId, contexto, premio, detalle, createdAt: serverTimestamp(), visto: false });
+  return { premio, detalle };
+}
+
+export function watchRecompensas(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "recompensas"),
+    (snap) => onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchCofresGanados(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "cofresGanados"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function marcarCofreVisto(cofreId) {
+  await updateDoc(doc(db, "cofresGanados", cofreId), { visto: true });
 }
 
 // ---- Habit Tracker ----
@@ -478,6 +558,27 @@ export async function evaluarPenalizacionHabito(habitoId, periodoFaltante, racha
   const ref = doc(db, "habitosPenalizaciones", evalId);
   const snap = await getDoc(ref);
   if (snap.exists()) return;
+
+  // Si hay un protector de racha disponible (premio de un cofre), se
+  // consume automáticamente en vez de aplicar la penalización — se deja un
+  // registro igual, pero sin restar puntos, para que quede visible que la
+  // racha quedó protegida.
+  const recompensasSnap = await getDoc(doc(db, "config", "recompensas"));
+  const protectoresDisponibles = recompensasSnap.exists() ? recompensasSnap.data().protectoresRacha || 0 : 0;
+
+  if (protectoresDisponibles > 0) {
+    await setDoc(doc(db, "config", "recompensas"), { protectoresRacha: increment(-1) }, { merge: true });
+    await setDoc(ref, {
+      habitoId,
+      habitoNombre,
+      periodoFaltante,
+      rachaPrevia,
+      puntos: 0,
+      protegida: true,
+      createdAt: serverTimestamp(),
+    });
+    return;
+  }
 
   await setDoc(ref, {
     habitoId,

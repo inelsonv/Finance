@@ -126,5 +126,8 @@ service cloud.firestore {
     match /versiculoDiario/{doc} {
       allow read, write: if esPropietario();
     }
+    match /cofresGanados/{doc} {
+      allow read, write: if esPropietario();
+    }
   }
 }

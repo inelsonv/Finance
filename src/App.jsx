@@ -4,6 +4,7 @@ import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
+import { watchCofresGanados, marcarCofreVisto } from "./lib/db";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/quincenaConfig";
@@ -170,6 +171,8 @@ export default function App() {
   const [habitosRegistro, setHabitosRegistro] = useState([]);
   const [habitosPenalizaciones, setHabitosPenalizaciones] = useState([]);
   const [versiculoHoy, setVersiculoHoy] = useState(null);
+  const [cofresGanados, setCofresGanados] = useState([]);
+  const [cofreParaMostrar, setCofreParaMostrar] = useState(null);
   const [showVersiculoModal, setShowVersiculoModal] = useState(false);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
@@ -311,6 +314,7 @@ export default function App() {
     const unsubHabitosRegistro = watchHabitosRegistro(setHabitosRegistro, handleError);
     const unsubHabitosPenalizaciones = watchHabitosPenalizaciones(setHabitosPenalizaciones, handleError);
     const unsubVersiculoHoy = watchVersiculoHoy(fechaHoyStr(), setVersiculoHoy, handleError);
+    const unsubCofresGanados = watchCofresGanados(setCofresGanados, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -351,6 +355,7 @@ export default function App() {
       unsubHabitosRegistro();
       unsubHabitosPenalizaciones();
       unsubVersiculoHoy();
+      unsubCofresGanados();
       unsubStatus();
     };
   }, [authorized]);
@@ -423,6 +428,15 @@ export default function App() {
       console.error("No se pudo evaluar el versículo diario:", err)
     );
   }, [authorized]);
+
+  // Cuando aparece un cofre nuevo sin ver (premio por cancelar una deuda),
+  // muestra la animación de apertura — solo uno a la vez, aunque haya
+  // varios pendientes.
+  useEffect(() => {
+    if (cofreParaMostrar) return;
+    const sinVer = (cofresGanados || []).find((c) => !c.visto);
+    if (sinVer) setCofreParaMostrar(sinVer);
+  }, [cofresGanados, cofreParaMostrar]);
 
   // Referencia usada por la suscripción a puntos (más abajo) para comparar
   // cada valor nuevo contra el anterior REAL de Firestore, y así lanzar
@@ -913,6 +927,102 @@ export default function App() {
               }}
             >
               Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+      {cofreParaMostrar && (
+        <div
+          onClick={() => {
+            marcarCofreVisto(cofreParaMostrar.id).catch(() => {});
+            setCofreParaMostrar(null);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="despensa-cofre-pop"
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              padding: "32px 26px",
+              maxWidth: 380,
+              width: "100%",
+              textAlign: "center",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div style={{ fontSize: 46, marginBottom: 6 }}>🎁</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--sage)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
+              ¡Cofre de recompensa!
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 18 }}>{cofreParaMostrar.contexto}</div>
+
+            {cofreParaMostrar.premio === "puntosExtra" && (
+              <>
+                <div style={{ fontSize: 30 }}>🪙</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "var(--sage)", margin: "8px 0" }}>
+                  +{cofreParaMostrar.detalle?.monto} puntos
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>Bono sorpresa, aparte del bono normal.</div>
+              </>
+            )}
+            {cofreParaMostrar.premio === "multiplicador" && (
+              <>
+                <div style={{ fontSize: 30 }}>⚡</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "var(--amber)", margin: "8px 0" }}>
+                  Multiplicador x{cofreParaMostrar.detalle?.factor}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>Todos los puntos que ganes en las próximas 48 horas se duplican.</div>
+              </>
+            )}
+            {cofreParaMostrar.premio === "protectorRacha" && (
+              <>
+                <div style={{ fontSize: 30 }}>🛡️</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "var(--sage)", margin: "8px 0" }}>Protector de racha</div>
+                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                  La próxima vez que se te vaya a romper una racha de hábito, se protege automáticamente.
+                </div>
+              </>
+            )}
+            {cofreParaMostrar.premio === "insignia" && (
+              <>
+                <div style={{ fontSize: 30 }}>🏅</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "var(--sage)", margin: "8px 0" }}>
+                  {cofreParaMostrar.detalle?.insignia}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>Nueva insignia agregada a tu perfil.</div>
+              </>
+            )}
+
+            <button
+              onClick={() => {
+                marcarCofreVisto(cofreParaMostrar.id).catch(() => {});
+                setCofreParaMostrar(null);
+              }}
+              style={{
+                marginTop: 22,
+                padding: "9px 22px",
+                fontSize: 13,
+                fontWeight: 600,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              ¡Genial!
             </button>
           </div>
         </div>
