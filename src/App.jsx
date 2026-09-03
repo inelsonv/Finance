@@ -785,7 +785,7 @@ export default function App() {
         )}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} activos={activos} />}
         {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
-        {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} />}
+        {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} categoriasGasto={categoriasGasto} />}
         {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
         {tab === "contratos" && <Contratos contratos={contratos} entidades={entidades} movimientos={movimientos} />}
         {tab === "ingresos" && (

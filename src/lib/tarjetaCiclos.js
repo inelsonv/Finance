@@ -77,3 +77,13 @@ export function calcularFechaPagoTarjeta(tarjeta, fechaConsumo) {
   return { fechaCierreStr: toDateStr(cicloCierre), fechaPagoStr: toDateStr(fechaPago) };
 }
 
+// Si la tarjeta tiene una lista de categorías habilitadas configurada
+// (categoriasHabilitadas es un array), solo esas categorías pueden usarse
+// para pagar con ella. Si el campo es null/no está configurado, no hay
+// restricción — cualquier categoría es válida (comportamiento por defecto,
+// para no afectar tarjetas creadas antes de esta función).
+export function categoriaPermitidaEnTarjeta(tarjeta, categoria) {
+  if (!Array.isArray(tarjeta?.categoriasHabilitadas)) return true;
+  return tarjeta.categoriasHabilitadas.includes(categoria);
+}
+

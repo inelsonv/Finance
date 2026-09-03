@@ -81,6 +81,63 @@ function formatMoney(n) {
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function CategoriasToggleList({ f, setF, categoriasGasto }) {
+  const nombres = (categoriasGasto || []).map((c) => c.nombre);
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Restringir a categorías específicas</span>
+        <Switch
+          checked={f.restringirCategorias}
+          onChange={() => setF({ ...f, restringirCategorias: !f.restringirCategorias })}
+        />
+      </div>
+      {f.restringirCategorias && (
+        <>
+          {nombres.length === 0 ? (
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>No tienes categorías de gasto creadas todavía.</div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {nombres.map((n) => {
+                const activa = f.categoriasHabilitadas.includes(n);
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() =>
+                      setF({
+                        ...f,
+                        categoriasHabilitadas: activa
+                          ? f.categoriasHabilitadas.filter((c) => c !== n)
+                          : [...f.categoriasHabilitadas, n],
+                      })
+                    }
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      borderRadius: 20,
+                      border: `1px solid ${activa ? "var(--sage)" : "var(--line)"}`,
+                      background: activa ? "var(--sage-bg)" : "var(--paper)",
+                      color: activa ? "var(--sage)" : "var(--ink-soft)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
+            Solo se podrán registrar gastos con esta tarjeta en las categorías activas.
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 const emptyForm = () => ({
   nombre: "",
   tipoTarjeta: "Crédito",
@@ -104,6 +161,8 @@ const emptyForm = () => ({
   montoMora: "",
   diasGracia: "22",
   fechaVencimientoPlastico: "",
+  restringirCategorias: false,
+  categoriasHabilitadas: [],
 });
 
 function toEditForm(t) {
@@ -130,10 +189,12 @@ function toEditForm(t) {
     montoMora: t.montoMora != null ? String(t.montoMora) : "",
     diasGracia: t.diasGracia != null ? String(t.diasGracia) : "22",
     fechaVencimientoPlastico: t.fechaVencimientoPlastico || "",
+    restringirCategorias: Array.isArray(t.categoriasHabilitadas),
+    categoriasHabilitadas: Array.isArray(t.categoriasHabilitadas) ? t.categoriasHabilitadas : [],
   };
 }
 
-export default function Tarjetas({ tarjetas, entidades, movimientos }) {
+export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasGasto }) {
   const [showForm, setShowForm] = useState(false);
   const [vistaApilada, setVistaApilada] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -212,6 +273,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         montoMora: parseFloat(form.montoMora) || null,
         diasGracia: parseInt(form.diasGracia, 10) || 22,
         fechaVencimientoPlastico: form.fechaVencimientoPlastico || null,
+        categoriasHabilitadas: form.restringirCategorias ? form.categoriasHabilitadas : null,
       });
       setForm(emptyForm());
       setShowForm(false);
@@ -254,6 +316,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
         montoMora: parseFloat(editForm.montoMora) || null,
         diasGracia: parseInt(editForm.diasGracia, 10) || 22,
         fechaVencimientoPlastico: editForm.fechaVencimientoPlastico || null,
+        categoriasHabilitadas: editForm.restringirCategorias ? editForm.categoriasHabilitadas : null,
       });
       cancelEdit();
     } catch (err) {
@@ -529,6 +592,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                 />
               </div>
 
+              <CategoriasToggleList f={form} setF={setForm} categoriasGasto={categoriasGasto} />
               <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                 <input
                   className="despensa-mono"
@@ -802,6 +866,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos }) {
                           style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                         />
                       </div>
+                      <CategoriasToggleList f={editForm} setF={setEditForm} categoriasGasto={categoriasGasto} />
                       <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
                         <input
                           className="despensa-mono"

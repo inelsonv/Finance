@@ -8,7 +8,7 @@ import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
 
 const PAGE_SIZE = 10;
 import { quincenaDeFecha, consumoPresupuesto } from "../lib/presupuestoConsumo";
-import { calcularFechaPagoTarjeta } from "../lib/tarjetaCiclos";
+import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
 import { confirm } from "../lib/confirm";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
@@ -250,6 +250,13 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
     if (form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito" && !form.tarjetaId) {
       setFormError("Selecciona la tarjeta con la que pagaste");
       return;
+    }
+    if (form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito" && form.tarjetaId) {
+      const tarjetaElegida = tarjetas.find((t) => t.id === form.tarjetaId);
+      if (tarjetaElegida && !categoriaPermitidaEnTarjeta(tarjetaElegida, form.category)) {
+        setFormError(`No puedes registrar gastos de "${form.category}" con la tarjeta ${tarjetaElegida.nombre} — esa categoría no está habilitada para ella.`);
+        return;
+      }
     }
     if (form.tipo === "Pago de membresía" && !form.membresiaId) {
       setFormError("Selecciona la membresía que estás pagando");

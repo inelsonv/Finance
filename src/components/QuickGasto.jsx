@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { addMovimiento } from "../lib/db";
 import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
-import { calcularFechaPagoTarjeta } from "../lib/tarjetaCiclos";
+import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import TarjetasApiladas from "./TarjetasApiladas.jsx";
 
@@ -107,6 +107,13 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas }) {
     if (metodoPago === "Tarjeta de crédito" && !tarjetaId) {
       setError("Elige con qué tarjeta pagaste");
       return;
+    }
+    if (metodoPago === "Tarjeta de crédito" && tarjetaId) {
+      const tarjetaElegida = tarjetasActivas.find((t) => t.id === tarjetaId);
+      if (tarjetaElegida && !categoriaPermitidaEnTarjeta(tarjetaElegida, categoria)) {
+        setError(`No puedes registrar gastos de "${categoria}" con la tarjeta ${tarjetaElegida.nombre} — esa categoría no está habilitada para ella.`);
+        return;
+      }
     }
     setSaving(true);
     setError(null);
