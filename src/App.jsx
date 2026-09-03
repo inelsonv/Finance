@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
+import { elegirVersiculoAlAzar, fechaHoyStr } from "./lib/versiculos";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/quincenaConfig";
@@ -165,6 +166,8 @@ export default function App() {
   const [habitos, setHabitos] = useState([]);
   const [habitosRegistro, setHabitosRegistro] = useState([]);
   const [habitosPenalizaciones, setHabitosPenalizaciones] = useState([]);
+  const [versiculoHoy, setVersiculoHoy] = useState(null);
+  const [showVersiculoModal, setShowVersiculoModal] = useState(false);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -212,6 +215,10 @@ export default function App() {
   }, [highlightId, tab]);
 
   const handleNavigate = (tabId, periodoObjetivo) => {
+    if (tabId === "versiculo-modal") {
+      setShowVersiculoModal(true);
+      return;
+    }
     setTab(tabId);
     if (periodoObjetivo) setChecklistPeriodoInicial(periodoObjetivo);
   };
@@ -289,6 +296,7 @@ export default function App() {
     const unsubHabitos = watchHabitos(setHabitos, handleError);
     const unsubHabitosRegistro = watchHabitosRegistro(setHabitosRegistro, handleError);
     const unsubHabitosPenalizaciones = watchHabitosPenalizaciones(setHabitosPenalizaciones, handleError);
+    const unsubVersiculoHoy = watchVersiculoHoy(fechaHoyStr(), setVersiculoHoy, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -328,6 +336,7 @@ export default function App() {
       unsubHabitos();
       unsubHabitosRegistro();
       unsubHabitosPenalizaciones();
+      unsubVersiculoHoy();
       unsubStatus();
     };
   }, [authorized]);
@@ -388,6 +397,19 @@ export default function App() {
       );
     }
   }, [authorized, habitos, habitosRegistro]);
+
+  // Al abrir la app, si todavía no hay un versículo asignado para hoy, elige
+  // uno al azar y lo guarda — protegido contra generar dos distintos el
+  // mismo día (un documento por fecha).
+  const versiculoEvaluado = useRef(false);
+  useEffect(() => {
+    if (!authorized || versiculoEvaluado.current) return;
+    versiculoEvaluado.current = true;
+    evaluarVersiculoDiario(fechaHoyStr(), elegirVersiculoAlAzar).catch((err) =>
+      console.error("No se pudo evaluar el versículo diario:", err)
+    );
+  }, [authorized]);
+
 
   // Al abrir la app, revisa si alguna categoría con tope configurado se
   // excedió en la quincena que acaba de cerrar, y si es así, ajusta
@@ -515,6 +537,7 @@ export default function App() {
         sugerenciasInversion={sugerenciasInversion}
         diasCobro={diasCobro}
         habitosPenalizaciones={habitosPenalizaciones}
+        versiculoHoy={versiculoHoy}
         prestamos={prestamos}
         tarjetas={tarjetas}
         membresias={membresias}
@@ -635,6 +658,7 @@ export default function App() {
                   sugerenciasInversion={sugerenciasInversion}
                   diasCobro={diasCobro}
                   habitosPenalizaciones={habitosPenalizaciones}
+                  versiculoHoy={versiculoHoy}
                 />
               </div>
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} synced={synced} />
@@ -667,6 +691,7 @@ export default function App() {
             sugerenciasInversion={sugerenciasInversion}
             diasCobro={diasCobro}
             habitosPenalizaciones={habitosPenalizaciones}
+            versiculoHoy={versiculoHoy}
           />
         )}
         {tab === "puntos" && (
@@ -810,6 +835,58 @@ export default function App() {
       </main>
       <ConfirmDialogHost />
       {showMobileMenu && <MobileMenu tab={tab} setTab={(t) => setTab(t)} onClose={() => setShowMobileMenu(false)} onSignOut={() => signOut(auth)} />}
+      {showVersiculoModal && versiculoHoy && (
+        <div
+          onClick={() => setShowVersiculoModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              padding: "32px 26px",
+              maxWidth: 420,
+              width: "100%",
+              textAlign: "center",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ fontSize: 26, marginBottom: 14 }}>📖</div>
+            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink)", marginBottom: 16, fontStyle: "italic" }}>
+              "{versiculoHoy.texto}"
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--sage)", marginBottom: 22 }}>
+              {versiculoHoy.referencia}
+            </div>
+            <button
+              onClick={() => setShowVersiculoModal(false)}
+              style={{
+                padding: "9px 22px",
+                fontSize: 13,
+                fontWeight: 600,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

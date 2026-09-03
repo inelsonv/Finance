@@ -42,6 +42,7 @@ export default function BottomNav({
   sugerenciasInversion,
   diasCobro,
   habitosPenalizaciones,
+  versiculoHoy,
 }) {
   const [showGasto, setShowGasto] = useState(false);
 
@@ -64,6 +65,7 @@ export default function BottomNav({
     sugerenciasInversion,
     diasCobro,
     habitosPenalizaciones,
+    versiculoHoy,
   });
   const noLeidas = contarNoLeidas(notificaciones);
 
