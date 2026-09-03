@@ -146,7 +146,7 @@ export default function BottomNav({
         </button>
       </nav>
 
-      {showGasto && <QuickGasto categoriasGasto={categoriasGasto} onClose={() => setShowGasto(false)} />}
+      {showGasto && <QuickGasto categoriasGasto={categoriasGasto} onClose={() => setShowGasto(false)} tarjetas={tarjetas} />}
     </>
   );
 }

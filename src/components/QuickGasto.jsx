@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X, Check, TrendingDown } from "lucide-react";
 import { addMovimiento } from "../lib/db";
 import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
+import { calcularFechaPagoTarjeta } from "../lib/tarjetaCiclos";
 
 const METODOS = ["Efectivo", "Transferencia", "Tarjeta de crédito", "Débito", "Otro"];
 
@@ -9,14 +10,17 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function QuickGasto({ categoriasGasto, onClose }) {
+export default function QuickGasto({ categoriasGasto, onClose, tarjetas }) {
   const [categoria, setCategoria] = useState("");
   const [monto, setMonto] = useState("");
   const [metodoPago, setMetodoPago] = useState("Efectivo");
+  const [tarjetaId, setTarjetaId] = useState("");
   const [nota, setNota] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [guardado, setGuardado] = useState(false);
+
+  const tarjetasActivas = (tarjetas || []).filter((t) => t.estado === "Activa" && (t.tipoTarjeta || "Crédito") === "Crédito");
 
   const categoriasPropias = (categoriasGasto || []).map((c) => c.nombre);
   const opciones = categoriasPropias.length > 0 ? categoriasPropias : [...GASTO_CATS_VARIABLE, ...GASTO_CATS_FIJO];
@@ -31,17 +35,28 @@ export default function QuickGasto({ categoriasGasto, onClose }) {
       setError("Ingresa un monto válido");
       return;
     }
+    if (metodoPago === "Tarjeta de crédito" && !tarjetaId) {
+      setError("Elige con qué tarjeta pagaste");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
+      const tarjeta = tarjetasActivas.find((t) => t.id === tarjetaId);
+      const fecha = todayStr();
       await addMovimiento({
         type: "Gasto",
         category: categoria,
         amount,
         description: nota.trim(),
-        date: todayStr(),
+        date: fecha,
         clasificacion: GASTO_CATS_FIJO.includes(categoria) ? "Fijo" : "Variable",
         metodoPago,
+        tarjetaId: metodoPago === "Tarjeta de crédito" ? tarjetaId : null,
+        tarjetaNombre: metodoPago === "Tarjeta de crédito" ? tarjeta?.nombre || "" : "",
+        monedaTarjeta: metodoPago === "Tarjeta de crédito" ? "RDS" : null,
+        fechaPagoTarjeta:
+          metodoPago === "Tarjeta de crédito" && tarjeta ? calcularFechaPagoTarjeta(tarjeta, fecha)?.fechaPagoStr || null : null,
       });
       setGuardado(true);
       setTimeout(() => onClose(), 900);
@@ -136,7 +151,10 @@ export default function QuickGasto({ categoriasGasto, onClose }) {
               {METODOS.map((m) => (
                 <button
                   key={m}
-                  onClick={() => setMetodoPago(m)}
+                  onClick={() => {
+                    setMetodoPago(m);
+                    if (m !== "Tarjeta de crédito") setTarjetaId("");
+                  }}
                   style={{
                     padding: "6px 11px",
                     fontSize: 11.5,
@@ -152,6 +170,38 @@ export default function QuickGasto({ categoriasGasto, onClose }) {
                 </button>
               ))}
             </div>
+
+            {metodoPago === "Tarjeta de crédito" && (
+              <div style={{ marginBottom: 12 }}>
+                <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 8 }}>
+                  ¿Con qué tarjeta?
+                </div>
+                {tarjetasActivas.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "var(--stamp)" }}>No tienes tarjetas activas registradas.</div>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {tarjetasActivas.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setTarjetaId(t.id)}
+                        style={{
+                          padding: "8px 12px",
+                          fontSize: 12,
+                          fontWeight: 500,
+                          borderRadius: 8,
+                          border: `1px solid ${tarjetaId === t.id ? "var(--sage)" : "var(--line)"}`,
+                          background: tarjetaId === t.id ? "var(--sage-bg)" : "var(--paper)",
+                          color: tarjetaId === t.id ? "var(--sage)" : "var(--ink)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {t.nombre}{t.ultimos4 ? ` ····${t.ultimos4}` : ""}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <input
               placeholder="Nota (opcional)"
