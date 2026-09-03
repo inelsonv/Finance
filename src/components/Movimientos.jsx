@@ -8,6 +8,7 @@ import { GASTO_CATS_FIJO, GASTO_CATS_VARIABLE } from "../lib/categorias";
 
 const PAGE_SIZE = 10;
 import { quincenaDeFecha, consumoPresupuesto } from "../lib/presupuestoConsumo";
+import { calcularFechaPagoTarjeta } from "../lib/tarjetaCiclos";
 import { confirm } from "../lib/confirm";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
@@ -322,6 +323,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         monedaTarjeta:
           form.tipo === "Pago de tarjeta" || (form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito")
             ? form.monedaTarjeta || "RDS"
+            : null,
+        fechaPagoTarjeta:
+          form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito" && tarjeta
+            ? calcularFechaPagoTarjeta(tarjeta, form.date)?.fechaPagoStr || null
             : null,
         membresiaId: form.tipo === "Pago de membresía" ? form.membresiaId : null,
         membresiaNombre: form.tipo === "Pago de membresía" ? membresia?.nombre || "" : "",

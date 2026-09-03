@@ -30,3 +30,50 @@ export function cicloVencidoParaTarjeta(tarjeta, hoy = new Date()) {
   }
   return null;
 }
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+function toDateStr(d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+// Calcula cuándo toca pagar un consumo hecho en una fecha específica, según
+// el día de corte y los días de gracia de la tarjeta. Si el consumo cae
+// antes (o el mismo día) del corte de ese mes, pertenece al ciclo que cierra
+// ESE mes; si cae después, pertenece al ciclo que cierra el mes siguiente.
+// fechaConsumo puede ser un string "YYYY-MM-DD" o un objeto Date.
+export function calcularFechaPagoTarjeta(tarjeta, fechaConsumo) {
+  if (!tarjeta.fechaCorte) return null;
+  const diasGracia = tarjeta.diasGracia || 22;
+
+  const consumo = typeof fechaConsumo === "string" ? new Date(fechaConsumo + "T00:00:00") : fechaConsumo;
+  let year = consumo.getFullYear();
+  let month = consumo.getMonth() + 1;
+
+  const diasEnMesConsumo = new Date(year, month, 0).getDate();
+  const diaCorteEsteMes = Math.min(tarjeta.fechaCorte, diasEnMesConsumo);
+  const corteEsteMes = new Date(year, month - 1, diaCorteEsteMes);
+
+  let cicloCierre;
+  if (consumo <= corteEsteMes) {
+    cicloCierre = corteEsteMes;
+  } else {
+    let nextMonth = month + 1;
+    let nextYear = year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+    const diasEnMesSiguiente = new Date(nextYear, nextMonth, 0).getDate();
+    const diaCorteSiguiente = Math.min(tarjeta.fechaCorte, diasEnMesSiguiente);
+    cicloCierre = new Date(nextYear, nextMonth - 1, diaCorteSiguiente);
+  }
+
+  const fechaPago = new Date(cicloCierre);
+  fechaPago.setDate(fechaPago.getDate() + diasGracia);
+
+  return { fechaCierreStr: toDateStr(cicloCierre), fechaPagoStr: toDateStr(fechaPago) };
+}
+

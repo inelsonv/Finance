@@ -762,6 +762,7 @@ export default function App() {
             categoriasGasto={categoriasGasto}
             prestamos={prestamos}
             diasCobro={diasCobro}
+            tarjetas={tarjetas}
           />
         )}
         {tab === "movimientos" && (

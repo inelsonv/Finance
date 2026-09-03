@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ArrowRight, TrendingUp, Landmark, CreditCard, Ticket, Zap, PiggyBank, Tag, Workflow, CalendarClock } from "lucide-react";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
-import { periodoActualConfigurado } from "../lib/quincenaConfig";
+import { periodoActualConfigurado, rangoFechasQuincenaConfigurado } from "../lib/quincenaConfig";
 
 const FLOW_COLORS = [
   "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a",
@@ -15,7 +15,7 @@ function formatMoney(n) {
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function Presupuesto({ movimientos, onOpenMovimientos, presupuesto, categoriasGasto, prestamos, diasCobro }) {
+export default function Presupuesto({ movimientos, onOpenMovimientos, presupuesto, categoriasGasto, prestamos, diasCobro, tarjetas }) {
   const [showGastoDesglose, setShowGastoDesglose] = useState(false);
 
   // Quincena actual: rango de fechas y cuánto se presupuestó vs. cuánto se ha
@@ -25,6 +25,24 @@ export default function Presupuesto({ movimientos, onOpenMovimientos, presupuest
     const resumen = calcularResumenQuincena({ year, month, quincena, presupuesto, categoriasGasto, prestamos, movimientos, diasCobro });
     return { ...resumen, quincena, month, year };
   }, [movimientos, presupuesto, categoriasGasto, prestamos, diasCobro]);
+
+  // Consumos con tarjeta de crédito cuya fecha de pago calculada (según el
+  // corte y los días de gracia de cada tarjeta) cae dentro de ESTA quincena
+  // — así se ve cuánto vas a necesitar para pagar la tarjeta este periodo,
+  // aunque el consumo real se haya hecho semanas o meses antes.
+  const consumoTarjetaPendiente = useMemo(() => {
+    const { year, month, quincena } = periodoActualConfigurado(diasCobro);
+    const { fechaInicio, fechaFin } = rangoFechasQuincenaConfigurado(year, month, quincena, diasCobro);
+    const porTarjeta = {};
+    for (const m of movimientos) {
+      if (m.type !== "Gasto" || m.metodoPago !== "Tarjeta de crédito" || !m.fechaPagoTarjeta) continue;
+      if (m.fechaPagoTarjeta < fechaInicio || m.fechaPagoTarjeta > fechaFin) continue;
+      const key = m.tarjetaId || m.tarjetaNombre || "Sin especificar";
+      if (!porTarjeta[key]) porTarjeta[key] = { nombre: m.tarjetaNombre || "Tarjeta", total: 0 };
+      porTarjeta[key].total += Number(m.amount) || 0;
+    }
+    return Object.values(porTarjeta).filter((t) => t.total > 0);
+  }, [movimientos, diasCobro]);
 
   const totals = useMemo(() => {
     let ingresos = 0;
@@ -68,6 +86,25 @@ export default function Presupuesto({ movimientos, onOpenMovimientos, presupuest
     <div>
       {quincenaActual.presupuestado > 0 && (
         <QuincenaActualCard {...quincenaActual} />
+      )}
+
+      {consumoTarjetaPendiente.length > 0 && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <CreditCard size={13} style={{ color: "var(--amber)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+              Consumo de tarjeta a pagar esta quincena
+            </span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {consumoTarjetaPendiente.map((t, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}>
+                <span style={{ color: "var(--ink-soft)" }}>{t.nombre}</span>
+                <span className="despensa-mono" style={{ fontWeight: 600, color: "var(--amber)" }}>{formatMoney(t.total)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 6 }}>
