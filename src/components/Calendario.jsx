@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight, CreditCard } from "lucide-react";
+import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight, CreditCard, Flag, Heart } from "lucide-react";
 import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
-const TIPOS = ["Cita médica", "Vacaciones", "Cumpleaños", "Trabajo", "Personal", "Otro"];
+const TIPOS = ["Cita médica", "Vacaciones", "Cumpleaños", "Trabajo", "Personal", "Feriado", "Día especial", "Otro"];
 const ESTADOS = ["Pendiente", "Completado", "Cancelado"];
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -15,6 +15,8 @@ const TIPO_ICONS = {
   Cumpleaños: Cake,
   Trabajo: Briefcase,
   Personal: User,
+  Feriado: Flag,
+  "Día especial": Heart,
   Otro: Calendar,
 };
 
@@ -104,7 +106,63 @@ function toEditForm(e) {
   };
 }
 
+// Feriados legales de República Dominicana y días especiales (Madre/Padre),
+// calculados con las reglas de la Ley 139-97 (traslado al lunes) y el
+// algoritmo de Pascua para Viernes Santo. Verificado con el usuario, pero
+// vale la pena confirmar contra el calendario oficial si hay dudas.
+const FERIADOS_RD = [
+  // 2026
+  { fecha: "2026-01-01", titulo: "Año Nuevo", tipo: "Feriado" },
+  { fecha: "2026-01-21", titulo: "Día de la Altagracia", tipo: "Feriado" },
+  { fecha: "2026-01-26", titulo: "Día de Duarte", tipo: "Feriado" },
+  { fecha: "2026-02-27", titulo: "Día de la Independencia", tipo: "Feriado" },
+  { fecha: "2026-04-03", titulo: "Viernes Santo", tipo: "Feriado" },
+  { fecha: "2026-05-04", titulo: "Día del Trabajo", tipo: "Feriado" },
+  { fecha: "2026-05-31", titulo: "Día de las Madres", tipo: "Día especial" },
+  { fecha: "2026-07-26", titulo: "Día de los Padres", tipo: "Día especial" },
+  { fecha: "2026-08-17", titulo: "Día de la Restauración", tipo: "Feriado" },
+  { fecha: "2026-09-24", titulo: "Día de las Mercedes", tipo: "Feriado" },
+  { fecha: "2026-11-09", titulo: "Día de la Constitución", tipo: "Feriado" },
+  { fecha: "2026-12-25", titulo: "Navidad", tipo: "Feriado" },
+  // 2027
+  { fecha: "2027-01-01", titulo: "Año Nuevo", tipo: "Feriado" },
+  { fecha: "2027-01-21", titulo: "Día de la Altagracia", tipo: "Feriado" },
+  { fecha: "2027-01-25", titulo: "Día de Duarte", tipo: "Feriado" },
+  { fecha: "2027-02-27", titulo: "Día de la Independencia", tipo: "Feriado" },
+  { fecha: "2027-03-26", titulo: "Viernes Santo", tipo: "Feriado" },
+  { fecha: "2027-05-03", titulo: "Día del Trabajo", tipo: "Feriado" },
+  { fecha: "2027-05-30", titulo: "Día de las Madres", tipo: "Día especial" },
+  { fecha: "2027-07-25", titulo: "Día de los Padres", tipo: "Día especial" },
+  { fecha: "2027-08-16", titulo: "Día de la Restauración", tipo: "Feriado" },
+  { fecha: "2027-09-24", titulo: "Día de las Mercedes", tipo: "Feriado" },
+  { fecha: "2027-11-08", titulo: "Día de la Constitución", tipo: "Feriado" },
+  { fecha: "2027-12-25", titulo: "Navidad", tipo: "Feriado" },
+];
+
 export default function Calendario({ eventos, entidades, categoriasGasto, vacaciones, tarjetas }) {
+  const [cargandoFeriados, setCargandoFeriados] = useState(false);
+  const [mensajeFeriados, setMensajeFeriados] = useState(null);
+
+  const feriadosPendientes = useMemo(() => {
+    const existentes = new Set((eventos || []).map((e) => `${e.fecha}|${e.titulo}`));
+    return FERIADOS_RD.filter((f) => !existentes.has(`${f.fecha}|${f.titulo}`));
+  }, [eventos]);
+
+  const handleCargarFeriados = async () => {
+    setCargandoFeriados(true);
+    setMensajeFeriados(null);
+    try {
+      for (const f of feriadosPendientes) {
+        await addEvento({ titulo: f.titulo, tipo: f.tipo, fecha: f.fecha, diasAviso: 1, estado: "Pendiente" });
+      }
+      setMensajeFeriados(`Se agregaron ${feriadosPendientes.length} feriados/días especiales.`);
+    } catch (err) {
+      setMensajeFeriados("Error: " + (err.message || String(err)));
+    } finally {
+      setCargandoFeriados(false);
+    }
+  };
+
   const hoy = todayStr();
   const [viewDate, setViewDate] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(hoy);
@@ -626,6 +684,32 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
           Hoy
         </button>
       </div>
+
+      {feriadosPendientes.length > 0 && (
+        <div style={{ textAlign: "center", marginBottom: 16 }}>
+          <button
+            onClick={handleCargarFeriados}
+            disabled={cargandoFeriados}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 14px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              background: "var(--sage-bg)",
+              color: "var(--sage)",
+              border: "1px solid var(--sage)",
+              borderRadius: 8,
+              cursor: cargandoFeriados ? "not-allowed" : "pointer",
+            }}
+          >
+            <Flag size={13} />
+            {cargandoFeriados ? "Agregando…" : `Cargar feriados de RD 2026-2027 (${feriadosPendientes.length})`}
+          </button>
+          {mensajeFeriados && <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--ink-soft)" }}>{mensajeFeriados}</div>}
+        </div>
+      )}
 
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 10, marginBottom: 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 6 }}>
