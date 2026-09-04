@@ -9,6 +9,7 @@ import {
   uploadProductImage,
   uploadProductImageFromUrl,
   removeProductImage,
+  extraerProductoDeUrl,
 } from "../lib/db";
 import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
 import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
@@ -37,6 +38,38 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "" });
+  const [productoUrl, setProductoUrl] = useState("");
+  const [importandoUrl, setImportandoUrl] = useState(false);
+  const [importarUrlMsg, setImportarUrlMsg] = useState(null);
+  const [imagenPendienteUrl, setImagenPendienteUrl] = useState(null);
+
+  const handleImportarDesdeUrl = async () => {
+    if (!productoUrl.trim()) {
+      setImportarUrlMsg({ tipo: "error", texto: "Pega la URL del producto" });
+      return;
+    }
+    setImportandoUrl(true);
+    setImportarUrlMsg(null);
+    try {
+      const resultado = await extraerProductoDeUrl(productoUrl.trim());
+      if (!resultado.nombre && !resultado.precio) {
+        setImportarUrlMsg({ tipo: "error", texto: "No se pudo extraer el nombre ni el precio de esa página — agrégalo manualmente." });
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        name: resultado.nombre || f.name,
+        price: resultado.precio != null ? String(resultado.precio) : f.price,
+      }));
+      setImagenPendienteUrl(resultado.imagenUrl || null);
+      setImportarUrlMsg({ tipo: "ok", texto: "Se llenó el nombre y el precio — revísalos antes de guardar." + (resultado.imagenUrl ? " También se encontró una imagen." : "") });
+    } catch (err) {
+      setImportarUrlMsg({ tipo: "error", texto: err.message || String(err) });
+    } finally {
+      setImportandoUrl(false);
+    }
+  };
+
   const [formImage, setFormImage] = useState(null);
   const [formImagePreview, setFormImagePreview] = useState(null);
   const [formError, setFormError] = useState(null);
@@ -143,10 +176,18 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
       });
       if (formImage) {
         await uploadProductImage(docRef.id, formImage);
+      } else if (imagenPendienteUrl) {
+        await uploadProductImageFromUrl(docRef.id, imagenPendienteUrl).catch(() => {
+          // Si falla la descarga automática de la imagen encontrada, no se
+          // bloquea el guardado del producto — solo se queda sin foto.
+        });
       }
       setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "" });
       setFormImage(null);
       setFormImagePreview(null);
+      setProductoUrl("");
+      setImagenPendienteUrl(null);
+      setImportarUrlMsg(null);
       setShowForm(false);
     } catch (err) {
       setFormError(err.message || String(err));
@@ -425,6 +466,47 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
 
       {showForm && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid var(--line-soft)" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+              Importar desde una página de producto (opcional — puede que no funcione en todos los sitios)
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                placeholder="Pega la URL del producto"
+                value={productoUrl}
+                onChange={(e) => setProductoUrl(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleImportarDesdeUrl()}
+                style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <button
+                type="button"
+                onClick={handleImportarDesdeUrl}
+                disabled={importandoUrl}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  background: "var(--sage)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: importandoUrl ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <LinkIcon size={13} /> {importandoUrl ? "Buscando…" : "Importar"}
+              </button>
+            </div>
+            {importarUrlMsg && (
+              <div style={{ marginTop: 8, fontSize: 11.5, color: importarUrlMsg.tipo === "ok" ? "var(--sage)" : "var(--stamp)" }}>
+                {importarUrlMsg.texto}
+              </div>
+            )}
+          </div>
+
           <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
             <input
               ref={formFileRef}

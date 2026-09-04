@@ -18,7 +18,8 @@ import {
   deleteField,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { db, storage } from "../firebase";
+import { db, storage, functions } from "../firebase";
+import { httpsCallable } from "firebase/functions";
 
 const productsCol = collection(db, "productos");
 const listCol = collection(db, "listaCompra");
@@ -77,6 +78,15 @@ export async function uploadProductImage(id, file) {
   const url = await getDownloadURL(imgRef);
   await updateDoc(doc(db, "productos", id), { imageUrl: url });
   return url;
+}
+
+// Extrae nombre, precio e imagen de la página de un producto (ej. de una
+// tienda en línea), vía una Cloud Function del lado del servidor — evita el
+// problema de CORS que impediría hacerlo directo desde el navegador.
+export async function extraerProductoDeUrl(url) {
+  const fn = httpsCallable(functions, "extraerProductoDeUrl");
+  const res = await fn({ url });
+  return res.data;
 }
 
 // Descarga una imagen desde una URL externa y la guarda en Firebase Storage

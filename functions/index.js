@@ -539,3 +539,107 @@ exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request)
   if (!Array.isArray(parsed.items)) parsed.items = [];
   return parsed;
 });
+
+// Extrae nombre, precio e imagen de un producto a partir de la URL de su
+// página en una tienda en línea. Se hace en el servidor (no en el
+// navegador) porque casi ningún sitio permite que otra página lea su
+// contenido directamente (CORS). Primero intenta leer metadatos estándar
+// (Open Graph, JSON-LD) — rápido y gratis. Si no encuentra nada útil, usa
+// la IA como respaldo para interpretar el HTML crudo.
+function extraerConMetadatos(html) {
+  const resultado = { nombre: null, precio: null, imagenUrl: null };
+
+  // Open Graph
+  const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
+  const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+  const ogPrice = html.match(/<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i);
+  if (ogTitle) resultado.nombre = ogTitle[1];
+  if (ogImage) resultado.imagenUrl = ogImage[1];
+  if (ogPrice) resultado.precio = parseFloat(ogPrice[1]);
+
+  // JSON-LD (schema.org Product) — suele ser la fuente más confiable
+  const ldMatches = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+  for (const m of ldMatches) {
+    try {
+      let data = JSON.parse(m[1]);
+      if (Array.isArray(data)) data = data.find((d) => d["@type"] === "Product") || data[0];
+      if (data && data["@graph"]) data = data["@graph"].find((d) => d["@type"] === "Product") || data;
+      if (data && (data["@type"] === "Product" || data.name)) {
+        if (!resultado.nombre && data.name) resultado.nombre = data.name;
+        if (!resultado.imagenUrl && data.image) resultado.imagenUrl = Array.isArray(data.image) ? data.image[0] : data.image;
+        const oferta = Array.isArray(data.offers) ? data.offers[0] : data.offers;
+        if (!resultado.precio && oferta?.price) resultado.precio = parseFloat(oferta.price);
+      }
+    } catch (err) {
+      // JSON-LD mal formado, se ignora y se sigue con el siguiente bloque
+    }
+  }
+
+  return resultado;
+}
+
+exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (request) => {
+  if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
+    throw new HttpsError("permission-denied", "No autorizado");
+  }
+  const { url } = request.data || {};
+  if (!url) throw new HttpsError("invalid-argument", "Falta la URL del producto");
+
+  let html;
+  try {
+    const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; SmartFinanceBot/1.0)" } });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    html = await resp.text();
+  } catch (err) {
+    throw new HttpsError("internal", "No se pudo abrir esa página: " + err.message);
+  }
+
+  let resultado = extraerConMetadatos(html);
+
+  // Si los metadatos estándar no dieron nombre Y precio, se intenta con IA
+  // como respaldo, mandándole el texto visible de la página (recortado).
+  if (!resultado.nombre || !resultado.precio) {
+    const textoPlano = html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 6000);
+
+    try {
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": anthropicApiKey.value(),
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 300,
+          messages: [
+            {
+              role: "user",
+              content: `Este es el texto visible de la página de un producto de una tienda en línea. Extrae el nombre del producto y su precio en pesos dominicanos (solo el número, sin símbolo). Responde SOLO con JSON, sin explicación ni markdown: {"nombre": "...", "precio": 123.45}. Si no encuentras alguno de los dos, pon null en ese campo.\n\nTexto de la página:\n${textoPlano}`,
+            },
+          ],
+        }),
+      });
+      const data = await resp.json();
+      const textBlock = (data.content || []).find((c) => c.type === "text");
+      const clean = (textBlock?.text || "").replace(/```json|```/g, "").trim();
+      const parsedIA = JSON.parse(clean);
+      resultado = {
+        nombre: resultado.nombre || parsedIA.nombre || null,
+        precio: resultado.precio || parsedIA.precio || null,
+        imagenUrl: resultado.imagenUrl,
+      };
+    } catch (err) {
+      // Si falla el respaldo de IA, se devuelve lo que sí se pudo sacar de
+      // los metadatos (puede ser parcial o vacío).
+    }
+  }
+
+  return resultado;
+});
