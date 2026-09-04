@@ -36,6 +36,9 @@ function procesarCorreosPopular() {
       const datos = interpretarCorreo_(texto);
       if (!datos) {
         Logger.log("No se pudo interpretar un correo, se deja sin marcar: " + msg.getSubject());
+        if (/consumo/i.test(msg.getSubject())) {
+          Logger.log("---- Texto completo de ese correo (para depurar) ----\n" + texto);
+        }
         huboError = true;
         return;
       }
