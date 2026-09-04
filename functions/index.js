@@ -738,7 +738,31 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
     res.status(400).json({ error: "Faltan datos (monto, fecha o últimos4)" });
     return;
   }
+
+  // Respeta el interruptor configurado desde la app — si está apagado, no
+  // se registra nada, aunque el Apps Script siga llamando cada 15 min.
+  const configSnap = await db.collection("config").doc("integracionCorreo").get();
+  const config = configSnap.exists() ? configSnap.data() : { activo: true, tarjetas: [] };
+  const actualizarEstado = async (extra) => {
+    await db
+      .collection("estado")
+      .doc("integracionCorreo")
+      .set({ ultimaEjecucion: new Date(), ...extra }, { merge: true });
+  };
+
+  if (config.activo === false) {
+    await actualizarEstado({ ultimoResultado: "inactivo" });
+    res.status(200).json({ ok: true, omitido: true, motivo: "Integración desactivada desde la app" });
+    return;
+  }
+  if (Array.isArray(config.tarjetas) && config.tarjetas.length > 0 && !config.tarjetas.includes(String(ultimos4))) {
+    await actualizarEstado({ ultimoResultado: `tarjeta ${ultimos4} no está en la lista configurada` });
+    res.status(200).json({ ok: true, omitido: true, motivo: `Tarjeta ${ultimos4} no está habilitada en la configuración` });
+    return;
+  }
+
   if (estatus && !/aprobada/i.test(estatus)) {
+    await actualizarEstado({ ultimoResultado: "transacción no aprobada" });
     res.status(200).json({ ok: true, omitido: true, motivo: "Transacción no aprobada, no se registró" });
     return;
   }
@@ -746,6 +770,7 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
   try {
     const tarjetasSnap = await db.collection("tarjetas").where("ultimos4", "==", String(ultimos4)).limit(1).get();
     if (tarjetasSnap.empty) {
+      await actualizarEstado({ ultimoResultado: `tarjeta ${ultimos4} no encontrada`, errores: FieldValue.increment(1) });
       res.status(404).json({ error: `No se encontró ninguna tarjeta terminada en ${ultimos4}` });
       return;
     }
@@ -757,6 +782,7 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
     const idDeterministico = `correo_${ultimos4}_${fecha}_${monto}_${(comercio || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 30)}`;
     const yaExisteSnap = await db.collection("movimientos").where("idOrigenCorreo", "==", idDeterministico).limit(1).get();
     if (!yaExisteSnap.empty) {
+      await actualizarEstado({ ultimoResultado: "duplicado (ya existía)" });
       res.status(200).json({ ok: true, duplicado: true });
       return;
     }
@@ -791,9 +817,14 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
     });
     await db.collection("config").doc("puntos").set({ total: FieldValue.increment(10) }, { merge: true });
 
+    await actualizarEstado({
+      ultimoResultado: `registrado: ${comercio || "compra"} (${monto})`,
+      correosRegistrados: FieldValue.increment(1),
+    });
     res.status(200).json({ ok: true, movimientoId: movRef.id, fechaPagoTarjeta });
   } catch (err) {
     console.error("Error registrando gasto desde correo:", err);
+    await actualizarEstado({ ultimoResultado: "error: " + (err.message || String(err)), errores: FieldValue.increment(1) }).catch(() => {});
     res.status(500).json({ error: err.message || String(err) });
   }
 });

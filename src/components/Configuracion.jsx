@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig } from "../lib/db";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 
@@ -31,6 +31,11 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
   const [savingDiasCobro, setSavingDiasCobro] = useState(false);
   const [diasCobroError, setDiasCobroError] = useState(null);
 
+  const [integracionCorreoConfig, setIntegracionCorreoConfig] = useState(undefined);
+  const [integracionCorreoEstado, setIntegracionCorreoEstado] = useState(undefined);
+  const [tarjetasHabilitadasInput, setTarjetasHabilitadasInput] = useState("");
+  const [savingIntegracionCorreo, setSavingIntegracionCorreo] = useState(false);
+
   useEffect(() => {
     const unsub1 = watchNotifConfig(setEmailConfig, () => {});
     const unsub2 = watchAccionesConfig(setAccionesConfig, () => {});
@@ -39,6 +44,11 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
     const unsub5 = watchCategoriasPuntosConfig(setCategoriasPuntos, () => {});
     const unsub6 = watchTopesAjusteConfig(setTopesAjuste, () => {});
     const unsub7 = watchDiasCobroConfig(setDiasCobro, () => {});
+    const unsub8 = watchIntegracionCorreoConfig((c) => {
+      setIntegracionCorreoConfig(c);
+      setTarjetasHabilitadasInput((c.tarjetas || []).join(", "));
+    }, () => {});
+    const unsub9 = watchIntegracionCorreoEstado(setIntegracionCorreoEstado, () => {});
     return () => {
       unsub1();
       unsub2();
@@ -47,6 +57,8 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       unsub5();
       unsub6();
       unsub7();
+      unsub8();
+      unsub9();
     };
   }, []);
 
@@ -100,6 +112,31 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       await saveDiezmoConfig({ activo: !diezmoConfig?.activo, porcentaje: parseFloat(diezmoPorcentaje) || 10 });
     } finally {
       setSavingDiezmo(false);
+    }
+  };
+
+  const handleToggleIntegracionCorreo = async () => {
+    setSavingIntegracionCorreo(true);
+    try {
+      await saveIntegracionCorreoConfig({
+        activo: !integracionCorreoConfig?.activo,
+        tarjetas: integracionCorreoConfig?.tarjetas || [],
+      });
+    } finally {
+      setSavingIntegracionCorreo(false);
+    }
+  };
+
+  const handleGuardarTarjetasHabilitadas = async () => {
+    setSavingIntegracionCorreo(true);
+    try {
+      const lista = tarjetasHabilitadasInput
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      await saveIntegracionCorreoConfig({ activo: integracionCorreoConfig?.activo !== false, tarjetas: lista });
+    } finally {
+      setSavingIntegracionCorreo(false);
     }
   };
 
@@ -369,6 +406,62 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
               style={{ width: 80, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
             />
             <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>% del ingreso mensual</span>
+          </div>
+        )}
+      </Section>
+
+      <Section icon={Mail} title="Registro automático desde correo (Banco Popular)">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Cuando llega un correo de notificaciones@popularenlinea.com aprobando un consumo, se registra
+          automáticamente como gasto — controlado por un Google Apps Script en tu Gmail, que corre cada 15
+          minutos. Este interruptor no activa el script en sí (eso se configura una sola vez en Google), pero
+          controla si debe registrar algo o ignorarlo.
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+          <span style={{ fontSize: 13 }}>Activar registro automático</span>
+          <Switch checked={integracionCorreoConfig?.activo !== false} onChange={handleToggleIntegracionCorreo} disabled={savingIntegracionCorreo} />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 6 }}>
+            Tarjetas habilitadas (últimos 4 dígitos, separados por coma — vacío = todas)
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              value={tarjetasHabilitadasInput}
+              onChange={(e) => setTarjetasHabilitadasInput(e.target.value)}
+              placeholder="ej. 6011, 5513"
+              style={{ flex: 1, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+            <button
+              onClick={handleGuardarTarjetasHabilitadas}
+              disabled={savingIntegracionCorreo}
+              style={{ padding: "7px 12px", fontSize: 12, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+
+        {integracionCorreoEstado && (
+          <div style={{ background: "var(--paper)", borderRadius: 8, padding: "10px 12px", fontSize: 12 }}>
+            <div style={{ color: "var(--ink-soft)", marginBottom: 4 }}>
+              Última sincronización:{" "}
+              {integracionCorreoEstado.ultimaEjecucion?.toDate
+                ? integracionCorreoEstado.ultimaEjecucion.toDate().toLocaleString("es")
+                : "—"}
+            </div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              <span>
+                Registrados: <strong className="despensa-mono">{integracionCorreoEstado.correosRegistrados || 0}</strong>
+              </span>
+              <span>
+                Errores: <strong className="despensa-mono" style={{ color: integracionCorreoEstado.errores ? "var(--stamp)" : "inherit" }}>{integracionCorreoEstado.errores || 0}</strong>
+              </span>
+            </div>
+            {integracionCorreoEstado.ultimoResultado && (
+              <div style={{ color: "var(--ink-soft)", marginTop: 4 }}>Último resultado: {integracionCorreoEstado.ultimoResultado}</div>
+            )}
           </div>
         )}
       </Section>

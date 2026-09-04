@@ -1649,6 +1649,33 @@ export async function saveNotifConfig(email) {
   await setDoc(doc(db, "config", "notificaciones"), { email });
 }
 
+// ---- Integración: registro automático de gastos desde correo (Banco Popular) ----
+// El toggle "activo" lo lee la Cloud Function antes de registrar cualquier
+// gasto — si está apagado, ignora los correos aunque el Apps Script siga
+// corriendo cada 15 min (así se controla desde la app sin tocar el script).
+export function watchIntegracionCorreoConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "integracionCorreo"),
+    (snap) => onChange(snap.exists() ? snap.data() : { activo: true, tarjetas: ["6011"] }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveIntegracionCorreoConfig({ activo, tarjetas }) {
+  await setDoc(doc(db, "config", "integracionCorreo"), { activo, tarjetas: tarjetas || [] }, { merge: true });
+}
+
+// Estado de la última sincronización — lo escribe la Cloud Function cada
+// vez que el Apps Script la llama, para poder ver desde la app cuándo fue
+// la última vez que corrió y con qué resultado.
+export function watchIntegracionCorreoEstado(onChange, onError) {
+  return onSnapshot(
+    doc(db, "estado", "integracionCorreo"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
 export function watchDiezmoConfig(onChange, onError) {
   return onSnapshot(
     doc(db, "config", "diezmo"),
