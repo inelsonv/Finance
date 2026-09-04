@@ -102,9 +102,43 @@ const LINE_COLORS = [
   "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a", "#4a8a8a",
 ];
 
-function GastosPorMesChart({ movimientos }) {
+function SelectorAnio({ year, setYear, anioActual }) {
+  const esAnioActual = year === anioActual;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <button
+        onClick={() => setYear((y) => y - 1)}
+        title="Año anterior"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
+      >
+        <ChevronLeftIcon size={12} />
+      </button>
+      <span className="despensa-mono" style={{ fontSize: 12, fontWeight: 600, minWidth: 36, textAlign: "center" }}>{year}</span>
+      <button
+        onClick={() => setYear((y) => Math.min(anioActual, y + 1))}
+        disabled={esAnioActual}
+        title="Año siguiente"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          border: "1px solid var(--line)",
+          background: "var(--card)",
+          color: esAnioActual ? "var(--line)" : "var(--ink-soft)",
+          cursor: esAnioActual ? "default" : "pointer",
+        }}
+      >
+        <ChevronRightIcon size={12} />
+      </button>
+    </div>
+  );
+}
+
+function GastosPorMesChart({ movimientos, year, setYear }) {
   const anioActual = new Date().getFullYear();
-  const [year, setYear] = useState(anioActual);
   const esAnioActual = year === anioActual;
   const currentMonth = esAnioActual ? new Date().getMonth() + 1 : 12; // 1-12
 
@@ -126,45 +160,10 @@ function GastosPorMesChart({ movimientos }) {
     return { series: list, maxVal: max || 1 };
   }, [movimientos, year, currentMonth]);
 
-  const selectorAnio = (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 10 }}>
-      <button
-        onClick={() => setYear((y) => y - 1)}
-        title="Año anterior"
-        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
-      >
-        <ChevronLeftIcon size={14} />
-      </button>
-      <span className="despensa-mono" style={{ fontSize: 13, fontWeight: 600, minWidth: 44, textAlign: "center" }}>{year}</span>
-      <button
-        onClick={() => setYear((y) => Math.min(anioActual, y + 1))}
-        disabled={esAnioActual}
-        title="Año siguiente"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: 26,
-          height: 26,
-          borderRadius: 6,
-          border: "1px solid var(--line)",
-          background: "var(--card)",
-          color: esAnioActual ? "var(--line)" : "var(--ink-soft)",
-          cursor: esAnioActual ? "default" : "pointer",
-        }}
-      >
-        <ChevronRightIcon size={14} />
-      </button>
-    </div>
-  );
-
   if (series.length === 0) {
     return (
-      <div>
-        {selectorAnio}
-        <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
-          Todavía no hay gastos registrados en {year}.
-        </div>
+      <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
+        Todavía no hay gastos registrados en {year}.
       </div>
     );
   }
@@ -183,7 +182,6 @@ function GastosPorMesChart({ movimientos }) {
 
   return (
     <div style={{ overflowX: "auto" }}>
-      {selectorAnio}
       <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", minWidth: 300, display: "block" }}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
           <line
@@ -842,6 +840,7 @@ function SortableSection({ id, isFirst, children }) {
 
 export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas }) {
   const [orden, setOrden] = useState(SECTION_IDS_DEFAULT);
+  const [gastosPorMesYear, setGastosPorMesYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     const unsub = watchInicioOrden((o) => {
@@ -1020,11 +1019,14 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const gastosContent = (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
       <div style={{ flex: "2 1 340px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
-          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por mes y categoría</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 12.5, fontWeight: 600 }}>Gasto x Mes</span>
+          </div>
+          <SelectorAnio year={gastosPorMesYear} setYear={setGastosPorMesYear} anioActual={new Date().getFullYear()} />
         </div>
-        <GastosPorMesChart movimientos={movimientos} />
+        <GastosPorMesChart movimientos={movimientos} year={gastosPorMesYear} setYear={setGastosPorMesYear} />
       </div>
       <div style={{ flex: "1 1 200px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
