@@ -22,8 +22,8 @@ import {
   Zap,
   LineChart,
   Coins,
-  Flame,
   Wallet as WalletIcon,
+  HeartPulse,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -85,7 +85,7 @@ const NAV_ITEMS = [
   },
   { id: "entidades", label: "Entidades", icon: Landmark },
   { id: "wallet", label: "Wallet", icon: WalletIcon },
-  { id: "habitos", label: "Salud", icon: Flame },
+  { id: "habitos", label: "Salud", icon: HeartPulse },
 ];
 
 export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {
