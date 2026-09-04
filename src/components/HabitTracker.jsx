@@ -58,6 +58,16 @@ function PrayingHands({ size = 24, ...props }) {
   );
 }
 
+const DIAS_SEMANA = [
+  { valor: 0, label: "Domingo", plural: "domingos" },
+  { valor: 1, label: "Lunes", plural: "lunes" },
+  { valor: 2, label: "Martes", plural: "martes" },
+  { valor: 3, label: "Miércoles", plural: "miércoles" },
+  { valor: 4, label: "Jueves", plural: "jueves" },
+  { valor: 5, label: "Viernes", plural: "viernes" },
+  { valor: 6, label: "Sábado", plural: "sábados" },
+];
+
 const ICONOS_HABITO = {
   check: Check,
   droplet: Droplet,
@@ -136,6 +146,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
   const [nombre, setNombre] = useState("");
   const [icono, setIcono] = useState("check");
   const [frecuencia, setFrecuencia] = useState("Diario");
+  const [diaRecurrencia, setDiaRecurrencia] = useState(6); // sábado por defecto
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
@@ -187,6 +198,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
   const [editNombre, setEditNombre] = useState("");
   const [editIcono, setEditIcono] = useState("check");
   const [editFrecuencia, setEditFrecuencia] = useState("Diario");
+  const [editDiaRecurrencia, setEditDiaRecurrencia] = useState(6);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
 
@@ -195,6 +207,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
     setEditNombre(h.nombre);
     setEditIcono(h.icono || "check");
     setEditFrecuencia(h.frecuencia || "Diario");
+    setEditDiaRecurrencia(h.diaRecurrencia != null ? h.diaRecurrencia : 6);
     setEditError(null);
   };
 
@@ -211,7 +224,12 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
     setEditSaving(true);
     setEditError(null);
     try {
-      await updateHabito(editingId, { nombre: editNombre.trim(), icono: editIcono, frecuencia: editFrecuencia });
+      await updateHabito(editingId, {
+        nombre: editNombre.trim(),
+        icono: editIcono,
+        frecuencia: editFrecuencia,
+        diaRecurrencia: editFrecuencia === "Semanal" ? editDiaRecurrencia : null,
+      });
       setEditingId(null);
     } catch (err) {
       setEditError(err.message || String(err));
@@ -238,10 +256,11 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
     setSaving(true);
     setError(null);
     try {
-      await addHabito(nombre, icono, frecuencia);
+      await addHabito(nombre, icono, frecuencia, frecuencia === "Semanal" ? diaRecurrencia : null);
       setNombre("");
       setIcono("check");
       setFrecuencia("Diario");
+      setDiaRecurrencia(6);
       setShowForm(false);
     } catch (err) {
       setError(err.message || String(err));
@@ -397,6 +416,32 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
               </button>
             ))}
           </div>
+          {frecuencia === "Semanal" && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>¿Qué día de la semana?</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {DIAS_SEMANA.map((d) => (
+                  <button
+                    key={d.valor}
+                    type="button"
+                    onClick={() => setDiaRecurrencia(d.valor)}
+                    style={{
+                      padding: "6px 10px",
+                      fontSize: 11.5,
+                      fontWeight: 500,
+                      borderRadius: 20,
+                      border: diaRecurrencia === d.valor ? "2px solid var(--sage)" : "1px solid var(--line)",
+                      background: diaRecurrencia === d.valor ? "var(--sage-bg)" : "var(--paper)",
+                      color: diaRecurrencia === d.valor ? "var(--sage)" : "var(--ink-soft)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
             {Object.keys(ICONOS_HABITO).map((key) => {
               const Icon = ICONOS_HABITO[key];
@@ -498,6 +543,32 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
                         </button>
                       ))}
                     </div>
+                    {editFrecuencia === "Semanal" && (
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>¿Qué día de la semana?</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {DIAS_SEMANA.map((d) => (
+                            <button
+                              key={d.valor}
+                              type="button"
+                              onClick={() => setEditDiaRecurrencia(d.valor)}
+                              style={{
+                                padding: "6px 10px",
+                                fontSize: 11.5,
+                                fontWeight: 500,
+                                borderRadius: 20,
+                                border: editDiaRecurrencia === d.valor ? "2px solid var(--sage)" : "1px solid var(--line)",
+                                background: editDiaRecurrencia === d.valor ? "var(--sage-bg)" : "var(--paper)",
+                                color: editDiaRecurrencia === d.valor ? "var(--sage)" : "var(--ink-soft)",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {d.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
                       {Object.keys(ICONOS_HABITO).map((key) => {
                         const IconOpt = ICONOS_HABITO[key];
@@ -592,7 +663,9 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
                       {h.nombre}
                       {frecuenciaHabito !== "Diario" && (
                         <span style={{ fontSize: 9.5, fontWeight: 500, color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 10, padding: "1px 6px" }}>
-                          {frecuenciaHabito}
+                          {frecuenciaHabito === "Semanal" && h.diaRecurrencia != null
+                            ? `Todos los ${DIAS_SEMANA.find((d) => d.valor === h.diaRecurrencia)?.plural}`
+                            : frecuenciaHabito}
                         </span>
                       )}
                     </div>

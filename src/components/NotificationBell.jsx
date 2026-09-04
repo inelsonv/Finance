@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, Flame, BookOpen } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
+import { periodoDeFecha } from "../lib/rachaHabito";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { diasRestantesProducto } from "../lib/inventario";
@@ -82,7 +83,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy }) {
+export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -288,6 +289,33 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       });
     }
 
+    // Recordatorio de hábitos semanales cuyo día fijado es hoy — solo si
+    // todavía no se han marcado como cumplidos esta semana.
+    if (habitos && habitos.length > 0) {
+      const hoy = new Date();
+      const diaHoy = hoy.getDay();
+      const registrosPorHabito = {};
+      for (const r of habitosRegistro || []) {
+        if (!registrosPorHabito[r.habitoId]) registrosPorHabito[r.habitoId] = new Set();
+        registrosPorHabito[r.habitoId].add(r.fecha);
+      }
+      for (const h of habitos) {
+        if (h.activo === false || h.frecuencia !== "Semanal" || h.diaRecurrencia == null) continue;
+        if (h.diaRecurrencia !== diaHoy) continue;
+        const periodoActual = periodoDeFecha("Semanal", hoy);
+        const yaCumplido = registrosPorHabito[h.id]?.has(periodoActual);
+        if (yaCumplido) continue;
+        list.push({
+          id: `recordatorio-habito-${h.id}`,
+          icon: Bell,
+          titulo: `Hoy toca: "${h.nombre}"`,
+          subtitulo: "Es el día que fijaste para este hábito semanal — no olvides marcarlo.",
+          dias: 0,
+          tab: "habitos",
+        });
+      }
+    }
+
     for (const aj of ajustesPresupuesto || []) {
       // Solo mostrar ajustes de los últimos 3 días, para no acumular ruido.
       const fechaAjuste = aj.createdAt?.toDate ? aj.createdAt.toDate() : null;
@@ -342,7 +370,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro]);
 }
 
 export function etiquetaDias(dias) {
@@ -352,7 +380,7 @@ export function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -366,7 +394,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
     }
   });
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro });
 
   const firma = (n) => `${n.id}:${n.dias}`;
   const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));

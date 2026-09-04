@@ -574,6 +574,8 @@ export default function App() {
         diasCobro={diasCobro}
         habitosPenalizaciones={habitosPenalizaciones}
         versiculoHoy={versiculoHoy}
+        habitos={habitos}
+        habitosRegistro={habitosRegistro}
         prestamos={prestamos}
         tarjetas={tarjetas}
         membresias={membresias}
@@ -696,6 +698,8 @@ export default function App() {
                   diasCobro={diasCobro}
                   habitosPenalizaciones={habitosPenalizaciones}
                   versiculoHoy={versiculoHoy}
+                  habitos={habitos}
+                  habitosRegistro={habitosRegistro}
                 />
               </div>
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} synced={synced} />
@@ -729,6 +733,8 @@ export default function App() {
             diasCobro={diasCobro}
             habitosPenalizaciones={habitosPenalizaciones}
             versiculoHoy={versiculoHoy}
+            habitos={habitos}
+            habitosRegistro={habitosRegistro}
           />
         )}
         {tab === "puntos" && (
