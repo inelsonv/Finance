@@ -549,13 +549,21 @@ exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request)
 function extraerConMetadatos(html) {
   const resultado = { nombre: null, precio: null, imagenUrl: null };
 
-  // Open Graph
+  // Open Graph / Twitter Card
   const ogTitle = html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
   const ogImage = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i);
+  const twitterImage = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
   const ogPrice = html.match(/<meta[^>]+property=["']product:price:amount["'][^>]+content=["']([^"']+)["']/i);
   if (ogTitle) resultado.nombre = ogTitle[1];
   if (ogImage) resultado.imagenUrl = ogImage[1];
+  else if (twitterImage) resultado.imagenUrl = twitterImage[1];
   if (ogPrice) resultado.precio = parseFloat(ogPrice[1]);
+
+  // itemprop="price" / data-price, otro patrón común en tiendas
+  if (!resultado.precio) {
+    const itempropPrice = html.match(/itemprop=["']price["'][^>]*content=["']([\d.,]+)["']/i) || html.match(/data-price=["']([\d.,]+)["']/i);
+    if (itempropPrice) resultado.precio = parseFloat(itempropPrice[1].replace(/,/g, ""));
+  }
 
   // JSON-LD (schema.org Product) — suele ser la fuente más confiable
   const ldMatches = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
@@ -578,6 +586,28 @@ function extraerConMetadatos(html) {
   return resultado;
 }
 
+// Junta las URLs de imagen candidatas de la página (todas las etiquetas
+// <img>), descartando las que claramente son íconos/logos por su nombre de
+// archivo, para dárselas a la IA como opciones entre las que elegir la foto
+// principal del producto.
+function candidatosDeImagen(html, baseUrl) {
+  const candidatos = [];
+  const imgMatches = html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi);
+  for (const m of imgMatches) {
+    let src = m[1];
+    if (!src || src.startsWith("data:")) continue;
+    if (/logo|icon|sprite|favicon|placeholder/i.test(src)) continue;
+    try {
+      src = new URL(src, baseUrl).href;
+    } catch (err) {
+      continue;
+    }
+    if (!candidatos.includes(src)) candidatos.push(src);
+    if (candidatos.length >= 15) break;
+  }
+  return candidatos;
+}
+
 exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (request) => {
   if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
     throw new HttpsError("permission-denied", "No autorizado");
@@ -596,9 +626,11 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
 
   let resultado = extraerConMetadatos(html);
 
-  // Si los metadatos estándar no dieron nombre Y precio, se intenta con IA
-  // como respaldo, mandándole el texto visible de la página (recortado).
-  if (!resultado.nombre || !resultado.precio) {
+  // Si los metadatos estándar no dieron nombre, precio, o imagen, se intenta
+  // con IA como respaldo — mandándole el texto visible de la página y, si
+  // sigue faltando la imagen, una lista de fotos candidatas para que elija
+  // cuál es la principal del producto.
+  if (!resultado.nombre || !resultado.precio || !resultado.imagenUrl) {
     const textoPlano = html
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -606,6 +638,12 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 6000);
+
+    const candidatosImagen = resultado.imagenUrl ? [] : candidatosDeImagen(html, url);
+    const bloqueImagenes =
+      candidatosImagen.length > 0
+        ? `\n\nEstas son las URLs de imágenes encontradas en la página — si alguna es claramente la foto principal del producto, inclúyela como "imagenUrl" (copiada exacta, tal cual aparece aquí). Si ninguna parece ser del producto, pon null:\n${candidatosImagen.join("\n")}`
+        : "";
 
     try {
       const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -617,11 +655,11 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 300,
+          max_tokens: 400,
           messages: [
             {
               role: "user",
-              content: `Este es el texto visible de la página de un producto de una tienda en línea. Extrae el nombre del producto y su precio en pesos dominicanos (solo el número, sin símbolo). Responde SOLO con JSON, sin explicación ni markdown: {"nombre": "...", "precio": 123.45}. Si no encuentras alguno de los dos, pon null en ese campo.\n\nTexto de la página:\n${textoPlano}`,
+              content: `Este es el texto visible de la página de un producto de una tienda en línea. Extrae el nombre del producto y su precio en pesos dominicanos (solo el número, sin símbolo). Responde SOLO con JSON, sin explicación ni markdown: {"nombre": "...", "precio": 123.45, "imagenUrl": "..."}. Si no encuentras alguno de los campos, pon null en ese campo.\n\nTexto de la página:\n${textoPlano}${bloqueImagenes}`,
             },
           ],
         }),
@@ -633,7 +671,7 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
       resultado = {
         nombre: resultado.nombre || parsedIA.nombre || null,
         precio: resultado.precio || parsedIA.precio || null,
-        imagenUrl: resultado.imagenUrl,
+        imagenUrl: resultado.imagenUrl || parsedIA.imagenUrl || null,
       };
     } catch (err) {
       // Si falla el respaldo de IA, se devuelve lo que sí se pudo sacar de
