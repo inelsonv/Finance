@@ -3,29 +3,34 @@
  * transacción, y los manda a la Cloud Function para registrar el gasto
  * automáticamente en Smart Finance.
  *
- * CONFIGURACIÓN (hacer una sola vez):
- * 1. Ve a https://script.google.com y crea un proyecto nuevo.
- * 2. Pega este código completo, reemplazando el que venga por defecto.
- * 3. Reemplaza WEBHOOK_URL y WEBHOOK_SECRET abajo con los valores reales
- *    (Claude te los da al terminar de configurar la Cloud Function).
- * 4. Ejecuta la función `procesarCorreosPopular` una vez manualmente
- *    (Google te pedirá autorizar el acceso a tu Gmail — es normal, es tu
- *    propio script leyendo tu propio correo).
- * 5. Ve al reloj (⏰ Activadores) a la izquierda → Agregar activador →
- *    elige "procesarCorreosPopular" → tipo de evento "Basado en tiempo" →
- *    "Cada 15 minutos" (o el intervalo que prefieras) → Guardar.
+ * Alcance (decidido 2026-09-04): solo se registran transacciones de la
+ * tarjeta terminada en 6011, tipo "Notificación de Consumo", estatus
+ * Aprobada. Todo lo demás (otras tarjetas, declinadas/rechazadas,
+ * transferencias, nómina, reversos, retiros Código Cash, depósitos, etc.)
+ * se ignora y el hilo se marca como procesado para no reintentarlo.
+ *
+ * Límite por corrida (agregado 2026-09-04): Apps Script cancela cualquier
+ * ejecución que pase de 6 minutos. Para no arriesgarnos a eso (sobre todo
+ * si hay un backlog grande de correos sin procesar), cada corrida solo
+ * revisa hasta MAX_HILOS_POR_CORRIDA hilos — el resto se procesa en la
+ * siguiente corrida del disparador (cada 15 minutos), hasta ponerse al día.
  */
 
 const WEBHOOK_URL = "https://us-central1-finance-6e127.cloudfunctions.net/registrarGastoDesdeCorreo";
-const WEBHOOK_SECRET = "PEGA_AQUI_EL_SECRETO"; // Claude te lo da al final
+const WEBHOOK_SECRET = "1e05c50fd42326089d78f910b3ea574420a67c5484a1ce5c79e4d906593c4186";
 const LABEL_PROCESADO = "SmartFinance-Procesado";
+const MAX_HILOS_POR_CORRIDA = 25;
 
 function procesarCorreosPopular() {
   asegurarEtiqueta_();
   const label = GmailApp.getUserLabelByName(LABEL_PROCESADO);
   const hilos = GmailApp.search(
-    'from:notificaciones@popularenlinea.com -label:"' + LABEL_PROCESADO + '"'
+    'from:notificaciones@popularenlinea.com -label:"' + LABEL_PROCESADO + '"',
+    0,
+    MAX_HILOS_POR_CORRIDA
   );
+
+  Logger.log(`Procesando ${hilos.length} hilo(s) esta corrida (tope: ${MAX_HILOS_POR_CORRIDA}).`);
 
   hilos.forEach((hilo) => {
     const mensajes = hilo.getMessages();
@@ -33,12 +38,18 @@ function procesarCorreosPopular() {
 
     mensajes.forEach((msg) => {
       const texto = msg.getPlainBody();
-      const datos = interpretarCorreo_(texto);
+      const asunto = msg.getSubject();
+      const datos = interpretarCorreo_(texto, asunto);
+
+      if (datos && datos.ignorar) {
+        // Fuera de alcance (no es 6011 / no es consumo / no está aprobada):
+        // no es error, se ignora y el hilo se etiqueta como procesado igual.
+        return;
+      }
+
       if (!datos) {
-        Logger.log("No se pudo interpretar un correo, se deja sin marcar: " + msg.getSubject());
-        if (/consumo/i.test(msg.getSubject())) {
-          Logger.log("---- Texto completo de ese correo (para depurar) ----\n" + texto);
-        }
+        Logger.log("No se pudo interpretar un correo de consumo 6011, se deja sin marcar: " + asunto);
+        Logger.log("---- Texto completo de ese correo (para depurar) ----\n" + texto);
         huboError = true;
         return;
       }
@@ -62,50 +73,57 @@ function procesarCorreosPopular() {
       }
     });
 
-    // Solo marca el hilo como procesado si TODOS sus mensajes se
-    // interpretaron y enviaron sin error — así un fallo temporal no hace
-    // que el correo se pierda para siempre.
     if (!huboError) {
       hilo.addLabel(label);
     }
   });
 }
 
-function interpretarCorreo_(texto) {
-  const matchMonto = texto.match(/RD\$([\d,]+\.\d{2})/);
-  const matchFecha = texto.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+function interpretarCorreo_(texto, asunto) {
+  // Fuera de alcance: solo nos interesan correos de "Notificación de Consumo"
+  if (!/consumo/i.test(asunto || "")) {
+    return { ignorar: true };
+  }
+
   const matchTarjeta = texto.match(/terminada en (\d{4})/i);
-  const matchEstatus = texto.match(/(Aprobada|Rechazada|Declinada)/i);
+  const matchEstatus = texto.match(/\b(Aprobada|Rechazada|Declinada)\b/i);
 
-  if (!matchMonto || !matchFecha || !matchTarjeta) return null;
+  // Si ni siquiera se puede identificar tarjeta o estatus, sí es un error real
+  // de parseo (formato inesperado en un correo de consumo) y se deja para revisar.
+  if (!matchTarjeta || !matchEstatus) return null;
 
-  // Comercio: el texto entre la fecha y el estatus, en la misma línea de la
-  // tabla de la transacción.
+  // Fuera de alcance: no es la tarjeta 6011, o no está aprobada (declinada/rechazada)
+  if (matchTarjeta[1] !== "6011") return { ignorar: true };
+  if (!/^Aprobada$/i.test(matchEstatus[1])) return { ignorar: true };
+
+  // Acepta US$ o RD$, y montos sin dígitos antes del punto (ej. US$.99)
+  const matchMonto = texto.match(/(?:US\$|RD\$)\s*([\d,]*\.\d{2})/);
+  const matchFecha = texto.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!matchMonto || !matchFecha) return null;
+
+  // Comercio = todo el texto entre el final de la fecha y el "Aprobada",
+  // sin depender de que estén en la misma línea (soporta celdas con link,
+  // como "CLARO P REC" + número de referencia con hipervínculo).
+  const inicio = matchFecha.index + matchFecha[0].length;
+  const fin = matchEstatus.index;
   let comercio = "";
-  const lineaTransaccion = texto
-    .split("\n")
-    .find((linea) => linea.includes(matchMonto[0]) && matchFecha[0] && linea.includes(matchFecha[0]));
-  if (lineaTransaccion) {
-    const partes = lineaTransaccion.split(/\s{2,}|\t/).map((p) => p.trim()).filter(Boolean);
-    // Busca el trozo que no sea el monto, la moneda, la fecha, ni el estatus.
-    comercio = partes.find(
-      (p) =>
-        p !== matchMonto[0] &&
-        p !== matchFecha[0] &&
-        !/peso dominicano|d[oó]lar/i.test(p) &&
-        !/^(Aprobada|Rechazada|Declinada)$/i.test(p)
-    ) || "";
+  if (fin > inicio) {
+    comercio = texto
+      .slice(inicio, fin)
+      .replace(/<[^>]*>/g, " ") // quita <https://...> de links
+      .replace(/peso dominicano|d[oó]lar estadounidense/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   const [, dd, mm, yyyy] = matchFecha;
-  const fechaISO = `${yyyy}-${mm}-${dd}`;
 
   return {
     monto: parseFloat(matchMonto[1].replace(/,/g, "")),
-    fecha: fechaISO,
+    fecha: `${yyyy}-${mm}-${dd}`,
     comercio: comercio,
     ultimos4: matchTarjeta[1],
-    estatus: matchEstatus ? matchEstatus[1] : "Aprobada",
+    estatus: matchEstatus[1],
   };
 }
 
