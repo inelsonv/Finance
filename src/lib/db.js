@@ -313,7 +313,7 @@ export async function addMovimiento({
     // el formulario completo), el bono es menor (1 punto en vez de 10) para
     // no incentivar registrar muchos gastos mínimos solo por los puntos.
     if (type !== "Ingreso") {
-      const puntosRegistro = origen === "rapido" ? 1 : 10;
+      const puntosRegistro = origen === "rapido" ? 5 : 10;
       await otorgarPuntos("Registraste un movimiento", puntosRegistro, "registro", docRef.id);
     }
   } catch (err) {
