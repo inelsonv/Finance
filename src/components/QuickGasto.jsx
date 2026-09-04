@@ -170,6 +170,7 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
         monedaTarjeta: metodoPago === "Tarjeta de crédito" ? "RDS" : null,
         fechaPagoTarjeta:
           metodoPago === "Tarjeta de crédito" && tarjeta ? calcularFechaPagoTarjeta(tarjeta, fecha)?.fechaPagoStr || null : null,
+        origen: "rapido",
       });
       setGuardado(true);
       setTimeout(() => onClose(), 900);

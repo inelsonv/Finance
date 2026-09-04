@@ -239,6 +239,7 @@ export async function addMovimiento({
   fuenteIngresoNombre,
   contratoId,
   contratoNombre,
+  origen,
 }) {
   const docRef = await addDoc(movimientosCol, {
     type,
@@ -307,9 +308,13 @@ export async function addMovimiento({
 
     // Punto fijo, pequeño, por el simple hecho de registrar el movimiento
     // (no depende del monto ni de la categoría) — se suma aparte de
-    // cualquier otro punto ya otorgado arriba. No aplica a Ingresos.
+    // cualquier otro punto ya otorgado arriba. No aplica a Ingresos. Si se
+    // registró desde el registro rápido de móvil (no desde el Checklist ni
+    // el formulario completo), el bono es menor (1 punto en vez de 10) para
+    // no incentivar registrar muchos gastos mínimos solo por los puntos.
     if (type !== "Ingreso") {
-      await otorgarPuntos("Registraste un movimiento", 10, "registro", docRef.id);
+      const puntosRegistro = origen === "rapido" ? 1 : 10;
+      await otorgarPuntos("Registraste un movimiento", puntosRegistro, "registro", docRef.id);
     }
   } catch (err) {
     console.error("No se pudieron otorgar puntos:", err);
