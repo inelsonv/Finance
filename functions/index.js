@@ -1,14 +1,15 @@
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 initializeApp();
 const db = getFirestore();
 
 const ALLOWED_EMAIL = "iventuramena@gmail.com";
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
+const emailWebhookSecret = defineSecret("EMAIL_WEBHOOK_SECRET");
 
 const UMBRAL_DIAS = 7;
 
@@ -680,4 +681,119 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
   }
 
   return resultado;
+});
+
+// ---- Registrar gasto automáticamente desde un correo de notificación ----
+// Pensado para recibir datos ya interpretados (monto, fecha, comercio,
+// últimos 4 dígitos) desde un Google Apps Script que lee el Gmail del
+// usuario y detecta correos de notificaciones@popularenlinea.com. No usa
+// autenticación de Firebase (Apps Script no puede hacerlo fácilmente) —
+// en su lugar, exige un secreto compartido que solo el script conoce.
+
+function calcularFechaPagoTarjetaServer(tarjeta, fechaConsumoStr) {
+  if (!tarjeta.fechaCorte) return null;
+  const diasGracia = tarjeta.diasGracia || 22;
+  const consumo = new Date(fechaConsumoStr + "T00:00:00");
+  const year = consumo.getFullYear();
+  const month = consumo.getMonth() + 1;
+
+  const diasEnMesConsumo = new Date(year, month, 0).getDate();
+  const diaCorteEsteMes = Math.min(tarjeta.fechaCorte, diasEnMesConsumo);
+  const corteEsteMes = new Date(year, month - 1, diaCorteEsteMes);
+
+  let cicloCierre;
+  if (consumo <= corteEsteMes) {
+    cicloCierre = corteEsteMes;
+  } else {
+    let nextMonth = month + 1;
+    let nextYear = year;
+    if (nextMonth > 12) {
+      nextMonth = 1;
+      nextYear += 1;
+    }
+    const diasEnMesSiguiente = new Date(nextYear, nextMonth, 0).getDate();
+    const diaCorteSiguiente = Math.min(tarjeta.fechaCorte, diasEnMesSiguiente);
+    cicloCierre = new Date(nextYear, nextMonth - 1, diaCorteSiguiente);
+  }
+
+  const fechaPago = new Date(cicloCierre);
+  fechaPago.setDate(fechaPago.getDate() + diasGracia);
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const toStr = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  return toStr(fechaPago);
+}
+
+exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] }, async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Método no permitido" });
+    return;
+  }
+  if (req.get("x-webhook-secret") !== emailWebhookSecret.value()) {
+    res.status(401).json({ error: "No autorizado" });
+    return;
+  }
+
+  const { monto, fecha, comercio, ultimos4, estatus } = req.body || {};
+  if (!monto || !fecha || !ultimos4) {
+    res.status(400).json({ error: "Faltan datos (monto, fecha o últimos4)" });
+    return;
+  }
+  if (estatus && !/aprobada/i.test(estatus)) {
+    res.status(200).json({ ok: true, omitido: true, motivo: "Transacción no aprobada, no se registró" });
+    return;
+  }
+
+  try {
+    const tarjetasSnap = await db.collection("tarjetas").where("ultimos4", "==", String(ultimos4)).limit(1).get();
+    if (tarjetasSnap.empty) {
+      res.status(404).json({ error: `No se encontró ninguna tarjeta terminada en ${ultimos4}` });
+      return;
+    }
+    const tarjetaDoc = tarjetasSnap.docs[0];
+    const tarjeta = tarjetaDoc.data();
+
+    // Protección contra duplicados: si el mismo correo se procesa dos
+    // veces, no se crea el gasto otra vez.
+    const idDeterministico = `correo_${ultimos4}_${fecha}_${monto}_${(comercio || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 30)}`;
+    const yaExisteSnap = await db.collection("movimientos").where("idOrigenCorreo", "==", idDeterministico).limit(1).get();
+    if (!yaExisteSnap.empty) {
+      res.status(200).json({ ok: true, duplicado: true });
+      return;
+    }
+
+    const fechaPagoTarjeta = calcularFechaPagoTarjetaServer(tarjeta, fecha);
+
+    const movRef = await db.collection("movimientos").add({
+      type: "Gasto",
+      category: "Otros Gastos",
+      amount: Number(monto),
+      description: comercio || "",
+      date: fecha,
+      clasificacion: "Variable",
+      metodoPago: "Tarjeta de crédito",
+      tarjetaId: tarjetaDoc.id,
+      tarjetaNombre: tarjeta.nombre || "",
+      monedaTarjeta: "RDS",
+      fechaPagoTarjeta,
+      pagado: false,
+      idOrigenCorreo: idDeterministico,
+      origenAutomatico: "correo-popular",
+      createdAt: new Date(),
+    });
+
+    await db.collection("puntosHistorial").add({
+      motivo: `Gasto detectado automáticamente: ${comercio || "compra"}`,
+      puntos: 10,
+      tipo: "registro",
+      movimientoId: movRef.id,
+      fecha,
+      createdAt: new Date(),
+    });
+    await db.collection("config").doc("puntos").set({ total: FieldValue.increment(10) }, { merge: true });
+
+    res.status(200).json({ ok: true, movimientoId: movRef.id, fechaPagoTarjeta });
+  } catch (err) {
+    console.error("Error registrando gasto desde correo:", err);
+    res.status(500).json({ error: err.message || String(err) });
+  }
 });
