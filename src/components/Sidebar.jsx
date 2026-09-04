@@ -85,7 +85,7 @@ const NAV_ITEMS = [
   },
   { id: "entidades", label: "Entidades", icon: Landmark },
   { id: "wallet", label: "Wallet", icon: WalletIcon },
-  { id: "habitos", label: "Hábitos", icon: Flame },
+  { id: "habitos", label: "Salud", icon: Flame },
 ];
 
 export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {

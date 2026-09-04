@@ -513,6 +513,25 @@ export async function marcarCofreVisto(cofreId) {
   await updateDoc(doc(db, "cofresGanados", cofreId), { visto: true });
 }
 
+// ---- Salud: datos corporales ----
+// Guardados en un solo documento (no hay historial por ahora) — se usan
+// como variables para calcular recomendaciones, como cuánta agua tomar.
+export function watchDatosCorporales(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "datosCorporales"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveDatosCorporales({ peso, estatura, edad, nivelActividad }) {
+  await setDoc(
+    doc(db, "config", "datosCorporales"),
+    { peso: peso ?? null, estatura: estatura ?? null, edad: edad ?? null, nivelActividad: nivelActividad ?? null, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
 // ---- Habit Tracker ----
 // Hábitos definidos libremente por el usuario (ej. "Buena alimentación",
 // "Consumo de agua"), con seguimiento diario y puntos por cumplirlos.

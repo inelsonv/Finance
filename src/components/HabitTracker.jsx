@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   X,
@@ -42,8 +42,9 @@ import {
   ChevronDown,
   Pencil,
 } from "lucide-react";
-import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos, updateHabito } from "../lib/db";
+import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos, updateHabito, saveDatosCorporales } from "../lib/db";
 import { calcularRachaHabito, historialHabitoVisual, periodoDeFecha, periodosSinCumplir } from "../lib/rachaHabito";
+import { calcularAguaRecomendada, calcularIMC, clasificarIMC } from "../lib/saludCalculos";
 import { confirm } from "../lib/confirm";
 
 // Lucide no tiene un ícono de "manos orando" — este es de Phosphor Icons
@@ -98,8 +99,40 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function HabitTracker({ habitos, habitosRegistro }) {
+export default function HabitTracker({ habitos, habitosRegistro, datosCorporales }) {
   const [showForm, setShowForm] = useState(false);
+  const [showDatosCorporales, setShowDatosCorporales] = useState(false);
+  const [peso, setPeso] = useState(datosCorporales?.peso != null ? String(datosCorporales.peso) : "");
+  const [estatura, setEstatura] = useState(datosCorporales?.estatura != null ? String(datosCorporales.estatura) : "");
+  const [edad, setEdad] = useState(datosCorporales?.edad != null ? String(datosCorporales.edad) : "");
+  const [nivelActividad, setNivelActividad] = useState(datosCorporales?.nivelActividad || "Moderado");
+  const [guardandoDatos, setGuardandoDatos] = useState(false);
+
+  useEffect(() => {
+    setPeso(datosCorporales?.peso != null ? String(datosCorporales.peso) : "");
+    setEstatura(datosCorporales?.estatura != null ? String(datosCorporales.estatura) : "");
+    setEdad(datosCorporales?.edad != null ? String(datosCorporales.edad) : "");
+    setNivelActividad(datosCorporales?.nivelActividad || "Moderado");
+  }, [datosCorporales]);
+
+  const handleGuardarDatosCorporales = async () => {
+    setGuardandoDatos(true);
+    try {
+      await saveDatosCorporales({
+        peso: peso ? parseFloat(peso) : null,
+        estatura: estatura ? parseFloat(estatura) : null,
+        edad: edad ? parseInt(edad, 10) : null,
+        nivelActividad,
+      });
+    } finally {
+      setGuardandoDatos(false);
+    }
+  };
+
+  const aguaRecomendada = calcularAguaRecomendada(parseFloat(peso), nivelActividad);
+  const imc = calcularIMC(parseFloat(peso), parseFloat(estatura));
+  const imcClasificacion = clasificarIMC(imc);
+
   const [nombre, setNombre] = useState("");
   const [icono, setIcono] = useState("check");
   const [frecuencia, setFrecuencia] = useState("Diario");
@@ -224,6 +257,92 @@ export default function HabitTracker({ habitos, habitosRegistro }) {
 
   return (
     <div>
+      <div style={{ marginBottom: 18 }}>
+        <span className="despensa-tab-font" style={{ fontSize: 17, fontWeight: 700 }}>Salud</span>
+      </div>
+
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, marginBottom: 20, overflow: "hidden" }}>
+        <button
+          onClick={() => setShowDatosCorporales((s) => !s)}
+          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "transparent", border: "none", cursor: "pointer", color: "var(--ink)" }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, fontWeight: 600 }}>
+            <Droplet size={15} /> Datos corporales
+          </span>
+          {showDatosCorporales ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        {(showDatosCorporales || (!peso && !estatura)) && (
+          <div style={{ padding: "0 14px 14px" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 10, lineHeight: 1.5 }}>
+              Se usan para calcular recomendaciones como cuánta agua tomar — son estimaciones generales, no un consejo médico.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <input
+                type="number"
+                placeholder="Peso (kg)"
+                value={peso}
+                onChange={(e) => setPeso(e.target.value)}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <input
+                type="number"
+                placeholder="Estatura (cm)"
+                value={estatura}
+                onChange={(e) => setEstatura(e.target.value)}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+              <input
+                type="number"
+                placeholder="Edad"
+                value={edad}
+                onChange={(e) => setEdad(e.target.value)}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <select
+                value={nivelActividad}
+                onChange={(e) => setNivelActividad(e.target.value)}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--paper)", color: "var(--ink)" }}
+              >
+                {["Sedentario", "Moderado", "Activo", "Muy activo"].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={handleGuardarDatosCorporales}
+              disabled={guardandoDatos}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: guardandoDatos ? "not-allowed" : "pointer", marginBottom: 12 }}
+            >
+              <Check size={13} /> {guardandoDatos ? "Guardando…" : "Guardar"}
+            </button>
+
+            {(aguaRecomendada || imc) && (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", borderTop: "1px solid var(--line-soft)", paddingTop: 10 }}>
+                {aguaRecomendada && (
+                  <div style={{ flex: 1, minWidth: 130, background: "var(--paper)", borderRadius: 8, padding: "8px 10px" }}>
+                    <div style={{ fontSize: 10, color: "var(--ink-soft)", marginBottom: 2 }}>Agua recomendada</div>
+                    <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: "var(--sage)" }}>
+                      {(aguaRecomendada / 1000).toFixed(1)}L/día
+                    </div>
+                  </div>
+                )}
+                {imc && (
+                  <div style={{ flex: 1, minWidth: 130, background: "var(--paper)", borderRadius: 8, padding: "8px 10px" }}>
+                    <div style={{ fontSize: 10, color: "var(--ink-soft)", marginBottom: 2 }}>IMC</div>
+                    <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: imcClasificacion?.color }}>
+                      {imc} <span style={{ fontSize: 11, fontWeight: 500 }}>({imcClasificacion?.label})</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Hábitos</span>
         <button

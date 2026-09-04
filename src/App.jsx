@@ -4,7 +4,7 @@ import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
-import { watchCofresGanados, marcarCofreVisto } from "./lib/db";
+import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales } from "./lib/db";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/quincenaConfig";
@@ -169,6 +169,7 @@ export default function App() {
   const [diasCobro, setDiasCobro] = useState([15, 30]);
   const [habitos, setHabitos] = useState([]);
   const [habitosRegistro, setHabitosRegistro] = useState([]);
+  const [datosCorporales, setDatosCorporales] = useState(null);
   const [habitosPenalizaciones, setHabitosPenalizaciones] = useState([]);
   const [versiculoHoy, setVersiculoHoy] = useState(null);
   const [cofresGanados, setCofresGanados] = useState([]);
@@ -312,6 +313,7 @@ export default function App() {
     const unsubDiasCobro = watchDiasCobroConfig(setDiasCobro, handleError);
     const unsubHabitos = watchHabitos(setHabitos, handleError);
     const unsubHabitosRegistro = watchHabitosRegistro(setHabitosRegistro, handleError);
+    const unsubDatosCorporales = watchDatosCorporales(setDatosCorporales, handleError);
     const unsubHabitosPenalizaciones = watchHabitosPenalizaciones(setHabitosPenalizaciones, handleError);
     const unsubVersiculoHoy = watchVersiculoHoy(fechaHoyStr(), setVersiculoHoy, handleError);
     const unsubCofresGanados = watchCofresGanados(setCofresGanados, handleError);
@@ -353,6 +355,7 @@ export default function App() {
       unsubDiasCobro();
       unsubHabitos();
       unsubHabitosRegistro();
+      unsubDatosCorporales();
       unsubHabitosPenalizaciones();
       unsubVersiculoHoy();
       unsubCofresGanados();
@@ -739,7 +742,7 @@ export default function App() {
             topesAjuste={topesAjuste}
           />
         )}
-        {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} />}
+        {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}
         {tab === "wallet" && <Wallet tarjetas={tarjetas} membresias={membresias} onNavigate={setTab} />}
         {tab === "compras" && (
           <Compras

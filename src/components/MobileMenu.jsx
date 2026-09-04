@@ -10,7 +10,7 @@ const OPCIONES = [
   { id: "activos", label: "Activos", icon: Car },
   { id: "entidades", label: "Entidades", icon: Landmark },
   { id: "wallet", label: "Wallet", icon: WalletCards },
-  { id: "habitos", label: "Hábitos", icon: Flame },
+  { id: "habitos", label: "Salud", icon: Flame },
   { id: "configuracion", label: "Configuración", icon: Settings },
 ];
 
