@@ -214,10 +214,17 @@ export default function Seguros({ seguros, entidades, activos }) {
           style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
         >
           <option value="">Aseguradora (opcional)</option>
-          {entidades.map((e) => (
-            <option key={e.docId} value={e.docId}>{e.name}</option>
-          ))}
+          {entidades
+            .filter((e) => e.type === "Aseguradora")
+            .map((e) => (
+              <option key={e.docId} value={e.docId}>{e.name}</option>
+            ))}
         </select>
+        {entidades.filter((e) => e.type === "Aseguradora").length === 0 && (
+          <div style={{ gridColumn: "1 / -1", fontSize: 10.5, color: "var(--ink-soft)", marginTop: -4 }}>
+            No tienes entidades de tipo "Aseguradora" — créala primero en el módulo de Entidades.
+          </div>
+        )}
         <input
           placeholder="No. de póliza"
           value={f.numeroPoliza}
