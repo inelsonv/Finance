@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -103,9 +103,10 @@ const LINE_COLORS = [
 ];
 
 function GastosPorMesChart({ movimientos }) {
-  const now = new Date();
-  const year = now.getFullYear();
-  const currentMonth = now.getMonth() + 1; // 1-12
+  const anioActual = new Date().getFullYear();
+  const [year, setYear] = useState(anioActual);
+  const esAnioActual = year === anioActual;
+  const currentMonth = esAnioActual ? new Date().getMonth() + 1 : 12; // 1-12
 
   const { series, maxVal } = useMemo(() => {
     const byCategory = {};
@@ -125,10 +126,45 @@ function GastosPorMesChart({ movimientos }) {
     return { series: list, maxVal: max || 1 };
   }, [movimientos, year, currentMonth]);
 
+  const selectorAnio = (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 10 }}>
+      <button
+        onClick={() => setYear((y) => y - 1)}
+        title="Año anterior"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
+      >
+        <ChevronLeftIcon size={14} />
+      </button>
+      <span className="despensa-mono" style={{ fontSize: 13, fontWeight: 600, minWidth: 44, textAlign: "center" }}>{year}</span>
+      <button
+        onClick={() => setYear((y) => Math.min(anioActual, y + 1))}
+        disabled={esAnioActual}
+        title="Año siguiente"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 26,
+          height: 26,
+          borderRadius: 6,
+          border: "1px solid var(--line)",
+          background: "var(--card)",
+          color: esAnioActual ? "var(--line)" : "var(--ink-soft)",
+          cursor: esAnioActual ? "default" : "pointer",
+        }}
+      >
+        <ChevronRightIcon size={14} />
+      </button>
+    </div>
+  );
+
   if (series.length === 0) {
     return (
-      <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
-        Todavía no hay gastos registrados este año. Ve a Movimientos para agregar el primero.
+      <div>
+        {selectorAnio}
+        <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
+          Todavía no hay gastos registrados en {year}.
+        </div>
       </div>
     );
   }
@@ -147,6 +183,7 @@ function GastosPorMesChart({ movimientos }) {
 
   return (
     <div style={{ overflowX: "auto" }}>
+      {selectorAnio}
       <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", minWidth: 300, display: "block" }}>
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
           <line
