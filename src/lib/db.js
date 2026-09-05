@@ -1085,6 +1085,27 @@ export async function ajustarPuntosManual(motivo, monto) {
   await setDoc(doc(db, "config", "puntos"), { total: increment(montoNum) }, { merge: true });
 }
 
+// Arreglo puntual, de una sola vez: el 5-sep-2026 una reversión de canje de
+// 1000 puntos falló a medias (el canje quedó marcado "Revertido" pero los
+// 1000 puntos nunca se devolvieron, por un canje viejo sin los campos
+// necesarios). Se aplica automáticamente la primera vez que corre después
+// de este cambio, y queda marcado para no volver a aplicarse dos veces.
+export async function aplicarArregloPuntosPerdidos_20260905() {
+  const flagRef = doc(db, "config", "fixPuntos20260905");
+  const flagSnap = await getDoc(flagRef);
+  if (flagSnap.exists() && flagSnap.data().aplicado) return;
+
+  await addDoc(collection(db, "puntosHistorial"), {
+    motivo: "Corrección automática: recuperación de 1000 puntos de una reversión de canje que falló a medias",
+    puntos: 1000,
+    tipo: "ajusteManual",
+    fecha: new Date().toISOString().slice(0, 10),
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(1000) }, { merge: true });
+  await setDoc(flagRef, { aplicado: true, aplicadoEn: serverTimestamp() });
+}
+
 function formatMoneyErr(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
