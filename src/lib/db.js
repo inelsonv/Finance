@@ -29,6 +29,7 @@ const prestamosCol = collection(db, "prestamos");
 const cuentasCol = collection(db, "cuentas");
 const tarjetasCol = collection(db, "tarjetas");
 const membresiasCol = collection(db, "membresias");
+const librosCol = collection(db, "libros");
 const fuentesIngresoCol = collection(db, "fuentesIngreso");
 const categoriasGastoCol = collection(db, "categoriasGasto");
 const contratosCol = collection(db, "contratos");
@@ -1326,6 +1327,47 @@ export async function updateTarjetaEstado(id, estado) {
 
 export async function deleteTarjeta(id) {
   await deleteDoc(doc(db, "tarjetas", id));
+}
+
+// ---- Biblioteca: registro personal de libros (estilo Goodreads) ----
+export function watchLibros(onChange, onError) {
+  return onSnapshot(
+    librosCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => {
+        const oa = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const ob = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return ob - oa;
+      });
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addLibro({ titulo, autor, estado, genero, calificacion, notas }) {
+  const tituloTrim = (titulo || "").trim();
+  if (!tituloTrim) throw new Error("Ponle un título al libro");
+  await addDoc(librosCol, {
+    titulo: tituloTrim,
+    autor: (autor || "").trim(),
+    estado: estado || "Pendiente",
+    genero: genero || "",
+    calificacion: calificacion || null,
+    notas: notas || "",
+    fechaInicio: null,
+    fechaFin: null,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateLibro(id, fields) {
+  await updateDoc(doc(db, "libros", id), fields);
+}
+
+export async function deleteLibro(id) {
+  await deleteDoc(doc(db, "libros", id));
 }
 
 export function watchMembresias(onChange, onError) {

@@ -4,7 +4,7 @@ import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
-import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro } from "./lib/db";
+import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros } from "./lib/db";
 import { periodoDeFecha } from "./lib/rachaHabito";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
@@ -52,6 +52,7 @@ import Puntos from "./components/Puntos.jsx";
 import HabitTracker from "./components/HabitTracker.jsx";
 import Wallet from "./components/Wallet.jsx";
 import Asistente from "./components/Asistente.jsx";
+import Biblioteca from "./components/Biblioteca.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import NotificacionesPage from "./components/NotificacionesPage.jsx";
@@ -172,6 +173,7 @@ export default function App() {
   const [habitos, setHabitos] = useState([]);
   const [habitosRegistro, setHabitosRegistro] = useState([]);
   const [datosCorporales, setDatosCorporales] = useState(null);
+  const [libros, setLibros] = useState([]);
   const [habitosPenalizaciones, setHabitosPenalizaciones] = useState([]);
   const [versiculoHoy, setVersiculoHoy] = useState(null);
   const [cofresGanados, setCofresGanados] = useState([]);
@@ -329,6 +331,7 @@ export default function App() {
     const unsubHabitos = watchHabitos(setHabitos, handleError);
     const unsubHabitosRegistro = watchHabitosRegistro(setHabitosRegistro, handleError);
     const unsubDatosCorporales = watchDatosCorporales(setDatosCorporales, handleError);
+    const unsubLibros = watchLibros(setLibros, handleError);
     const unsubHabitosPenalizaciones = watchHabitosPenalizaciones(setHabitosPenalizaciones, handleError);
     const unsubVersiculoHoy = watchVersiculoHoy(fechaHoyStr(), setVersiculoHoy, handleError);
     const unsubCofresGanados = watchCofresGanados(setCofresGanados, handleError);
@@ -371,6 +374,7 @@ export default function App() {
       unsubHabitos();
       unsubHabitosRegistro();
       unsubDatosCorporales();
+      unsubLibros();
       unsubHabitosPenalizaciones();
       unsubVersiculoHoy();
       unsubCofresGanados();
@@ -765,6 +769,7 @@ export default function App() {
         )}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}
         {tab === "wallet" && <Wallet tarjetas={tarjetas} membresias={membresias} onNavigate={setTab} />}
+        {tab === "biblioteca" && <Biblioteca libros={libros} />}
         {tab === "compras" && (
           <Compras
             products={products}

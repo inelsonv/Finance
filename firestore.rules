@@ -129,6 +129,9 @@ service cloud.firestore {
     match /estado/{doc} {
       allow read, write: if esPropietario();
     }
+    match /libros/{doc} {
+      allow read, write: if esPropietario();
+    }
     match /cofresGanados/{doc} {
       allow read, write: if esPropietario();
     }

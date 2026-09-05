@@ -25,6 +25,7 @@ import {
   Wallet as WalletIcon,
   HeartPulse,
   Sparkles,
+  Library,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -86,6 +87,7 @@ const NAV_ITEMS = [
   },
   { id: "entidades", label: "Entidades", icon: Landmark },
   { id: "wallet", label: "Wallet", icon: WalletIcon },
+  { id: "biblioteca", label: "Biblioteca", icon: Library },
   { id: "habitos", label: "Salud", icon: HeartPulse },
 ];
 
