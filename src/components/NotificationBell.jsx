@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, Flame, BookOpen } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, Flame, BookOpen, ListTodo } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { periodoDeFecha } from "../lib/rachaHabito";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
@@ -307,11 +307,14 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
         if (yaCumplido) continue;
         list.push({
           id: `recordatorio-habito-${h.id}`,
-          icon: Bell,
+          icon: h.categoria === "Tarea" ? ListTodo : Bell,
           titulo: `Hoy toca: "${h.nombre}"`,
-          subtitulo: "Es el día que fijaste para este hábito semanal — no olvides marcarlo.",
+          subtitulo:
+            h.categoria === "Tarea"
+              ? "Es el día que fijaste para esta tarea — márcala desde Calendario."
+              : "Es el día que fijaste para este hábito semanal — no olvides marcarlo.",
           dias: 0,
-          tab: "habitos",
+          tab: h.categoria === "Tarea" ? "calendario" : "habitos",
         });
       }
     }

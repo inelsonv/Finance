@@ -4,7 +4,7 @@ import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimient
 import { calcularRachaHabito, periodoDeFecha } from "../lib/rachaHabito";
 import { confirm } from "../lib/confirm";
 
-const TIPOS = ["Cita médica", "Vacaciones", "Cumpleaños", "Trabajo", "Personal", "Feriado", "Día especial", "Otro"];
+const TIPOS = ["Cita médica", "Vacaciones", "Cumpleaños", "Trabajo", "Personal", "Feriado", "Día especial", "Tarea", "Otro"];
 const ESTADOS = ["Pendiente", "Completado", "Cancelado"];
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -18,6 +18,7 @@ const TIPO_ICONS = {
   Personal: User,
   Feriado: Flag,
   "Día especial": Heart,
+  Tarea: ListTodo,
   Otro: Calendar,
 };
 
