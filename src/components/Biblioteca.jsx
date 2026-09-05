@@ -608,6 +608,7 @@ export default function Biblioteca({ libros }) {
           titulo={libroLeyendo.titulo}
           libroId={libroLeyendo.id}
           ultimaPosicion={libroLeyendo.ultimaPosicion}
+          marcadores={libroLeyendo.marcadores}
           onClose={() => setLibroLeyendo(null)}
         />
       )}

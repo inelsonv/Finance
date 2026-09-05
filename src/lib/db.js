@@ -15,6 +15,7 @@ import {
   runTransaction,
   increment,
   arrayUnion,
+  arrayRemove,
   deleteField,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
@@ -1388,6 +1389,17 @@ export async function addLibro({ titulo, autor, estado, genero, calificacion, no
 
 export async function updateLibro(id, fields) {
   await updateDoc(doc(db, "libros", id), fields);
+}
+
+// Marcadores de texto importante dentro de un libro (resaltados) — se
+// guardan como un array en el propio documento del libro, cada uno con la
+// posición exacta (CFI range) para poder volver a resaltarlos al reabrir.
+export async function agregarMarcadorLibro(id, marcador) {
+  await updateDoc(doc(db, "libros", id), { marcadores: arrayUnion(marcador) });
+}
+
+export async function quitarMarcadorLibro(id, marcador) {
+  await updateDoc(doc(db, "libros", id), { marcadores: arrayRemove(marcador) });
 }
 
 export async function deleteLibro(id) {

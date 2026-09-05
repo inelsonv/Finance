@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, List, Loader2, Palette } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, List, Loader2, Palette, Highlighter, Trash2, Bookmark } from "lucide-react";
 import ePub from "epubjs";
-import { updateLibro } from "../lib/db";
+import { updateLibro, agregarMarcadorLibro, quitarMarcadorLibro } from "../lib/db";
 
 const TEMA_KEY = "smart-finance-lector-tema";
 const BRILLO_KEY = "smart-finance-lector-brillo";
@@ -28,7 +28,7 @@ function cargarBrilloGuardado() {
 
 // Lector de libros .epub dentro de la app, usando epub.js. Se abre como un
 // modal a pantalla completa sobre el resto de la interfaz.
-export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, onClose }) {
+export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, marcadores, onClose }) {
   const viewerRef = useRef(null);
   const bookRef = useRef(null);
   const renditionRef = useRef(null);
@@ -37,6 +37,8 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, o
   const [error, setError] = useState(null);
   const [mostrarIndice, setMostrarIndice] = useState(false);
   const [mostrarPersonalizar, setMostrarPersonalizar] = useState(false);
+  const [mostrarMarcadores, setMostrarMarcadores] = useState(false);
+  const [marcadoresLocal, setMarcadoresLocal] = useState(marcadores || []);
   const [capitulos, setCapitulos] = useState([]);
   const [progreso, setProgreso] = useState(0);
   const [paginaActual, setPaginaActual] = useState(null);
@@ -126,6 +128,37 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, o
           if (!cancelado) setTotalPaginas(book.locations.length());
         });
 
+        // Vuelve a resaltar los marcadores ya guardados de este libro.
+        (marcadores || []).forEach((m) => {
+          try {
+            rendition.annotations.add("highlight", m.cfi, {}, null, "epub-marcador", {
+              fill: "#f5c518",
+              "fill-opacity": "0.35",
+              "mix-blend-mode": "multiply",
+            });
+          } catch (err) {
+            // Un marcador con un CFI inválido (ej. de una versión distinta
+            // del archivo) simplemente no se resalta, sin romper el resto.
+          }
+        });
+
+        // Cuando el usuario selecciona texto en el libro, lo resalta y lo
+        // guarda como marcador importante.
+        rendition.on("selected", (cfiRange, contents) => {
+          if (cancelado || !libroId) return;
+          const texto = contents.window.getSelection()?.toString()?.trim();
+          if (!texto) return;
+          const nuevoMarcador = { cfi: cfiRange, texto: texto.slice(0, 500), fecha: new Date().toISOString() };
+          rendition.annotations.add("highlight", cfiRange, {}, null, "epub-marcador", {
+            fill: "#f5c518",
+            "fill-opacity": "0.35",
+            "mix-blend-mode": "multiply",
+          });
+          agregarMarcadorLibro(libroId, nuevoMarcador).catch(() => {});
+          setMarcadoresLocal((prev) => [...prev, nuevoMarcador]);
+          contents.window.getSelection()?.removeAllRanges();
+        });
+
         rendition.on("relocated", (location) => {
           if (cancelado) return;
           if (location?.start?.percentage != null) {
@@ -164,12 +197,30 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, o
     setMostrarIndice(false);
   };
 
+  const irAMarcador = (cfi) => {
+    renditionRef.current?.display(cfi);
+    setMostrarMarcadores(false);
+  };
+
+  const handleQuitarMarcador = (marcador) => {
+    if (!libroId) return;
+    renditionRef.current?.annotations.remove(marcador.cfi, "highlight");
+    quitarMarcadorLibro(libroId, marcador).catch(() => {});
+    setMarcadoresLocal((prev) => prev.filter((m) => m.cfi !== marcador.cfi));
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "var(--paper)", zIndex: 1100, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid var(--line)", background: "var(--card)" }}>
         <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titulo}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>{progreso}%</span>
+          <button
+            onClick={() => setMostrarMarcadores((s) => !s)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
+          >
+            <Bookmark size={15} />
+          </button>
           <button
             onClick={() => setMostrarPersonalizar((s) => !s)}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
@@ -225,6 +276,39 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, o
                 {c.label?.trim()}
               </button>
             ))}
+          </div>
+        )}
+
+        {mostrarMarcadores && (
+          <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 280, maxWidth: "85%", background: "var(--card)", borderRight: "1px solid var(--line)", overflowY: "auto", padding: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, color: "var(--ink-soft)" }}>Marcadores importantes</div>
+            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 10, lineHeight: 1.4 }}>
+              Selecciona texto en el libro para resaltarlo y guardarlo aquí.
+            </div>
+            {marcadoresLocal.length === 0 ? (
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", textAlign: "center", padding: "20px 0" }}>Todavía no tienes marcadores.</div>
+            ) : (
+              marcadoresLocal.map((m, i) => (
+                <div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start", padding: "8px 4px", borderBottom: "1px solid var(--line-soft)" }}>
+                  <button
+                    onClick={() => irAMarcador(m.cfi)}
+                    style={{ flex: 1, textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}>
+                      <Highlighter size={11} style={{ color: "#d9a441", flexShrink: 0 }} />
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--ink)", lineHeight: 1.35 }}>"{m.texto}"</div>
+                  </button>
+                  <button
+                    onClick={() => handleQuitarMarcador(m)}
+                    title="Quitar marcador"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, background: "transparent", border: "none", color: "var(--stamp)", cursor: "pointer", flexShrink: 0 }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         )}
 
