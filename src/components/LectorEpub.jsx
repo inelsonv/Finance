@@ -5,6 +5,7 @@ import { updateLibro, agregarMarcadorLibro, quitarMarcadorLibro } from "../lib/d
 
 const TEMA_KEY = "smart-finance-lector-tema";
 const BRILLO_KEY = "smart-finance-lector-brillo";
+const FUENTE_KEY = "smart-finance-lector-fuente";
 const PRESETS = [
   { nombre: "Claro", texto: "#1a1a1a", fondo: "#ffffff" },
   { nombre: "Oscuro", texto: "#e8e8e8", fondo: "#1a1a1a" },
@@ -26,6 +27,11 @@ function cargarBrilloGuardado() {
   return Number.isFinite(guardado) && guardado >= 20 && guardado <= 100 ? guardado : 100;
 }
 
+function cargarFuenteGuardada() {
+  const guardado = Number(localStorage.getItem(FUENTE_KEY));
+  return Number.isFinite(guardado) && guardado >= 70 && guardado <= 200 ? guardado : 100;
+}
+
 // Lector de libros .epub dentro de la app, usando epub.js. Se abre como un
 // modal a pantalla completa sobre el resto de la interfaz.
 export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, marcadores, onClose }) {
@@ -45,6 +51,14 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const [totalPaginas, setTotalPaginas] = useState(null);
   const [tema, setTema] = useState(cargarTemaGuardado);
   const [brillo, setBrillo] = useState(cargarBrilloGuardado);
+  const [tamanoFuente, setTamanoFuente] = useState(cargarFuenteGuardada);
+
+  const handleCambiarFuente = (valor) => {
+    const clamped = Math.max(70, Math.min(200, valor));
+    setTamanoFuente(clamped);
+    localStorage.setItem(FUENTE_KEY, String(clamped));
+    renditionRef.current?.themes.fontSize(`${clamped}%`);
+  };
   const cfiActualRef = useRef(ultimaPosicion || null);
   const progresoActualRef = useRef(0);
   const guardarTimeoutRef = useRef(null);
@@ -109,6 +123,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
             if (!cancelado) {
               setCargando(false);
               aplicarTema(tema);
+              rendition.themes.fontSize(`${tamanoFuente}%`);
             }
           })
           .catch((err) => {
@@ -342,6 +357,40 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
                   {p.nombre}
                 </button>
               ))}
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Tamaño de letra</span>
+                <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>{tamanoFuente}%</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => handleCambiarFuente(tamanoFuente - 10)}
+                  disabled={tamanoFuente <= 70}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, fontSize: 13, fontWeight: 700, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, color: tamanoFuente <= 70 ? "var(--line)" : "var(--ink)", cursor: tamanoFuente <= 70 ? "default" : "pointer" }}
+                >
+                  A-
+                </button>
+                <input
+                  type="range"
+                  min={70}
+                  max={200}
+                  step={10}
+                  value={tamanoFuente}
+                  onChange={(e) => handleCambiarFuente(Number(e.target.value))}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCambiarFuente(tamanoFuente + 10)}
+                  disabled={tamanoFuente >= 200}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, fontSize: 16, fontWeight: 700, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, color: tamanoFuente >= 200 ? "var(--line)" : "var(--ink)", cursor: tamanoFuente >= 200 ? "default" : "pointer" }}
+                >
+                  A+
+                </button>
+              </div>
             </div>
 
             <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 8 }}>Colores personalizados</div>
