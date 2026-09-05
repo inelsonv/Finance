@@ -1,6 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, List, Loader2 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, List, Loader2, Palette } from "lucide-react";
 import ePub from "epubjs";
+
+const TEMA_KEY = "smart-finance-lector-tema";
+const PRESETS = [
+  { nombre: "Claro", texto: "#1a1a1a", fondo: "#ffffff" },
+  { nombre: "Oscuro", texto: "#e8e8e8", fondo: "#1a1a1a" },
+  { nombre: "Sepia", texto: "#3b2f2a", fondo: "#f2e8d5" },
+];
+
+function cargarTemaGuardado() {
+  try {
+    const guardado = JSON.parse(localStorage.getItem(TEMA_KEY));
+    if (guardado?.texto && guardado?.fondo) return guardado;
+  } catch (e) {
+    // ignorar y usar el tema por defecto
+  }
+  return PRESETS[0];
+}
 
 // Lector de libros .epub dentro de la app, usando epub.js. Se abre como un
 // modal a pantalla completa sobre el resto de la interfaz.
@@ -12,8 +29,22 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
   const [mensajeCarga, setMensajeCarga] = useState("Descargando el libro…");
   const [error, setError] = useState(null);
   const [mostrarIndice, setMostrarIndice] = useState(false);
+  const [mostrarPersonalizar, setMostrarPersonalizar] = useState(false);
   const [capitulos, setCapitulos] = useState([]);
   const [progreso, setProgreso] = useState(0);
+  const [tema, setTema] = useState(cargarTemaGuardado);
+
+  const aplicarTema = (nuevoTema) => {
+    setTema(nuevoTema);
+    localStorage.setItem(TEMA_KEY, JSON.stringify(nuevoTema));
+    const rendition = renditionRef.current;
+    if (!rendition) return;
+    rendition.themes.register("personalizado", {
+      body: { color: `${nuevoTema.texto} !important`, background: `${nuevoTema.fondo} !important` },
+      "p, div, span, li, h1, h2, h3, h4, h5, h6": { color: `${nuevoTema.texto} !important` },
+    });
+    rendition.themes.select("personalizado");
+  };
 
   useEffect(() => {
     if (!epubUrl || !viewerRef.current) return;
@@ -45,7 +76,10 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
         rendition
           .display()
           .then(() => {
-            if (!cancelado) setCargando(false);
+            if (!cancelado) {
+              setCargando(false);
+              aplicarTema(tema);
+            }
           })
           .catch((err) => {
             if (!cancelado) {
@@ -91,6 +125,12 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>{progreso}%</span>
           <button
+            onClick={() => setMostrarPersonalizar((s) => !s)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
+          >
+            <Palette size={15} />
+          </button>
+          <button
             onClick={() => setMostrarIndice((s) => !s)}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
           >
@@ -130,6 +170,56 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
                 {c.label?.trim()}
               </button>
             ))}
+          </div>
+        )}
+
+        {mostrarPersonalizar && (
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 220, maxWidth: "80%", background: "var(--card)", borderLeft: "1px solid var(--line)", overflowY: "auto", padding: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 10, color: "var(--ink-soft)" }}>Apariencia</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+              {PRESETS.map((p) => (
+                <button
+                  key={p.nombre}
+                  onClick={() => aplicarTema(p)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 10px",
+                    fontSize: 12.5,
+                    fontWeight: 500,
+                    borderRadius: 8,
+                    border: tema.texto === p.texto && tema.fondo === p.fondo ? "2px solid var(--sage)" : "1px solid var(--line)",
+                    background: p.fondo,
+                    color: p.texto,
+                    cursor: "pointer",
+                  }}
+                >
+                  <span style={{ width: 14, height: 14, borderRadius: "50%", background: p.texto, border: "1px solid rgba(0,0,0,0.2)" }} />
+                  {p.nombre}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 8 }}>Colores personalizados</div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontSize: 12 }}>Letra</span>
+              <input
+                type="color"
+                value={tema.texto}
+                onChange={(e) => aplicarTema({ ...tema, texto: e.target.value })}
+                style={{ width: 36, height: 28, border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer", padding: 0 }}
+              />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 12 }}>Fondo</span>
+              <input
+                type="color"
+                value={tema.fondo}
+                onChange={(e) => aplicarTema({ ...tema, fondo: e.target.value })}
+                style={{ width: 36, height: 28, border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer", padding: 0 }}
+              />
+            </div>
           </div>
         )}
       </div>
