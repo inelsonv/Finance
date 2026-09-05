@@ -167,12 +167,16 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
 
   const DIAS_SEMANA_LABEL = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
-  const tareasHabitos = useMemo(() => {
-    const registrosPorHabito = {};
+  const registrosPorHabito = useMemo(() => {
+    const map = {};
     for (const r of habitosRegistro || []) {
-      if (!registrosPorHabito[r.habitoId]) registrosPorHabito[r.habitoId] = [];
-      registrosPorHabito[r.habitoId].push(r.fecha);
+      if (!map[r.habitoId]) map[r.habitoId] = [];
+      map[r.habitoId].push(r.fecha);
     }
+    return map;
+  }, [habitosRegistro]);
+
+  const tareasHabitos = useMemo(() => {
     return (habitos || [])
       .filter((h) => h.categoria === "Tarea" && h.activo !== false)
       .map((h) => {
@@ -186,7 +190,7 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
             : h.frecuencia;
         return { ...h, racha, periodoActual, cumplidoHoy, etiquetaFrecuencia };
       });
-  }, [habitos, habitosRegistro]);
+  }, [habitos, registrosPorHabito]);
 
   const handleToggleTarea = async (h) => {
     await toggleHabitoRegistro(h.id, h.periodoActual, h.nombre, "Tarea");
@@ -995,6 +999,14 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
             const IconDia = eventoDestacado ? TIPO_ICONS[eventoDestacado.tipo] || Calendar : null;
             const diaSemanaCell = new Date(cell.dateStr + "T00:00:00").getDay();
             const tareasDia = tareasPorDiaSemana[diaSemanaCell] || [];
+            // Para el día que se está pintando, revisa si TODAS las tareas
+            // programadas ese día de la semana ya quedaron marcadas para la
+            // semana a la que pertenece esa fecha específica (no solo hoy) —
+            // así funciona igual de bien en celdas de semanas pasadas.
+            const periodoDeEseDia = tareasDia.length > 0 ? periodoDeFecha("Semanal", new Date(cell.dateStr + "T00:00:00")) : null;
+            const todasCompletadasEseDia =
+              tareasDia.length > 0 &&
+              tareasDia.every((h) => (registrosPorHabito[h.id] || []).includes(periodoDeEseDia));
             return (
               <button
                 key={cell.dateStr}
@@ -1030,7 +1042,12 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
                       style={{ color: tieneEventoUrgente ? "var(--stamp)" : "var(--sage)", flexShrink: 0 }}
                     />
                   )}
-                  {tareasDia.length > 0 && <ListTodo size={11} style={{ color: "var(--amber, #d9a441)", flexShrink: 0 }} />}
+                  {tareasDia.length > 0 &&
+                    (todasCompletadasEseDia ? (
+                      <Check size={11} style={{ color: "var(--sage)", flexShrink: 0 }} />
+                    ) : (
+                      <ListTodo size={11} style={{ color: "var(--amber, #d9a441)", flexShrink: 0 }} />
+                    ))}
                 </div>
               </button>
             );
