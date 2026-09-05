@@ -545,7 +545,13 @@ export default function Biblioteca({ libros }) {
       )}
 
       {libroLeyendo && (
-        <LectorEpub epubUrl={libroLeyendo.epubUrl} titulo={libroLeyendo.titulo} onClose={() => setLibroLeyendo(null)} />
+        <LectorEpub
+          epubUrl={libroLeyendo.epubUrl}
+          titulo={libroLeyendo.titulo}
+          libroId={libroLeyendo.id}
+          ultimaPosicion={libroLeyendo.ultimaPosicion}
+          onClose={() => setLibroLeyendo(null)}
+        />
       )}
     </div>
   );

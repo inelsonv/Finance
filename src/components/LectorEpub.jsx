@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { X, ChevronLeft, ChevronRight, List, Loader2, Palette } from "lucide-react";
 import ePub from "epubjs";
+import { updateLibro } from "../lib/db";
 
 const TEMA_KEY = "smart-finance-lector-tema";
 const BRILLO_KEY = "smart-finance-lector-brillo";
@@ -27,7 +28,7 @@ function cargarBrilloGuardado() {
 
 // Lector de libros .epub dentro de la app, usando epub.js. Se abre como un
 // modal a pantalla completa sobre el resto de la interfaz.
-export default function LectorEpub({ epubUrl, titulo, onClose }) {
+export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, onClose }) {
   const viewerRef = useRef(null);
   const bookRef = useRef(null);
   const renditionRef = useRef(null);
@@ -40,6 +41,17 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
   const [progreso, setProgreso] = useState(0);
   const [tema, setTema] = useState(cargarTemaGuardado);
   const [brillo, setBrillo] = useState(cargarBrilloGuardado);
+  const cfiActualRef = useRef(ultimaPosicion || null);
+  const guardarTimeoutRef = useRef(null);
+
+  const guardarPosicion = (cfi, inmediato) => {
+    cfiActualRef.current = cfi;
+    if (!libroId) return;
+    if (guardarTimeoutRef.current) clearTimeout(guardarTimeoutRef.current);
+    const ejecutar = () => updateLibro(libroId, { ultimaPosicion: cfi }).catch(() => {});
+    if (inmediato) ejecutar();
+    else guardarTimeoutRef.current = setTimeout(ejecutar, 1500);
+  };
 
   const handleCambiarBrillo = (valor) => {
     setBrillo(valor);
@@ -86,7 +98,7 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
         renditionRef.current = rendition;
 
         rendition
-          .display()
+          .display(ultimaPosicion || undefined)
           .then(() => {
             if (!cancelado) {
               setCargando(false);
@@ -105,8 +117,12 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
         });
 
         rendition.on("relocated", (location) => {
-          if (!cancelado && location?.start?.percentage != null) {
+          if (cancelado) return;
+          if (location?.start?.percentage != null) {
             setProgreso(Math.round(location.start.percentage * 100));
+          }
+          if (location?.start?.cfi) {
+            guardarPosicion(location.start.cfi, false);
           }
         });
       })
@@ -119,6 +135,10 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
 
     return () => {
       cancelado = true;
+      if (guardarTimeoutRef.current) clearTimeout(guardarTimeoutRef.current);
+      if (cfiActualRef.current && libroId) {
+        updateLibro(libroId, { ultimaPosicion: cfiActualRef.current }).catch(() => {});
+      }
       renditionRef.current?.destroy();
       bookRef.current?.destroy();
     };

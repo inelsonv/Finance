@@ -1380,6 +1380,7 @@ export async function addLibro({ titulo, autor, estado, genero, calificacion, no
     portadaUrl: portadaUrl || null,
     fechaInicio: null,
     fechaFin: null,
+    ultimaPosicion: null,
     createdAt: serverTimestamp(),
   });
 }
