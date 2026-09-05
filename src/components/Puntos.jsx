@@ -3,6 +3,7 @@ import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame,
 import { canjearPuntos } from "../lib/db";
 import { calcularIngresoQuincenal } from "../lib/quincenaResumen";
 import { confirm } from "../lib/confirm";
+import Pagination from "./Pagination.jsx";
 import { calcularRacha, historialRachaVisual } from "../lib/racha";
 
 const NOMBRES_MES = [
@@ -39,6 +40,13 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [exito, setExito] = useState(null);
+  const [pageHistorial, setPageHistorial] = useState(1);
+  const PAGE_SIZE_HISTORIAL = 10;
+
+  const historialPaginado = useMemo(
+    () => (puntosHistorial || []).slice((pageHistorial - 1) * PAGE_SIZE_HISTORIAL, pageHistorial * PAGE_SIZE_HISTORIAL),
+    [puntosHistorial, pageHistorial]
+  );
 
   const racha = useMemo(() => calcularRacha(checklistTodos), [checklistTodos]);
   const historialRacha = useMemo(() => historialRachaVisual(checklistTodos), [checklistTodos]);
@@ -280,7 +288,7 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {puntosHistorial.map((h) => {
+            {historialPaginado.map((h) => {
               const Icon = TIPO_ICONS[h.tipo] || Trophy;
               const positivo = h.puntos >= 0;
               return (
@@ -323,6 +331,7 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
             })}
           </div>
         )}
+        <Pagination page={pageHistorial} totalItems={(puntosHistorial || []).length} pageSize={PAGE_SIZE_HISTORIAL} onPageChange={setPageHistorial} />
       </div>
     </div>
   );
