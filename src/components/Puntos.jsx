@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame, Target, CreditCard, PenLine } from "lucide-react";
-import { canjearPuntos, revertirCanje } from "../lib/db";
+import { canjearPuntos, revertirCanje, ajustarPuntosManual } from "../lib/db";
 import { calcularIngresoQuincenal } from "../lib/quincenaResumen";
 import { confirm } from "../lib/confirm";
 import Pagination from "./Pagination.jsx";
@@ -41,6 +41,32 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [exito, setExito] = useState(null);
+  const [showAjusteManual, setShowAjusteManual] = useState(false);
+  const [montoAjuste, setMontoAjuste] = useState("");
+  const [motivoAjuste, setMotivoAjuste] = useState("");
+  const [savingAjuste, setSavingAjuste] = useState(false);
+  const [errorAjuste, setErrorAjuste] = useState(null);
+
+  const handleAjusteManual = async () => {
+    const montoNum = parseInt(montoAjuste, 10);
+    if (!Number.isFinite(montoNum) || montoNum === 0) {
+      setErrorAjuste("Ingresa un monto distinto de cero (puede ser negativo)");
+      return;
+    }
+    setSavingAjuste(true);
+    setErrorAjuste(null);
+    try {
+      await ajustarPuntosManual(motivoAjuste, montoNum);
+      setMontoAjuste("");
+      setMotivoAjuste("");
+      setShowAjusteManual(false);
+    } catch (err) {
+      setErrorAjuste(err.message || String(err));
+    } finally {
+      setSavingAjuste(false);
+    }
+  };
+
   const [pageHistorial, setPageHistorial] = useState(1);
   const PAGE_SIZE_HISTORIAL = 10;
 
@@ -326,7 +352,49 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
       </div>
 
       <div>
-        <div className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Historial</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Historial</div>
+          <button
+            onClick={() => setShowAjusteManual((s) => !s)}
+            style={{ fontSize: 11, color: "var(--ink-soft)", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}
+          >
+            Ajuste manual
+          </button>
+        </div>
+
+        {showAjusteManual && (
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, marginBottom: 14 }}>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 8, lineHeight: 1.5 }}>
+              Para corregir tu total de puntos a mano (ej. si un canje o reversión no salió bien). Usa un número
+              negativo para restar.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <input
+                className="despensa-mono"
+                type="number"
+                placeholder="Monto (ej. 1000 o -500)"
+                value={montoAjuste}
+                onChange={(e) => setMontoAjuste(e.target.value)}
+                style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </div>
+            <input
+              placeholder="Motivo (ej. Corrección de reversión fallida)"
+              value={motivoAjuste}
+              onChange={(e) => setMotivoAjuste(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+            />
+            {errorAjuste && <div style={{ fontSize: 11.5, color: "var(--stamp)", marginBottom: 8 }}>{errorAjuste}</div>}
+            <button
+              onClick={handleAjusteManual}
+              disabled={savingAjuste}
+              style={{ padding: "7px 14px", fontSize: 12, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+            >
+              {savingAjuste ? "Guardando…" : "Aplicar ajuste"}
+            </button>
+          </div>
+        )}
+
         {(!puntosHistorial || puntosHistorial.length === 0) ? (
           <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
             Todavía no tienes movimientos de puntos.
@@ -371,7 +439,7 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
                   <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 700, color: positivo ? "var(--sage)" : "var(--stamp)" }}>
                     {positivo ? "+" : ""}{formatMoney(h.puntos)}
                   </div>
-                  {h.tipo === "canje" && !h.revertido && (
+                  {h.tipo === "canje" && !h.revertido && h.monto != null && h.categoria != null && (
                     <button
                       onClick={() => handleRevertirCanje(h)}
                       title="Revertir este canje"

@@ -1032,6 +1032,9 @@ export async function revertirCanje(canjeId) {
   const c = canjeSnap.data();
   if (c.tipo !== "canje") throw new Error("Ese registro no es un canje");
   if (c.revertido) throw new Error("Ese canje ya había sido revertido");
+  if (c.monto == null || c.categoria == null || c.year == null || c.month == null || c.quincena == null) {
+    throw new Error("Este canje es de antes de que se pudiera revertir automáticamente — no tiene todos los datos necesarios. Ajusta el presupuesto y tus puntos manualmente si hace falta.");
+  }
 
   const presupuestoSnap = await getDoc(doc(db, "presupuestos", String(c.year)));
   const valorActual = presupuestoSnap.exists() ? presupuestoSnap.data()?.[c.categoria]?.[String(c.month)]?.[c.quincena] || 0 : 0;
@@ -1064,6 +1067,22 @@ export async function revertirCanje(canjeId) {
   );
   await setDoc(doc(db, "config", "puntos"), { total: increment(c.monto) }, { merge: true });
   await updateDoc(canjeRef, { revertido: true });
+}
+
+// Ajuste manual de puntos — para corregir el total a mano si algo salió mal
+// (ej. un canje que falló a medias). No aplica multiplicadores ni ninguna
+// otra lógica automática, solo suma o resta exactamente el monto indicado.
+export async function ajustarPuntosManual(motivo, monto) {
+  const montoNum = Math.round(Number(monto) || 0);
+  if (montoNum === 0) throw new Error("El ajuste no puede ser cero");
+  await addDoc(collection(db, "puntosHistorial"), {
+    motivo: motivo?.trim() || "Ajuste manual",
+    puntos: montoNum,
+    tipo: "ajusteManual",
+    fecha: new Date().toISOString().slice(0, 10),
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(montoNum) }, { merge: true });
 }
 
 function formatMoneyErr(n) {
