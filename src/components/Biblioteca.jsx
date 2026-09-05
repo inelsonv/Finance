@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Star, BookOpen, BookMarked, BookCheck } from "lucide-react";
+import { Plus, Trash2, X, Pencil, Check, Star, BookOpen, BookMarked, BookCheck, Search, Loader2 } from "lucide-react";
 import { addLibro, updateLibro, deleteLibro } from "../lib/db";
+import { buscarPortadasLibro } from "../lib/openLibrary";
 import { confirm } from "../lib/confirm";
 
 const ESTADOS = ["Pendiente", "Leyendo", "Leído"];
 const ESTADO_ICONS = { Pendiente: BookMarked, Leyendo: BookOpen, Leído: BookCheck };
 const ESTADO_COLORS = { Pendiente: "var(--ink-soft)", Leyendo: "var(--sage)", Leído: "var(--sage)" };
 
-const emptyForm = () => ({ titulo: "", autor: "", estado: "Pendiente", genero: "", calificacion: 0, notas: "" });
+const emptyForm = () => ({ titulo: "", autor: "", estado: "Pendiente", genero: "", calificacion: 0, notas: "", portadaUrl: null });
 
 function Estrellas({ valor, onChange, size = 16 }) {
   return (
@@ -23,6 +24,109 @@ function Estrellas({ valor, onChange, size = 16 }) {
           <Star size={size} fill={n <= valor ? "#d9a441" : "none"} color={n <= valor ? "#d9a441" : "var(--line)"} />
         </button>
       ))}
+    </div>
+  );
+}
+
+function Portada({ url, size = 52 }) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size * 1.45,
+        borderRadius: 6,
+        background: url ? `url(${url}) center/cover` : "var(--paper)",
+        border: "1px solid var(--line)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        overflow: "hidden",
+      }}
+    >
+      {!url && <BookMarked size={size * 0.4} style={{ color: "var(--line)" }} />}
+    </div>
+  );
+}
+
+function SelectorPortada({ titulo, autor, portadaUrl, onSelect }) {
+  const [buscando, setBuscando] = useState(false);
+  const [candidatos, setCandidatos] = useState(null);
+  const [error, setError] = useState(null);
+
+  const buscar = async () => {
+    if (!titulo?.trim()) return;
+    setBuscando(true);
+    setError(null);
+    setCandidatos(null);
+    try {
+      const resultados = await buscarPortadasLibro(titulo.trim(), autor?.trim());
+      if (resultados.length === 0) {
+        setError("No se encontraron portadas para ese título/autor.");
+      } else {
+        setCandidatos(resultados);
+      }
+    } catch (err) {
+      setError("No se pudo buscar: " + (err.message || String(err)));
+    } finally {
+      setBuscando(false);
+    }
+  };
+
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <Portada url={portadaUrl} size={44} />
+        <button
+          type="button"
+          onClick={buscar}
+          disabled={buscando || !titulo?.trim()}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "6px 12px",
+            fontSize: 11.5,
+            fontWeight: 500,
+            background: "var(--paper)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            color: "var(--ink-soft)",
+            cursor: titulo?.trim() ? "pointer" : "not-allowed",
+          }}
+        >
+          {buscando ? <Loader2 size={12} className="despensa-spin" /> : <Search size={12} />}
+          {buscando ? "Buscando…" : "Buscar portada"}
+        </button>
+        {portadaUrl && (
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            style={{ fontSize: 11, color: "var(--ink-soft)", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}
+          >
+            Quitar
+          </button>
+        )}
+      </div>
+      {error && <div style={{ fontSize: 11, color: "var(--stamp)", marginBottom: 6 }}>{error}</div>}
+      {candidatos && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+          {candidatos.map((c, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => {
+                onSelect(c.portadaUrl);
+                setCandidatos(null);
+              }}
+              title={`${c.titulo}${c.anio ? " (" + c.anio + ")" : ""}`}
+              style={{ padding: 0, border: portadaUrl === c.portadaUrl ? "2px solid var(--sage)" : "1px solid var(--line)", borderRadius: 6, cursor: "pointer", background: "transparent" }}
+            >
+              <img src={c.portadaUrl} alt={c.titulo} style={{ width: 42, height: 60, objectFit: "cover", borderRadius: 4, display: "block" }} />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -76,6 +180,7 @@ export default function Biblioteca({ libros }) {
       genero: l.genero || "",
       calificacion: l.calificacion || 0,
       notas: l.notas || "",
+      portadaUrl: l.portadaUrl || null,
     });
   };
 
@@ -139,6 +244,7 @@ export default function Biblioteca({ libros }) {
             onChange={(e) => setForm({ ...form, autor: e.target.value })}
             style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
           />
+          <SelectorPortada titulo={form.titulo} autor={form.autor} portadaUrl={form.portadaUrl} onSelect={(url) => setForm({ ...form, portadaUrl: url })} />
           <input
             placeholder="Género (opcional)"
             value={form.genero}
@@ -247,6 +353,12 @@ export default function Biblioteca({ libros }) {
                       placeholder="Autor"
                       style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
                     />
+                    <SelectorPortada
+                      titulo={editForm.titulo}
+                      autor={editForm.autor}
+                      portadaUrl={editForm.portadaUrl}
+                      onSelect={(url) => setEditForm({ ...editForm, portadaUrl: url })}
+                    />
                     <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                       {ESTADOS.map((e) => (
                         <button
@@ -298,6 +410,7 @@ export default function Biblioteca({ libros }) {
                   </div>
                 ) : (
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <Portada url={l.portadaUrl} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{l.titulo}</div>
                       {l.autor && <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 4 }}>{l.autor}</div>}
