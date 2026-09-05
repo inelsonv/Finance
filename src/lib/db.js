@@ -20,6 +20,7 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage, functions } from "../firebase";
+import { rangoFechasQuincenaConfigurado } from "./quincenaConfig";
 import { httpsCallable } from "firebase/functions";
 
 const productsCol = collection(db, "productos");
@@ -1035,6 +1036,26 @@ export async function revertirCanje(canjeId) {
   const presupuestoSnap = await getDoc(doc(db, "presupuestos", String(c.year)));
   const valorActual = presupuestoSnap.exists() ? presupuestoSnap.data()?.[c.categoria]?.[String(c.month)]?.[c.quincena] || 0 : 0;
   const nuevoValor = Math.max(0, valorActual - c.monto);
+
+  // No permitir revertir si ya se gastó (con movimientos reales) más de lo
+  // que quedaría presupuestado después de quitar el canje — evitaría dejar
+  // la categoría "en rojo" retroactivamente por algo que ya se gastó.
+  const diasCobroSnap = await getDoc(doc(db, "config", "diasCobro"));
+  const diasCobroConfig = diasCobroSnap.exists() ? diasCobroSnap.data() : null;
+  const { fechaInicio, fechaFin } = rangoFechasQuincenaConfigurado(c.year, c.month, c.quincena, diasCobroConfig);
+
+  const movimientosSnap = await getDocs(query(collection(db, "movimientos"), where("category", "==", c.categoria)));
+  const gastadoEnQuincena = movimientosSnap.docs.reduce((s, d) => {
+    const m = d.data();
+    if (m.type !== "Gasto" || !m.date || m.date < fechaInicio || m.date > fechaFin) return s;
+    return s + (Number(m.amount) || 0);
+  }, 0);
+
+  if (gastadoEnQuincena > nuevoValor) {
+    throw new Error(
+      `No se puede revertir: ya gastaste ${formatMoneyErr(gastadoEnQuincena)} en "${c.categoria}" esa quincena, y el presupuesto quedaría en ${formatMoneyErr(nuevoValor)} sin este canje.`
+    );
+  }
 
   await setDoc(
     doc(db, "presupuestos", String(c.year)),
