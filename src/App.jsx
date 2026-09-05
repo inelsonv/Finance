@@ -855,6 +855,7 @@ export default function App() {
             tarjetas={tarjetas}
             ahorroConfig={ahorroAutoConfig}
             diasCobro={diasCobro}
+            puntosHistorial={puntosHistorial}
           />
         )}
         {tab === "presupuesto-flujo" && (

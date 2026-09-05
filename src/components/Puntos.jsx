@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame, Target, CreditCard, PenLine } from "lucide-react";
-import { canjearPuntos } from "../lib/db";
+import { canjearPuntos, revertirCanje } from "../lib/db";
 import { calcularIngresoQuincenal } from "../lib/quincenaResumen";
 import { confirm } from "../lib/confirm";
 import Pagination from "./Pagination.jsx";
@@ -37,6 +37,7 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
   const [categoria, setCategoria] = useState("");
   const [monto, setMonto] = useState("");
   const [quincena, setQuincena] = useState("Q1");
+  const [notaCanje, setNotaCanje] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [exito, setExito] = useState(null);
@@ -77,6 +78,19 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
     [categoriasGasto, categoriasPuntos]
   );
 
+  const handleRevertirCanje = async (h) => {
+    const ok = await confirm(
+      `¿Revertir este canje de ${formatMoney(Math.abs(h.puntos))} para "${h.categoria}"? Se te devuelven los puntos y se quita ese monto del presupuesto de esa quincena.`,
+      { confirmLabel: "Revertir", danger: true }
+    );
+    if (!ok) return;
+    try {
+      await revertirCanje(h.id);
+    } catch (err) {
+      alert("No se pudo revertir: " + (err.message || String(err)));
+    }
+  };
+
   const handleCanjear = async () => {
     const montoNum = parseFloat(monto);
     if (!categoria) {
@@ -109,10 +123,12 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
         categoria,
         topeCategoria: topesAjuste?.[categoria] ?? null,
         ingresoQuincenalFijo,
+        nota: notaCanje.trim(),
       });
       setExito(`Listo: se agregaron ${formatMoney(montoNum)} a "${categoria}" para esa quincena.`);
       setMonto("");
       setCategoria("");
+      setNotaCanje("");
       setTimeout(() => setExito(null), 5000);
     } catch (err) {
       setError(err.message || String(err));
@@ -256,6 +272,15 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
               </div>
             )}
 
+            <div style={{ marginBottom: 8 }}>
+              <input
+                placeholder='Nota (opcional), ej. "Necesito comprar medias"'
+                value={notaCanje}
+                onChange={(e) => setNotaCanje(e.target.value)}
+                style={{ width: "100%", padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </div>
+
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <input
                 className="despensa-mono"
@@ -346,6 +371,29 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
                   <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 700, color: positivo ? "var(--sage)" : "var(--stamp)" }}>
                     {positivo ? "+" : ""}{formatMoney(h.puntos)}
                   </div>
+                  {h.tipo === "canje" && !h.revertido && (
+                    <button
+                      onClick={() => handleRevertirCanje(h)}
+                      title="Revertir este canje"
+                      style={{
+                        marginLeft: 4,
+                        padding: "5px 10px",
+                        fontSize: 10.5,
+                        fontWeight: 500,
+                        background: "transparent",
+                        border: "1px solid var(--line)",
+                        borderRadius: 8,
+                        color: "var(--ink-soft)",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      }}
+                    >
+                      Revertir
+                    </button>
+                  )}
+                  {h.tipo === "canje" && h.revertido && (
+                    <span style={{ marginLeft: 4, fontSize: 10, color: "var(--ink-soft)", fontStyle: "italic", flexShrink: 0 }}>Revertido</span>
+                  )}
                 </div>
               );
             })}

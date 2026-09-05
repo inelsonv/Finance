@@ -108,7 +108,7 @@ function totalItemsOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones, flujo, diasCobro }) {
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones, flujo, diasCobro, puntosHistorial }) {
   // Puramente informativo: el orden de prioridad definido en el Editor de
   // flujo, mostrado como referencia visual. No depende de ningún otro cálculo
   // de este componente ni los modifica.
@@ -324,6 +324,17 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   // no repetirla) — su monto sigue sumando al total general igual que antes,
   // y se marca con un pequeño ícono de calendario junto al nombre.
   const nombresCategoriasManuales = useMemo(() => new Set(categorias.map((c) => c.nombre)), [categorias]);
+
+  // Notas dejadas al canjear puntos hacia una categoría/quincena específica
+  // (ej. "Necesito comprar medias") — se muestran como tooltip en esa celda.
+  const notasPorCelda = useMemo(() => {
+    const map = {};
+    for (const h of puntosHistorial || []) {
+      if (h.tipo !== "canje" || h.revertido || !h.nota || h.year !== year) continue;
+      map[`${h.categoria}-${h.month}-${h.quincena}`] = h.nota;
+    }
+    return map;
+  }, [puntosHistorial, year]);
   const categoriasEventosUnicas = useMemo(
     () => [...new Set(eventosConGasto.map((e) => e.categoriaGasto))].filter((nombre) => !nombresCategoriasManuales.has(nombre)),
     [eventosConGasto, nombresCategoriasManuales]
@@ -876,8 +887,9 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                   return QUINCENAS.map((q) => {
                     const key = `${cat.nombre}-${mes}-${q}`;
                     const val = getCelda(cat.nombre, mes, q);
+                    const nota = notasPorCelda[key];
                     return (
-                      <td key={key} style={{ borderBottom: "1px solid var(--line-soft)", borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none", padding: 0 }}>
+                      <td key={key} style={{ borderBottom: "1px solid var(--line-soft)", borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none", padding: 0 }} title={nota || undefined}>
                         <input
                           type="number"
                           min="0"
@@ -885,7 +897,8 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                           key={val}
                           onBlur={(e) => handleBlur(cat.nombre, mes, q, e.target.value)}
                           placeholder="—"
-                          style={{ ...cellStyle, opacity: savingKey === key ? 0.5 : 1 }}
+                          title={nota || undefined}
+                          style={{ ...cellStyle, opacity: savingKey === key ? 0.5 : 1, background: nota ? "var(--sage-bg)" : cellStyle.background }}
                         />
                       </td>
                     );

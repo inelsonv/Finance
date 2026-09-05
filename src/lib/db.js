@@ -956,7 +956,7 @@ export function watchTarjetaCargosHistorial(onChange, onError) {
   );
 }
 
-export async function canjearPuntos({ montoACanjear, year, month, quincena, categoria, topeCategoria, ingresoQuincenalFijo }) {
+export async function canjearPuntos({ montoACanjear, year, month, quincena, categoria, topeCategoria, ingresoQuincenalFijo, nota }) {
   const monto = Math.round(Number(montoACanjear) || 0);
   if (monto <= 0) throw new Error("El monto a canjear debe ser mayor a cero");
 
@@ -1004,14 +1004,45 @@ export async function canjearPuntos({ montoACanjear, year, month, quincena, cate
   );
 
   await addDoc(collection(db, "puntosHistorial"), {
-    motivo: `Canje: $${monto} liberados para "${categoria}"`,
+    motivo: `Canje: $${monto} liberados para "${categoria}"${nota ? ` — ${nota}` : ""}`,
     puntos: -monto,
     tipo: "canje",
     fecha: new Date().toISOString().slice(0, 10),
     destinoPeriodoKey,
+    categoria,
+    year,
+    month,
+    quincena,
+    monto,
+    nota: nota || "",
+    revertido: false,
     createdAt: serverTimestamp(),
   });
   await setDoc(doc(db, "config", "puntos"), { total: increment(-monto) }, { merge: true });
+}
+
+// Deshace un canje ya hecho: le quita el monto de vuelta al presupuesto de
+// esa categoría/quincena, y devuelve los puntos gastados — deja el registro
+// marcado como "revertido" (no se borra) para conservar el historial.
+export async function revertirCanje(canjeId) {
+  const canjeRef = doc(db, "puntosHistorial", canjeId);
+  const canjeSnap = await getDoc(canjeRef);
+  if (!canjeSnap.exists()) throw new Error("No se encontró ese canje");
+  const c = canjeSnap.data();
+  if (c.tipo !== "canje") throw new Error("Ese registro no es un canje");
+  if (c.revertido) throw new Error("Ese canje ya había sido revertido");
+
+  const presupuestoSnap = await getDoc(doc(db, "presupuestos", String(c.year)));
+  const valorActual = presupuestoSnap.exists() ? presupuestoSnap.data()?.[c.categoria]?.[String(c.month)]?.[c.quincena] || 0 : 0;
+  const nuevoValor = Math.max(0, valorActual - c.monto);
+
+  await setDoc(
+    doc(db, "presupuestos", String(c.year)),
+    { [c.categoria]: { [String(c.month)]: { [c.quincena]: nuevoValor } } },
+    { merge: true }
+  );
+  await setDoc(doc(db, "config", "puntos"), { total: increment(c.monto) }, { merge: true });
+  await updateDoc(canjeRef, { revertido: true });
 }
 
 function formatMoneyErr(n) {
