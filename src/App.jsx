@@ -4,7 +4,8 @@ import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
-import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales } from "./lib/db";
+import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro } from "./lib/db";
+import { periodoDeFecha } from "./lib/rachaHabito";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/quincenaConfig";
@@ -225,6 +226,19 @@ export default function App() {
   const handleNavigate = (tabId, periodoObjetivo) => {
     if (tabId === "versiculo-modal") {
       setShowVersiculoModal(true);
+      // Al abrir el versículo del día, marca automáticamente el hábito
+      // "Lectura de la Biblia" como cumplido hoy (si existe y aún no se
+      // había marcado) — así no hay que hacerlo aparte.
+      const habitoBiblia = (habitos || []).find((h) => h.nombre.trim().toLowerCase() === "lectura de la biblia");
+      if (habitoBiblia) {
+        const periodoActual = periodoDeFecha(habitoBiblia.frecuencia || "Diario", new Date());
+        const yaMarcado = (habitosRegistro || []).some((r) => r.habitoId === habitoBiblia.id && r.fecha === periodoActual);
+        if (!yaMarcado) {
+          toggleHabitoRegistro(habitoBiblia.id, periodoActual, habitoBiblia.nombre).catch((err) =>
+            console.error("No se pudo marcar el hábito de lectura bíblica:", err)
+          );
+        }
+      }
       return;
     }
     setTab(tabId);
