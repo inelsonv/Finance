@@ -754,7 +754,7 @@ export default function App() {
         {tab === "asistente" && (
           <Asistente
             movimientos={movimientos}
-            presupuesto={presupuesto}
+            presupuesto={presupuestoAnual}
             presupuestoYear={presupuestoYear}
             prestamos={prestamos}
             tarjetas={tarjetas}
