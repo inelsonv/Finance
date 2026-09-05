@@ -69,7 +69,7 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
         const rendition = book.renderTo(viewerRef.current, {
           width: "100%",
           height: "100%",
-          spread: "auto",
+          spread: "none",
         });
         renditionRef.current = rendition;
 
@@ -156,7 +156,7 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
             {error}
           </div>
         )}
-        <div ref={viewerRef} style={{ width: "100%", height: "100%" }} />
+        <div ref={viewerRef} style={{ width: "100%", maxWidth: 720, height: "100%", margin: "0 auto" }} />
 
         {mostrarIndice && (
           <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 260, maxWidth: "80%", background: "var(--card)", borderRight: "1px solid var(--line)", overflowY: "auto", padding: 12 }}>
