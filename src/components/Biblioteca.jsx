@@ -159,6 +159,8 @@ export default function Biblioteca({ libros }) {
     return c;
   }, [libros]);
 
+  const [libroRecienCreado, setLibroRecienCreado] = useState(null);
+
   const handleAdd = async () => {
     if (!form.titulo.trim()) {
       setError("Ponle un título al libro");
@@ -167,14 +169,19 @@ export default function Biblioteca({ libros }) {
     setSaving(true);
     setError(null);
     try {
-      await addLibro(form);
+      const docRef = await addLibro(form);
+      setLibroRecienCreado({ id: docRef.id, titulo: form.titulo, epubUrl: null, epubNombreArchivo: null });
       setForm(emptyForm());
-      setShowForm(false);
     } catch (err) {
       setError(err.message || String(err));
     } finally {
       setSaving(false);
     }
+  };
+
+  const cerrarLibroRecienCreado = () => {
+    setLibroRecienCreado(null);
+    setShowForm(false);
   };
 
   const startEdit = (l) => {
@@ -258,6 +265,55 @@ export default function Biblioteca({ libros }) {
 
       {showForm && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, marginBottom: 16 }}>
+          {libroRecienCreado ? (
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                ✓ "{libroRecienCreado.titulo}" agregado
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 10 }}>
+                ¿Tienes el archivo .epub a mano? Puedes subirlo ahora, o hacerlo después editando el libro.
+              </div>
+              <div style={{ padding: 10, background: "var(--paper)", borderRadius: 8, marginBottom: 12 }}>
+                {libroRecienCreado.epubUrl ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <FileText size={14} style={{ color: "var(--sage)" }} />
+                    <span style={{ fontSize: 12, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{libroRecienCreado.epubNombreArchivo}</span>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      ref={epubInputRef}
+                      type="file"
+                      accept=".epub"
+                      style={{ display: "none" }}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        await handleSubirEpub(libroRecienCreado.id, file);
+                        setLibroRecienCreado((prev) => ({ ...prev, epubUrl: "pendiente", epubNombreArchivo: file.name }));
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => epubInputRef.current?.click()}
+                      disabled={subiendoEpub}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", fontSize: 11.5, fontWeight: 500, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
+                    >
+                      {subiendoEpub ? <Loader2 size={12} className="despensa-spin" /> : <Upload size={12} />}
+                      {subiendoEpub ? "Subiendo…" : "Subir archivo .epub"}
+                    </button>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={cerrarLibroRecienCreado}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+              >
+                <Check size={13} /> Listo
+              </button>
+            </div>
+          ) : (
+            <>
           <input
             autoFocus
             placeholder="Título"
@@ -332,6 +388,8 @@ export default function Biblioteca({ libros }) {
           >
             <Check size={13} /> {saving ? "Guardando…" : "Agregar libro"}
           </button>
+            </>
+          )}
         </div>
       )}
 

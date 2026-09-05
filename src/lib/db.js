@@ -1370,7 +1370,7 @@ export function watchLibros(onChange, onError) {
 export async function addLibro({ titulo, autor, estado, genero, calificacion, notas, portadaUrl }) {
   const tituloTrim = (titulo || "").trim();
   if (!tituloTrim) throw new Error("Ponle un título al libro");
-  await addDoc(librosCol, {
+  const docRef = await addDoc(librosCol, {
     titulo: tituloTrim,
     autor: (autor || "").trim(),
     estado: estado || "Pendiente",
@@ -1383,6 +1383,7 @@ export async function addLibro({ titulo, autor, estado, genero, calificacion, no
     ultimaPosicion: null,
     createdAt: serverTimestamp(),
   });
+  return docRef;
 }
 
 export async function updateLibro(id, fields) {
