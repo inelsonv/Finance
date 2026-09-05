@@ -39,6 +39,8 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, o
   const [mostrarPersonalizar, setMostrarPersonalizar] = useState(false);
   const [capitulos, setCapitulos] = useState([]);
   const [progreso, setProgreso] = useState(0);
+  const [paginaActual, setPaginaActual] = useState(null);
+  const [totalPaginas, setTotalPaginas] = useState(null);
   const [tema, setTema] = useState(cargarTemaGuardado);
   const [brillo, setBrillo] = useState(cargarBrilloGuardado);
   const cfiActualRef = useRef(ultimaPosicion || null);
@@ -116,6 +118,14 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, o
           if (!cancelado) setCapitulos(nav.toc || []);
         });
 
+        // Genera un mapa de "páginas" estimadas según el contenido del
+        // libro (epub no tiene páginas fijas de por sí, ya que el texto se
+        // reacomoda según el tamaño de pantalla) — puede tardar unos
+        // segundos en libros largos, se actualiza cuando termina.
+        book.locations.generate(1600).then(() => {
+          if (!cancelado) setTotalPaginas(book.locations.length());
+        });
+
         rendition.on("relocated", (location) => {
           if (cancelado) return;
           if (location?.start?.percentage != null) {
@@ -123,6 +133,10 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, o
           }
           if (location?.start?.cfi) {
             guardarPosicion(location.start.cfi, false);
+            if (book.locations.length() > 0) {
+              const idx = book.locations.locationFromCfi(location.start.cfi);
+              if (idx != null) setPaginaActual(idx + 1);
+            }
           }
         });
       })
@@ -280,19 +294,26 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, o
         )}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderTop: "1px solid var(--line)", background: "var(--card)" }}>
-        <button
-          onClick={() => renditionRef.current?.prev()}
-          style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px 16px", fontSize: 12.5, fontWeight: 500, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)", cursor: "pointer" }}
-        >
-          <ChevronLeft size={14} /> Anterior
-        </button>
-        <button
-          onClick={() => renditionRef.current?.next()}
-          style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px 16px", fontSize: 12.5, fontWeight: 500, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)", cursor: "pointer" }}
-        >
-          Siguiente <ChevronRight size={14} />
-        </button>
+      <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--line)", background: "var(--card)" }}>
+        {totalPaginas != null && paginaActual != null && (
+          <div style={{ textAlign: "center", padding: "6px 0 0", fontSize: 11, color: "var(--ink-soft)" }} className="despensa-mono">
+            Página {paginaActual} de {totalPaginas}
+          </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px" }}>
+          <button
+            onClick={() => renditionRef.current?.prev()}
+            style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px 16px", fontSize: 12.5, fontWeight: 500, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)", cursor: "pointer" }}
+          >
+            <ChevronLeft size={14} /> Anterior
+          </button>
+          <button
+            onClick={() => renditionRef.current?.next()}
+            style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px 16px", fontSize: 12.5, fontWeight: 500, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)", cursor: "pointer" }}
+          >
+            Siguiente <ChevronRight size={14} />
+          </button>
+        </div>
       </div>
     </div>
   );
