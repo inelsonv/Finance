@@ -870,7 +870,7 @@ export default function App() {
           <Vacaciones vacaciones={vacaciones} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} />
         )}
         {tab === "calendario" && (
-          <Calendario eventos={eventos} entidades={entidades} categoriasGasto={categoriasGasto} vacaciones={vacaciones} tarjetas={tarjetas} />
+          <Calendario eventos={eventos} entidades={entidades} categoriasGasto={categoriasGasto} vacaciones={vacaciones} tarjetas={tarjetas} habitos={habitos} habitosRegistro={habitosRegistro} />
         )}
         {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} seguros={seguros} />}
         {tab === "ahorro" && (

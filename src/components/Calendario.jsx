@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight, CreditCard, Flag, Heart } from "lucide-react";
-import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento } from "../lib/db";
+import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight, CreditCard, Flag, Heart, ListTodo } from "lucide-react";
+import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento, toggleHabitoRegistro } from "../lib/db";
+import { calcularRachaHabito, periodoDeFecha } from "../lib/rachaHabito";
 import { confirm } from "../lib/confirm";
 
 const TIPOS = ["Cita médica", "Vacaciones", "Cumpleaños", "Trabajo", "Personal", "Feriado", "Día especial", "Otro"];
@@ -139,7 +140,7 @@ const FERIADOS_RD = [
   { fecha: "2027-12-25", titulo: "Navidad", tipo: "Feriado" },
 ];
 
-export default function Calendario({ eventos, entidades, categoriasGasto, vacaciones, tarjetas }) {
+export default function Calendario({ eventos, entidades, categoriasGasto, vacaciones, tarjetas, habitos, habitosRegistro }) {
   const [cargandoFeriados, setCargandoFeriados] = useState(false);
   const [mensajeFeriados, setMensajeFeriados] = useState(null);
 
@@ -161,6 +162,33 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
     } finally {
       setCargandoFeriados(false);
     }
+  };
+
+  const DIAS_SEMANA_LABEL = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+  const tareasHabitos = useMemo(() => {
+    const registrosPorHabito = {};
+    for (const r of habitosRegistro || []) {
+      if (!registrosPorHabito[r.habitoId]) registrosPorHabito[r.habitoId] = [];
+      registrosPorHabito[r.habitoId].push(r.fecha);
+    }
+    return (habitos || [])
+      .filter((h) => h.categoria === "Tarea" && h.activo !== false)
+      .map((h) => {
+        const periodos = registrosPorHabito[h.id] || [];
+        const racha = calcularRachaHabito(periodos, h.frecuencia);
+        const periodoActual = periodoDeFecha(h.frecuencia, new Date());
+        const cumplidoHoy = periodos.includes(periodoActual);
+        const etiquetaFrecuencia =
+          h.frecuencia === "Semanal" && h.diaRecurrencia != null
+            ? `Todos los ${DIAS_SEMANA_LABEL[h.diaRecurrencia]}s`
+            : h.frecuencia;
+        return { ...h, racha, periodoActual, cumplidoHoy, etiquetaFrecuencia };
+      });
+  }, [habitos, habitosRegistro]);
+
+  const handleToggleTarea = async (h) => {
+    await toggleHabitoRegistro(h.id, h.periodoActual, h.nombre);
   };
 
   const hoy = todayStr();
@@ -708,6 +736,55 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
             {cargandoFeriados ? "Agregando…" : `Cargar feriados de RD 2026-2027 (${feriadosPendientes.length})`}
           </button>
           {mensajeFeriados && <div style={{ marginTop: 8, fontSize: 11.5, color: "var(--ink-soft)" }}>{mensajeFeriados}</div>}
+        </div>
+      )}
+
+      {tareasHabitos.length > 0 && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>
+            <ListTodo size={14} /> Tareas recurrentes
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {tareasHabitos.map((h) => (
+              <div
+                key={h.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  background: "var(--paper)",
+                }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{h.nombre}</span>
+                  <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+                    {h.etiquetaFrecuencia} · Racha: {h.racha}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleToggleTarea(h)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "6px 12px",
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    borderRadius: 8,
+                    border: h.cumplidoHoy ? "1px solid var(--sage)" : "1px solid var(--line)",
+                    background: h.cumplidoHoy ? "var(--sage-bg)" : "var(--card)",
+                    color: h.cumplidoHoy ? "var(--sage)" : "var(--ink-soft)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Check size={13} /> {h.cumplidoHoy ? "Hecho" : "Marcar"}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

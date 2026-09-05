@@ -555,7 +555,7 @@ export function watchHabitos(onChange, onError) {
   );
 }
 
-export async function addHabito(nombre, icono, frecuencia, diaRecurrencia = null) {
+export async function addHabito(nombre, icono, frecuencia, diaRecurrencia = null, categoria = "Salud") {
   const nombreTrim = (nombre || "").trim();
   if (!nombreTrim) throw new Error("Ponle un nombre al hábito");
   await addDoc(collection(db, "habitos"), {
@@ -563,6 +563,7 @@ export async function addHabito(nombre, icono, frecuencia, diaRecurrencia = null
     icono: icono || "check",
     frecuencia: frecuencia || "Diario",
     diaRecurrencia: diaRecurrencia,
+    categoria: categoria || "Salud",
     activo: true,
     createdAt: serverTimestamp(),
   });

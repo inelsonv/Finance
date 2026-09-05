@@ -41,6 +41,8 @@ import {
   ChevronUp,
   ChevronDown,
   Pencil,
+  HeartPulse,
+  ListTodo,
 } from "lucide-react";
 import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos, updateHabito, saveDatosCorporales } from "../lib/db";
 import { calcularRachaHabito, historialHabitoVisual, periodoDeFecha, periodosSinCumplir } from "../lib/rachaHabito";
@@ -55,6 +57,38 @@ function PrayingHands({ size = 24, ...props }) {
     <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" {...props}>
       <path d="M232.49,182.83l-37-37L158.79,24.62A17.77,17.77,0,0,0,128,18.56a17.77,17.77,0,0,0-30.79,6.06L60.46,145.88l-36.95,37a12,12,0,0,0,0,17L56.2,232.49a12,12,0,0,0,17,0l48.28-48.29a36,36,0,0,0,6.55-8.94,36,36,0,0,0,6.55,8.94l48.28,48.29a12,12,0,0,0,17,0l32.69-32.69A12,12,0,0,0,232.49,182.83Zm-165,44a4,4,0,0,1-5.66,0L29.17,194.15a4,4,0,0,1,0-5.66L44.68,173,83,211.32Zm48.29-48.28L88.68,205.66,50.34,167.32l16.48-16.49a3.92,3.92,0,0,0,1-1.67l37-122.22A9.78,9.78,0,0,1,124,29.78v129A27.81,27.81,0,0,1,115.8,178.55Zm16.2-19.8v-129a9.78,9.78,0,0,1,19.14-2.84l37,122.22a3.92,3.92,0,0,0,1,1.67l17.38,17.38-39.18,37.51L140.2,178.55A27.81,27.81,0,0,1,132,158.75Zm94.83,35.4-32.68,32.68a4,4,0,0,1-5.66,0L173,211.38l39.18-37.51,14.61,14.62A4,4,0,0,1,226.83,194.15Z" />
     </svg>
+  );
+}
+
+function SelectorCategoriaHabito({ value, onChange }) {
+  return (
+    <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+      {[
+        { valor: "Salud", label: "Salud", icon: HeartPulse },
+        { valor: "Tarea", label: "Tarea/Quehacer", icon: ListTodo },
+      ].map(({ valor, label, icon: Icon }) => (
+        <button
+          key={valor}
+          type="button"
+          onClick={() => onChange(valor)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "6px 12px",
+            fontSize: 12,
+            fontWeight: 500,
+            borderRadius: 8,
+            border: value === valor ? "2px solid var(--sage)" : "1px solid var(--line)",
+            background: value === valor ? "var(--sage-bg)" : "var(--paper)",
+            color: value === valor ? "var(--sage)" : "var(--ink-soft)",
+            cursor: "pointer",
+          }}
+        >
+          <Icon size={13} /> {label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -146,6 +180,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
   const [nombre, setNombre] = useState("");
   const [icono, setIcono] = useState("check");
   const [frecuencia, setFrecuencia] = useState("Diario");
+  const [categoria, setCategoria] = useState("Salud");
   const [diaRecurrencia, setDiaRecurrencia] = useState(6); // sábado por defecto
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -155,8 +190,10 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
   const [ordenLocal, setOrdenLocal] = useState(null);
 
   const habitosOrdenados = useMemo(() => {
-    if (ordenLocal) return ordenLocal;
-    return [...(habitos || [])].sort((a, b) => {
+    // Las de categoría "Tarea" se muestran en el Calendario en vez de aquí.
+    const soloSalud = (habitos || []).filter((h) => h.categoria !== "Tarea");
+    if (ordenLocal) return ordenLocal.filter((h) => h.categoria !== "Tarea");
+    return [...soloSalud].sort((a, b) => {
       const oa = a.orden ?? 999999;
       const ob = b.orden ?? 999999;
       return oa - ob;
@@ -199,6 +236,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
   const [editIcono, setEditIcono] = useState("check");
   const [editFrecuencia, setEditFrecuencia] = useState("Diario");
   const [editDiaRecurrencia, setEditDiaRecurrencia] = useState(6);
+  const [editCategoria, setEditCategoria] = useState("Salud");
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
 
@@ -208,6 +246,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
     setEditIcono(h.icono || "check");
     setEditFrecuencia(h.frecuencia || "Diario");
     setEditDiaRecurrencia(h.diaRecurrencia != null ? h.diaRecurrencia : 6);
+    setEditCategoria(h.categoria || "Salud");
     setEditError(null);
   };
 
@@ -229,6 +268,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
         icono: editIcono,
         frecuencia: editFrecuencia,
         diaRecurrencia: editFrecuencia === "Semanal" ? editDiaRecurrencia : null,
+        categoria: editCategoria,
       });
       setEditingId(null);
     } catch (err) {
@@ -256,7 +296,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
     setSaving(true);
     setError(null);
     try {
-      await addHabito(nombre, icono, frecuencia, frecuencia === "Semanal" ? diaRecurrencia : null);
+      await addHabito(nombre, icono, frecuencia, frecuencia === "Semanal" ? diaRecurrencia : null, categoria);
       setNombre("");
       setIcono("check");
       setFrecuencia("Diario");
@@ -394,6 +434,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
           />
+          <SelectorCategoriaHabito value={categoria} onChange={setCategoria} />
           <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
             {["Diario", "Semanal", "Mensual"].map((f) => (
               <button
@@ -521,6 +562,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
                       onKeyDown={(e) => e.key === "Enter" && saveEdit()}
                       style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
                     />
+                    <SelectorCategoriaHabito value={editCategoria} onChange={setEditCategoria} />
                     <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
                       {["Diario", "Semanal", "Mensual"].map((f) => (
                         <button
