@@ -432,6 +432,8 @@ export default function Biblioteca({ libros }) {
                   border: "1px solid var(--line)",
                   borderRadius: 10,
                   padding: editando ? 12 : 8,
+                  display: editando ? "block" : "flex",
+                  flexDirection: "column",
                 }}
               >
                 {editando ? (
@@ -539,7 +541,7 @@ export default function Biblioteca({ libros }) {
                     </div>
                   </div>
                 ) : (
-                  <div>
+                  <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
                     <div style={{ position: "relative", marginBottom: 8 }}>
                       <Portada url={l.portadaUrl} size="100%" tall />
                       {l.progresoPct != null && l.progresoPct > 0 && (
@@ -564,21 +566,23 @@ export default function Biblioteca({ libros }) {
                         </button>
                       </div>
                     </div>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 2, lineHeight: 1.3 }}>{l.titulo}</div>
-                    {l.autor && <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>{l.autor}</div>}
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: ESTADO_COLORS[l.estado] }}>
-                        <IconEstado size={11} /> {l.estado}
-                      </span>
-                      {l.estado === "Leyendo" && l.progresoPct != null && l.progresoPct > 0 && (
-                        <span className="despensa-mono" style={{ fontSize: 10, color: "var(--ink-soft)" }}>· {l.progresoPct}%</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 2, lineHeight: 1.3 }}>{l.titulo}</div>
+                      {l.autor && <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>{l.autor}</div>}
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: ESTADO_COLORS[l.estado] }}>
+                          <IconEstado size={11} /> {l.estado}
+                        </span>
+                        {l.estado === "Leyendo" && l.progresoPct != null && l.progresoPct > 0 && (
+                          <span className="despensa-mono" style={{ fontSize: 10, color: "var(--ink-soft)" }}>· {l.progresoPct}%</span>
+                        )}
+                      </div>
+                      {l.estado === "Leído" && l.calificacion > 0 && (
+                        <div style={{ marginTop: 4 }}>
+                          <Estrellas valor={l.calificacion} size={11} />
+                        </div>
                       )}
                     </div>
-                    {l.estado === "Leído" && l.calificacion > 0 && (
-                      <div style={{ marginTop: 4 }}>
-                        <Estrellas valor={l.calificacion} size={11} />
-                      </div>
-                    )}
                     {l.epubUrl && (
                       <button
                         onClick={() => setLibroLeyendo(l)}
