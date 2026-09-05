@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight, CreditCard, Flag, Heart, ListTodo } from "lucide-react";
-import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento, toggleHabitoRegistro, addHabito } from "../lib/db";
+import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento, toggleHabitoRegistro, addHabito, updateHabito, deleteHabito } from "../lib/db";
 import { calcularRachaHabito, periodoDeFecha } from "../lib/rachaHabito";
 import { confirm } from "../lib/confirm";
 
@@ -196,6 +196,34 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
   const [diaTarea, setDiaTarea] = useState(6);
   const [savingTarea, setSavingTarea] = useState(false);
   const [errorTarea, setErrorTarea] = useState(null);
+  const [editandoTareaId, setEditandoTareaId] = useState(null);
+  const [editNombreTarea, setEditNombreTarea] = useState("");
+  const [editDiaTarea, setEditDiaTarea] = useState(6);
+
+  const abrirEdicionTarea = (h) => {
+    setEditandoTareaId(h.id);
+    setEditNombreTarea(h.nombre);
+    setEditDiaTarea(h.diaRecurrencia != null ? h.diaRecurrencia : 6);
+    setShowFormTarea(false);
+  };
+
+  const cancelarEdicionTarea = () => setEditandoTareaId(null);
+
+  const handleGuardarEdicionTarea = async () => {
+    if (!editNombreTarea.trim()) return;
+    setSavingTarea(true);
+    try {
+      await updateHabito(editandoTareaId, { nombre: editNombreTarea.trim(), diaRecurrencia: editDiaTarea });
+      setEditandoTareaId(null);
+    } finally {
+      setSavingTarea(false);
+    }
+  };
+
+  const handleEliminarTarea = async (h) => {
+    if (!(await confirm(`¿Eliminar la tarea "${h.nombre}"? Se pierde su historial y racha.`))) return;
+    await deleteHabito(h.id);
+  };
 
   const handleCrearTarea = async () => {
     if (!nombreTarea.trim()) {
@@ -841,45 +869,109 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
           )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {tareasHabitos.map((h) => (
-              <div
-                key={h.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 10,
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  background: "var(--paper)",
-                }}
-              >
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{h.nombre}</span>
-                  <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
-                    {h.etiquetaFrecuencia} · Racha: {h.racha}
-                  </span>
+            {tareasHabitos.map((h) =>
+              editandoTareaId === h.id ? (
+                <div key={h.id} style={{ padding: "10px", borderRadius: 8, background: "var(--paper)" }}>
+                  <input
+                    autoFocus
+                    value={editNombreTarea}
+                    onChange={(e) => setEditNombreTarea(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+                  />
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                    {DIAS_SEMANA_LABEL.map((label, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setEditDiaTarea(idx)}
+                        style={{
+                          padding: "6px 10px",
+                          fontSize: 11.5,
+                          fontWeight: 500,
+                          borderRadius: 20,
+                          border: editDiaTarea === idx ? "2px solid var(--sage)" : "1px solid var(--line)",
+                          background: editDiaTarea === idx ? "var(--sage-bg)" : "var(--card)",
+                          color: editDiaTarea === idx ? "var(--sage)" : "var(--ink-soft)",
+                          cursor: "pointer",
+                          textTransform: "capitalize",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={handleGuardarEdicionTarea}
+                      disabled={savingTarea}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", fontSize: 12, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+                    >
+                      <Check size={12} /> Guardar
+                    </button>
+                    <button
+                      onClick={cancelarEdicionTarea}
+                      style={{ padding: "7px 14px", fontSize: 12, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={() => handleToggleTarea(h)}
+              ) : (
+                <div
+                  key={h.id}
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    gap: 5,
-                    padding: "6px 12px",
-                    fontSize: 11.5,
-                    fontWeight: 600,
+                    justifyContent: "space-between",
+                    gap: 10,
+                    padding: "8px 10px",
                     borderRadius: 8,
-                    border: h.cumplidoHoy ? "1px solid var(--sage)" : "1px solid var(--line)",
-                    background: h.cumplidoHoy ? "var(--sage-bg)" : "var(--card)",
-                    color: h.cumplidoHoy ? "var(--sage)" : "var(--ink-soft)",
-                    cursor: "pointer",
+                    background: "var(--paper)",
                   }}
                 >
-                  <Check size={13} /> {h.cumplidoHoy ? "Hecho" : "Marcar"}
-                </button>
-              </div>
-            ))}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{h.nombre}</span>
+                    <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+                      {h.etiquetaFrecuencia} · Racha: {h.racha}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <button
+                      onClick={() => abrirEdicionTarea(h)}
+                      title="Editar"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleEliminarTarea(h)}
+                      title="Eliminar"
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--stamp)", cursor: "pointer" }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                    <button
+                      onClick={() => handleToggleTarea(h)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "6px 12px",
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        borderRadius: 8,
+                        border: h.cumplidoHoy ? "1px solid var(--sage)" : "1px solid var(--line)",
+                        background: h.cumplidoHoy ? "var(--sage-bg)" : "var(--card)",
+                        color: h.cumplidoHoy ? "var(--sage)" : "var(--ink-soft)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Check size={13} /> {h.cumplidoHoy ? "Hecho" : "Marcar"}
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
           </div>
         </div>
       )}
