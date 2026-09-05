@@ -28,12 +28,14 @@ function Estrellas({ valor, onChange, size = 16 }) {
   );
 }
 
-function Portada({ url, size = 52 }) {
+function Portada({ url, size = 52, tall = false }) {
+  const esPorcentaje = size === "100%";
   return (
     <div
       style={{
-        width: size,
-        height: size * 1.45,
+        width: esPorcentaje ? "100%" : size,
+        aspectRatio: "1 / 1.45",
+        height: esPorcentaje ? "auto" : size * 1.45,
         borderRadius: 6,
         background: url ? `url(${url}) center/cover` : "var(--paper)",
         border: "1px solid var(--line)",
@@ -44,7 +46,7 @@ function Portada({ url, size = 52 }) {
         overflow: "hidden",
       }}
     >
-      {!url && <BookMarked size={size * 0.4} style={{ color: "var(--line)" }} />}
+      {!url && <BookMarked size={esPorcentaje ? 28 : size * 0.4} style={{ color: "var(--line)" }} />}
     </div>
   );
 }
@@ -334,12 +336,22 @@ export default function Biblioteca({ libros }) {
           {filtro === "Todos" ? "Todavía no tienes libros en tu biblioteca." : `No tienes libros en "${filtro}".`}
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 14 }}>
           {librosFiltrados.map((l) => {
             const IconEstado = ESTADO_ICONS[l.estado] || BookMarked;
+            const editando = editingId === l.id;
             return (
-              <div key={l.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 12 }}>
-                {editingId === l.id ? (
+              <div
+                key={l.id}
+                style={{
+                  gridColumn: editando ? "1 / -1" : "auto",
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 10,
+                  padding: editando ? 12 : 8,
+                }}
+              >
+                {editando ? (
                   <div>
                     <input
                       autoFocus
@@ -359,7 +371,7 @@ export default function Biblioteca({ libros }) {
                       portadaUrl={editForm.portadaUrl}
                       onSelect={(url) => setEditForm({ ...editForm, portadaUrl: url })}
                     />
-                    <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
                       {ESTADOS.map((e) => (
                         <button
                           key={e}
@@ -409,36 +421,38 @@ export default function Biblioteca({ libros }) {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                    <Portada url={l.portadaUrl} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{l.titulo}</div>
-                      {l.autor && <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 4 }}>{l.autor}</div>}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: l.notas ? 6 : 0 }}>
-                        <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: ESTADO_COLORS[l.estado] }}>
-                          <IconEstado size={12} /> {l.estado}
-                        </span>
-                        {l.genero && <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>· {l.genero}</span>}
-                        {l.estado === "Leído" && l.calificacion > 0 && <Estrellas valor={l.calificacion} size={12} />}
+                  <div>
+                    <div style={{ position: "relative", marginBottom: 8 }}>
+                      <Portada url={l.portadaUrl} size="100%" tall />
+                      <div style={{ position: "absolute", top: 4, right: 4, display: "flex", gap: 4 }}>
+                        <button
+                          onClick={() => startEdit(l)}
+                          title="Editar"
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: 6, color: "#fff", cursor: "pointer" }}
+                        >
+                          <Pencil size={11} />
+                        </button>
+                        <button
+                          onClick={() => handleEliminar(l)}
+                          title="Eliminar"
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: 6, color: "#fff", cursor: "pointer" }}
+                        >
+                          <Trash2 size={11} />
+                        </button>
                       </div>
-                      {l.notas && <div style={{ fontSize: 12, color: "var(--ink-soft)", fontStyle: "italic" }}>{l.notas}</div>}
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-                      <button
-                        onClick={() => startEdit(l)}
-                        title="Editar"
-                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        onClick={() => handleEliminar(l)}
-                        title="Eliminar"
-                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--stamp)", cursor: "pointer" }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 2, lineHeight: 1.3 }}>{l.titulo}</div>
+                    {l.autor && <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>{l.autor}</div>}
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: ESTADO_COLORS[l.estado] }}>
+                        <IconEstado size={11} /> {l.estado}
+                      </span>
                     </div>
+                    {l.estado === "Leído" && l.calificacion > 0 && (
+                      <div style={{ marginTop: 4 }}>
+                        <Estrellas valor={l.calificacion} size={11} />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
