@@ -51,7 +51,7 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
   const racha = useMemo(() => calcularRacha(checklistTodos), [checklistTodos]);
   const historialRacha = useMemo(() => historialRachaVisual(checklistTodos), [checklistTodos]);
 
-  const { mesObjetivo, yearObjetivo } = useMemo(() => {
+  const { mesObjetivo: mesPorDefecto, yearObjetivo: yearPorDefecto } = useMemo(() => {
     const hoy = new Date();
     let mes = hoy.getMonth() + 2; // mes siguiente, 1-indexado
     let year = hoy.getFullYear();
@@ -61,6 +61,8 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
     }
     return { mesObjetivo: mes, yearObjetivo: year };
   }, []);
+  const [mesObjetivo, setMesObjetivo] = useState(mesPorDefecto);
+  const [yearObjetivo, setYearObjetivo] = useState(yearPorDefecto);
 
   // Las categorías marcadas en Configuración → "Categorías que generan
   // puntos" no pueden recibir puntos por canje, para no crear un círculo
@@ -189,8 +191,8 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
           <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Canjear puntos</span>
         </div>
         <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 14 }}>
-          Libera dinero extra en una categoría de gasto variable (compras, entretenimiento, etc.) para{" "}
-          <strong>{NOMBRES_MES[mesObjetivo - 1]} {yearObjetivo}</strong> — se suma al presupuesto que ya tengas ahí.
+          Libera dinero extra en una categoría de gasto variable (compras, entretenimiento, etc.) para el periodo que
+          elijas abajo — se suma al presupuesto que ya tengas ahí.
         </div>
 
         {categoriasVariables.length === 0 ? (
@@ -223,6 +225,24 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
                 <option value="Q1">1ra quincena</option>
                 <option value="Q2">2da quincena</option>
               </select>
+            </div>
+
+            <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
+              <select
+                value={mesObjetivo}
+                onChange={(e) => setMesObjetivo(Number(e.target.value))}
+                style={{ padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+              >
+                {NOMBRES_MES.map((nombre, i) => (
+                  <option key={nombre} value={i + 1}>{nombre}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                value={yearObjetivo}
+                onChange={(e) => setYearObjetivo(Number(e.target.value) || yearObjetivo)}
+                style={{ padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
             </div>
 
             {categoria && topesAjuste?.[categoria] != null && (
