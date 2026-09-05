@@ -835,6 +835,10 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
 // historial crudo por costo/tokens), y responde con Claude basándose SOLO
 // en ese resumen. Mantiene un historial corto de la conversación para dar
 // contexto de seguimiento, pero no persiste nada en el servidor.
+// Nota: se fuerza un pequeño cambio aquí para que el próximo deploy
+// realmente actualice esta función (y con eso, vuelva a verificar/otorgar
+// el acceso al secreto ANTHROPIC_API_KEY) en vez de saltarla por "sin
+// cambios detectados".
 exports.preguntarAsistente = onCall({ secrets: [anthropicApiKey] }, async (request) => {
   if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
     throw new HttpsError("permission-denied", "No autorizado");
