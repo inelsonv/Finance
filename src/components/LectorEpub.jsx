@@ -3,6 +3,7 @@ import { X, ChevronLeft, ChevronRight, List, Loader2, Palette } from "lucide-rea
 import ePub from "epubjs";
 
 const TEMA_KEY = "smart-finance-lector-tema";
+const BRILLO_KEY = "smart-finance-lector-brillo";
 const PRESETS = [
   { nombre: "Claro", texto: "#1a1a1a", fondo: "#ffffff" },
   { nombre: "Oscuro", texto: "#e8e8e8", fondo: "#1a1a1a" },
@@ -19,6 +20,11 @@ function cargarTemaGuardado() {
   return PRESETS[0];
 }
 
+function cargarBrilloGuardado() {
+  const guardado = Number(localStorage.getItem(BRILLO_KEY));
+  return Number.isFinite(guardado) && guardado >= 20 && guardado <= 100 ? guardado : 100;
+}
+
 // Lector de libros .epub dentro de la app, usando epub.js. Se abre como un
 // modal a pantalla completa sobre el resto de la interfaz.
 export default function LectorEpub({ epubUrl, titulo, onClose }) {
@@ -33,6 +39,12 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
   const [capitulos, setCapitulos] = useState([]);
   const [progreso, setProgreso] = useState(0);
   const [tema, setTema] = useState(cargarTemaGuardado);
+  const [brillo, setBrillo] = useState(cargarBrilloGuardado);
+
+  const handleCambiarBrillo = (valor) => {
+    setBrillo(valor);
+    localStorage.setItem(BRILLO_KEY, String(valor));
+  };
 
   const aplicarTema = (nuevoTema) => {
     setTema(nuevoTema);
@@ -157,6 +169,15 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
           </div>
         )}
         <div ref={viewerRef} style={{ width: "100%", maxWidth: 720, height: "100%", margin: "0 auto" }} />
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "#000",
+            opacity: (100 - brillo) / 100,
+            pointerEvents: "none",
+          }}
+        />
 
         {mostrarIndice && (
           <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 260, maxWidth: "80%", background: "var(--card)", borderRight: "1px solid var(--line)", overflowY: "auto", padding: 12 }}>
@@ -218,6 +239,21 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
                 value={tema.fondo}
                 onChange={(e) => aplicarTema({ ...tema, fondo: e.target.value })}
                 style={{ width: 36, height: 28, border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer", padding: 0 }}
+              />
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Brillo</span>
+                <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>{brillo}%</span>
+              </div>
+              <input
+                type="range"
+                min={20}
+                max={100}
+                value={brillo}
+                onChange={(e) => handleCambiarBrillo(Number(e.target.value))}
+                style={{ width: "100%" }}
               />
             </div>
           </div>
