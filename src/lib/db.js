@@ -556,6 +556,7 @@ export async function saveDatosCorporales({ peso, estatura, edad, nivelActividad
 // Hábitos definidos libremente por el usuario (ej. "Buena alimentación",
 // "Consumo de agua"), con seguimiento diario y puntos por cumplirlos.
 const PUNTOS_POR_HABITO = 5;
+const PUNTOS_POR_TAREA = 50;
 
 export function watchHabitos(onChange, onError) {
   return onSnapshot(
@@ -684,7 +685,8 @@ export function watchHabitosRegistro(onChange, onError) {
 // puntos fijos; al desmarcarlo, revierte esos mismos puntos (protegido
 // contra doble-otorgamiento usando el ID del registro como llave del
 // documento).
-export async function toggleHabitoRegistro(habitoId, fecha, habitoNombre) {
+export async function toggleHabitoRegistro(habitoId, fecha, habitoNombre, categoria) {
+  const puntosAOtorgar = categoria === "Tarea" ? PUNTOS_POR_TAREA : PUNTOS_POR_HABITO;
   const regId = `${habitoId}_${fecha}`;
   const ref = doc(db, "habitosRegistro", regId);
   const snap = await getDoc(ref);
@@ -700,14 +702,14 @@ export async function toggleHabitoRegistro(habitoId, fecha, habitoNombre) {
   } else {
     await setDoc(ref, { habitoId, fecha, createdAt: serverTimestamp() });
     await addDoc(collection(db, "puntosHistorial"), {
-      motivo: `Hábito cumplido: ${habitoNombre}`,
-      puntos: PUNTOS_POR_HABITO,
-      tipo: "habito",
+      motivo: `${categoria === "Tarea" ? "Tarea completada" : "Hábito cumplido"}: ${habitoNombre}`,
+      puntos: puntosAOtorgar,
+      tipo: categoria === "Tarea" ? "tarea" : "habito",
       fecha,
       habitoRegistroId: regId,
       createdAt: serverTimestamp(),
     });
-    await setDoc(doc(db, "config", "puntos"), { total: increment(PUNTOS_POR_HABITO) }, { merge: true });
+    await setDoc(doc(db, "config", "puntos"), { total: increment(puntosAOtorgar) }, { merge: true });
   }
 }
 

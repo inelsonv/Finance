@@ -189,7 +189,7 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
   }, [habitos, habitosRegistro]);
 
   const handleToggleTarea = async (h) => {
-    await toggleHabitoRegistro(h.id, h.periodoActual, h.nombre);
+    await toggleHabitoRegistro(h.id, h.periodoActual, h.nombre, "Tarea");
   };
 
   const [showFormTarea, setShowFormTarea] = useState(false);
