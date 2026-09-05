@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, List, Loader2, Palette, Highlighter, Trash2, Bookmark } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, List, Loader2, Palette, Highlighter, Trash2, Bookmark, Volume2, Pause } from "lucide-react";
 import ePub from "epubjs";
 import { updateLibro, agregarMarcadorLibro, quitarMarcadorLibro } from "../lib/db";
 
@@ -53,6 +53,8 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const [brillo, setBrillo] = useState(cargarBrilloGuardado);
   const [tamanoFuente, setTamanoFuente] = useState(cargarFuenteGuardada);
   const [transicion, setTransicion] = useState(null);
+  const [leyendoEnVoz, setLeyendoEnVoz] = useState(false);
+  const utteranceRef = useRef(null);
   const dragStartRef = useRef(null);
   const dragEnCursoRef = useRef(false);
 
@@ -181,6 +183,8 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
         rendition.on("relocated", (location) => {
           if (cancelado) return;
+          window.speechSynthesis.cancel();
+          setLeyendoEnVoz(false);
           let pct = null;
           if (location?.start?.percentage != null) {
             pct = Math.round(location.start.percentage * 100);
@@ -204,6 +208,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
     return () => {
       cancelado = true;
+      window.speechSynthesis.cancel();
       if (guardarTimeoutRef.current) clearTimeout(guardarTimeoutRef.current);
       if (cfiActualRef.current && libroId) {
         updateLibro(libroId, { ultimaPosicion: cfiActualRef.current, progresoPct: progresoActualRef.current }).catch(() => {});
@@ -213,6 +218,29 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [epubUrl]);
+
+  const detenerVoz = () => {
+    window.speechSynthesis.cancel();
+    setLeyendoEnVoz(false);
+  };
+
+  const alternarVoz = () => {
+    if (leyendoEnVoz) {
+      detenerVoz();
+      return;
+    }
+    const contents = renditionRef.current?.getContents();
+    const texto = contents?.[0]?.content?.textContent?.trim();
+    if (!texto) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(texto);
+    utterance.lang = "es-ES";
+    utterance.onend = () => setLeyendoEnVoz(false);
+    utterance.onerror = () => setLeyendoEnVoz(false);
+    utteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+    setLeyendoEnVoz(true);
+  };
 
   const irA = (href) => {
     renditionRef.current?.display(href);
@@ -276,6 +304,24 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
         <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titulo}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>{progreso}%</span>
+          <button
+            onClick={alternarVoz}
+            title={leyendoEnVoz ? "Pausar lectura en voz alta" : "Leer esta página en voz alta"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              background: leyendoEnVoz ? "var(--sage-bg)" : "transparent",
+              border: `1px solid ${leyendoEnVoz ? "var(--sage)" : "var(--line)"}`,
+              borderRadius: 8,
+              color: leyendoEnVoz ? "var(--sage)" : "var(--ink-soft)",
+              cursor: "pointer",
+            }}
+          >
+            {leyendoEnVoz ? <Pause size={15} /> : <Volume2 size={15} />}
+          </button>
           <button
             onClick={() => setMostrarMarcadores((s) => !s)}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
