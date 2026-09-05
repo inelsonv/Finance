@@ -52,6 +52,9 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const [tema, setTema] = useState(cargarTemaGuardado);
   const [brillo, setBrillo] = useState(cargarBrilloGuardado);
   const [tamanoFuente, setTamanoFuente] = useState(cargarFuenteGuardada);
+  const [transicion, setTransicion] = useState(null);
+  const dragStartRef = useRef(null);
+  const dragEnCursoRef = useRef(false);
 
   const handleCambiarFuente = (valor) => {
     const clamped = Math.max(70, Math.min(200, valor));
@@ -216,6 +219,45 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     setMostrarIndice(false);
   };
 
+  const cambiarPagina = (direccion) => {
+    if (!renditionRef.current) return;
+    // "adelante" = pasar a la siguiente página (el contenido nuevo entra
+    // desde la derecha, como pasar una hoja); "atras" = página anterior.
+    setTransicion(direccion);
+    setTimeout(() => {
+      if (direccion === "adelante") renditionRef.current?.next();
+      else renditionRef.current?.prev();
+      setTransicion(null);
+    }, 180);
+  };
+
+  const handlePointerDownViewer = (e) => {
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    dragEnCursoRef.current = false;
+  };
+
+  const handlePointerMoveViewer = (e) => {
+    if (!dragStartRef.current) return;
+    const deltaX = e.clientX - dragStartRef.current.x;
+    const deltaY = e.clientY - dragStartRef.current.y;
+    // Solo se considera arrastre horizontal si el movimiento en X supera
+    // claramente al de Y — evita interferir con el scroll vertical normal.
+    if (!dragEnCursoRef.current && Math.abs(deltaX) > 12 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+      dragEnCursoRef.current = true;
+    }
+  };
+
+  const handlePointerUpViewer = (e) => {
+    if (!dragStartRef.current) return;
+    const deltaX = e.clientX - dragStartRef.current.x;
+    dragStartRef.current = null;
+    if (!dragEnCursoRef.current) return;
+    dragEnCursoRef.current = false;
+    const UMBRAL = 50;
+    if (deltaX < -UMBRAL) cambiarPagina("adelante"); // deslizó hacia la izquierda
+    else if (deltaX > UMBRAL) cambiarPagina("atras"); // deslizó hacia la derecha
+  };
+
   const irAMarcador = (cfi) => {
     renditionRef.current?.display(cfi);
     setMostrarMarcadores(false);
@@ -261,7 +303,16 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
         </div>
       </div>
 
-      <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+      <div
+        style={{ flex: 1, position: "relative", overflow: "hidden" }}
+        onPointerDown={handlePointerDownViewer}
+        onPointerMove={handlePointerMoveViewer}
+        onPointerUp={handlePointerUpViewer}
+        onPointerCancel={() => {
+          dragStartRef.current = null;
+          dragEnCursoRef.current = false;
+        }}
+      >
         {cargando && (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--ink-soft)", fontSize: 13 }}>
             <Loader2 size={16} className="despensa-spin" /> {mensajeCarga}
@@ -272,7 +323,18 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
             {error}
           </div>
         )}
-        <div ref={viewerRef} style={{ width: "100%", maxWidth: 720, height: "100%", margin: "0 auto" }} />
+        <div
+          ref={viewerRef}
+          style={{
+            width: "100%",
+            maxWidth: 720,
+            height: "100%",
+            margin: "0 auto",
+            transition: transicion ? "transform 0.18s ease, opacity 0.18s ease" : "none",
+            transform: transicion === "adelante" ? "translateX(-18px)" : transicion === "atras" ? "translateX(18px)" : "translateX(0)",
+            opacity: transicion ? 0.4 : 1,
+          }}
+        />
         <div
           style={{
             position: "absolute",
@@ -439,13 +501,13 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
         )}
         <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px" }}>
           <button
-            onClick={() => renditionRef.current?.prev()}
+            onClick={() => cambiarPagina("atras")}
             style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px 16px", fontSize: 12.5, fontWeight: 500, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)", cursor: "pointer" }}
           >
             <ChevronLeft size={14} /> Anterior
           </button>
           <button
-            onClick={() => renditionRef.current?.next()}
+            onClick={() => cambiarPagina("adelante")}
             style={{ display: "flex", alignItems: "center", gap: 4, padding: "8px 16px", fontSize: 12.5, fontWeight: 500, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink)", cursor: "pointer" }}
           >
             Siguiente <ChevronRight size={14} />
