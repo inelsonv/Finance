@@ -434,7 +434,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
           />
-          <SelectorCategoriaHabito value={categoria} onChange={setCategoria} />
+          {/* Las tareas/quehaceres ahora se crean exclusivamente desde el Calendario. */}
           <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
             {["Diario", "Semanal", "Mensual"].map((f) => (
               <button

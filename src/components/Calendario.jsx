@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight, CreditCard, Flag, Heart, ListTodo } from "lucide-react";
-import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento, toggleHabitoRegistro } from "../lib/db";
+import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento, toggleHabitoRegistro, addHabito } from "../lib/db";
 import { calcularRachaHabito, periodoDeFecha } from "../lib/rachaHabito";
 import { confirm } from "../lib/confirm";
 
@@ -190,6 +190,43 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
   const handleToggleTarea = async (h) => {
     await toggleHabitoRegistro(h.id, h.periodoActual, h.nombre);
   };
+
+  const [showFormTarea, setShowFormTarea] = useState(false);
+  const [nombreTarea, setNombreTarea] = useState("");
+  const [diaTarea, setDiaTarea] = useState(6);
+  const [savingTarea, setSavingTarea] = useState(false);
+  const [errorTarea, setErrorTarea] = useState(null);
+
+  const handleCrearTarea = async () => {
+    if (!nombreTarea.trim()) {
+      setErrorTarea("Ponle un nombre a la tarea");
+      return;
+    }
+    setSavingTarea(true);
+    setErrorTarea(null);
+    try {
+      await addHabito(nombreTarea.trim(), "check", "Semanal", diaTarea, "Tarea");
+      setNombreTarea("");
+      setDiaTarea(6);
+      setShowFormTarea(false);
+    } catch (err) {
+      setErrorTarea(err.message || String(err));
+    } finally {
+      setSavingTarea(false);
+    }
+  };
+
+  // Para marcar en el grid del calendario los días de la semana que tienen
+  // una tarea recurrente asignada, en TODOS los meses (no solo el actual).
+  const tareasPorDiaSemana = useMemo(() => {
+    const map = {};
+    for (const h of tareasHabitos) {
+      if (h.diaRecurrencia == null) continue;
+      if (!map[h.diaRecurrencia]) map[h.diaRecurrencia] = [];
+      map[h.diaRecurrencia].push(h);
+    }
+    return map;
+  }, [tareasHabitos]);
 
   const hoy = todayStr();
   const [viewDate, setViewDate] = useState(() => new Date());
@@ -739,11 +776,70 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
         </div>
       )}
 
-      {tareasHabitos.length > 0 && (
+      {(
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, marginBottom: 10 }}>
-            <ListTodo size={14} /> Tareas recurrentes
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600 }}>
+              <ListTodo size={14} /> Tareas recurrentes
+            </div>
+            <button
+              onClick={() => setShowFormTarea((s) => !s)}
+              style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", fontSize: 11.5, fontWeight: 500, background: showFormTarea ? "var(--paper)" : "var(--sage)", color: showFormTarea ? "var(--ink-soft)" : "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+            >
+              {showFormTarea ? <X size={12} /> : <Plus size={12} />} {showFormTarea ? "Cancelar" : "Nueva tarea"}
+            </button>
           </div>
+
+          {showFormTarea && (
+            <div style={{ background: "var(--paper)", borderRadius: 8, padding: 10, marginBottom: 10 }}>
+              <input
+                autoFocus
+                placeholder="Nombre, ej. Limpieza del baño"
+                value={nombreTarea}
+                onChange={(e) => setNombreTarea(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleCrearTarea()}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+              />
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>¿Qué día de la semana? (se repite todas las semanas, en todos los meses)</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                {DIAS_SEMANA_LABEL.map((label, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setDiaTarea(idx)}
+                    style={{
+                      padding: "6px 10px",
+                      fontSize: 11.5,
+                      fontWeight: 500,
+                      borderRadius: 20,
+                      border: diaTarea === idx ? "2px solid var(--sage)" : "1px solid var(--line)",
+                      background: diaTarea === idx ? "var(--sage-bg)" : "var(--card)",
+                      color: diaTarea === idx ? "var(--sage)" : "var(--ink-soft)",
+                      cursor: "pointer",
+                      textTransform: "capitalize",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {errorTarea && <div style={{ fontSize: 11.5, color: "var(--stamp)", marginBottom: 8 }}>{errorTarea}</div>}
+              <button
+                onClick={handleCrearTarea}
+                disabled={savingTarea}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 12.5, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: savingTarea ? "not-allowed" : "pointer" }}
+              >
+                <Check size={13} /> {savingTarea ? "Guardando…" : "Crear tarea"}
+              </button>
+            </div>
+          )}
+
+          {tareasHabitos.length === 0 && !showFormTarea && (
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", textAlign: "center", padding: "8px 0" }}>
+              Todavía no tienes tareas recurrentes.
+            </div>
+          )}
+
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {tareasHabitos.map((h) => (
               <div
@@ -804,6 +900,8 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
             const tieneEventoUrgente = eventosDia.some((e) => e.estado === "Pendiente");
             const eventoDestacado = eventosDia.find((e) => e.estado === "Pendiente") || eventosDia[0];
             const IconDia = eventoDestacado ? TIPO_ICONS[eventoDestacado.tipo] || Calendar : null;
+            const diaSemanaCell = new Date(cell.dateStr + "T00:00:00").getDay();
+            const tareasDia = tareasPorDiaSemana[diaSemanaCell] || [];
             return (
               <button
                 key={cell.dateStr}
@@ -824,7 +922,7 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
                   padding: 2,
                   minWidth: 0,
                 }}
-                title={eventosDia.length > 0 ? eventosDia.map((e) => e.titulo).join(", ") : undefined}
+                title={[...eventosDia.map((e) => e.titulo), ...tareasDia.map((h) => `Tarea: ${h.nombre}`)].join(", ") || undefined}
               >
                 <span
                   className="despensa-mono"
@@ -832,12 +930,15 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
                 >
                   {cell.day}
                 </span>
-                {IconDia && (
-                  <IconDia
-                    size={11}
-                    style={{ color: tieneEventoUrgente ? "var(--stamp)" : "var(--sage)", flexShrink: 0 }}
-                  />
-                )}
+                <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  {IconDia && (
+                    <IconDia
+                      size={11}
+                      style={{ color: tieneEventoUrgente ? "var(--stamp)" : "var(--sage)", flexShrink: 0 }}
+                    />
+                  )}
+                  {tareasDia.length > 0 && <ListTodo size={11} style={{ color: "var(--amber, #d9a441)", flexShrink: 0 }} />}
+                </div>
               </button>
             );
           })}
