@@ -81,6 +81,27 @@ export async function uploadProductImage(id, file) {
   return url;
 }
 
+// Sube el archivo .epub de un libro a Firebase Storage y guarda su URL de
+// descarga en el registro del libro — así se puede abrir con el lector
+// dentro de la misma app.
+export async function uploadLibroEpub(id, file) {
+  const epubRef = ref(storage, `libros/${id}/libro.epub`);
+  await uploadBytes(epubRef, file, { contentType: "application/epub+zip" });
+  const url = await getDownloadURL(epubRef);
+  await updateDoc(doc(db, "libros", id), { epubUrl: url, epubNombreArchivo: file.name });
+  return url;
+}
+
+export async function eliminarLibroEpub(id) {
+  const epubRef = ref(storage, `libros/${id}/libro.epub`);
+  try {
+    await deleteObject(epubRef);
+  } catch (err) {
+    // Si el archivo ya no existe en Storage, no bloquea el resto.
+  }
+  await updateDoc(doc(db, "libros", id), { epubUrl: null, epubNombreArchivo: null });
+}
+
 // Extrae nombre, precio e imagen de la página de un producto (ej. de una
 // tienda en línea), vía una Cloud Function del lado del servidor — evita el
 // problema de CORS que impediría hacerlo directo desde el navegador.

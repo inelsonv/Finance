@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Star, BookOpen, BookMarked, BookCheck, Search, Loader2 } from "lucide-react";
-import { addLibro, updateLibro, deleteLibro } from "../lib/db";
+import React, { useMemo, useRef, useState } from "react";
+import { Plus, Trash2, X, Pencil, Check, Star, BookOpen, BookMarked, BookCheck, Search, Loader2, Upload, FileText } from "lucide-react";
+import { addLibro, updateLibro, deleteLibro, uploadLibroEpub, eliminarLibroEpub } from "../lib/db";
 import { buscarPortadasLibro } from "../lib/openLibrary";
 import { confirm } from "../lib/confirm";
+import LectorEpub from "./LectorEpub.jsx";
 
 const ESTADOS = ["Pendiente", "Leyendo", "Leído"];
 const ESTADO_ICONS = { Pendiente: BookMarked, Leyendo: BookOpen, Leído: BookCheck };
@@ -139,6 +140,9 @@ export default function Biblioteca({ libros }) {
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [libroLeyendo, setLibroLeyendo] = useState(null);
+  const [subiendoEpub, setSubiendoEpub] = useState(false);
+  const epubInputRef = useRef(null);
 
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
@@ -200,6 +204,27 @@ export default function Biblioteca({ libros }) {
     } finally {
       setEditSaving(false);
     }
+  };
+
+  const handleSubirEpub = async (libroId, file) => {
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".epub")) {
+      alert("Ese archivo no parece ser un .epub");
+      return;
+    }
+    setSubiendoEpub(true);
+    try {
+      await uploadLibroEpub(libroId, file);
+    } catch (err) {
+      alert("No se pudo subir el archivo: " + (err.message || String(err)));
+    } finally {
+      setSubiendoEpub(false);
+    }
+  };
+
+  const handleQuitarEpub = async (libroId) => {
+    if (!(await confirm("¿Quitar el archivo epub de este libro?"))) return;
+    await eliminarLibroEpub(libroId);
   };
 
   const handleEliminar = async (l) => {
@@ -404,6 +429,41 @@ export default function Biblioteca({ libros }) {
                       placeholder="Notas"
                       style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10, resize: "vertical", fontFamily: "inherit" }}
                     />
+                    <div style={{ marginBottom: 10, padding: 10, background: "var(--paper)", borderRadius: 8 }}>
+                      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Archivo del libro (.epub)</div>
+                      {l.epubUrl ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <FileText size={14} style={{ color: "var(--sage)" }} />
+                          <span style={{ fontSize: 12, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.epubNombreArchivo || "libro.epub"}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleQuitarEpub(l.id)}
+                            style={{ fontSize: 11, color: "var(--stamp)", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}
+                          >
+                            Quitar
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            ref={epubInputRef}
+                            type="file"
+                            accept=".epub"
+                            style={{ display: "none" }}
+                            onChange={(e) => handleSubirEpub(l.id, e.target.files?.[0])}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => epubInputRef.current?.click()}
+                            disabled={subiendoEpub}
+                            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", fontSize: 11.5, fontWeight: 500, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
+                          >
+                            {subiendoEpub ? <Loader2 size={12} className="despensa-spin" /> : <Upload size={12} />}
+                            {subiendoEpub ? "Subiendo…" : "Subir archivo .epub"}
+                          </button>
+                        </>
+                      )}
+                    </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <button
                         onClick={saveEdit}
@@ -453,12 +513,39 @@ export default function Biblioteca({ libros }) {
                         <Estrellas valor={l.calificacion} size={11} />
                       </div>
                     )}
+                    {l.epubUrl && (
+                      <button
+                        onClick={() => setLibroLeyendo(l)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 4,
+                          width: "100%",
+                          marginTop: 6,
+                          padding: "5px 0",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: "var(--sage-bg)",
+                          color: "var(--sage)",
+                          border: "none",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <BookOpen size={11} /> Leer
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
             );
           })}
         </div>
+      )}
+
+      {libroLeyendo && (
+        <LectorEpub epubUrl={libroLeyendo.epubUrl} titulo={libroLeyendo.titulo} onClose={() => setLibroLeyendo(null)} />
       )}
     </div>
   );
