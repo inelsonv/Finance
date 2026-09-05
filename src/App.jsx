@@ -751,19 +751,6 @@ export default function App() {
         )}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}
         {tab === "wallet" && <Wallet tarjetas={tarjetas} membresias={membresias} onNavigate={setTab} />}
-        {tab === "asistente" && (
-          <Asistente
-            movimientos={movimientos}
-            presupuesto={presupuestoAnual}
-            presupuestoYear={presupuestoYear}
-            prestamos={prestamos}
-            tarjetas={tarjetas}
-            cuentas={cuentas}
-            fuentesIngreso={fuentesIngreso}
-            puntos={puntos}
-            diasCobro={diasCobro}
-          />
-        )}
         {tab === "compras" && (
           <Compras
             products={products}
