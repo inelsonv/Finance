@@ -1106,6 +1106,29 @@ export async function aplicarArregloPuntosPerdidos_20260905() {
   await setDoc(flagRef, { aplicado: true, aplicadoEn: serverTimestamp() });
 }
 
+// Recalcula el total de puntos DESDE CERO, sumando todo el historial real
+// (puntosHistorial), en vez de confiar en el contador acumulado que puede
+// haberse corrompido por un error a medias. Los canjes marcados "revertido"
+// se excluyen de la suma (se tratan como si nunca hubieran restado puntos),
+// ya que su reversión no generó una línea de historial propia. Se usa como
+// arreglo de una sola vez para corregir el total tras el bug de reversión.
+export async function recalcularPuntosTotal_fix20260905() {
+  const flagRef = doc(db, "config", "fixPuntosRecalculo20260905");
+  const flagSnap = await getDoc(flagRef);
+  if (flagSnap.exists() && flagSnap.data().aplicado) return;
+
+  const historialSnap = await getDocs(collection(db, "puntosHistorial"));
+  let total = 0;
+  for (const d of historialSnap.docs) {
+    const h = d.data();
+    if (h.tipo === "canje" && h.revertido) continue;
+    total += Number(h.puntos) || 0;
+  }
+
+  await setDoc(doc(db, "config", "puntos"), { total }, { merge: true });
+  await setDoc(flagRef, { aplicado: true, aplicadoEn: serverTimestamp(), totalRecalculado: total });
+}
+
 function formatMoneyErr(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
