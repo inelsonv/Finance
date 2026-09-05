@@ -46,13 +46,15 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const [tema, setTema] = useState(cargarTemaGuardado);
   const [brillo, setBrillo] = useState(cargarBrilloGuardado);
   const cfiActualRef = useRef(ultimaPosicion || null);
+  const progresoActualRef = useRef(0);
   const guardarTimeoutRef = useRef(null);
 
-  const guardarPosicion = (cfi, inmediato) => {
+  const guardarPosicion = (cfi, pct, inmediato) => {
     cfiActualRef.current = cfi;
+    progresoActualRef.current = pct;
     if (!libroId) return;
     if (guardarTimeoutRef.current) clearTimeout(guardarTimeoutRef.current);
-    const ejecutar = () => updateLibro(libroId, { ultimaPosicion: cfi }).catch(() => {});
+    const ejecutar = () => updateLibro(libroId, { ultimaPosicion: cfi, progresoPct: pct }).catch(() => {});
     if (inmediato) ejecutar();
     else guardarTimeoutRef.current = setTimeout(ejecutar, 1500);
   };
@@ -161,11 +163,13 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
         rendition.on("relocated", (location) => {
           if (cancelado) return;
+          let pct = null;
           if (location?.start?.percentage != null) {
-            setProgreso(Math.round(location.start.percentage * 100));
+            pct = Math.round(location.start.percentage * 100);
+            setProgreso(pct);
           }
           if (location?.start?.cfi) {
-            guardarPosicion(location.start.cfi, false);
+            guardarPosicion(location.start.cfi, pct, false);
             if (book.locations.length() > 0) {
               const idx = book.locations.locationFromCfi(location.start.cfi);
               if (idx != null) setPaginaActual(idx + 1);
@@ -184,7 +188,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       cancelado = true;
       if (guardarTimeoutRef.current) clearTimeout(guardarTimeoutRef.current);
       if (cfiActualRef.current && libroId) {
-        updateLibro(libroId, { ultimaPosicion: cfiActualRef.current }).catch(() => {});
+        updateLibro(libroId, { ultimaPosicion: cfiActualRef.current, progresoPct: progresoActualRef.current }).catch(() => {});
       }
       renditionRef.current?.destroy();
       bookRef.current?.destroy();

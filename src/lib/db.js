@@ -1382,6 +1382,7 @@ export async function addLibro({ titulo, autor, estado, genero, calificacion, no
     fechaInicio: null,
     fechaFin: null,
     ultimaPosicion: null,
+    progresoPct: null,
     createdAt: serverTimestamp(),
   });
   return docRef;

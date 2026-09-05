@@ -542,6 +542,11 @@ export default function Biblioteca({ libros }) {
                   <div>
                     <div style={{ position: "relative", marginBottom: 8 }}>
                       <Portada url={l.portadaUrl} size="100%" tall />
+                      {l.progresoPct != null && l.progresoPct > 0 && (
+                        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 5, background: "rgba(0,0,0,0.35)" }}>
+                          <div style={{ width: `${l.progresoPct}%`, height: "100%", background: "var(--sage)" }} />
+                        </div>
+                      )}
                       <div style={{ position: "absolute", top: 4, right: 4, display: "flex", gap: 4 }}>
                         <button
                           onClick={() => startEdit(l)}
@@ -565,6 +570,9 @@ export default function Biblioteca({ libros }) {
                       <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10, color: ESTADO_COLORS[l.estado] }}>
                         <IconEstado size={11} /> {l.estado}
                       </span>
+                      {l.estado === "Leyendo" && l.progresoPct != null && l.progresoPct > 0 && (
+                        <span className="despensa-mono" style={{ fontSize: 10, color: "var(--ink-soft)" }}>· {l.progresoPct}%</span>
+                      )}
                     </div>
                     {l.estado === "Leído" && l.calificacion > 0 && (
                       <div style={{ marginTop: 4 }}>
