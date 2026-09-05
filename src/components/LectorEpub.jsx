@@ -9,6 +9,7 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
   const bookRef = useRef(null);
   const renditionRef = useRef(null);
   const [cargando, setCargando] = useState(true);
+  const [mensajeCarga, setMensajeCarga] = useState("Descargando el libro…");
   const [error, setError] = useState(null);
   const [mostrarIndice, setMostrarIndice] = useState(false);
   const [capitulos, setCapitulos] = useState([]);
@@ -18,42 +19,62 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
     if (!epubUrl || !viewerRef.current) return;
     let cancelado = false;
 
-    const book = ePub(epubUrl);
-    bookRef.current = book;
+    // Se descarga el archivo completo de una sola vez (en vez de dejar que
+    // epub.js haga muchas peticiones pequeñas por HTTP Range mientras lee
+    // el zip) — con la latencia de red, muchas peticiones chiquitas se
+    // sienten más lentas que una sola descarga completa, aunque el archivo
+    // sea pequeño.
+    fetch(epubUrl)
+      .then((resp) => {
+        if (!resp.ok) throw new Error(`No se pudo descargar el archivo (HTTP ${resp.status})`);
+        return resp.arrayBuffer();
+      })
+      .then((arrayBuffer) => {
+        if (cancelado) return;
+        setMensajeCarga("Abriendo el libro…");
+        const book = ePub(arrayBuffer);
+        bookRef.current = book;
 
-    const rendition = book.renderTo(viewerRef.current, {
-      width: "100%",
-      height: "100%",
-      spread: "auto",
-    });
-    renditionRef.current = rendition;
+        const rendition = book.renderTo(viewerRef.current, {
+          width: "100%",
+          height: "100%",
+          spread: "auto",
+        });
+        renditionRef.current = rendition;
 
-    rendition
-      .display()
-      .then(() => {
-        if (!cancelado) setCargando(false);
+        rendition
+          .display()
+          .then(() => {
+            if (!cancelado) setCargando(false);
+          })
+          .catch((err) => {
+            if (!cancelado) {
+              setError("No se pudo abrir el archivo epub: " + (err.message || String(err)));
+              setCargando(false);
+            }
+          });
+
+        book.loaded.navigation.then((nav) => {
+          if (!cancelado) setCapitulos(nav.toc || []);
+        });
+
+        rendition.on("relocated", (location) => {
+          if (!cancelado && location?.start?.percentage != null) {
+            setProgreso(Math.round(location.start.percentage * 100));
+          }
+        });
       })
       .catch((err) => {
         if (!cancelado) {
-          setError("No se pudo abrir el archivo epub: " + (err.message || String(err)));
+          setError("No se pudo descargar el archivo: " + (err.message || String(err)));
           setCargando(false);
         }
       });
 
-    book.loaded.navigation.then((nav) => {
-      if (!cancelado) setCapitulos(nav.toc || []);
-    });
-
-    rendition.on("relocated", (location) => {
-      if (!cancelado && location?.start?.percentage != null) {
-        setProgreso(Math.round(location.start.percentage * 100));
-      }
-    });
-
     return () => {
       cancelado = true;
-      rendition.destroy();
-      book.destroy();
+      renditionRef.current?.destroy();
+      bookRef.current?.destroy();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [epubUrl]);
@@ -87,7 +108,7 @@ export default function LectorEpub({ epubUrl, titulo, onClose }) {
       <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
         {cargando && (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--ink-soft)", fontSize: 13 }}>
-            <Loader2 size={16} className="despensa-spin" /> Abriendo el libro…
+            <Loader2 size={16} className="despensa-spin" /> {mensajeCarga}
           </div>
         )}
         {error && (
