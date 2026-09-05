@@ -22,7 +22,7 @@ export default function Wallet({ tarjetas, membresias, onNavigate }) {
   const [frente, setFrente] = useState(null);
 
   return (
-    <div>
+    <div style={{ overscrollBehaviorY: "contain" }}>
       <div style={{ display: "flex", gap: 8, marginBottom: 20, justifyContent: "center", flexWrap: "wrap" }}>
         {[
           { id: "todas", label: "Todas" },

@@ -45,6 +45,7 @@ export default function PilaApilada({ items, renderItem, onChangeFrente, onTapFr
 
   const handlePointerMove = (e) => {
     if (!dragging) return;
+    e.preventDefault();
     const delta = e.clientY - startY.current;
     if (Math.abs(delta) > UMBRAL_TAP) movidoRef.current = true;
     setDragY(Math.max(0, delta));
