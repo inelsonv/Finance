@@ -89,6 +89,16 @@ export async function extraerProductoDeUrl(url) {
   return res.data;
 }
 
+// Manda una pregunta al asistente de IA junto con el resumen financiero
+// actual y (opcionalmente) el historial corto de la conversación, para dar
+// contexto de seguimiento. No persiste nada — la conversación vive solo en
+// el estado del componente mientras la pantalla esté abierta.
+export async function preguntarAsistente(pregunta, resumen, historial) {
+  const fn = httpsCallable(functions, "preguntarAsistente");
+  const res = await fn({ pregunta, resumen, historial });
+  return res.data;
+}
+
 // Descarga una imagen desde una URL externa y la guarda en Firebase Storage
 // (no solo enlaza la URL externa) — así la imagen sigue disponible aunque el
 // sitio original la borre o cambie. Puede fallar si el sitio de origen no

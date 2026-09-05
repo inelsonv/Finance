@@ -828,3 +828,52 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
     res.status(500).json({ error: err.message || String(err) });
   }
 });
+
+// ---- Asistente conversacional de finanzas ----
+// Recibe la pregunta del usuario más un resumen compacto de sus datos
+// financieros reales (armado del lado del cliente, no se manda todo el
+// historial crudo por costo/tokens), y responde con Claude basándose SOLO
+// en ese resumen. Mantiene un historial corto de la conversación para dar
+// contexto de seguimiento, pero no persiste nada en el servidor.
+exports.preguntarAsistente = onCall({ secrets: [anthropicApiKey] }, async (request) => {
+  if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
+    throw new HttpsError("permission-denied", "No autorizado");
+  }
+  const { pregunta, resumen, historial } = request.data || {};
+  if (!pregunta || !resumen) {
+    throw new HttpsError("invalid-argument", "Falta la pregunta o el resumen financiero");
+  }
+
+  const systemPrompt = `Eres el asistente financiero personal dentro de Smart Finance, una app de finanzas personales para una persona en República Dominicana. Respondes preguntas SOLO basándote en el resumen de datos que se te da a continuación — nunca inventes cifras que no estén ahí. Si algo no está en el resumen, dilo claramente en vez de adivinar. Sé conciso (2-4 oraciones normalmente, más solo si piden detalle). Usa RD$ para los montos. No repitas disclaimers de "no soy asesor financiero" a menos que la pregunta sea sobre una decisión de inversión importante. Habla en español, con un tono cercano pero directo.
+
+Resumen de datos financieros actuales del usuario:
+${JSON.stringify(resumen, null, 2)}`;
+
+  const mensajes = [...(Array.isArray(historial) ? historial : []), { role: "user", content: pregunta }];
+
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": anthropicApiKey.value(),
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 700,
+        system: systemPrompt,
+        messages: mensajes,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new HttpsError("internal", data?.error?.message || `Error de la API de Anthropic (HTTP ${resp.status})`);
+    }
+    const textBlock = (data.content || []).find((c) => c.type === "text");
+    return { respuesta: textBlock?.text || "No obtuve una respuesta clara, intenta de nuevo." };
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    throw new HttpsError("internal", err.message || String(err));
+  }
+});

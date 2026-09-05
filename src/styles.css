@@ -360,3 +360,11 @@ button:hover {
 .despensa-cofre-pop {
   animation: despensa-cofre-pop-anim 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+@keyframes despensa-spin-anim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.despensa-spin {
+  animation: despensa-spin-anim 0.8s linear infinite;
+}

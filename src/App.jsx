@@ -50,6 +50,7 @@ import NotificationBell from "./components/NotificationBell.jsx";
 import Puntos from "./components/Puntos.jsx";
 import HabitTracker from "./components/HabitTracker.jsx";
 import Wallet from "./components/Wallet.jsx";
+import Asistente from "./components/Asistente.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import NotificacionesPage from "./components/NotificacionesPage.jsx";
@@ -750,6 +751,19 @@ export default function App() {
         )}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}
         {tab === "wallet" && <Wallet tarjetas={tarjetas} membresias={membresias} onNavigate={setTab} />}
+        {tab === "asistente" && (
+          <Asistente
+            movimientos={movimientos}
+            presupuesto={presupuesto}
+            presupuestoYear={presupuestoYear}
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            cuentas={cuentas}
+            fuentesIngreso={fuentesIngreso}
+            puntos={puntos}
+            diasCobro={diasCobro}
+          />
+        )}
         {tab === "compras" && (
           <Compras
             products={products}
