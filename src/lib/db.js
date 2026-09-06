@@ -1039,6 +1039,8 @@ export async function revertirCanje(canjeId) {
   const presupuestoSnap = await getDoc(doc(db, "presupuestos", String(c.year)));
   const valorActual = presupuestoSnap.exists() ? presupuestoSnap.data()?.[c.categoria]?.[String(c.month)]?.[c.quincena] || 0 : 0;
   const nuevoValor = Math.max(0, valorActual - c.monto);
+  console.log("[revertirCanje] datos del canje:", { categoria: c.categoria, year: c.year, month: c.month, quincena: c.quincena, monto: c.monto });
+  console.log("[revertirCanje] presupuesto leído:", { valorActual, nuevoValor });
 
   // No permitir revertir si ya se gastó (con movimientos reales) más de lo
   // que quedaría presupuestado después de quitar el canje — evitaría dejar
@@ -1065,6 +1067,7 @@ export async function revertirCanje(canjeId) {
     { [c.categoria]: { [String(c.month)]: { [c.quincena]: nuevoValor } } },
     { merge: true }
   );
+  console.log("[revertirCanje] presupuesto actualizado correctamente a:", nuevoValor);
   await setDoc(doc(db, "config", "puntos"), { total: increment(c.monto) }, { merge: true });
   await updateDoc(canjeRef, { revertido: true });
 }
