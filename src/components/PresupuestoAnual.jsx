@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock } from "lucide-react";
 import { setPresupuestoCelda } from "../lib/db";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { formatearOrdenPrioridad } from "../lib/flujoPrioridad";
@@ -138,6 +138,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
       clasificacion: c.clasificacion,
       agruparConCompromisos: !!c.agruparConCompromisos,
       color: c.color || null,
+      soloAsignablePorPuntos: !!c.soloAsignablePorPuntos,
     }));
     // Las categorías marcadas para agruparse con "Compromisos financieros" se
     // ordenan al final, para que queden justo antes de esa sección en la
@@ -577,6 +578,13 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   }
 
   const handleBlur = async (categoria, mes, quincena, value) => {
+    // Protección extra: si esta categoría está bloqueada para asignación
+    // manual (solo canjeable por puntos), no se guarda nada aunque llegue
+    // a dispararse el evento — el input ya es de solo lectura, esto es un
+    // respaldo por si acaso.
+    const catInfo = categorias.find((c) => c.nombre === categoria);
+    if (catInfo?.soloAsignablePorPuntos) return;
+
     const key = `${categoria}-${mes}-${quincena}`;
     const num = parseFloat(value);
     setSavingKey(key);
@@ -881,6 +889,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                       <Landmark size={10} style={{ display: "inline", verticalAlign: "middle" }} />
                     </span>
                   )}
+                  {cat.soloAsignablePorPuntos && (
+                    <span title="Solo se puede asignar presupuesto canjeando puntos" style={{ marginLeft: 4, opacity: 0.7 }}>
+                      <Lock size={10} style={{ display: "inline", verticalAlign: "middle" }} />
+                    </span>
+                  )}
                 </td>
                 {MESES.map((_, i) => {
                   const mes = i + 1;
@@ -888,17 +901,28 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     const key = `${cat.nombre}-${mes}-${q}`;
                     const val = getCelda(cat.nombre, mes, q);
                     const nota = notasPorCelda[key];
+                    const bloqueada = cat.soloAsignablePorPuntos;
                     return (
-                      <td key={key} style={{ borderBottom: "1px solid var(--line-soft)", borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none", padding: 0 }} title={nota || undefined}>
+                      <td
+                        key={key}
+                        style={{ borderBottom: "1px solid var(--line-soft)", borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none", padding: 0 }}
+                        title={bloqueada ? "Esta categoría solo se puede asignar canjeando puntos, en el módulo de Puntos" : nota || undefined}
+                      >
                         <input
                           type="number"
                           min="0"
                           defaultValue={val ?? ""}
                           key={val}
                           onBlur={(e) => handleBlur(cat.nombre, mes, q, e.target.value)}
-                          placeholder="—"
-                          title={nota || undefined}
-                          style={{ ...cellStyle, opacity: savingKey === key ? 0.5 : 1, background: nota ? "var(--sage-bg)" : cellStyle.background }}
+                          placeholder={bloqueada ? "🔒" : "—"}
+                          readOnly={bloqueada}
+                          title={bloqueada ? "Solo asignable canjeando puntos" : nota || undefined}
+                          style={{
+                            ...cellStyle,
+                            opacity: savingKey === key ? 0.5 : 1,
+                            background: bloqueada ? "var(--line-soft)" : nota ? "var(--sage-bg)" : cellStyle.background,
+                            cursor: bloqueada ? "not-allowed" : "text",
+                          }}
                         />
                       </td>
                     );

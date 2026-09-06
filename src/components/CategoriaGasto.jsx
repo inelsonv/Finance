@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, X, Trash2, Landmark } from "lucide-react";
+import { Plus, X, Trash2, Landmark, Lock, Unlock } from "lucide-react";
 import { addCategoriaGasto, deleteCategoriaGasto, updateCategoriaGasto } from "../lib/db";
 import { confirm } from "../lib/confirm";
 
@@ -255,6 +255,28 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
                   }}
                 >
                   <Landmark size={10} />
+                </button>
+                <button
+                  onClick={() => updateCategoriaGasto(c.id, { soloAsignablePorPuntos: !c.soloAsignablePorPuntos })}
+                  title={
+                    c.soloAsignablePorPuntos
+                      ? "El presupuesto de esta categoría solo se puede asignar canjeando puntos — clic para permitir asignación manual de nuevo"
+                      : "Clic para bloquear la asignación manual de presupuesto (solo se podrá asignar canjeando puntos)"
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 18,
+                    height: 18,
+                    background: c.soloAsignablePorPuntos ? "var(--stamp-bg)" : "transparent",
+                    color: c.soloAsignablePorPuntos ? "var(--stamp)" : "var(--ink-soft)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 5,
+                    cursor: "pointer",
+                  }}
+                >
+                  {c.soloAsignablePorPuntos ? <Lock size={10} /> : <Unlock size={10} />}
                 </button>
                 <select
                   value={c.metodoPagoDefault || "Efectivo"}
