@@ -332,8 +332,10 @@ export async function addMovimiento({
   // monto de cada obligación cumplida (préstamo, categoría configurada como
   // generadora de puntos, aporte a ahorro).
   const PORCENTAJE_PUNTOS = 0.05;
+  let montoNum = 0;
+  let puntosGanados = 0;
   try {
-    const montoNum = Number(amount) || 0;
+    montoNum = Number(amount) || 0;
     let montoParaPuntos = montoNum;
     if (category === "Pago de tarjeta" && monedaTarjeta === "USD") {
       // Convierte el pago en USD a su equivalente en pesos usando la misma
@@ -342,7 +344,7 @@ export async function addMovimiento({
       const tasaUSD = tipoCambioSnap.exists() ? tipoCambioSnap.data()?.rates?.USD : null;
       if (tasaUSD) montoParaPuntos = montoNum * tasaUSD;
     }
-    const puntosGanados = Math.round(montoParaPuntos * PORCENTAJE_PUNTOS);
+    puntosGanados = Math.round(montoParaPuntos * PORCENTAJE_PUNTOS);
     if (category === "Pago de préstamo" && prestamoId && puntosGanados > 0) {
       await otorgarPuntos(`Pago de préstamo ${prestamoNumero || ""}`.trim(), puntosGanados, "prestamo", docRef.id);
     } else if (category === "Pago de tarjeta" && tarjetaId && puntosGanados > 0) {
