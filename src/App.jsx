@@ -178,6 +178,7 @@ export default function App() {
   const [versiculoHoy, setVersiculoHoy] = useState(null);
   const [cofresGanados, setCofresGanados] = useState([]);
   const [cofreParaMostrar, setCofreParaMostrar] = useState(null);
+  const cofresCerradosLocalmente = useRef(new Set());
   const [showVersiculoModal, setShowVersiculoModal] = useState(false);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
@@ -474,7 +475,7 @@ export default function App() {
   // varios pendientes.
   useEffect(() => {
     if (cofreParaMostrar) return;
-    const sinVer = (cofresGanados || []).find((c) => !c.visto);
+    const sinVer = (cofresGanados || []).find((c) => !c.visto && !cofresCerradosLocalmente.current.has(c.id));
     if (sinVer) setCofreParaMostrar(sinVer);
   }, [cofresGanados, cofreParaMostrar]);
 
@@ -982,6 +983,7 @@ export default function App() {
       {cofreParaMostrar && (
         <div
           onClick={() => {
+            cofresCerradosLocalmente.current.add(cofreParaMostrar.id);
             marcarCofreVisto(cofreParaMostrar.id).catch(() => {});
             setCofreParaMostrar(null);
           }}
@@ -1056,6 +1058,7 @@ export default function App() {
 
             <button
               onClick={() => {
+                cofresCerradosLocalmente.current.add(cofreParaMostrar.id);
                 marcarCofreVisto(cofreParaMostrar.id).catch(() => {});
                 setCofreParaMostrar(null);
               }}
