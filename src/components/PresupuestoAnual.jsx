@@ -914,7 +914,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                           defaultValue={val ?? ""}
                           key={val}
                           onBlur={(e) => handleBlur(cat.nombre, mes, q, e.target.value)}
-                          placeholder={bloqueada ? "🔒" : "—"}
+                          placeholder="—"
                           readOnly={bloqueada}
                           title={bloqueada ? "Solo asignable canjeando puntos" : nota || undefined}
                           style={{
