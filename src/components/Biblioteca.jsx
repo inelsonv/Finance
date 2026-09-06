@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Star, BookOpen, BookMarked, BookCheck, Search, Loader2, Upload, FileText } from "lucide-react";
-import { addLibro, updateLibro, deleteLibro, uploadLibroEpub, eliminarLibroEpub, demoteOtrosLeyendo } from "../lib/db";
+import { addLibro, updateLibro, deleteLibro, uploadLibroEpub, eliminarLibroEpub, demoteOtrosLeyendo, uploadLibroPortada } from "../lib/db";
 import { buscarPortadasLibro } from "../lib/openLibrary";
 import { confirm } from "../lib/confirm";
 import LectorEpub from "./LectorEpub.jsx";
@@ -52,10 +52,12 @@ function Portada({ url, size = 52, tall = false }) {
   );
 }
 
-function SelectorPortada({ titulo, autor, portadaUrl, onSelect }) {
+function SelectorPortada({ titulo, autor, portadaUrl, onSelect, libroId }) {
   const [buscando, setBuscando] = useState(false);
   const [candidatos, setCandidatos] = useState(null);
   const [error, setError] = useState(null);
+  const [subiendoPortada, setSubiendoPortada] = useState(false);
+  const portadaInputRef = useRef(null);
 
   const buscar = async () => {
     if (!titulo?.trim()) return;
@@ -76,9 +78,23 @@ function SelectorPortada({ titulo, autor, portadaUrl, onSelect }) {
     }
   };
 
+  const handleSubirPortada = async (file) => {
+    if (!file || !libroId) return;
+    setSubiendoPortada(true);
+    setError(null);
+    try {
+      const url = await uploadLibroPortada(libroId, file);
+      onSelect(url);
+    } catch (err) {
+      setError("No se pudo subir la imagen: " + (err.message || String(err)));
+    } finally {
+      setSubiendoPortada(false);
+    }
+  };
+
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
         <Portada url={portadaUrl} size={44} />
         <button
           type="button"
@@ -101,6 +117,38 @@ function SelectorPortada({ titulo, autor, portadaUrl, onSelect }) {
           {buscando ? <Loader2 size={12} className="despensa-spin" /> : <Search size={12} />}
           {buscando ? "Buscando…" : "Buscar portada"}
         </button>
+        {libroId && (
+          <>
+            <input
+              ref={portadaInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={(e) => handleSubirPortada(e.target.files?.[0])}
+            />
+            <button
+              type="button"
+              onClick={() => portadaInputRef.current?.click()}
+              disabled={subiendoPortada}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "6px 12px",
+                fontSize: 11.5,
+                fontWeight: 500,
+                background: "var(--paper)",
+                border: "1px solid var(--line)",
+                borderRadius: 8,
+                color: "var(--ink-soft)",
+                cursor: "pointer",
+              }}
+            >
+              {subiendoPortada ? <Loader2 size={12} className="despensa-spin" /> : <Upload size={12} />}
+              {subiendoPortada ? "Subiendo…" : "Subir desde mi PC"}
+            </button>
+          </>
+        )}
         {portadaUrl && (
           <button
             type="button"
@@ -173,7 +221,7 @@ export default function Biblioteca({ libros }) {
       if (form.estado === "Leyendo") {
         await demoteOtrosLeyendo(docRef.id);
       }
-      setLibroRecienCreado({ id: docRef.id, titulo: form.titulo, epubUrl: null, epubNombreArchivo: null });
+      setLibroRecienCreado({ id: docRef.id, titulo: form.titulo, epubUrl: null, epubNombreArchivo: null, portadaUrl: form.portadaUrl || null });
       setForm(emptyForm());
     } catch (err) {
       setError(err.message || String(err));
@@ -289,6 +337,13 @@ export default function Biblioteca({ libros }) {
               <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
                 ✓ "{libroRecienCreado.titulo}" agregado
               </div>
+              <SelectorPortada
+                titulo={libroRecienCreado.titulo}
+                autor=""
+                portadaUrl={libroRecienCreado.portadaUrl}
+                onSelect={(url) => setLibroRecienCreado((prev) => ({ ...prev, portadaUrl: url }))}
+                libroId={libroRecienCreado.id}
+              />
               <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 10 }}>
                 ¿Tienes el archivo .epub a mano? Puedes subirlo ahora, o hacerlo después editando el libro.
               </div>
@@ -474,6 +529,7 @@ export default function Biblioteca({ libros }) {
                       autor={editForm.autor}
                       portadaUrl={editForm.portadaUrl}
                       onSelect={(url) => setEditForm({ ...editForm, portadaUrl: url })}
+                      libroId={l.id}
                     />
                     <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
                       {ESTADOS.map((e) => (

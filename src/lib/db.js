@@ -94,6 +94,16 @@ export async function uploadLibroEpub(id, file) {
   return url;
 }
 
+// Sube una portada elegida desde el dispositivo del usuario (en vez de la
+// que se encuentra por búsqueda en Open Library).
+export async function uploadLibroPortada(id, file) {
+  const portadaRef = ref(storage, `libros/${id}/portada`);
+  await uploadBytes(portadaRef, file, { contentType: file.type });
+  const url = await getDownloadURL(portadaRef);
+  await updateDoc(doc(db, "libros", id), { portadaUrl: url });
+  return url;
+}
+
 export async function eliminarLibroEpub(id) {
   const epubRef = ref(storage, `libros/${id}/libro.epub`);
   try {
