@@ -1376,6 +1376,29 @@ export async function deleteMovimiento(id, motivo) {
     console.error("No se pudo revisar/revertir el estado del préstamo tras eliminar este movimiento:", err);
   }
 
+  // Si este movimiento generó un cofre de recompensa (por cancelar un
+  // préstamo), se revierte el premio correspondiente antes de eliminarlo —
+  // el bono de puntos extra ya se revierte con el bloque de puntos de
+  // arriba (comparten el mismo movimientoId), aquí se manejan los otros 3
+  // tipos de premio.
+  try {
+    const cofreRef = doc(db, "cofresGanados", `cofre_${id}`);
+    const cofreSnap = await getDoc(cofreRef);
+    if (cofreSnap.exists()) {
+      const cofre = cofreSnap.data();
+      if (cofre.premio === "multiplicador") {
+        await setDoc(doc(db, "config", "recompensas"), { multiplicador: { activo: false } }, { merge: true });
+      } else if (cofre.premio === "protectorRacha") {
+        await setDoc(doc(db, "config", "recompensas"), { protectoresRacha: increment(-1) }, { merge: true });
+      } else if (cofre.premio === "insignia" && cofre.detalle?.insignia) {
+        await setDoc(doc(db, "config", "recompensas"), { insignias: arrayRemove(cofre.detalle.insignia) }, { merge: true });
+      }
+      await deleteDoc(cofreRef);
+    }
+  } catch (err) {
+    console.error("No se pudo revertir el cofre de recompensa de este movimiento:", err);
+  }
+
   await deleteDoc(doc(db, "movimientos", id));
 }
 
