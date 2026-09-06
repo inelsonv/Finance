@@ -1011,10 +1011,11 @@ export default function App() {
             }}
           >
             <div style={{ fontSize: 46, marginBottom: 6 }}>🎁</div>
+            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>¡Felicidades!</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 10 }}>{cofreParaMostrar.contexto}</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--sage)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
               ¡Cofre de recompensa!
             </div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 18 }}>{cofreParaMostrar.contexto}</div>
 
             {cofreParaMostrar.premio === "puntosExtra" && (
               <>

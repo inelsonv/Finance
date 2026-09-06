@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, PartyPopper } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride } from "../lib/db";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
@@ -64,7 +64,6 @@ function periodoAdyacente(periodo, dir) {
 export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
-  const [mensajeSaldado, setMensajeSaldado] = useState(null);
 
   // Cuando llegamos aquí desde la notificación de "día de cobro", saltamos directo
   // a la quincena que corresponde pagar (Q1 del mes siguiente si el cobro es a fin
@@ -303,7 +302,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     await setChecklistItem(periodoKey, it.key, { ...actual, pagado: true, metodoPago });
 
     if (it.esPrestamo) {
-      const nuevoMov = await addMovimiento({
+      await addMovimiento({
         type: "Pago de préstamo",
         category: "Pago de préstamo",
         amount: it.monto,
@@ -316,9 +315,6 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         prestamoNumero: it.prestamoNumero || "",
         origenChecklist: { periodoKey, itemKey: it.key },
       });
-      if (nuevoMov.prestamoRecienCancelado != null) {
-        setMensajeSaldado(nuevoMov.prestamoRecienCancelado);
-      }
     } else {
       await addMovimiento({
         type: "Gasto",
@@ -346,59 +342,6 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
 
   return (
     <div>
-      {mensajeSaldado != null && (
-        <div
-          onClick={() => setMensajeSaldado(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "var(--card)",
-              border: "1px solid var(--line)",
-              borderRadius: 16,
-              padding: "30px 26px",
-              maxWidth: 360,
-              width: "100%",
-              textAlign: "center",
-              boxShadow: "0 12px 48px rgba(0,0,0,0.4)",
-            }}
-          >
-            <div style={{ fontSize: 40, marginBottom: 10 }}>
-              <PartyPopper size={40} style={{ color: "var(--sage)" }} />
-            </div>
-            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>¡Felicidades!</div>
-            <div style={{ fontSize: 14, color: "var(--ink)", marginBottom: 20, lineHeight: 1.5 }}>
-              Has saldado tu préstamo{mensajeSaldado ? ` "${mensajeSaldado}"` : ""}.
-            </div>
-            <button
-              onClick={() => setMensajeSaldado(null)}
-              style={{
-                padding: "9px 22px",
-                fontSize: 13,
-                fontWeight: 600,
-                background: "var(--sage)",
-                color: "#fff",
-                border: "none",
-                borderRadius: 8,
-                cursor: "pointer",
-              }}
-            >
-              ¡Genial!
-            </button>
-          </div>
-        </div>
-      )}
-
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 16 }}>
         <button
           onClick={() => setPeriodo(periodoAdyacente(periodo, -1))}
