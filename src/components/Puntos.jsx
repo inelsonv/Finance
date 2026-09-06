@@ -33,7 +33,7 @@ function formatDateDisplay(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-export default function Puntos({ puntos, puntosHistorial, categoriasGasto, checklistTodos, categoriasPuntos, fuentesIngreso, topesAjuste }) {
+export default function Puntos({ puntos, puntosHistorial, categoriasGasto, checklistTodos, categoriasPuntos, fuentesIngreso, topesAjuste, recompensas }) {
   const [categoria, setCategoria] = useState("");
   const [monto, setMonto] = useState("");
   const [quincena, setQuincena] = useState("Q1");
@@ -208,6 +208,52 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
           Se cuenta una quincena como cumplida cuando marcas todos sus pagos del Checklist como pagados.
         </div>
       </div>
+
+      {((recompensas?.insignias || []).length > 0 || recompensas?.protectoresRacha > 0 || (recompensas?.multiplicador?.activo && recompensas.multiplicador.expiraEn > Date.now())) && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <Trophy size={17} style={{ color: "var(--sage)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Recompensas ganadas</span>
+          </div>
+
+          {(recompensas?.multiplicador?.activo && recompensas.multiplicador.expiraEn > Date.now()) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "var(--paper)", borderRadius: 8, marginBottom: 8, fontSize: 12.5 }}>
+              ⚡ Multiplicador x{recompensas.multiplicador.factor} activo — termina{" "}
+              {new Date(recompensas.multiplicador.expiraEn).toLocaleString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </div>
+          )}
+          {recompensas?.protectoresRacha > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "var(--paper)", borderRadius: 8, marginBottom: 8, fontSize: 12.5 }}>
+              🛡️ {recompensas.protectoresRacha} protector{recompensas.protectoresRacha !== 1 ? "es" : ""} de racha disponible{recompensas.protectoresRacha !== 1 ? "s" : ""}
+            </div>
+          )}
+          {(recompensas?.insignias || []).length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Insignias</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {recompensas.insignias.map((nombre, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 12px",
+                      borderRadius: 20,
+                      background: "var(--sage-bg)",
+                      color: "var(--sage)",
+                      fontSize: 12,
+                      fontWeight: 500,
+                    }}
+                  >
+                    🏅 {nombre}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div
         style={{

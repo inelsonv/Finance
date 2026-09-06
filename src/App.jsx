@@ -4,7 +4,7 @@ import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
-import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905, aplicarArregloPrestamoPT07_20260906 } from "./lib/db";
+import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905, aplicarArregloPrestamoPT07_20260906, watchRecompensas } from "./lib/db";
 import { periodoDeFecha } from "./lib/rachaHabito";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
@@ -163,6 +163,7 @@ export default function App() {
   const [puntos, setPuntos] = useState(0);
   const puntosAnteriores = useRef(null);
   const [puntosHistorial, setPuntosHistorial] = useState([]);
+  const [recompensas, setRecompensas] = useState({});
   const [checklistTodos, setChecklistTodos] = useState({});
   const [categoriasPuntos, setCategoriasPuntos] = useState([]);
   const [topesAjuste, setTopesAjuste] = useState({});
@@ -322,6 +323,7 @@ export default function App() {
       puntosAnteriores.current = val;
     }, handleError);
     const unsubPuntosHistorial = watchPuntosHistorial(setPuntosHistorial, handleError);
+    const unsubRecompensas = watchRecompensas(setRecompensas, handleError);
     const unsubChecklistTodos = watchChecklistTodos(setChecklistTodos, handleError);
     const unsubCategoriasPuntos = watchCategoriasPuntosConfig(setCategoriasPuntos, handleError);
     const unsubTopesAjuste = watchTopesAjusteConfig(setTopesAjuste, handleError);
@@ -365,6 +367,7 @@ export default function App() {
       unsubAhorroAuto();
       unsubPuntos();
       unsubPuntosHistorial();
+      unsubRecompensas();
       unsubChecklistTodos();
       unsubCategoriasPuntos();
       unsubTopesAjuste();
@@ -784,6 +787,7 @@ export default function App() {
             categoriasPuntos={categoriasPuntos}
             fuentesIngreso={fuentesIngreso}
             topesAjuste={topesAjuste}
+            recompensas={recompensas}
           />
         )}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}
