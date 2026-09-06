@@ -382,6 +382,7 @@ export async function addMovimiento({
   // pago se hizo antes de lo que tocaba (adelantado), y en ese caso otorga
   // un bono extra sobre los puntos ya ganados por el pago.
   // Este estado ya no se puede revertir manualmente (ver Prestamos.jsx).
+  let prestamoRecienCancelado = null;
   try {
     if (category === "Pago de préstamo" && prestamoId) {
       const prestamoSnap = await getDoc(doc(db, "prestamos", prestamoId));
@@ -433,6 +434,7 @@ export async function addMovimiento({
 
             if (totalPagado >= totalAPagar) {
               await updateDoc(doc(db, "prestamos", prestamoId), { estado: "Pagado" });
+              prestamoRecienCancelado = p.numero || "";
               const bonoCancelacion = Math.round(totalAPagar * 0.08);
               if (bonoCancelacion > 0) {
                 await otorgarPuntos(
@@ -477,6 +479,7 @@ export async function addMovimiento({
     console.error("No se pudo actualizar el saldo de la tarjeta:", err);
   }
 
+  docRef.prestamoRecienCancelado = prestamoRecienCancelado;
   return docRef;
 }
 
