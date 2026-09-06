@@ -1342,6 +1342,40 @@ export async function deleteMovimiento(id, motivo) {
     console.error("No se pudo revertir el estado del checklist para este movimiento:", err);
   }
 
+  // Si este movimiento era un pago de préstamo y el préstamo quedó marcado
+  // "Pagado" gracias a él, al eliminarlo hay que revisar si TODAVÍA sigue
+  // saldado sin contar este pago — si no, el préstamo vuelve a "Activo"
+  // (su estado normal), para no dejarlo marcado como pagado sin serlo.
+  try {
+    const movSnap = await getDoc(doc(db, "movimientos", id));
+    const mov = movSnap.exists() ? movSnap.data() : null;
+    if (mov && mov.category === "Pago de préstamo" && mov.prestamoId) {
+      const prestamoRef = doc(db, "prestamos", mov.prestamoId);
+      const prestamoSnap = await getDoc(prestamoRef);
+      if (prestamoSnap.exists() && prestamoSnap.data().estado === "Pagado") {
+        const p = prestamoSnap.data();
+        let totalAPagar = 0;
+        if (p.frecuenciaCuota === "Personalizado") {
+          totalAPagar = (p.cuotasPersonalizadas || []).reduce((s, c) => s + (Number(c.monto) || 0), 0);
+        } else {
+          const meses = p.plazoUnidad === "años" ? (Number(p.plazo) || 0) * 12 : Number(p.plazo) || 0;
+          totalAPagar = (Number(p.cuota) || 0) * meses;
+        }
+        const pagosSnap = await getDocs(
+          query(collection(db, "movimientos"), where("prestamoId", "==", mov.prestamoId))
+        );
+        const totalPagadoSinEste = pagosSnap.docs
+          .filter((d) => d.id !== id)
+          .reduce((s, d) => s + (Number(d.data().amount) || 0), 0);
+        if (totalAPagar > 0 && totalPagadoSinEste < totalAPagar) {
+          await updateDoc(prestamoRef, { estado: "Activo" });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("No se pudo revisar/revertir el estado del préstamo tras eliminar este movimiento:", err);
+  }
+
   await deleteDoc(doc(db, "movimientos", id));
 }
 
