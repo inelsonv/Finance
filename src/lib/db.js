@@ -1282,7 +1282,24 @@ export async function marcarConsumosComoPagados(movimientoIds, pagoId) {
   );
 }
 
-export async function deleteMovimiento(id) {
+export async function deleteMovimiento(id, motivo) {
+  // Guarda un registro de auditoría con los datos del movimiento y el
+  // motivo de eliminación, antes de borrarlo — para poder revisar después
+  // por qué se eliminó algo, si hace falta.
+  try {
+    const movSnap = await getDoc(doc(db, "movimientos", id));
+    if (movSnap.exists()) {
+      await addDoc(collection(db, "movimientosEliminados"), {
+        movimientoOriginal: movSnap.data(),
+        movimientoId: id,
+        motivo: motivo || "",
+        eliminadoEn: serverTimestamp(),
+      });
+    }
+  } catch (err) {
+    console.error("No se pudo guardar el registro de auditoría de eliminación:", err);
+  }
+
   // Si este movimiento había generado puntos, los revierte antes de eliminarlo
   // (no debe romper el borrado si algo falla aquí).
   try {

@@ -979,7 +979,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       ) : (
         <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)", minHeight: PAGE_SIZE * 53 }}>
           {paginated.map((m, i) => (
-            <SwipeableRow key={m.id} onDelete={async () => { if (await confirm("¿Eliminar este movimiento?")) deleteMovimiento(m.id); }}>
+            <SwipeableRow key={m.id} onDelete={async () => { const motivo = await confirm("¿Eliminar este movimiento? Escribe brevemente por qué.", { requireReason: true, reasonPlaceholder: "Ej. Lo registré por error" }); if (motivo) deleteMovimiento(m.id, motivo); }}>
             <div
               className="despensa-row"
               style={{
@@ -1124,7 +1124,11 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
               </button>
               <button
                 onClick={async () => {
-                  if (await confirm("¿Eliminar este movimiento?")) deleteMovimiento(m.id);
+                  const motivo = await confirm("¿Eliminar este movimiento? Escribe brevemente por qué.", {
+                    requireReason: true,
+                    reasonPlaceholder: "Ej. Lo registré por error",
+                  });
+                  if (motivo) deleteMovimiento(m.id, motivo);
                 }}
                 title="Eliminar movimiento"
                 style={{
