@@ -4,7 +4,7 @@ import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
-import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905 } from "./lib/db";
+import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905, aplicarArregloPrestamoPT07_20260906 } from "./lib/db";
 import { periodoDeFecha } from "./lib/rachaHabito";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
@@ -457,6 +457,15 @@ export default function App() {
     arregloPuntosAplicado.current = true;
     recalcularPuntosTotal_fix20260905().catch((err) =>
       console.error("No se pudo recalcular el total de puntos:", err)
+    );
+  }, [authorized]);
+
+  const arregloPrestamoPT07Aplicado = useRef(false);
+  useEffect(() => {
+    if (!authorized || arregloPrestamoPT07Aplicado.current) return;
+    arregloPrestamoPT07Aplicado.current = true;
+    aplicarArregloPrestamoPT07_20260906().catch((err) =>
+      console.error("No se pudo recalcular el estado del préstamo PT07:", err)
     );
   }, [authorized]);
 

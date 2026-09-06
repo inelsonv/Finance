@@ -1379,6 +1379,52 @@ export async function deleteMovimiento(id, motivo) {
   await deleteDoc(doc(db, "movimientos", id));
 }
 
+// Recalcula el estado real de un préstamo (Activo o Pagado) sumando sus
+// movimientos actuales, sin depender de lo que diga el campo "estado"
+// guardado — útil para corregir un préstamo que quedó marcado "Pagado" por
+// error (ej. tras eliminar el pago que lo saldaba antes de que existiera
+// esta corrección automática).
+export async function recalcularEstadoPrestamo(prestamoId) {
+  const prestamoRef = doc(db, "prestamos", prestamoId);
+  const prestamoSnap = await getDoc(prestamoRef);
+  if (!prestamoSnap.exists()) throw new Error("No se encontró ese préstamo");
+  const p = prestamoSnap.data();
+
+  let totalAPagar = 0;
+  if (p.frecuenciaCuota === "Personalizado") {
+    totalAPagar = (p.cuotasPersonalizadas || []).reduce((s, c) => s + (Number(c.monto) || 0), 0);
+  } else {
+    const meses = p.plazoUnidad === "años" ? (Number(p.plazo) || 0) * 12 : Number(p.plazo) || 0;
+    totalAPagar = (Number(p.cuota) || 0) * meses;
+  }
+
+  const pagosSnap = await getDocs(query(collection(db, "movimientos"), where("prestamoId", "==", prestamoId)));
+  const totalPagado = pagosSnap.docs.reduce((s, d) => s + (Number(d.data().amount) || 0), 0);
+
+  const nuevoEstado = totalAPagar > 0 && totalPagado >= totalAPagar ? "Pagado" : "Activo";
+  if (nuevoEstado !== p.estado) {
+    await updateDoc(prestamoRef, { estado: nuevoEstado });
+  }
+  return { estadoAnterior: p.estado, estadoNuevo: nuevoEstado, totalPagado, totalAPagar };
+}
+
+// Arreglo puntual, de una sola vez: el préstamo PT07 quedó marcado "Pagado"
+// después de haberse eliminado el pago que lo saldaba (antes de que
+// existiera la corrección automática en deleteMovimiento) — esto lo dejó
+// bloqueado en el Checklist sin poder desmarcarse. Recalcula su estado real
+// según sus movimientos actuales, una sola vez.
+export async function aplicarArregloPrestamoPT07_20260906() {
+  const flagRef = doc(db, "config", "fixPrestamoPT0720260906");
+  const flagSnap = await getDoc(flagRef);
+  if (flagSnap.exists() && flagSnap.data().aplicado) return;
+
+  const prestamosSnap = await getDocs(query(prestamosCol, where("numero", "==", "PT07")));
+  if (!prestamosSnap.empty) {
+    await recalcularEstadoPrestamo(prestamosSnap.docs[0].id);
+  }
+  await setDoc(flagRef, { aplicado: true, aplicadoEn: serverTimestamp() });
+}
+
 export function watchPrestamos(onChange, onError) {
   return onSnapshot(
     prestamosCol,
