@@ -313,6 +313,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         entidadName: it.entidadName || "",
         prestamoId: it.prestamoId,
         prestamoNumero: it.prestamoNumero || "",
+        origenChecklist: { periodoKey, itemKey: it.key },
       });
     } else {
       await addMovimiento({
@@ -323,6 +324,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         date: todayStr(),
         clasificacion: GASTO_CATS_FIJO.includes(it.nombre) ? "Fijo" : "Variable",
         metodoPago,
+        origenChecklist: { periodoKey, itemKey: it.key },
       });
     }
   };

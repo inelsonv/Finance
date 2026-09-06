@@ -294,6 +294,7 @@ export async function addMovimiento({
   contratoId,
   contratoNombre,
   origen,
+  origenChecklist,
 }) {
   const docRef = await addDoc(movimientosCol, {
     type,
@@ -320,6 +321,7 @@ export async function addMovimiento({
     fuenteIngresoNombre: fuenteIngresoNombre || "",
     contratoId: contratoId || null,
     contratoNombre: contratoNombre || "",
+    origenChecklist: origenChecklist || null,
     createdAt: serverTimestamp(),
   });
 
@@ -1294,6 +1296,28 @@ export async function deleteMovimiento(id) {
     }
   } catch (err) {
     console.error("No se pudieron revertir los puntos de este movimiento:", err);
+  }
+
+  // Si este movimiento se creó desde el Checklist de pagos, al eliminarlo se
+  // desmarca ese ítem del checklist (vuelve a "pendiente"), para que no se
+  // quede marcado como pagado sin que exista el movimiento real.
+  try {
+    const movSnap = await getDoc(doc(db, "movimientos", id));
+    const origenChecklist = movSnap.exists() ? movSnap.data().origenChecklist : null;
+    if (origenChecklist?.periodoKey && origenChecklist?.itemKey) {
+      const checklistRef = doc(db, "checklistPagos", origenChecklist.periodoKey);
+      const checklistSnap = await getDoc(checklistRef);
+      const itemActual = checklistSnap.exists() ? checklistSnap.data()?.items?.[origenChecklist.itemKey] : null;
+      if (itemActual) {
+        await setDoc(
+          checklistRef,
+          { items: { [origenChecklist.itemKey]: { ...itemActual, pagado: false } } },
+          { merge: true }
+        );
+      }
+    }
+  } catch (err) {
+    console.error("No se pudo revertir el estado del checklist para este movimiento:", err);
   }
 
   await deleteDoc(doc(db, "movimientos", id));
