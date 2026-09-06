@@ -36,7 +36,7 @@ const NAV_ITEMS = [
     icon: Wallet,
     children: [
       { id: "presupuesto-categoria-gasto", label: "Categoría de gasto" },
-      { id: "presupuesto-mensual", label: "Presupuesto mensual" },
+      { id: "presupuesto-mensual", label: "Presupuesto" },
       { id: "presupuesto-flujo", label: "Editor de flujo" },
       { id: "estrategia-deudas", label: "Estrategia de deudas" },
       { id: "checklist-pagos", label: "Checklist de pagos" },

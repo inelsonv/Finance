@@ -77,7 +77,7 @@ const TITLES = {
   contratos: "Contratos",
   ingresos: "Ingresos",
   "presupuesto-categoria-gasto": "Categoría de gasto",
-  "presupuesto-mensual": "Presupuesto mensual",
+  "presupuesto-mensual": "Presupuesto",
   "presupuesto-flujo": "Editor de flujo",
   inversion: "Inversión",
   "estrategia-deudas": "Estrategia de deudas",

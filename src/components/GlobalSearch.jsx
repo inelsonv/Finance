@@ -31,7 +31,7 @@ const MODULOS = [
   { nombre: "Inicio", tab: "inicio" },
   { nombre: "Presupuesto", tab: "presupuesto" },
   { nombre: "Categoría de gasto", tab: "presupuesto-categoria-gasto" },
-  { nombre: "Presupuesto mensual", tab: "presupuesto-mensual" },
+  { nombre: "Presupuesto", tab: "presupuesto-mensual" },
   { nombre: "Editor de flujo", tab: "presupuesto-flujo" },
   { nombre: "Estrategia de deudas", tab: "estrategia-deudas" },
   { nombre: "Checklist de pagos", tab: "checklist-pagos" },
