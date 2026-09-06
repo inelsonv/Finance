@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, Star, BookOpen, BookMarked, BookCheck, Search, Loader2, Upload, FileText } from "lucide-react";
-import { addLibro, updateLibro, deleteLibro, uploadLibroEpub, eliminarLibroEpub } from "../lib/db";
+import { addLibro, updateLibro, deleteLibro, uploadLibroEpub, eliminarLibroEpub, demoteOtrosLeyendo } from "../lib/db";
 import { buscarPortadasLibro } from "../lib/openLibrary";
 import { confirm } from "../lib/confirm";
 import LectorEpub from "./LectorEpub.jsx";
@@ -170,6 +170,9 @@ export default function Biblioteca({ libros }) {
     setError(null);
     try {
       const docRef = await addLibro(form);
+      if (form.estado === "Leyendo") {
+        await demoteOtrosLeyendo(docRef.id);
+      }
       setLibroRecienCreado({ id: docRef.id, titulo: form.titulo, epubUrl: null, epubNombreArchivo: null });
       setForm(emptyForm());
     } catch (err) {
@@ -207,6 +210,9 @@ export default function Biblioteca({ libros }) {
     setEditSaving(true);
     try {
       await updateLibro(editingId, editForm);
+      if (editForm.estado === "Leyendo") {
+        await demoteOtrosLeyendo(editingId);
+      }
       setEditingId(null);
     } finally {
       setEditSaving(false);
@@ -232,6 +238,19 @@ export default function Biblioteca({ libros }) {
   const handleQuitarEpub = async (libroId) => {
     if (!(await confirm("¿Quitar el archivo epub de este libro?"))) return;
     await eliminarLibroEpub(libroId);
+  };
+
+  const handleAbrirLectura = async (l) => {
+    setLibroLeyendo(l);
+    if (l.estado !== "Leyendo") {
+      try {
+        await demoteOtrosLeyendo(l.id);
+        await updateLibro(l.id, { estado: "Leyendo" });
+      } catch (err) {
+        // Si falla el cambio de estado, igual se deja abrir el libro para
+        // leer — no bloquea la lectura por esto.
+      }
+    }
   };
 
   const handleEliminar = async (l) => {
@@ -585,7 +604,7 @@ export default function Biblioteca({ libros }) {
                     </div>
                     {l.epubUrl && (
                       <button
-                        onClick={() => setLibroLeyendo(l)}
+                        onClick={() => handleAbrirLectura(l)}
                         style={{
                           display: "flex",
                           alignItems: "center",

@@ -1510,6 +1510,15 @@ export async function updateLibro(id, fields) {
   await updateDoc(doc(db, "libros", id), fields);
 }
 
+// Asegura que solo un libro esté marcado como "Leyendo" a la vez — pasa
+// cualquier otro que esté en ese estado a "Pendiente".
+export async function demoteOtrosLeyendo(exceptId) {
+  const librosSnap = await getDocs(query(collection(db, "libros"), where("estado", "==", "Leyendo")));
+  await Promise.all(
+    librosSnap.docs.filter((d) => d.id !== exceptId).map((d) => updateDoc(doc(db, "libros", d.id), { estado: "Pendiente" }))
+  );
+}
+
 // Marcadores de texto importante dentro de un libro (resaltados) — se
 // guardan como un array en el propio documento del libro, cada uno con la
 // posición exacta (CFI range) para poder volver a resaltarlos al reabrir.
