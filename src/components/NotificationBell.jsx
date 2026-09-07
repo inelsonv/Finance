@@ -83,7 +83,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas }) {
+export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -106,8 +106,14 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
         candidatas.push({ id: `p-${p.id}`, saldo, tasaInteres: p.tasaInteres ?? null });
       }
       for (const t of tarjetas) {
-        if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito" || t.saldoActual == null || t.saldoActual <= 0) continue;
-        candidatas.push({ id: `t-${t.id}`, saldo: t.saldoActual, tasaInteres: t.tasaInteres ?? null });
+        if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito") continue;
+        if (t.saldoActual != null && t.saldoActual > 0) {
+          candidatas.push({ id: `t-${t.id}`, saldo: t.saldoActual, tasaInteres: t.tasaInteres ?? null });
+        }
+        if (t.saldoActualUSD != null && t.saldoActualUSD > 0) {
+          const saldoEnRDS = tipoCambio ? t.saldoActualUSD * tipoCambio : t.saldoActualUSD;
+          candidatas.push({ id: `t-${t.id}-usd`, saldo: saldoEnRDS, tasaInteres: t.tasaInteres ?? null });
+        }
       }
       const ordenadas =
         estrategiaDeudas.metodo === "bola"
@@ -142,7 +148,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       if (yaPagadoEsteMes(movimientos, "Pago de tarjeta", "tarjetaId", t.id, today)) continue;
       const dias = diasHasta(t.fechaPago, today);
       if (dias <= UMBRAL_DIAS) {
-        const esPrioridadAtrasada = dias <= 0 && idPrioridad === `t-${t.id}`;
+        const esPrioridadAtrasada = dias <= 0 && (idPrioridad === `t-${t.id}` || idPrioridad === `t-${t.id}-usd`);
         list.push({
           id: `t-${t.id}`,
           icon: CreditCard,
@@ -407,7 +413,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio]);
 }
 
 export function etiquetaDias(dias) {
@@ -417,7 +423,7 @@ export function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -431,7 +437,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
     }
   });
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio });
 
   const firma = (n) => `${n.id}:${n.dias}`;
   const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));

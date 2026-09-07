@@ -100,6 +100,7 @@ export default function NotificacionesPage({
   habitos,
   habitosRegistro,
   estrategiaDeudas,
+  tipoCambio,
 }) {
   const [leidas, setLeidas] = useState(() => {
     try {
@@ -132,6 +133,7 @@ export default function NotificacionesPage({
     habitos,
     habitosRegistro,
     estrategiaDeudas,
+    tipoCambio,
   });
 
   const codigoEmpleado = (fuentesIngreso || []).find((f) => f.estado === "Activo" && f.codigoEmpleado)?.codigoEmpleado || "";

@@ -61,7 +61,7 @@ function periodoAdyacente(periodo, dir) {
   }
 }
 
-export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos }) {
+export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos, estrategiaDeudas, tipoCambio }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
 
@@ -88,6 +88,41 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
 
   const items = useMemo(() => {
     const list = [];
+
+    // Si hay una estrategia de deudas activa, calcula cuál es la deuda
+    // prioritaria según ese plan, para resaltarla en la lista de abajo y
+    // guiar activamente hacia cumplir ese objetivo.
+    let idPrioridadDeuda = null;
+    if (estrategiaDeudas?.activo) {
+      const pagadoPorPrestamoLocal = {};
+      for (const m of movimientos || []) {
+        if (m.category !== "Pago de préstamo" || !m.prestamoId) continue;
+        pagadoPorPrestamoLocal[m.prestamoId] = (pagadoPorPrestamoLocal[m.prestamoId] || 0) + (Number(m.amount) || 0);
+      }
+      const candidatas = [];
+      for (const p of prestamos || []) {
+        if (p.estado !== "Activo") continue;
+        const saldo = Math.max((Number(p.montoAprobado) || 0) - (pagadoPorPrestamoLocal[p.id] || 0), 0);
+        if (saldo <= 0) continue;
+        candidatas.push({ id: `prestamo-${p.id}`, saldo, tasaInteres: p.tasaInteres ?? null });
+      }
+      for (const t of tarjetas || []) {
+        if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito") continue;
+        if (t.saldoActual != null && t.saldoActual > 0) {
+          candidatas.push({ id: `tarjeta-${t.id}`, saldo: t.saldoActual, tasaInteres: t.tasaInteres ?? null });
+        }
+        if (t.saldoActualUSD != null && t.saldoActualUSD > 0) {
+          const saldoEnRDS = tipoCambio ? t.saldoActualUSD * tipoCambio : t.saldoActualUSD;
+          candidatas.push({ id: `tarjeta-${t.id}`, saldo: saldoEnRDS, tasaInteres: t.tasaInteres ?? null });
+        }
+      }
+      const ordenadas =
+        estrategiaDeudas.metodo === "bola"
+          ? [...candidatas].sort((a, b) => a.saldo - b.saldo)
+          : [...candidatas].sort((a, b) => (b.tasaInteres ?? -1) - (a.tasaInteres ?? -1));
+      idPrioridadDeuda = ordenadas[0]?.id || null;
+    }
+
     if (presupuestoDisponible) {
       for (const c of categoriasGasto) {
         const val = presupuesto?.[c.nombre]?.[String(periodo.month)]?.[periodo.quincena];
@@ -137,6 +172,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
             icon: Landmark,
             metodoDefault: null,
             esPrestamo: true,
+            esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
             prestamoId: p.id,
             prestamoNumero: p.numero,
             entidadId: p.entidadId || "",
@@ -164,6 +200,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           icon: Landmark,
           metodoDefault: null,
           esPrestamo: true,
+          esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
           prestamoId: p.id,
           prestamoNumero: p.numero,
           entidadId: p.entidadId || "",
@@ -186,6 +223,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           icon: Landmark,
           metodoDefault: null,
           esPrestamo: true,
+          esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
           prestamoId: p.id,
           prestamoNumero: p.numero,
           entidadId: p.entidadId || "",
@@ -211,12 +249,13 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         icon: CreditCard,
         metodoDefault: null,
         esTarjeta: true,
+        esPrioridadDeuda: idPrioridadDeuda === `tarjeta-${t.id}`,
         tarjetaId: t.id,
         tarjetaNombre: t.nombre,
       });
     }
     return list.sort((a, b) => b.monto - a.monto);
-  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro]);
+  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio]);
 
   const totales = useMemo(() => {
     let total = 0;
@@ -538,6 +577,11 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     {it.bloqueadoPagado && (
                       <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--sage-bg)", color: "var(--sage)", textDecoration: "none" }}>
                         Saldado
+                      </span>
+                    )}
+                    {it.esPrioridadDeuda && !estado.pagado && (
+                      <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--stamp-bg)", color: "var(--stamp)", textDecoration: "none" }}>
+                        Prioridad
                       </span>
                     )}
                   </div>

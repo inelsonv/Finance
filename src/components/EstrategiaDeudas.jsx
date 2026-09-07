@@ -7,7 +7,7 @@ function formatMoney(n) {
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, estrategiaDeudas }) {
+export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, estrategiaDeudas, tipoCambio }) {
   const [metodo, setMetodo] = useState(() => (estrategiaDeudas?.activo ? estrategiaDeudas.metodo : "bola"));
   const [activando, setActivando] = useState(false);
 
@@ -60,16 +60,36 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
     }
 
     for (const t of tarjetas) {
-      if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito" || t.saldoActual == null || t.saldoActual <= 0) continue;
-      list.push({
-        id: `t-${t.id}`,
-        nombre: t.nombre,
-        subtitulo: t.entidadName || "Sin entidad",
-        saldo: t.saldoActual,
-        tasaInteres: t.tasaInteres ?? null,
-        cuotaMinima: t.pagoMinimo ?? null,
-        icon: CreditCard,
-      });
+      if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito") continue;
+      if (t.saldoActual != null && t.saldoActual > 0) {
+        list.push({
+          id: `t-${t.id}`,
+          nombre: t.nombre,
+          subtitulo: t.entidadName || "Sin entidad",
+          saldo: t.saldoActual,
+          tasaInteres: t.tasaInteres ?? null,
+          cuotaMinima: t.pagoMinimo ?? null,
+          icon: CreditCard,
+        });
+      }
+      // Si la tarjeta también maneja saldo en dólares, se agrega como una
+      // deuda aparte — convertida a RD$ (con la tasa de cambio actual) solo
+      // para poder ordenarla junto a las demás, pero el pago mínimo se
+      // muestra en su moneda original.
+      if (t.saldoActualUSD != null && t.saldoActualUSD > 0) {
+        const saldoEnRDS = tipoCambio ? t.saldoActualUSD * tipoCambio : t.saldoActualUSD;
+        list.push({
+          id: `t-${t.id}-usd`,
+          nombre: `${t.nombre} (USD)`,
+          subtitulo: t.entidadName || "Sin entidad",
+          saldo: saldoEnRDS,
+          saldoOriginalUSD: t.saldoActualUSD,
+          tasaInteres: t.tasaInteres ?? null,
+          cuotaMinima: t.pagoMinimoUSD ?? null,
+          esUSD: true,
+          icon: CreditCard,
+        });
+      }
     }
 
     const ordenadas =
@@ -78,13 +98,16 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
         : [...list].sort((a, b) => (b.tasaInteres ?? -1) - (a.tasaInteres ?? -1));
 
     return ordenadas;
-  }, [prestamos, tarjetas, pagadoPorPrestamo, metodo]);
+  }, [prestamos, tarjetas, pagadoPorPrestamo, metodo, tipoCambio]);
 
   const totales = useMemo(() => {
     const saldoTotal = deudas.reduce((s, d) => s + d.saldo, 0);
-    const cuotaTotal = deudas.reduce((s, d) => s + (d.cuotaMinima || 0), 0);
+    const cuotaTotal = deudas.reduce((s, d) => {
+      const monto = d.cuotaMinima || 0;
+      return s + (d.esUSD && tipoCambio ? monto * tipoCambio : d.esUSD ? 0 : monto);
+    }, 0);
     return { saldoTotal, cuotaTotal };
-  }, [deudas]);
+  }, [deudas, tipoCambio]);
 
   const tarjetasSinSaldo = tarjetas.filter((t) => t.estado === "Activa" && t.saldoActual == null);
 
@@ -241,11 +264,11 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
                     <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2 }}>
                       {d.subtitulo}
                       {d.tasaInteres != null && ` · ${d.tasaInteres}% interés`}
-                      {d.cuotaMinima != null && ` · mín. ${formatMoney(d.cuotaMinima)}`}
+                      {d.cuotaMinima != null && ` · mín. ${d.esUSD ? "US$" + d.cuotaMinima.toLocaleString("es", { minimumFractionDigits: 2 }) : formatMoney(d.cuotaMinima)}`}
                     </div>
                   </div>
                   <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: esPrioridad ? "var(--sage)" : "var(--ink)", flexShrink: 0 }}>
-                    {formatMoney(d.saldo)}
+                    {d.esUSD ? "US$" + d.saldoOriginalUSD.toLocaleString("es", { minimumFractionDigits: 2 }) : formatMoney(d.saldo)}
                   </div>
                 </div>
               );
