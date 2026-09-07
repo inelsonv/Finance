@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, Flame, BookOpen, ListTodo } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, Zap, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, Flame, BookOpen, ListTodo, Lightbulb } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { periodoDeFecha } from "../lib/rachaHabito";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
+import { obtenerConsejoDelDia } from "../lib/consejosFinancieros";
 import { diasRestantesProducto } from "../lib/inventario";
 
 const UMBRAL_DIAS = 7;
@@ -328,6 +329,16 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
         tab: "versiculo-modal",
       });
     }
+
+    const consejoHoy = obtenerConsejoDelDia(new Date(today.year, today.month - 1, today.day));
+    list.push({
+      id: `consejo-${today.year}-${today.month}-${today.day}`,
+      icon: Lightbulb,
+      titulo: "Consejo financiero de hoy",
+      subtitulo: consejoHoy,
+      dias: 0,
+      tab: "inicio",
+    });
 
     // Recordatorio de hábitos semanales cuyo día fijado es hoy — solo si
     // todavía no se han marcado como cumplidos esta semana.
