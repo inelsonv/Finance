@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import { calcularProyeccionPago } from "../lib/proyeccionPrestamo";
 
 const PLAZO_UNIDADES = ["meses", "años"];
 const TIPOS_PRESTAMO = ["Vehículo", "Hipotecario / Vivienda", "Personal", "Estudiantil", "Consolidación de deuda", "Negocio", "Otro"];
@@ -969,6 +970,29 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
                         <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${pct}%`, background: "var(--sage)", borderRadius: 4 }} />
                         </div>
+                        {(() => {
+                          const proyeccion = calcularProyeccionPago(p, movimientos);
+                          if (!proyeccion || proyeccion.yaSaldado) return null;
+                          const fechaTexto = proyeccion.fechaProyectada.toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" });
+                          let comparacion = null;
+                          if (proyeccion.diasDiferencia != null) {
+                            if (proyeccion.diasDiferencia > 15) {
+                              comparacion = { texto: `${Math.round(proyeccion.diasDiferencia / 30)} meses más tarde de lo planeado`, color: "var(--stamp)" };
+                            } else if (proyeccion.diasDiferencia < -15) {
+                              comparacion = { texto: `${Math.round(Math.abs(proyeccion.diasDiferencia) / 30)} meses antes de lo planeado`, color: "var(--sage)" };
+                            } else {
+                              comparacion = { texto: "según lo planeado", color: "var(--ink-soft)" };
+                            }
+                          }
+                          return (
+                            <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+                              📈 A tu ritmo actual, quedaría saldado el <strong style={{ color: "var(--ink)" }}>{fechaTexto}</strong>
+                              {comparacion && (
+                                <span style={{ color: comparacion.color }}> — {comparacion.texto}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })()}
