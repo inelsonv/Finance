@@ -1422,9 +1422,22 @@ export async function recalcularEstadoPrestamo(prestamoId) {
   }
 
   const pagosSnap = await getDocs(query(collection(db, "movimientos"), where("prestamoId", "==", prestamoId)));
-  const totalPagado = pagosSnap.docs.reduce((s, d) => s + (Number(d.data().amount) || 0), 0);
+  const pagosDetalle = pagosSnap.docs.map((d) => ({ id: d.id, amount: Number(d.data().amount) || 0, date: d.data().date }));
+  const totalPagado = pagosDetalle.reduce((s, m) => s + m.amount, 0);
 
   const nuevoEstado = totalAPagar > 0 && totalPagado >= totalAPagar ? "Pagado" : "Activo";
+  console.log(`[recalcularEstadoPrestamo] ${p.numero || prestamoId}:`, {
+    frecuenciaCuota: p.frecuenciaCuota,
+    cuota: p.cuota,
+    plazo: p.plazo,
+    plazoUnidad: p.plazoUnidad,
+    totalAPagar,
+    totalPagado,
+    cantidadPagos: pagosDetalle.length,
+    pagosDetalle,
+    estadoAnterior: p.estado,
+    estadoNuevo: nuevoEstado,
+  });
   if (nuevoEstado !== p.estado) {
     await updateDoc(prestamoRef, { estado: nuevoEstado });
   }
