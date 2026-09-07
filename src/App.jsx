@@ -4,7 +4,7 @@ import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
-import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas } from "./lib/db";
+import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas, watchEstrategiaDeudas } from "./lib/db";
 import { periodoDeFecha } from "./lib/rachaHabito";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
@@ -163,6 +163,7 @@ export default function App() {
   const [puntos, setPuntos] = useState(0);
   const puntosAnteriores = useRef(null);
   const [puntosHistorial, setPuntosHistorial] = useState([]);
+  const [estrategiaDeudas, setEstrategiaDeudas] = useState({});
   const [recompensas, setRecompensas] = useState({});
   const [checklistTodos, setChecklistTodos] = useState({});
   const [categoriasPuntos, setCategoriasPuntos] = useState([]);
@@ -323,6 +324,7 @@ export default function App() {
       puntosAnteriores.current = val;
     }, handleError);
     const unsubPuntosHistorial = watchPuntosHistorial(setPuntosHistorial, handleError);
+    const unsubEstrategiaDeudas = watchEstrategiaDeudas(setEstrategiaDeudas, handleError);
     const unsubRecompensas = watchRecompensas(setRecompensas, handleError);
     const unsubChecklistTodos = watchChecklistTodos(setChecklistTodos, handleError);
     const unsubCategoriasPuntos = watchCategoriasPuntosConfig(setCategoriasPuntos, handleError);
@@ -367,6 +369,7 @@ export default function App() {
       unsubAhorroAuto();
       unsubPuntos();
       unsubPuntosHistorial();
+      unsubEstrategiaDeudas();
       unsubRecompensas();
       unsubChecklistTodos();
       unsubCategoriasPuntos();
@@ -741,6 +744,7 @@ export default function App() {
                   versiculoHoy={versiculoHoy}
                   habitos={habitos}
                   habitosRegistro={habitosRegistro}
+                  estrategiaDeudas={estrategiaDeudas}
                 />
               </div>
               <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} synced={synced} />
@@ -776,6 +780,7 @@ export default function App() {
             versiculoHoy={versiculoHoy}
             habitos={habitos}
             habitosRegistro={habitosRegistro}
+            estrategiaDeudas={estrategiaDeudas}
           />
         )}
         {tab === "puntos" && (
@@ -896,7 +901,7 @@ export default function App() {
           />
         )}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
-        {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} />}
+        {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} estrategiaDeudas={estrategiaDeudas} />}
         {tab === "checklist-pagos" && (
           <ChecklistPagos
             categoriasGasto={categoriasGasto}

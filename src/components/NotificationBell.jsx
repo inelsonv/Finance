@@ -83,10 +83,38 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro }) {
+export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas }) {
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
+
+    // Si hay una estrategia de pago de deudas activa (avalancha o bola de
+    // nieve), calcula cuál es la deuda prioritaria según ese plan, para
+    // poder mencionarla si aparece atrasada más abajo.
+    let idPrioridad = null;
+    if (estrategiaDeudas?.activo) {
+      const pagadoPorPrestamoLocal = {};
+      for (const m of movimientos) {
+        if (m.category !== "Pago de préstamo" || !m.prestamoId) continue;
+        pagadoPorPrestamoLocal[m.prestamoId] = (pagadoPorPrestamoLocal[m.prestamoId] || 0) + (Number(m.amount) || 0);
+      }
+      const candidatas = [];
+      for (const p of prestamos) {
+        if (p.estado !== "Activo") continue;
+        const saldo = Math.max((Number(p.montoAprobado) || 0) - (pagadoPorPrestamoLocal[p.id] || 0), 0);
+        if (saldo <= 0) continue;
+        candidatas.push({ id: `p-${p.id}`, saldo, tasaInteres: p.tasaInteres ?? null });
+      }
+      for (const t of tarjetas) {
+        if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito" || t.saldoActual == null || t.saldoActual <= 0) continue;
+        candidatas.push({ id: `t-${t.id}`, saldo: t.saldoActual, tasaInteres: t.tasaInteres ?? null });
+      }
+      const ordenadas =
+        estrategiaDeudas.metodo === "bola"
+          ? [...candidatas].sort((a, b) => a.saldo - b.saldo)
+          : [...candidatas].sort((a, b) => (b.tasaInteres ?? -1) - (a.tasaInteres ?? -1));
+      idPrioridad = ordenadas[0]?.id || null;
+    }
 
     for (const p of prestamos) {
       if (p.estado !== "Activo" || !p.fechaInicio) continue;
@@ -95,11 +123,14 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       if (yaPagadoEsteMes(movimientos, "Pago de préstamo", "prestamoId", p.id, today)) continue;
       const dias = diasHasta(diaPago, today);
       if (dias <= UMBRAL_DIAS) {
+        const esPrioridadAtrasada = dias <= 0 && idPrioridad === `p-${p.id}`;
         list.push({
           id: `p-${p.id}`,
           icon: Landmark,
           titulo: `Cuota de préstamo ${p.numero}`,
-          subtitulo: p.entidadName || "Sin entidad",
+          subtitulo: esPrioridadAtrasada
+            ? `Según tu plan de ${estrategiaDeudas.metodo === "bola" ? "bola de nieve" : "avalancha"}, esta es tu deuda prioritaria y sigue pendiente`
+            : p.entidadName || "Sin entidad",
           dias,
           tab: "prestamos",
         });
@@ -111,11 +142,14 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       if (yaPagadoEsteMes(movimientos, "Pago de tarjeta", "tarjetaId", t.id, today)) continue;
       const dias = diasHasta(t.fechaPago, today);
       if (dias <= UMBRAL_DIAS) {
+        const esPrioridadAtrasada = dias <= 0 && idPrioridad === `t-${t.id}`;
         list.push({
           id: `t-${t.id}`,
           icon: CreditCard,
           titulo: `Pago de tarjeta ${t.nombre}`,
-          subtitulo: t.entidadName || "Sin entidad",
+          subtitulo: esPrioridadAtrasada
+            ? `Según tu plan de ${estrategiaDeudas.metodo === "bola" ? "bola de nieve" : "avalancha"}, esta es tu deuda prioritaria y sigue pendiente`
+            : t.entidadName || "Sin entidad",
           dias,
           tab: "tarjetas",
         });
@@ -373,7 +407,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas]);
 }
 
 export function etiquetaDias(dias) {
@@ -383,7 +417,7 @@ export function etiquetaDias(dias) {
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -397,7 +431,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
     }
   });
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas });
 
   const firma = (n) => `${n.id}:${n.dias}`;
   const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));

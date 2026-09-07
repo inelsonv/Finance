@@ -2056,6 +2056,25 @@ export async function saveNotifConfig(email) {
   await setDoc(doc(db, "config", "notificaciones"), { email });
 }
 
+// Estrategia de pago de deudas activa (avalancha o bola de nieve) — se
+// guarda para poder mencionarla en las notificaciones cuando la deuda
+// prioritaria según ese plan esté atrasada.
+export function watchEstrategiaDeudas(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "estrategiaDeudas"),
+    (snap) => onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function activarEstrategiaDeudas(metodo) {
+  await setDoc(doc(db, "config", "estrategiaDeudas"), { activo: true, metodo });
+}
+
+export async function desactivarEstrategiaDeudas() {
+  await setDoc(doc(db, "config", "estrategiaDeudas"), { activo: false }, { merge: true });
+}
+
 // ---- Integración: registro automático de gastos desde correo (Banco Popular) ----
 // El toggle "activo" lo lee la Cloud Function antes de registrar cualquier
 // gasto — si está apagado, ignora los correos aunque el Apps Script siga

@@ -1,13 +1,35 @@
 import React, { useMemo, useState } from "react";
-import { Snowflake, Mountain, Landmark, CreditCard, Info } from "lucide-react";
+import { Snowflake, Mountain, Landmark, CreditCard, Info, Check, Power } from "lucide-react";
+import { activarEstrategiaDeudas, desactivarEstrategiaDeudas } from "../lib/db";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos }) {
-  const [metodo, setMetodo] = useState("bola");
+export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, estrategiaDeudas }) {
+  const [metodo, setMetodo] = useState(() => (estrategiaDeudas?.activo ? estrategiaDeudas.metodo : "bola"));
+  const [activando, setActivando] = useState(false);
+
+  const estaActivaEsteMetodo = estrategiaDeudas?.activo && estrategiaDeudas.metodo === metodo;
+
+  const handleActivar = async () => {
+    setActivando(true);
+    try {
+      await activarEstrategiaDeudas(metodo);
+    } finally {
+      setActivando(false);
+    }
+  };
+
+  const handleDesactivar = async () => {
+    setActivando(true);
+    try {
+      await desactivarEstrategiaDeudas();
+    } finally {
+      setActivando(false);
+    }
+  };
 
   const pagadoPorPrestamo = useMemo(() => {
     const map = {};
@@ -138,6 +160,34 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos }) {
             {metodo === "bola"
               ? "Bola de nieve: ordena tus deudas de menor a mayor saldo. Paga el mínimo en todas, y todo el dinero extra que puedas destínalo a la más pequeña hasta liquidarla; luego sigue con la siguiente. Genera avances rápidos y motivación."
               : "Avalancha: ordena tus deudas de mayor a menor tasa de interés. Paga el mínimo en todas, y el dinero extra destínalo a la de tasa más alta primero. Matemáticamente es la que menos intereses totales termina pagando."}
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            {estaActivaEsteMetodo ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", fontSize: 12, fontWeight: 600, background: "var(--sage-bg)", color: "var(--sage)", borderRadius: 8 }}>
+                  <Check size={13} /> Estrategia activa
+                </div>
+                <button
+                  onClick={handleDesactivar}
+                  disabled={activando}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 11.5, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
+                >
+                  <Power size={12} /> Desactivar
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleActivar}
+                disabled={activando}
+                style={{ padding: "8px 16px", fontSize: 12.5, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+              >
+                {activando ? "Activando…" : `Activar esta estrategia`}
+              </button>
+            )}
+            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
+              Al activarla, recibirás una notificación si tu deuda prioritaria según este plan queda atrasada.
+            </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
