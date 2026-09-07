@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, Flame, ListTodo, Lightbulb, Cross, FileText } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, Flame, ListTodo, Lightbulb, BookOpen, FileText } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { periodoDeFecha } from "../lib/rachaHabito";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
@@ -322,7 +322,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     if (versiculoHoy) {
       list.push({
         id: `versiculo-${versiculoHoy.id}`,
-        icon: Cross,
+        icon: BookOpen,
         titulo: "Tu versículo de hoy",
         subtitulo: `${versiculoHoy.referencia} — toca para leerlo`,
         dias: 0,
