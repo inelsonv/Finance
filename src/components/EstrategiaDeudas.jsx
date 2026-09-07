@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Snowflake, Mountain, Landmark, CreditCard, Info, Check, Power, Sparkles } from "lucide-react";
 import { activarEstrategiaDeudas, desactivarEstrategiaDeudas } from "../lib/db";
-import { calcularIngresoQuincenal, calcularResumenQuincena } from "../lib/quincenaResumen";
+import { calcularResumenQuincena } from "../lib/quincenaResumen";
+import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 
 function formatMoney(n) {
@@ -12,6 +13,7 @@ function formatMoney(n) {
 export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, estrategiaDeudas, tipoCambio, fuentesIngreso, categoriasGasto, presupuesto, presupuestoYear, diasCobro }) {
   const [metodo, setMetodo] = useState(() => (estrategiaDeudas?.activo ? estrategiaDeudas.metodo : "bola"));
   const [activando, setActivando] = useState(false);
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState(() => periodoActualConfigurado(diasCobro));
 
   const estaActivaEsteMetodo = estrategiaDeudas?.activo && estrategiaDeudas.metodo === metodo;
 
@@ -117,8 +119,8 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
   // se sugiere destinar a tu deuda prioritaria.
   const disponibleExtra = useMemo(() => {
     if (!fuentesIngreso || !categoriasGasto || !presupuesto) return null;
-    const periodo = periodoActualConfigurado(diasCobro);
-    const ingreso = calcularIngresoQuincenal(fuentesIngreso);
+    const periodo = periodoSeleccionado;
+    const ingreso = ingresoMensualNeto(fuentesIngreso) / 2;
     const resumen = calcularResumenQuincena({
       year: periodo.year,
       month: periodo.month,
@@ -143,7 +145,7 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
 
     const extra = ingreso - resumen.presupuestado - minimoTarjetas;
     return { ingreso, presupuestado: resumen.presupuestado, minimoTarjetas, extra, periodo };
-  }, [fuentesIngreso, categoriasGasto, presupuesto, prestamos, tarjetas, movimientos, diasCobro, tipoCambio]);
+  }, [fuentesIngreso, categoriasGasto, presupuesto, prestamos, tarjetas, movimientos, diasCobro, tipoCambio, periodoSeleccionado]);
 
   const tarjetasSinSaldo = tarjetas.filter((t) => t.estado === "Activa" && t.saldoActual == null);
 
@@ -250,6 +252,36 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
           </div>
 
           {disponibleExtra && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <select
+                value={periodoSeleccionado.month}
+                onChange={(e) => setPeriodoSeleccionado({ ...periodoSeleccionado, month: Number(e.target.value) })}
+                style={{ padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12, background: "var(--card)" }}
+              >
+                {["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map(
+                  (nombre, i) => (
+                    <option key={nombre} value={i + 1}>{nombre}</option>
+                  )
+                )}
+              </select>
+              <input
+                type="number"
+                value={periodoSeleccionado.year}
+                onChange={(e) => setPeriodoSeleccionado({ ...periodoSeleccionado, year: Number(e.target.value) || periodoSeleccionado.year })}
+                style={{ width: 80, padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12 }}
+              />
+              <select
+                value={periodoSeleccionado.quincena}
+                onChange={(e) => setPeriodoSeleccionado({ ...periodoSeleccionado, quincena: e.target.value })}
+                style={{ padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12, background: "var(--card)" }}
+              >
+                <option value="Q1">1ra quincena</option>
+                <option value="Q2">2da quincena</option>
+              </select>
+            </div>
+          )}
+
+          {disponibleExtra && (
             <div
               style={{
                 background: disponibleExtra.extra > 0 ? "var(--sage-bg)" : "var(--stamp-bg)",
@@ -262,13 +294,16 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                 <Sparkles size={14} style={{ color: disponibleExtra.extra > 0 ? "var(--sage)" : "var(--stamp)" }} />
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: disponibleExtra.extra > 0 ? "var(--sage)" : "var(--stamp)" }}>
-                  {disponibleExtra.extra > 0 ? "Dinero extra disponible esta quincena" : "No hay dinero extra esta quincena"}
+                  {disponibleExtra.extra > 0 ? "Dinero extra disponible" : "No hay dinero extra"} —{" "}
+                  {disponibleExtra.periodo.quincena === "Q1" ? "1ra" : "2da"} quincena de{" "}
+                  {["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"][disponibleExtra.periodo.month - 1]}
                 </span>
               </div>
               {disponibleExtra.extra > 0 ? (
                 <div style={{ fontSize: 12.5, color: "var(--ink)", lineHeight: 1.6 }}>
-                  Después de tu ingreso esperado ({formatMoney(disponibleExtra.ingreso)}) menos tus gastos presupuestados
-                  y cuotas mínimas ({formatMoney(disponibleExtra.presupuestado + disponibleExtra.minimoTarjetas)}), te quedarían{" "}
+                  Después de tu ingreso NETO esperado ({formatMoney(disponibleExtra.ingreso)}, ya con AFP/SFS/ISR
+                  descontados donde aplica) menos tus gastos presupuestados y cuotas mínimas (
+                  {formatMoney(disponibleExtra.presupuestado + disponibleExtra.minimoTarjetas)}), te quedarían{" "}
                   <strong className="despensa-mono">{formatMoney(disponibleExtra.extra)}</strong> libres.
                   {deudas[0] && (
                     <>
@@ -278,7 +313,7 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
                 </div>
               ) : (
                 <div style={{ fontSize: 12.5, color: "var(--ink)", lineHeight: 1.6 }}>
-                  Con tu ingreso esperado y tus compromisos actuales, no queda margen extra esta quincena para adelantar
+                  Con tu ingreso neto esperado y tus compromisos en esta quincena, no queda margen extra para adelantar
                   deuda — con cumplir los mínimos vas bien.
                 </div>
               )}
