@@ -335,7 +335,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       id: `consejo-${today.year}-${today.month}-${today.day}`,
       icon: Lightbulb,
       titulo: "Consejo financiero de hoy",
-      subtitulo: consejoHoy,
+      subtitulo: `"${consejoHoy.texto}" — ${consejoHoy.autor}`,
       dias: 0,
       tab: "consejo-modal",
     });

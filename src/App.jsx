@@ -1048,8 +1048,11 @@ export default function App() {
             <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--sage)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 12 }}>
               Consejo financiero de hoy
             </div>
-            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink)", marginBottom: 22 }}>
-              {obtenerConsejoDelDia(new Date())}
+            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink)", marginBottom: 10, fontStyle: "italic" }}>
+              "{obtenerConsejoDelDia(new Date()).texto}"
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 22 }}>
+              — {obtenerConsejoDelDia(new Date()).autor}
             </div>
             <button
               onClick={() => setShowConsejoModal(false)}
