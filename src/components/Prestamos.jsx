@@ -134,6 +134,8 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
       const plazo = parseFloat(editForm.plazo);
       const tasa = parseFloat(editForm.tasaInteres);
       const cuota = parseFloat(editForm.cuota);
+      console.log("[saveEdit] cuotasPersonalizadas en editForm (antes de normalizar):", editForm.cuotasPersonalizadas);
+      console.log("[saveEdit] cuotasPersonalizadas normalizadas (lo que se va a guardar):", normalizarCuotas(editForm.cuotasPersonalizadas));
       await updatePrestamo(editingId, {
         tipo: editForm.tipo,
         entidadId: editForm.entidadId,
