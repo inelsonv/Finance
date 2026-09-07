@@ -63,8 +63,6 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
   const [showForm, setShowForm] = useState(false);
   const [showHistorico, setShowHistorico] = useState(false);
 
-  const prestamosActivos = useMemo(() => prestamos.filter((p) => p.estado !== "Pagado"), [prestamos]);
-  const prestamosPagados = useMemo(() => prestamos.filter((p) => p.estado === "Pagado"), [prestamos]);
   const [form, setForm] = useState(() => emptyForm(nextNumero(prestamos)));
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -73,6 +71,9 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   const [revolventeAbiertoId, setRevolventeAbiertoId] = useState(null);
+
+  const prestamosActivos = useMemo(() => prestamos.filter((p) => p.estado !== "Pagado" || p.id === editingId), [prestamos, editingId]);
+  const prestamosPagados = useMemo(() => prestamos.filter((p) => p.estado === "Pagado" && p.id !== editingId), [prestamos, editingId]);
 
   const openForm = () => {
     setForm(emptyForm(nextNumero(prestamos)));
@@ -1099,8 +1100,28 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
                       <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>{p.entidadName || "Sin entidad"}</div>
                     </div>
                   </div>
-                  <div className="despensa-mono" style={{ fontSize: 12.5, color: "var(--ink-soft)", flexShrink: 0 }}>
-                    {formatMoney(p.montoAprobado)}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <div className="despensa-mono" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+                      {formatMoney(p.montoAprobado)}
+                    </div>
+                    <button
+                      onClick={() => startEdit(p)}
+                      title="Editar (por ejemplo, para corregir sus cuotas)"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 24,
+                        height: 24,
+                        background: "transparent",
+                        border: "1px solid var(--line)",
+                        borderRadius: 6,
+                        color: "var(--ink-soft)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Pencil size={11} />
+                    </button>
                   </div>
                 </div>
               ))}
