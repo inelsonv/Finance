@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle, Pencil, History } from "lucide-react";
+import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle, Pencil, History, Download } from "lucide-react";
 import { addMovimiento, deleteMovimiento, updateMovimientoFecha, marcarConsumosComoPagados } from "../lib/db";
 import SwipeableRow from "./SwipeableRow.jsx";
 import Pagination from "./Pagination.jsx";
@@ -108,6 +108,34 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
     }
   };
   const paginated = useMemo(() => movimientos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [movimientos, page]);
+
+  const handleDescargarCSV = () => {
+    const columnas = ["Fecha", "Tipo", "Categoría", "Descripción", "Monto", "Método de pago", "Clasificación"];
+    const escapar = (valor) => {
+      const texto = valor == null ? "" : String(valor);
+      // Si el valor tiene comas, comillas, o saltos de línea, hay que
+      // envolverlo en comillas dobles (y duplicar las comillas internas),
+      // según el formato estándar de CSV.
+      if (/[",\n]/.test(texto)) {
+        return `"${texto.replace(/"/g, '""')}"`;
+      }
+      return texto;
+    };
+    const filas = movimientos.map((m) =>
+      [m.date, m.type, m.category, m.description, m.amount, m.metodoPago, m.clasificacion].map(escapar).join(",")
+    );
+    const csv = [columnas.join(","), ...filas].join("\n");
+    // El BOM (\uFEFF) al inicio evita que Excel muestre mal los acentos/ñ.
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `movimientos_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
   const [alertaPresupuesto, setAlertaPresupuesto] = useState(null);
 
   const openExpres = (category) => {
@@ -969,6 +997,29 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
           {formError && (
             <div style={{ marginTop: 10, fontSize: 12, color: "var(--stamp)" }}>{formError}</div>
           )}
+        </div>
+      )}
+
+      {movimientos.length > 0 && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          <button
+            onClick={handleDescargarCSV}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "7px 14px",
+              fontSize: 12,
+              fontWeight: 500,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 8,
+              color: "var(--ink-soft)",
+              cursor: "pointer",
+            }}
+          >
+            <Download size={13} /> Descargar CSV
+          </button>
         </div>
       )}
 
