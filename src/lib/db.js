@@ -1431,6 +1431,22 @@ export async function recalcularEstadoPrestamo(prestamoId) {
   return { estadoAnterior: p.estado, estadoNuevo: nuevoEstado, totalPagado, totalAPagar };
 }
 
+// Verifica y corrige el estado de TODOS los préstamos según sus movimientos
+// reales, cada vez que se abre la app — por ejemplo, si un préstamo quedó
+// marcado "Pagado" por un movimiento de prueba que luego se eliminó (o
+// nunca se limpió bien), esto lo vuelve a poner en "Activo" automáticamente.
+// Es la misma lógica de recalcularEstadoPrestamo, aplicada a todos.
+export async function verificarEstadoTodosPrestamos() {
+  const prestamosSnap = await getDocs(prestamosCol);
+  for (const prestamoDoc of prestamosSnap.docs) {
+    try {
+      await recalcularEstadoPrestamo(prestamoDoc.id);
+    } catch (err) {
+      console.error(`No se pudo verificar el préstamo ${prestamoDoc.id}:`, err);
+    }
+  }
+}
+
 // Arreglo puntual, de una sola vez: el préstamo PT07 quedó marcado "Pagado"
 // después de haberse eliminado el pago que lo saldaba (antes de que
 // existiera la corrección automática en deleteMovimiento) — esto lo dejó
