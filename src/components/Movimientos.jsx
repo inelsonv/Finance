@@ -110,7 +110,22 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const paginated = useMemo(() => movimientos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [movimientos, page]);
 
   const handleDescargarCSV = () => {
-    const columnas = ["Fecha", "Tipo", "Categoría", "Descripción", "Monto", "Método de pago", "Clasificación"];
+    const columnas = [
+      "Fecha",
+      "Tipo",
+      "Categoría",
+      "Descripción",
+      "Monto",
+      "Método de pago",
+      "Clasificación",
+      "Entidad",
+      "Préstamo",
+      "Cuenta",
+      "Tarjeta",
+      "Membresía",
+      "Fuente de ingreso",
+      "Contrato",
+    ];
     const escapar = (valor) => {
       const texto = valor == null ? "" : String(valor);
       // Si el valor tiene comas, comillas, o saltos de línea, hay que
@@ -122,7 +137,24 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       return texto;
     };
     const filas = movimientos.map((m) =>
-      [m.date, m.type, m.category, m.description, m.amount, m.metodoPago, m.clasificacion].map(escapar).join(",")
+      [
+        m.date,
+        m.type,
+        m.category,
+        m.description,
+        m.amount,
+        m.metodoPago,
+        m.clasificacion,
+        m.entidadName,
+        m.prestamoNumero,
+        m.cuentaNombre,
+        m.tarjetaNombre,
+        m.membresiaNombre,
+        m.fuenteIngresoNombre,
+        m.contratoNombre,
+      ]
+        .map(escapar)
+        .join(",")
     );
     const csv = [columnas.join(","), ...filas].join("\n");
     // El BOM (\uFEFF) al inicio evita que Excel muestre mal los acentos/ñ.
