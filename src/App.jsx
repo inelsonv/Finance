@@ -3,6 +3,7 @@ import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
+import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
 import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas, watchEstrategiaDeudas, watchTipoCambioCache } from "./lib/db";
 import { periodoDeFecha } from "./lib/rachaHabito";
@@ -183,6 +184,7 @@ export default function App() {
   const [cofreParaMostrar, setCofreParaMostrar] = useState(null);
   const cofresCerradosLocalmente = useRef(new Set());
   const [showVersiculoModal, setShowVersiculoModal] = useState(false);
+  const [showConsejoModal, setShowConsejoModal] = useState(false);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
@@ -230,6 +232,10 @@ export default function App() {
   }, [highlightId, tab]);
 
   const handleNavigate = (tabId, periodoObjetivo) => {
+    if (tabId === "consejo-modal") {
+      setShowConsejoModal(true);
+      return;
+    }
     if (tabId === "versiculo-modal") {
       setShowVersiculoModal(true);
       // Al abrir el versículo del día, marca automáticamente el hábito
@@ -994,6 +1000,59 @@ export default function App() {
             </div>
             <button
               onClick={() => setShowVersiculoModal(false)}
+              style={{
+                padding: "9px 22px",
+                fontSize: 13,
+                fontWeight: 600,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showConsejoModal && (
+        <div
+          onClick={() => setShowConsejoModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              padding: "32px 26px",
+              maxWidth: 420,
+              width: "100%",
+              textAlign: "center",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ fontSize: 26, marginBottom: 14 }}>💡</div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--sage)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 12 }}>
+              Consejo financiero de hoy
+            </div>
+            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink)", marginBottom: 22 }}>
+              {obtenerConsejoDelDia(new Date())}
+            </div>
+            <button
+              onClick={() => setShowConsejoModal(false)}
               style={{
                 padding: "9px 22px",
                 fontSize: 13,

@@ -337,7 +337,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       titulo: "Consejo financiero de hoy",
       subtitulo: consejoHoy,
       dias: 0,
-      tab: "inicio",
+      tab: "consejo-modal",
     });
 
     // Recordatorio de hábitos semanales cuyo día fijado es hoy — solo si
