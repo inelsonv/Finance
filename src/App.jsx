@@ -906,7 +906,20 @@ export default function App() {
           />
         )}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
-        {tab === "estrategia-deudas" && <EstrategiaDeudas prestamos={prestamos} tarjetas={tarjetas} movimientos={movimientos} estrategiaDeudas={estrategiaDeudas} tipoCambio={tipoCambio} />}
+        {tab === "estrategia-deudas" && (
+          <EstrategiaDeudas
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            movimientos={movimientos}
+            estrategiaDeudas={estrategiaDeudas}
+            tipoCambio={tipoCambio}
+            fuentesIngreso={fuentesIngreso}
+            categoriasGasto={categoriasGasto}
+            presupuesto={presupuestoAnual}
+            presupuestoYear={presupuestoYear}
+            diasCobro={diasCobro}
+          />
+        )}
         {tab === "checklist-pagos" && (
           <ChecklistPagos
             categoriasGasto={categoriasGasto}

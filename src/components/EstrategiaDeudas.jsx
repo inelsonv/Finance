@@ -1,13 +1,15 @@
 import React, { useMemo, useState } from "react";
-import { Snowflake, Mountain, Landmark, CreditCard, Info, Check, Power } from "lucide-react";
+import { Snowflake, Mountain, Landmark, CreditCard, Info, Check, Power, Sparkles } from "lucide-react";
 import { activarEstrategiaDeudas, desactivarEstrategiaDeudas } from "../lib/db";
+import { calcularIngresoQuincenal, calcularResumenQuincena } from "../lib/quincenaResumen";
+import { periodoActualConfigurado } from "../lib/quincenaConfig";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, estrategiaDeudas, tipoCambio }) {
+export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, estrategiaDeudas, tipoCambio, fuentesIngreso, categoriasGasto, presupuesto, presupuestoYear, diasCobro }) {
   const [metodo, setMetodo] = useState(() => (estrategiaDeudas?.activo ? estrategiaDeudas.metodo : "bola"));
   const [activando, setActivando] = useState(false);
 
@@ -108,6 +110,40 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
     }, 0);
     return { saldoTotal, cuotaTotal };
   }, [deudas, tipoCambio]);
+
+  // Cuánto dinero "extra" queda disponible esta quincena, después de tu
+  // ingreso esperado menos todo lo presupuestado (gastos fijos/variables +
+  // cuotas de préstamo) y los pagos mínimos de tarjeta — esa es la parte que
+  // se sugiere destinar a tu deuda prioritaria.
+  const disponibleExtra = useMemo(() => {
+    if (!fuentesIngreso || !categoriasGasto || !presupuesto) return null;
+    const periodo = periodoActualConfigurado(diasCobro);
+    const ingreso = calcularIngresoQuincenal(fuentesIngreso);
+    const resumen = calcularResumenQuincena({
+      year: periodo.year,
+      month: periodo.month,
+      quincena: periodo.quincena,
+      presupuesto,
+      categoriasGasto,
+      prestamos,
+      movimientos,
+      diasCobro,
+    });
+
+    let minimoTarjetas = 0;
+    for (const t of tarjetas || []) {
+      if (t.estado !== "Activa" || !t.fechaPago) continue;
+      const diasEnMes = new Date(periodo.year, periodo.month, 0).getDate();
+      const diaPago = Math.min(Number(t.fechaPago), diasEnMes);
+      const q = diaPago > 15 ? "Q2" : "Q1";
+      if (q !== periodo.quincena) continue;
+      if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetas += Number(t.pagoMinimo) || 0;
+      if (t.saldoActualUSD > 0 && t.pagoMinimoUSD) minimoTarjetas += (Number(t.pagoMinimoUSD) || 0) * (tipoCambio || 1);
+    }
+
+    const extra = ingreso - resumen.presupuestado - minimoTarjetas;
+    return { ingreso, presupuestado: resumen.presupuestado, minimoTarjetas, extra, periodo };
+  }, [fuentesIngreso, categoriasGasto, presupuesto, prestamos, tarjetas, movimientos, diasCobro, tipoCambio]);
 
   const tarjetasSinSaldo = tarjetas.filter((t) => t.estado === "Activa" && t.saldoActual == null);
 
@@ -212,6 +248,42 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
               Al activarla, recibirás una notificación si tu deuda prioritaria según este plan queda atrasada.
             </div>
           </div>
+
+          {disponibleExtra && (
+            <div
+              style={{
+                background: disponibleExtra.extra > 0 ? "var(--sage-bg)" : "var(--stamp-bg)",
+                border: `1px solid ${disponibleExtra.extra > 0 ? "var(--sage)" : "var(--stamp)"}`,
+                borderRadius: 10,
+                padding: "12px 14px",
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Sparkles size={14} style={{ color: disponibleExtra.extra > 0 ? "var(--sage)" : "var(--stamp)" }} />
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: disponibleExtra.extra > 0 ? "var(--sage)" : "var(--stamp)" }}>
+                  {disponibleExtra.extra > 0 ? "Dinero extra disponible esta quincena" : "No hay dinero extra esta quincena"}
+                </span>
+              </div>
+              {disponibleExtra.extra > 0 ? (
+                <div style={{ fontSize: 12.5, color: "var(--ink)", lineHeight: 1.6 }}>
+                  Después de tu ingreso esperado ({formatMoney(disponibleExtra.ingreso)}) menos tus gastos presupuestados
+                  y cuotas mínimas ({formatMoney(disponibleExtra.presupuestado + disponibleExtra.minimoTarjetas)}), te quedarían{" "}
+                  <strong className="despensa-mono">{formatMoney(disponibleExtra.extra)}</strong> libres.
+                  {deudas[0] && (
+                    <>
+                      {" "}Sugerencia: destínalos a <strong>{deudas[0].nombre}</strong>, tu deuda prioritaria según este plan.
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12.5, color: "var(--ink)", lineHeight: 1.6 }}>
+                  Con tu ingreso esperado y tus compromisos actuales, no queda margen extra esta quincena para adelantar
+                  deuda — con cumplir los mínimos vas bien.
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {deudas.map((d, i) => {
