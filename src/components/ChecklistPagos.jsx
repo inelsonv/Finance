@@ -61,7 +61,7 @@ function periodoAdyacente(periodo, dir) {
   }
 }
 
-export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos }) {
+export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
 
@@ -196,8 +196,27 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         });
       }
     }
+    for (const t of tarjetas || []) {
+      const saldo = Number(t.saldoActual) || 0;
+      const pagoMin = Number(t.pagoMinimo) || 0;
+      if (saldo <= 0 || pagoMin <= 0 || !t.fechaPago) continue;
+      const diasEnMes = new Date(periodo.year, periodo.month, 0).getDate();
+      const diaPago = Math.min(Number(t.fechaPago), diasEnMes);
+      const q = diaPago > 15 ? "Q2" : "Q1";
+      if (q !== periodo.quincena) continue;
+      list.push({
+        key: `tarjeta-${t.id}-${periodo.year}-${periodo.month}`,
+        nombre: `Tarjeta ${t.nombre} — pago mínimo`,
+        monto: pagoMin,
+        icon: CreditCard,
+        metodoDefault: null,
+        esTarjeta: true,
+        tarjetaId: t.id,
+        tarjetaNombre: t.nombre,
+      });
+    }
     return list.sort((a, b) => b.monto - a.monto);
-  }, [categoriasGasto, presupuesto, prestamos, periodo, presupuestoDisponible, movimientos, diasCobro]);
+  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro]);
 
   const totales = useMemo(() => {
     let total = 0;
@@ -313,6 +332,18 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         entidadName: it.entidadName || "",
         prestamoId: it.prestamoId,
         prestamoNumero: it.prestamoNumero || "",
+        origenChecklist: { periodoKey, itemKey: it.key },
+      });
+    } else if (it.esTarjeta) {
+      await addMovimiento({
+        type: "Pago de tarjeta",
+        category: "Pago de tarjeta",
+        amount: it.monto,
+        description: it.nombre,
+        date: todayStr(),
+        metodoPago,
+        tarjetaId: it.tarjetaId,
+        tarjetaNombre: it.tarjetaNombre || "",
         origenChecklist: { periodoKey, itemKey: it.key },
       });
     } else {

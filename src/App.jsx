@@ -902,6 +902,7 @@ export default function App() {
             categoriasGasto={categoriasGasto}
             presupuesto={presupuestoAnual}
             prestamos={prestamos}
+            tarjetas={tarjetas}
             presupuestoYear={presupuestoYear}
             periodoInicial={checklistPeriodoInicial}
             onConsumePeriodoInicial={() => setChecklistPeriodoInicial(null)}
