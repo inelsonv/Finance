@@ -68,6 +68,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const [velocidadVoz, setVelocidadVoz] = useState(cargarVelocidadVozGuardada);
   const [mostrarPanelVoz, setMostrarPanelVoz] = useState(false);
   const utteranceRef = useRef(null);
+  const mantenerVivaVozRef = useRef(null);
   const dragStartRef = useRef(null);
   const dragEnCursoRef = useRef(false);
 
@@ -213,6 +214,10 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
         rendition.on("relocated", (location) => {
           if (cancelado) return;
           window.speechSynthesis.cancel();
+          if (mantenerVivaVozRef.current) {
+            clearInterval(mantenerVivaVozRef.current);
+            mantenerVivaVozRef.current = null;
+          }
           setLeyendoEnVoz(false);
           let pct = null;
           if (location?.start?.percentage != null) {
@@ -238,6 +243,10 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     return () => {
       cancelado = true;
       window.speechSynthesis.cancel();
+      if (mantenerVivaVozRef.current) {
+        clearInterval(mantenerVivaVozRef.current);
+        mantenerVivaVozRef.current = null;
+      }
       if (guardarTimeoutRef.current) clearTimeout(guardarTimeoutRef.current);
       if (cfiActualRef.current && libroId) {
         updateLibro(libroId, { ultimaPosicion: cfiActualRef.current, progresoPct: progresoActualRef.current }).catch(() => {});
@@ -250,34 +259,55 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
   const detenerVoz = () => {
     window.speechSynthesis.cancel();
+    if (mantenerVivaVozRef.current) {
+      clearInterval(mantenerVivaVozRef.current);
+      mantenerVivaVozRef.current = null;
+    }
     setLeyendoEnVoz(false);
   };
 
   const alternarVoz = () => {
-    console.log("[alternarVoz] estado leyendoEnVoz al hacer clic:", leyendoEnVoz);
     if (leyendoEnVoz) {
       detenerVoz();
       return;
     }
     const contents = renditionRef.current?.getContents();
-    console.log("[alternarVoz] cantidad de contents:", contents?.length, contents);
     const texto = contents?.[0]?.content?.textContent?.trim();
-    console.log("[alternarVoz] texto extraído (primeros 200 caracteres):", texto?.slice(0, 200), "| longitud total:", texto?.length);
-    if (!texto) {
-      console.log("[alternarVoz] texto vacío, no se puede leer esta página.");
-      return;
-    }
+    if (!texto) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(texto);
     utterance.lang = "es-ES";
     utterance.rate = velocidadVoz;
     const vozElegida = vocesDisponibles.find((v) => v.voiceURI === vozSeleccionada);
     if (vozElegida) utterance.voice = vozElegida;
-    utterance.onend = () => setLeyendoEnVoz(false);
-    utterance.onerror = () => setLeyendoEnVoz(false);
+    utterance.onend = () => {
+      if (mantenerVivaVozRef.current) {
+        clearInterval(mantenerVivaVozRef.current);
+        mantenerVivaVozRef.current = null;
+      }
+      setLeyendoEnVoz(false);
+    };
+    utterance.onerror = () => {
+      if (mantenerVivaVozRef.current) {
+        clearInterval(mantenerVivaVozRef.current);
+        mantenerVivaVozRef.current = null;
+      }
+      setLeyendoEnVoz(false);
+    };
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
     setLeyendoEnVoz(true);
+
+    // Bug conocido de Chrome: la lectura en voz alta se detiene sola tras
+    // ~15 segundos en textos largos, a menos que se "despierte" cada
+    // pocos segundos con pause()+resume() — esto no interrumpe el audio,
+    // solo evita que el navegador la corte.
+    mantenerVivaVozRef.current = setInterval(() => {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.pause();
+        window.speechSynthesis.resume();
+      }
+    }, 10000);
   };
 
   const handleCambiarVoz = (voiceURI) => {
