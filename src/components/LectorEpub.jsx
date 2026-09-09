@@ -254,6 +254,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   };
 
   const alternarVoz = () => {
+    console.log("[alternarVoz] estado leyendoEnVoz al hacer clic:", leyendoEnVoz);
     if (leyendoEnVoz) {
       detenerVoz();
       return;
