@@ -71,6 +71,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const fragmentosVozRef = useRef([]);
   const indiceFragmentoVozRef = useRef(0);
   const sesionVozRef = useRef(0);
+  const leerDesdeClickRef = useRef(null);
   const dragStartRef = useRef(null);
   const dragEnCursoRef = useRef(false);
 
@@ -213,6 +214,18 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
           contents.window.getSelection()?.removeAllRanges();
         });
 
+        // "Toca para leer desde aquí": un clic simple (sin arrastrar, eso
+        // ya dispara "selected" arriba) en cualquier parte del texto hace
+        // que la voz empiece a leer desde ese punto exacto en vez de
+        // desde el inicio de la página.
+        rendition.on("rendered", (section, view) => {
+          if (cancelado || !view?.document) return;
+          view.document.addEventListener("click", (e) => {
+            if (view.document.getSelection()?.toString()?.trim()) return;
+            leerDesdeClickRef.current?.(view.document, e.clientX, e.clientY);
+          });
+        });
+
         rendition.on("relocated", (location) => {
           if (cancelado) return;
           sesionVozRef.current += 1;
@@ -293,17 +306,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     window.speechSynthesis.speak(utterance);
   };
 
-  const alternarVoz = () => {
-    if (leyendoEnVoz) {
-      detenerVoz();
-      return;
-    }
-    const contents = renditionRef.current?.getContents();
-    // getContents() puede devolver más de una vista si epub.js no limpió
-    // la anterior — la vista realmente visible suele ser la última, no la
-    // primera (que podría quedar de una página vieja/la introducción).
-    const contentActual = contents?.[contents.length - 1];
-    const texto = contentActual?.content?.textContent?.trim();
+  const iniciarLecturaDeTexto = (texto) => {
     if (!texto) return;
     sesionVozRef.current += 1;
     const sesionActual = sesionVozRef.current;
@@ -321,6 +324,48 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     setLeyendoEnVoz(true);
     hablarSiguienteFragmento(sesionActual);
   };
+
+  const alternarVoz = () => {
+    if (leyendoEnVoz) {
+      detenerVoz();
+      return;
+    }
+    const contents = renditionRef.current?.getContents();
+    // getContents() puede devolver más de una vista si epub.js no limpió
+    // la anterior — la vista realmente visible suele ser la última, no la
+    // primera (que podría quedar de una página vieja/la introducción).
+    const contentActual = contents?.[contents.length - 1];
+    const texto = contentActual?.content?.textContent?.trim();
+    iniciarLecturaDeTexto(texto);
+  };
+
+  // "Toca para leer desde aquí" — dado el punto exacto donde se tocó dentro
+  // del documento de la página, arma el texto desde ahí hasta el final de
+  // la página y empieza a leerlo.
+  const leerDesdeClick = (doc, x, y) => {
+    let range = null;
+    if (doc.caretRangeFromPoint) {
+      range = doc.caretRangeFromPoint(x, y);
+    } else if (doc.caretPositionFromPoint) {
+      const pos = doc.caretPositionFromPoint(x, y);
+      if (pos) {
+        range = doc.createRange();
+        range.setStart(pos.offsetNode, pos.offset);
+      }
+    }
+    if (!range) return;
+    const rangoHastaElFinal = doc.createRange();
+    rangoHastaElFinal.setStart(range.startContainer, range.startOffset);
+    rangoHastaElFinal.setEndAfter(doc.body);
+    const texto = rangoHastaElFinal.toString().trim();
+    iniciarLecturaDeTexto(texto);
+  };
+
+  useEffect(() => {
+    leerDesdeClickRef.current = leerDesdeClick;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  });
+
 
 
   const handleCambiarVoz = (voiceURI) => {
