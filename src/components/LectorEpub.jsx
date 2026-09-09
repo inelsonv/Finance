@@ -72,6 +72,8 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const indiceFragmentoVozRef = useRef(0);
   const sesionVozRef = useRef(0);
   const leerDesdeClickRef = useRef(null);
+  const elementoResaltadoRef = useRef(null);
+  const avanzandoAutomaticamenteRef = useRef(false);
   const dragStartRef = useRef(null);
   const dragEnCursoRef = useRef(false);
 
@@ -222,17 +224,20 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
           if (cancelado || !view?.document) return;
           view.document.addEventListener("click", (e) => {
             if (view.document.getSelection()?.toString()?.trim()) return;
-            leerDesdeClickRef.current?.(view.document, e.clientX, e.clientY);
+            leerDesdeClickRef.current?.(view.document, e.clientX, e.clientY, e.target);
           });
         });
 
         rendition.on("relocated", (location) => {
           if (cancelado) return;
-          sesionVozRef.current += 1;
-          window.speechSynthesis.cancel();
-          fragmentosVozRef.current = [];
-          indiceFragmentoVozRef.current = 0;
-          setLeyendoEnVoz(false);
+          if (!avanzandoAutomaticamenteRef.current) {
+            sesionVozRef.current += 1;
+            window.speechSynthesis.cancel();
+            fragmentosVozRef.current = [];
+            indiceFragmentoVozRef.current = 0;
+            elementoResaltadoRef.current = null;
+            setLeyendoEnVoz(false);
+          }
           let pct = null;
           if (location?.start?.percentage != null) {
             pct = Math.round(location.start.percentage * 100);
@@ -260,6 +265,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       window.speechSynthesis.cancel();
       fragmentosVozRef.current = [];
       indiceFragmentoVozRef.current = 0;
+      elementoResaltadoRef.current = null;
       if (guardarTimeoutRef.current) clearTimeout(guardarTimeoutRef.current);
       if (cfiActualRef.current && libroId) {
         updateLibro(libroId, { ultimaPosicion: cfiActualRef.current, progresoPct: progresoActualRef.current }).catch(() => {});
@@ -270,12 +276,89 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [epubUrl]);
 
+  const SELECTOR_PARRAFO = "p, li, h1, h2, h3, h4, h5, h6, blockquote";
+
+  const quitarResaltado = () => {
+    if (elementoResaltadoRef.current) {
+      elementoResaltadoRef.current.style.backgroundColor = "";
+      elementoResaltadoRef.current = null;
+    }
+  };
+
+  const resaltarElemento = (el) => {
+    if (elementoResaltadoRef.current && elementoResaltadoRef.current !== el) {
+      elementoResaltadoRef.current.style.backgroundColor = "";
+    }
+    if (el) {
+      el.style.transition = "background-color 0.15s";
+      el.style.backgroundColor = "rgba(245, 197, 24, 0.35)";
+      el.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    }
+    elementoResaltadoRef.current = el;
+  };
+
+  // Arma la lista de fragmentos a leer de una página, a nivel de párrafo
+  // (no de todo el texto junto) — cada fragmento recuerda a qué elemento
+  // del DOM pertenece, para poder resaltarlo mientras se lee. Los párrafos
+  // muy largos se dividen además por oración (por el límite de Chrome),
+  // pero conservan el mismo elemento para el resaltado.
+  const obtenerFragmentosDePagina = (doc) => {
+    const candidatos = Array.from(doc.querySelectorAll(SELECTOR_PARRAFO));
+    const fragmentos = [];
+    for (const el of candidatos) {
+      if (el.querySelector(SELECTOR_PARRAFO)) continue; // evita contenedores duplicados
+      const texto = el.textContent.trim();
+      if (!texto) continue;
+      const oraciones = (texto.match(/[^.!?\n]+[.!?\n]*/g) || [texto]).map((s) => s.trim()).filter(Boolean);
+      for (const oracion of oraciones) {
+        fragmentos.push({ texto: oracion, elemento: el });
+      }
+    }
+    return fragmentos;
+  };
+
   const detenerVoz = () => {
     sesionVozRef.current += 1;
+    avanzandoAutomaticamenteRef.current = false;
     window.speechSynthesis.cancel();
     fragmentosVozRef.current = [];
     indiceFragmentoVozRef.current = 0;
+    quitarResaltado();
     setLeyendoEnVoz(false);
+  };
+
+  // Cuando se termina de leer toda la página, avanza automáticamente a la
+  // siguiente y sigue leyendo desde su inicio — hasta que el usuario
+  // detenga la voz manualmente.
+  const avanzarPaginaYSeguirLeyendo = (sesion) => {
+    if (sesion !== sesionVozRef.current || !renditionRef.current) {
+      setLeyendoEnVoz(false);
+      return;
+    }
+    quitarResaltado();
+    avanzandoAutomaticamenteRef.current = true;
+    renditionRef.current
+      .next()
+      .then(() => {
+        setTimeout(() => {
+          avanzandoAutomaticamenteRef.current = false;
+          if (sesion !== sesionVozRef.current) return;
+          const contents = renditionRef.current?.getContents();
+          const contentActual = contents?.[contents.length - 1];
+          const nuevosFragmentos = contentActual?.document ? obtenerFragmentosDePagina(contentActual.document) : [];
+          if (nuevosFragmentos.length === 0) {
+            setLeyendoEnVoz(false);
+            return;
+          }
+          fragmentosVozRef.current = nuevosFragmentos;
+          indiceFragmentoVozRef.current = 0;
+          hablarSiguienteFragmento(sesion);
+        }, 300);
+      })
+      .catch(() => {
+        avanzandoAutomaticamenteRef.current = false;
+        setLeyendoEnVoz(false);
+      });
   };
 
   const hablarSiguienteFragmento = (sesion) => {
@@ -286,10 +369,12 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     const fragmentos = fragmentosVozRef.current;
     const i = indiceFragmentoVozRef.current;
     if (i >= fragmentos.length) {
-      setLeyendoEnVoz(false);
+      avanzarPaginaYSeguirLeyendo(sesion);
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(fragmentos[i]);
+    const frag = fragmentos[i];
+    resaltarElemento(frag.elemento);
+    const utterance = new SpeechSynthesisUtterance(frag.texto);
     utterance.lang = "es-ES";
     utterance.rate = velocidadVoz;
     const vozElegida = vocesDisponibles.find((v) => v.voiceURI === vozSeleccionada);
@@ -306,19 +391,11 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     window.speechSynthesis.speak(utterance);
   };
 
-  const iniciarLecturaDeTexto = (texto) => {
-    if (!texto) return;
+  const iniciarLecturaDeFragmentos = (fragmentos) => {
+    if (!fragmentos || fragmentos.length === 0) return;
     sesionVozRef.current += 1;
     const sesionActual = sesionVozRef.current;
     window.speechSynthesis.cancel();
-
-    // En vez de un solo texto larguísimo (que Chrome corta solo tras ~15
-    // segundos, un bug conocido), se divide en fragmentos cortos por
-    // oración y se leen uno tras otro — cada fragmento es una llamada
-    // nueva a speak(), evitando el límite de duración.
-    const fragmentos = (texto.match(/[^.!?\n]+[.!?\n]*/g) || [texto])
-      .map((f) => f.trim())
-      .filter(Boolean);
     fragmentosVozRef.current = fragmentos;
     indiceFragmentoVozRef.current = 0;
     setLeyendoEnVoz(true);
@@ -335,36 +412,25 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     // la anterior — la vista realmente visible suele ser la última, no la
     // primera (que podría quedar de una página vieja/la introducción).
     const contentActual = contents?.[contents.length - 1];
-    const texto = contentActual?.content?.textContent?.trim();
-    iniciarLecturaDeTexto(texto);
+    if (!contentActual?.document) return;
+    iniciarLecturaDeFragmentos(obtenerFragmentosDePagina(contentActual.document));
   };
 
-  // "Toca para leer desde aquí" — dado el punto exacto donde se tocó dentro
-  // del documento de la página, arma el texto desde ahí hasta el final de
-  // la página y empieza a leerlo.
-  const leerDesdeClick = (doc, x, y) => {
-    let range = null;
-    if (doc.caretRangeFromPoint) {
-      range = doc.caretRangeFromPoint(x, y);
-    } else if (doc.caretPositionFromPoint) {
-      const pos = doc.caretPositionFromPoint(x, y);
-      if (pos) {
-        range = doc.createRange();
-        range.setStart(pos.offsetNode, pos.offset);
-      }
-    }
-    if (!range) return;
-    const rangoHastaElFinal = doc.createRange();
-    rangoHastaElFinal.setStart(range.startContainer, range.startOffset);
-    rangoHastaElFinal.setEndAfter(doc.body);
-    const texto = rangoHastaElFinal.toString().trim();
-    iniciarLecturaDeTexto(texto);
+  // "Toca para leer desde aquí" — encuentra el párrafo que se tocó y
+  // empieza a leer desde ahí (en vez de desde el inicio de la página).
+  const leerDesdeClick = (doc, x, y, targetEl) => {
+    const fragmentos = obtenerFragmentosDePagina(doc);
+    if (fragmentos.length === 0) return;
+    const parrafoTocado = targetEl?.closest?.(SELECTOR_PARRAFO);
+    const indiceInicio = parrafoTocado ? fragmentos.findIndex((f) => f.elemento === parrafoTocado) : 0;
+    iniciarLecturaDeFragmentos(fragmentos.slice(indiceInicio > 0 ? indiceInicio : 0));
   };
 
   useEffect(() => {
     leerDesdeClickRef.current = leerDesdeClick;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });
+
 
 
 
