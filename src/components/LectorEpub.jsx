@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, List, Loader2, Palette, Highlighter, Trash2, Bookmark, Volume2, Pause } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, List, Loader2, Palette, Highlighter, Trash2, Bookmark, Volume2, Pause, Maximize, Minimize } from "lucide-react";
 import ePub from "epubjs";
 import { updateLibro, agregarMarcadorLibro, quitarMarcadorLibro } from "../lib/db";
 
@@ -36,6 +36,7 @@ function cargarFuenteGuardada() {
 // modal a pantalla completa sobre el resto de la interfaz.
 export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, marcadores, onClose }) {
   const viewerRef = useRef(null);
+  const contenedorRef = useRef(null);
   const bookRef = useRef(null);
   const renditionRef = useRef(null);
   const [cargando, setCargando] = useState(true);
@@ -54,6 +55,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const [tamanoFuente, setTamanoFuente] = useState(cargarFuenteGuardada);
   const [transicion, setTransicion] = useState(null);
   const [leyendoEnVoz, setLeyendoEnVoz] = useState(false);
+  const [pantallaCompleta, setPantallaCompleta] = useState(false);
   const utteranceRef = useRef(null);
   const dragStartRef = useRef(null);
   const dragEnCursoRef = useRef(false);
@@ -94,6 +96,12 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     });
     rendition.themes.select("personalizado");
   };
+
+  useEffect(() => {
+    const onFullscreenChange = () => setPantallaCompleta(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   useEffect(() => {
     if (!epubUrl || !viewerRef.current) return;
@@ -242,6 +250,14 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     setLeyendoEnVoz(true);
   };
 
+  const alternarPantallaCompleta = () => {
+    if (!document.fullscreenElement) {
+      contenedorRef.current?.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
+
   const irA = (href) => {
     renditionRef.current?.display(href);
     setMostrarIndice(false);
@@ -299,7 +315,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "var(--paper)", zIndex: 1100, display: "flex", flexDirection: "column" }}>
+    <div ref={contenedorRef} style={{ position: "fixed", inset: 0, background: "var(--paper)", zIndex: 1100, display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid var(--line)", background: "var(--card)" }}>
         <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titulo}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -339,6 +355,13 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
             style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
           >
             <List size={15} />
+          </button>
+          <button
+            onClick={alternarPantallaCompleta}
+            title={pantallaCompleta ? "Salir de pantalla completa" : "Pantalla completa"}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
+          >
+            {pantallaCompleta ? <Minimize size={15} /> : <Maximize size={15} />}
           </button>
           <button
             onClick={onClose}
