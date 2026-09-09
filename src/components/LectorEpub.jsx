@@ -259,8 +259,13 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       return;
     }
     const contents = renditionRef.current?.getContents();
+    console.log("[alternarVoz] cantidad de contents:", contents?.length, contents);
     const texto = contents?.[0]?.content?.textContent?.trim();
-    if (!texto) return;
+    console.log("[alternarVoz] texto extraído (primeros 200 caracteres):", texto?.slice(0, 200), "| longitud total:", texto?.length);
+    if (!texto) {
+      console.log("[alternarVoz] texto vacío, no se puede leer esta página.");
+      return;
+    }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(texto);
     utterance.lang = "es-ES";
