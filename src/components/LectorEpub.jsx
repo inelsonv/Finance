@@ -299,7 +299,11 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       return;
     }
     const contents = renditionRef.current?.getContents();
-    const texto = contents?.[0]?.content?.textContent?.trim();
+    // getContents() puede devolver más de una vista si epub.js no limpió
+    // la anterior — la vista realmente visible suele ser la última, no la
+    // primera (que podría quedar de una página vieja/la introducción).
+    const contentActual = contents?.[contents.length - 1];
+    const texto = contentActual?.content?.textContent?.trim();
     if (!texto) return;
     sesionVozRef.current += 1;
     const sesionActual = sesionVozRef.current;
@@ -352,6 +356,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
   const cambiarPagina = (direccion) => {
     if (!renditionRef.current) return;
+    detenerVoz();
     // "adelante" = pasar a la siguiente página (el contenido nuevo entra
     // desde la derecha, como pasar una hoja); "atras" = página anterior.
     setTransicion(direccion);
