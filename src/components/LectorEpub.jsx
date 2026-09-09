@@ -70,6 +70,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const utteranceRef = useRef(null);
   const fragmentosVozRef = useRef([]);
   const indiceFragmentoVozRef = useRef(0);
+  const sesionVozRef = useRef(0);
   const dragStartRef = useRef(null);
   const dragEnCursoRef = useRef(false);
 
@@ -214,6 +215,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
         rendition.on("relocated", (location) => {
           if (cancelado) return;
+          sesionVozRef.current += 1;
           window.speechSynthesis.cancel();
           fragmentosVozRef.current = [];
           indiceFragmentoVozRef.current = 0;
@@ -241,6 +243,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
     return () => {
       cancelado = true;
+      sesionVozRef.current += 1;
       window.speechSynthesis.cancel();
       fragmentosVozRef.current = [];
       indiceFragmentoVozRef.current = 0;
@@ -255,13 +258,18 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   }, [epubUrl]);
 
   const detenerVoz = () => {
+    sesionVozRef.current += 1;
     window.speechSynthesis.cancel();
     fragmentosVozRef.current = [];
     indiceFragmentoVozRef.current = 0;
     setLeyendoEnVoz(false);
   };
 
-  const hablarSiguienteFragmento = () => {
+  const hablarSiguienteFragmento = (sesion) => {
+    // Si cambió de página (u ocurrió otra cosa que incrementó la sesión)
+    // mientras este fragmento terminaba de hablar, no continúa — evita que
+    // una lectura vieja siga sonando después de cambiar de página.
+    if (sesion !== sesionVozRef.current) return;
     const fragmentos = fragmentosVozRef.current;
     const i = indiceFragmentoVozRef.current;
     if (i >= fragmentos.length) {
@@ -274,10 +282,13 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     const vozElegida = vocesDisponibles.find((v) => v.voiceURI === vozSeleccionada);
     if (vozElegida) utterance.voice = vozElegida;
     utterance.onend = () => {
+      if (sesion !== sesionVozRef.current) return;
       indiceFragmentoVozRef.current += 1;
-      hablarSiguienteFragmento();
+      hablarSiguienteFragmento(sesion);
     };
-    utterance.onerror = () => setLeyendoEnVoz(false);
+    utterance.onerror = () => {
+      if (sesion === sesionVozRef.current) setLeyendoEnVoz(false);
+    };
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
   };
@@ -290,6 +301,8 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     const contents = renditionRef.current?.getContents();
     const texto = contents?.[0]?.content?.textContent?.trim();
     if (!texto) return;
+    sesionVozRef.current += 1;
+    const sesionActual = sesionVozRef.current;
     window.speechSynthesis.cancel();
 
     // En vez de un solo texto larguísimo (que Chrome corta solo tras ~15
@@ -302,7 +315,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     fragmentosVozRef.current = fragmentos;
     indiceFragmentoVozRef.current = 0;
     setLeyendoEnVoz(true);
-    hablarSiguienteFragmento();
+    hablarSiguienteFragmento(sesionActual);
   };
 
 
