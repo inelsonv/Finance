@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, List, Loader2, Palette, Highlighter, Trash2, Bookmark, Volume2, Pause, Maximize, Minimize } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, List, Loader2, Palette, Highlighter, Trash2, Bookmark, Volume2, Pause, Maximize, Minimize, Settings2 } from "lucide-react";
 import ePub from "epubjs";
 import { updateLibro, agregarMarcadorLibro, quitarMarcadorLibro } from "../lib/db";
 
 const TEMA_KEY = "smart-finance-lector-tema";
 const BRILLO_KEY = "smart-finance-lector-brillo";
 const FUENTE_KEY = "smart-finance-lector-fuente";
+const VOZ_KEY = "smart-finance-lector-voz";
+const VELOCIDAD_VOZ_KEY = "smart-finance-lector-velocidad-voz";
 const PRESETS = [
   { nombre: "Claro", texto: "#1a1a1a", fondo: "#ffffff" },
   { nombre: "Oscuro", texto: "#e8e8e8", fondo: "#1a1a1a" },
@@ -32,6 +34,11 @@ function cargarFuenteGuardada() {
   return Number.isFinite(guardado) && guardado >= 70 && guardado <= 200 ? guardado : 100;
 }
 
+function cargarVelocidadVozGuardada() {
+  const guardado = Number(localStorage.getItem(VELOCIDAD_VOZ_KEY));
+  return Number.isFinite(guardado) && guardado >= 0.5 && guardado <= 2 ? guardado : 1;
+}
+
 // Lector de libros .epub dentro de la app, usando epub.js. Se abre como un
 // modal a pantalla completa sobre el resto de la interfaz.
 export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, marcadores, onClose }) {
@@ -56,6 +63,10 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const [transicion, setTransicion] = useState(null);
   const [leyendoEnVoz, setLeyendoEnVoz] = useState(false);
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
+  const [vocesDisponibles, setVocesDisponibles] = useState([]);
+  const [vozSeleccionada, setVozSeleccionada] = useState(() => localStorage.getItem(VOZ_KEY) || "");
+  const [velocidadVoz, setVelocidadVoz] = useState(cargarVelocidadVozGuardada);
+  const [mostrarPanelVoz, setMostrarPanelVoz] = useState(false);
   const utteranceRef = useRef(null);
   const dragStartRef = useRef(null);
   const dragEnCursoRef = useRef(false);
@@ -96,6 +107,16 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     });
     rendition.themes.select("personalizado");
   };
+
+  useEffect(() => {
+    const cargarVoces = () => {
+      const voces = window.speechSynthesis.getVoices();
+      if (voces.length > 0) setVocesDisponibles(voces);
+    };
+    cargarVoces();
+    window.speechSynthesis.addEventListener("voiceschanged", cargarVoces);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", cargarVoces);
+  }, []);
 
   useEffect(() => {
     const onFullscreenChange = () => setPantallaCompleta(!!document.fullscreenElement);
@@ -243,11 +264,32 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(texto);
     utterance.lang = "es-ES";
+    utterance.rate = velocidadVoz;
+    const vozElegida = vocesDisponibles.find((v) => v.voiceURI === vozSeleccionada);
+    if (vozElegida) utterance.voice = vozElegida;
     utterance.onend = () => setLeyendoEnVoz(false);
     utterance.onerror = () => setLeyendoEnVoz(false);
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
     setLeyendoEnVoz(true);
+  };
+
+  const handleCambiarVoz = (voiceURI) => {
+    setVozSeleccionada(voiceURI);
+    localStorage.setItem(VOZ_KEY, voiceURI);
+    if (leyendoEnVoz) {
+      detenerVoz();
+      setTimeout(alternarVoz, 150);
+    }
+  };
+
+  const handleCambiarVelocidadVoz = (valor) => {
+    setVelocidadVoz(valor);
+    localStorage.setItem(VELOCIDAD_VOZ_KEY, String(valor));
+    if (leyendoEnVoz) {
+      detenerVoz();
+      setTimeout(alternarVoz, 150);
+    }
   };
 
   const alternarPantallaCompleta = () => {
@@ -339,6 +381,13 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
             {leyendoEnVoz ? <Pause size={15} /> : <Volume2 size={15} />}
           </button>
           <button
+            onClick={() => setMostrarPanelVoz((s) => !s)}
+            title="Ajustes de voz"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
+          >
+            <Settings2 size={15} />
+          </button>
+          <button
             onClick={() => setMostrarMarcadores((s) => !s)}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
           >
@@ -426,6 +475,49 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
                 {c.label?.trim()}
               </button>
             ))}
+          </div>
+        )}
+
+        {mostrarPanelVoz && (
+          <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 260, maxWidth: "85%", background: "var(--card)", borderLeft: "1px solid var(--line)", overflowY: "auto", padding: 14 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12, color: "var(--ink-soft)" }}>Ajustes de voz</div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Voz</div>
+              <select
+                value={vozSeleccionada}
+                onChange={(e) => handleCambiarVoz(e.target.value)}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--paper)" }}
+              >
+                <option value="">Predeterminada del dispositivo</option>
+                {vocesDisponibles.map((v) => (
+                  <option key={v.voiceURI} value={v.voiceURI}>
+                    {v.name} ({v.lang})
+                  </option>
+                ))}
+              </select>
+              {vocesDisponibles.length === 0 && (
+                <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
+                  Cargando voces disponibles del dispositivo…
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Velocidad</span>
+                <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>{velocidadVoz.toFixed(2)}x</span>
+              </div>
+              <input
+                type="range"
+                min={0.5}
+                max={2}
+                step={0.1}
+                value={velocidadVoz}
+                onChange={(e) => handleCambiarVelocidadVoz(Number(e.target.value))}
+                style={{ width: "100%" }}
+              />
+            </div>
           </div>
         )}
 
