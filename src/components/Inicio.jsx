@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -384,6 +384,112 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// Coordenadas de Santiago de los Caballeros, República Dominicana.
+const LAT_CLIMA = 19.4517;
+const LON_CLIMA = -70.697;
+
+// Códigos de clima estándar (WMO) que usa Open-Meteo, agrupados a un
+// ícono y descripción en español.
+function interpretarCodigoClima(codigo) {
+  if (codigo === 0) return { icon: Sun, texto: "Despejado" };
+  if ([1, 2].includes(codigo)) return { icon: Sun, texto: "Parcialmente nublado" };
+  if (codigo === 3) return { icon: Cloud, texto: "Nublado" };
+  if ([45, 48].includes(codigo)) return { icon: CloudFog, texto: "Neblina" };
+  if ([51, 53, 55, 56, 57].includes(codigo)) return { icon: CloudRain, texto: "Llovizna" };
+  if ([61, 63, 65, 66, 67, 80, 81, 82].includes(codigo)) return { icon: CloudRain, texto: "Lluvia" };
+  if ([71, 73, 75, 77, 85, 86].includes(codigo)) return { icon: CloudSnow, texto: "Nieve" };
+  if ([95, 96, 99].includes(codigo)) return { icon: CloudLightning, texto: "Tormenta eléctrica" };
+  return { icon: Cloud, texto: "—" };
+}
+
+function ClimaCard() {
+  const [clima, setClima] = useState(null);
+  const [status, setStatus] = useState("loading"); // loading | ok | error
+
+  const fetchClima = async () => {
+    setStatus("loading");
+    try {
+      const res = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${LAT_CLIMA}&longitude=${LON_CLIMA}&current=temperature_2m,relative_humidity_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&timezone=auto`
+      );
+      if (!res.ok) throw new Error("Respuesta no válida");
+      const data = await res.json();
+      if (data?.current?.temperature_2m == null) throw new Error("Sin datos de clima");
+      setClima({
+        temp: data.current.temperature_2m,
+        humedad: data.current.relative_humidity_2m,
+        codigo: data.current.weather_code,
+        max: data.daily?.temperature_2m_max?.[0],
+        min: data.daily?.temperature_2m_min?.[0],
+      });
+      setStatus("ok");
+    } catch (err) {
+      setStatus("error");
+    }
+  };
+
+  useEffect(() => {
+    fetchClima();
+  }, []);
+
+  const info = clima ? interpretarCodigoClima(clima.codigo) : null;
+  const Icon = info?.icon || Cloud;
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon size={16} style={{ color: "var(--ink-soft)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Clima en Santiago</span>
+          </div>
+          <button
+            onClick={fetchClima}
+            title="Actualizar"
+            disabled={status === "loading"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 26,
+              height: 26,
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: status === "loading" ? "default" : "pointer",
+            }}
+          >
+            <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
+          </button>
+        </div>
+
+        {status === "error" ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
+            <AlertTriangle size={15} />
+            No se pudo obtener el clima ahora.
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+              <span className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--sage)" }}>
+                {clima?.temp != null ? Math.round(clima.temp) : "—"}°
+              </span>
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{info?.texto || "Cargando…"}</span>
+            </div>
+            {clima?.max != null && clima?.min != null && (
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 6 }}>
+                Máx. {Math.round(clima.max)}° · Mín. {Math.round(clima.min)}°
+                {clima.humedad != null && ` · Humedad ${Math.round(clima.humedad)}%`}
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -803,7 +909,7 @@ function StocksCard() {
   );
 }
 
-const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar"];
+const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar", "clima"];
 
 function SortableSection({ id, isFirst, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -1039,8 +1145,9 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   );
 
   const dolarContent = <DolarCard />;
+  const climaContent = <ClimaCard />;
 
-  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent };
+  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent, clima: climaContent };
 
   return (
     <div>
