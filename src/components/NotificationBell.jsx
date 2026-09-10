@@ -5,6 +5,7 @@ import { periodoDeFecha } from "../lib/rachaHabito";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { obtenerConsejoDelDia } from "../lib/consejosFinancieros";
+import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { diasRestantesProducto } from "../lib/inventario";
 
 const UMBRAL_DIAS = 7;
@@ -88,6 +89,54 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
+
+    // Nivel de endeudamiento: cuotas mensuales de deuda (préstamos + pago
+    // mínimo de tarjetas) ÷ ingreso neto mensual — la métrica estándar en
+    // finanzas personales (debt-to-income ratio). Según el nivel, se
+    // sugiere una recomendación concreta.
+    if (fuentesIngreso && (prestamos?.length || tarjetas?.length)) {
+      const ingresoNeto = ingresoMensualNeto(fuentesIngreso);
+      if (ingresoNeto > 0) {
+        let cuotasMensuales = 0;
+        for (const p of prestamos || []) {
+          if (p.estado !== "Activo") continue;
+          cuotasMensuales += Number(p.cuota) || 0;
+        }
+        for (const t of tarjetas || []) {
+          if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito") continue;
+          if (t.saldoActual > 0) cuotasMensuales += Number(t.pagoMinimo) || 0;
+          if (t.saldoActualUSD > 0) cuotasMensuales += (Number(t.pagoMinimoUSD) || 0) * (tipoCambio || 1);
+        }
+        const nivelEndeudamiento = cuotasMensuales / ingresoNeto;
+        let nivel = null;
+        if (nivelEndeudamiento >= 0.43) {
+          nivel = {
+            texto: "Nivel crítico",
+            recomendacion: "Tus cuotas de deuda superan el 43% de tu ingreso neto — evita adquirir deuda nueva y prioriza reducir la existente cuanto antes.",
+          };
+        } else if (nivelEndeudamiento >= 0.36) {
+          nivel = {
+            texto: "Nivel alto",
+            recomendacion: "Tus cuotas de deuda están entre 36-43% de tu ingreso neto — antes de un gasto grande nuevo, considera destinar ese dinero a pagar deuda.",
+          };
+        } else if (nivelEndeudamiento >= 0.2) {
+          nivel = {
+            texto: "Nivel moderado",
+            recomendacion: "Tus cuotas de deuda están entre 20-36% de tu ingreso neto — manejable, pero evita sumar más compromisos fijos por ahora.",
+          };
+        }
+        if (nivel) {
+          list.push({
+            id: `endeudamiento-${today.year}-${today.month}`,
+            icon: Gauge,
+            titulo: `Endeudamiento: ${nivel.texto} (${Math.round(nivelEndeudamiento * 100)}%)`,
+            subtitulo: nivel.recomendacion,
+            dias: 0,
+            tab: "estrategia-deudas",
+          });
+        }
+      }
+    }
 
     // Si hay una estrategia de pago de deudas activa (avalancha o bola de
     // nieve), calcula cuál es la deuda prioritaria según ese plan, para
