@@ -835,6 +835,7 @@ export default function App() {
             metasAhorro={metasAhorro}
             cuentas={cuentas}
             activos={activos}
+            onNavigate={setTab}
           />
         )}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}

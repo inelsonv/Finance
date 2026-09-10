@@ -27,6 +27,7 @@ export default function MapaProgreso({
   metasAhorro,
   cuentas,
   activos,
+  onNavigate,
 }) {
   const [mundoSeleccionado, setMundoSeleccionado] = useState(null);
 
@@ -54,6 +55,12 @@ export default function MapaProgreso({
 
   return (
     <div>
+      <style>{`
+        @keyframes despensa-mapa-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+      `}</style>
       <div style={{ marginBottom: 16 }}>
         <div className="despensa-tab-font" style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
           Mapa de progreso financiero
@@ -134,21 +141,33 @@ export default function MapaProgreso({
                 EMOJIS_MUNDO[i]
               )}
               {mundo.esActual && (
-                <span
+                <div
                   style={{
                     position: "absolute",
-                    top: -26,
+                    top: -40,
+                    left: "50%",
+                    transform: "translateX(-50%)",
                     display: "flex",
+                    flexDirection: "column",
                     alignItems: "center",
-                    gap: 2,
-                    fontSize: 9.5,
-                    fontWeight: 700,
-                    color: "var(--sage)",
                     whiteSpace: "nowrap",
                   }}
                 >
-                  <MapPin size={11} /> Estás aquí
-                </span>
+                  <span style={{ fontSize: 26, animation: "despensa-mapa-bounce 1.1s ease-in-out infinite" }}>🧑</span>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 2,
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      color: "var(--sage)",
+                      marginTop: -2,
+                    }}
+                  >
+                    <MapPin size={10} /> Estás aquí
+                  </span>
+                </div>
               )}
             </button>
           );
@@ -228,7 +247,7 @@ export default function MapaProgreso({
             </div>
 
             {mundoSeleccionado.niveles.map((nivel, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 0", borderBottom: "1px solid var(--line-soft)" }}>
                 <div
                   style={{
                     width: 22,
@@ -241,15 +260,32 @@ export default function MapaProgreso({
                     color: nivel.completo ? "var(--sage)" : "var(--ink-soft)",
                     border: `1px solid ${nivel.completo ? "var(--sage)" : "var(--line)"}`,
                     flexShrink: 0,
+                    marginTop: 1,
                   }}
                 >
                   {nivel.completo ? <Check size={12} /> : <span style={{ fontSize: 10 }}>{i + 1}</span>}
                 </div>
-                <span style={{ fontSize: 13, color: nivel.completo ? "var(--ink)" : "var(--ink-soft)" }}>{nivel.nombre}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: nivel.completo ? "var(--ink)" : "var(--ink-soft)", fontWeight: 500 }}>{nivel.nombre}</div>
+                  {!nivel.completo && nivel.accion && (
+                    <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 3, lineHeight: 1.5 }}>{nivel.accion}</div>
+                  )}
+                </div>
+                {!nivel.completo && nivel.tab && onNavigate && (
+                  <button
+                    onClick={() => {
+                      onNavigate(nivel.tab);
+                      setMundoSeleccionado(null);
+                    }}
+                    style={{ flexShrink: 0, padding: "5px 10px", fontSize: 11, fontWeight: 600, background: "var(--sage-bg)", color: "var(--sage)", border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    Ir ahora
+                  </button>
+                )}
               </div>
             ))}
 
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0 0", marginTop: 4 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 0 0", marginTop: 4 }}>
               <div
                 style={{
                   width: 24,
@@ -262,13 +298,30 @@ export default function MapaProgreso({
                   color: mundoSeleccionado.jefe.completo ? "var(--amber)" : "var(--ink-soft)",
                   border: `1px solid ${mundoSeleccionado.jefe.completo ? "var(--amber)" : "var(--line)"}`,
                   flexShrink: 0,
+                  marginTop: 1,
                 }}
               >
                 {mundoSeleccionado.jefe.completo ? <Check size={13} /> : <span style={{ fontSize: 11 }}>👑</span>}
               </div>
-              <span style={{ fontSize: 13.5, fontWeight: 700, color: mundoSeleccionado.jefe.completo ? "var(--ink)" : "var(--ink-soft)" }}>
-                {mundoSeleccionado.jefe.nombre}
-              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: mundoSeleccionado.jefe.completo ? "var(--ink)" : "var(--ink-soft)" }}>
+                  {mundoSeleccionado.jefe.nombre}
+                </div>
+                {!mundoSeleccionado.jefe.completo && mundoSeleccionado.jefe.accion && (
+                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 3, lineHeight: 1.5 }}>{mundoSeleccionado.jefe.accion}</div>
+                )}
+              </div>
+              {!mundoSeleccionado.jefe.completo && mundoSeleccionado.jefe.tab && onNavigate && (
+                <button
+                  onClick={() => {
+                    onNavigate(mundoSeleccionado.jefe.tab);
+                    setMundoSeleccionado(null);
+                  }}
+                  style={{ flexShrink: 0, padding: "5px 10px", fontSize: 11, fontWeight: 600, background: "var(--amber-bg)", color: "var(--amber)", border: "none", borderRadius: 8, cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  Ir ahora
+                </button>
+              )}
             </div>
           </div>
         </div>
