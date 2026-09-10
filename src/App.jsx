@@ -90,6 +90,7 @@ const TITLES = {
   seguros: "Seguros",
   renovaciones: "Renovaciones y Trámites",
   puntos: "Puntos",
+  asistente: "Asistente",
   "ordenes-compra": "Órdenes de compra",
   configuracion: "Configuración",
   "escanear-factura": "Registrar compra (factura)",
@@ -804,6 +805,19 @@ export default function App() {
             fuentesIngreso={fuentesIngreso}
             topesAjuste={topesAjuste}
             recompensas={recompensas}
+          />
+        )}
+        {tab === "asistente" && (
+          <Asistente
+            movimientos={movimientos}
+            presupuesto={presupuestoAnual}
+            presupuestoYear={presupuestoYear}
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            cuentas={cuentas}
+            fuentesIngreso={fuentesIngreso}
+            puntos={puntos}
+            diasCobro={diasCobro}
           />
         )}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}

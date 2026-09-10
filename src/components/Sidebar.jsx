@@ -89,6 +89,7 @@ const NAV_ITEMS = [
   { id: "wallet", label: "Wallet", icon: WalletIcon },
   { id: "biblioteca", label: "Biblioteca", icon: Library },
   { id: "habitos", label: "Salud", icon: HeartPulse },
+  { id: "asistente", label: "Asistente", icon: Sparkles },
 ];
 
 export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {

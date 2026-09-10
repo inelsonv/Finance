@@ -12,6 +12,7 @@ const OPCIONES = [
   { id: "wallet", label: "Wallet", icon: WalletCards },
   { id: "biblioteca", label: "Biblioteca", icon: Library },
   { id: "habitos", label: "Salud", icon: HeartPulse },
+  { id: "asistente", label: "Asistente", icon: Sparkles },
   { id: "configuracion", label: "Configuración", icon: Settings },
 ];
 
