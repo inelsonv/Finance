@@ -53,6 +53,7 @@ import Puntos from "./components/Puntos.jsx";
 import HabitTracker from "./components/HabitTracker.jsx";
 import Wallet from "./components/Wallet.jsx";
 import Asistente from "./components/Asistente.jsx";
+import MapaProgreso from "./components/MapaProgreso.jsx";
 import Biblioteca from "./components/Biblioteca.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import BottomNav from "./components/BottomNav.jsx";
@@ -91,6 +92,7 @@ const TITLES = {
   renovaciones: "Renovaciones y Trámites",
   puntos: "Puntos",
   asistente: "Asistente",
+  "mapa-progreso": "Mapa de progreso",
   "ordenes-compra": "Órdenes de compra",
   configuracion: "Configuración",
   "escanear-factura": "Registrar compra (factura)",
@@ -818,6 +820,21 @@ export default function App() {
             fuentesIngreso={fuentesIngreso}
             puntos={puntos}
             diasCobro={diasCobro}
+          />
+        )}
+        {tab === "mapa-progreso" && (
+          <MapaProgreso
+            fuentesIngreso={fuentesIngreso}
+            categoriasGasto={categoriasGasto}
+            movimientos={movimientos}
+            presupuesto={presupuestoAnual}
+            checklistTodos={checklistTodos}
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            estrategiaDeudas={estrategiaDeudas}
+            metasAhorro={metasAhorro}
+            cuentas={cuentas}
+            activos={activos}
           />
         )}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}

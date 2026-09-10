@@ -1,5 +1,5 @@
 import React from "react";
-import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Sparkles, Library } from "lucide-react";
+import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Sparkles, Library, Map as MapIcon } from "lucide-react";
 import { confirm } from "../lib/confirm";
 
 const OPCIONES = [
@@ -13,6 +13,7 @@ const OPCIONES = [
   { id: "biblioteca", label: "Biblioteca", icon: Library },
   { id: "habitos", label: "Salud", icon: HeartPulse },
   { id: "asistente", label: "Asistente", icon: Sparkles },
+  { id: "mapa-progreso", label: "Mapa de progreso", icon: MapIcon },
   { id: "configuracion", label: "Configuración", icon: Settings },
 ];
 

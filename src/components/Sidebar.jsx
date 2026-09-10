@@ -26,6 +26,7 @@ import {
   HeartPulse,
   Sparkles,
   Library,
+  Map as MapIcon,
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -90,6 +91,7 @@ const NAV_ITEMS = [
   { id: "biblioteca", label: "Biblioteca", icon: Library },
   { id: "habitos", label: "Salud", icon: HeartPulse },
   { id: "asistente", label: "Asistente", icon: Sparkles },
+  { id: "mapa-progreso", label: "Mapa de progreso", icon: MapIcon },
 ];
 
 export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {
