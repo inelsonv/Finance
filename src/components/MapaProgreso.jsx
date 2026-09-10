@@ -2,18 +2,22 @@ import React, { useMemo, useState } from "react";
 import { Lock, Check, MapPin, X } from "lucide-react";
 import { calcularMapaProgreso } from "../lib/mapaProgreso";
 
-// Posiciones (en % del ancho/alto del lienzo) de cada uno de los 6 mundos,
+// Posiciones (en % del ancho/alto del lienzo) de cada uno de los mundos,
 // en zigzag ascendente — igual que un mapa clásico de mundos de plataformas.
 const POSICIONES = [
-  { x: 18, y: 88 },
-  { x: 68, y: 74 },
-  { x: 22, y: 58 },
-  { x: 72, y: 42 },
-  { x: 24, y: 24 },
-  { x: 70, y: 8 },
+  { x: 18, y: 94 },
+  { x: 68, y: 84 },
+  { x: 22, y: 74 },
+  { x: 72, y: 64 },
+  { x: 24, y: 54 },
+  { x: 70, y: 44 },
+  { x: 20, y: 34 },
+  { x: 70, y: 24 },
+  { x: 24, y: 14 },
+  { x: 68, y: 5 },
 ];
 
-const EMOJIS_MUNDO = ["🌱", "🎯", "⚔️", "🛡️", "💳", "📈"];
+const EMOJIS_MUNDO = ["🌱", "🎯", "⚔️", "🛡️", "💳", "📈", "🏛️", "🧭", "🏗️", "🏆"];
 
 export default function MapaProgreso({
   fuentesIngreso,
@@ -27,6 +31,7 @@ export default function MapaProgreso({
   metasAhorro,
   cuentas,
   activos,
+  seguros,
   onNavigate,
 }) {
   const [mundoSeleccionado, setMundoSeleccionado] = useState(null);
@@ -45,8 +50,9 @@ export default function MapaProgreso({
         metasAhorro,
         cuentas,
         activos,
+        seguros,
       }),
-    [fuentesIngreso, categoriasGasto, movimientos, presupuesto, checklistTodos, prestamos, tarjetas, estrategiaDeudas, metasAhorro, cuentas, activos]
+    [fuentesIngreso, categoriasGasto, movimientos, presupuesto, checklistTodos, prestamos, tarjetas, estrategiaDeudas, metasAhorro, cuentas, activos, seguros]
   );
 
   const completados = mundos.filter((m) => m.completado).length;
@@ -74,7 +80,7 @@ export default function MapaProgreso({
         style={{
           position: "relative",
           width: "100%",
-          aspectRatio: "3 / 4",
+          aspectRatio: "3 / 6",
           maxWidth: 420,
           margin: "0 auto",
           background: "linear-gradient(180deg, var(--sage-bg) 0%, var(--card) 100%)",

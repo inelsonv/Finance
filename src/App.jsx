@@ -835,6 +835,7 @@ export default function App() {
             metasAhorro={metasAhorro}
             cuentas={cuentas}
             activos={activos}
+            seguros={seguros}
             onNavigate={setTab}
           />
         )}

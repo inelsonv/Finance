@@ -17,6 +17,7 @@ export function calcularMapaProgreso(datos) {
     metasAhorro = [],
     cuentas = [],
     activos = [],
+    seguros = [],
   } = datos;
 
   const racha = calcularRacha(checklistTodos);
@@ -110,7 +111,67 @@ export function calcularMapaProgreso(datos) {
         { nombre: "Registra tu primer activo", accion: "Ve a Activos y registra algo que poseas (vehículo, propiedad, etc.).", tab: "activos", completo: activos.length > 0 },
         { nombre: "Ten al menos 3 cuentas/activos registrados", accion: "Sigue registrando tus cuentas y activos.", tab: "activos", completo: cuentas.length + activos.length >= 3 },
       ],
-      jefe: { nombre: "Tu patrimonio neto es positivo", accion: "Sigue reduciendo deuda y/o aumentando tus activos hasta que tu patrimonio neto supere tu deuda.", tab: "activos", completo: patrimonioNeto > 0 && totalDeuda > 0 },
+      jefe: { nombre: "Tu patrimonio neto es positivo", accion: "Sigue reduciendo deuda y/o aumentando tus activos hasta que tu patrimonio neto supere tu deuda.", tab: "activos", completo: patrimonioNeto > 0 },
+    },
+    {
+      id: "protector-de-patrimonio",
+      nombre: "Protector de patrimonio",
+      niveles: [
+        { nombre: "Registra un seguro", accion: "Ve a Seguros y registra una póliza (vehículo, salud, vida, etc.).", tab: "seguros", completo: seguros.length > 0 },
+        { nombre: "Registra al menos 2 activos", accion: "Ve a Activos y registra otro bien que poseas.", tab: "activos", completo: activos.length >= 2 },
+        { nombre: "Registra al menos 2 seguros", accion: "Protege otro de tus activos importantes con una póliza.", tab: "seguros", completo: seguros.length >= 2 },
+      ],
+      jefe: {
+        nombre: "Ningún seguro vencido",
+        accion: "Renueva cualquier póliza que ya esté vencida.",
+        tab: "seguros",
+        completo: seguros.length > 0 && seguros.every((s) => !s.fechaVencimiento || new Date(s.fechaVencimiento) >= new Date()),
+      },
+    },
+    {
+      id: "diversificador",
+      nombre: "Diversificador",
+      niveles: [
+        { nombre: "Ten más de una fuente de ingreso", accion: "Ve a Ingresos y agrega una segunda fuente (freelance, negocio, etc.).", tab: "ingresos", completo: fuentesIngreso.length >= 2 },
+        { nombre: "Ten más de una cuenta bancaria", accion: "Ve a Cuentas y registra otra cuenta.", tab: "cuentas", completo: cuentas.length >= 2 },
+        { nombre: "Ten 5+ cuentas/activos en total", accion: "Sigue diversificando dónde tienes tu dinero.", tab: "activos", completo: cuentas.length + activos.length >= 5 },
+      ],
+      jefe: {
+        nombre: "Diversificación real: 2+ cuentas y 2+ activos",
+        accion: "Ten al menos 2 cuentas bancarias y 2 activos distintos a la vez.",
+        tab: "activos",
+        completo: cuentas.length >= 2 && activos.length >= 2,
+      },
+    },
+    {
+      id: "constructor-de-riqueza",
+      nombre: "Constructor de riqueza",
+      niveles: [
+        { nombre: "Patrimonio neto positivo", accion: "Ya lo lograste en Inversionista — sigue construyendo desde ahí.", tab: "activos", completo: patrimonioNeto > 0 },
+        { nombre: "Patrimonio ≥ 1 mes de ingreso", accion: "Sigue ahorrando/invirtiendo hasta que tu patrimonio cubra un mes de ingreso.", tab: "ahorro", completo: ingresoAprox > 0 && patrimonioNeto >= ingresoAprox },
+        { nombre: "Patrimonio ≥ 3 meses de ingreso", accion: "Un colchón de 3 meses es una base financiera sólida — sigue así.", tab: "ahorro", completo: ingresoAprox > 0 && patrimonioNeto >= ingresoAprox * 3 },
+      ],
+      jefe: {
+        nombre: "Patrimonio ≥ 6 meses de ingreso",
+        accion: "Alcanza un patrimonio neto equivalente a 6 meses de tu ingreso — un indicador fuerte de estabilidad financiera.",
+        tab: "ahorro",
+        completo: ingresoAprox > 0 && patrimonioNeto >= ingresoAprox * 6,
+      },
+    },
+    {
+      id: "maestro-financiero",
+      nombre: "Maestro financiero",
+      niveles: [
+        { nombre: "Endeudamiento saludable (<20%)", accion: "Mantén tu relación deuda/ingreso por debajo del 20%.", tab: "estrategia-deudas", completo: nivelEndeudamiento < 0.2 },
+        { nombre: "Racha de 8 quincenas", accion: "Sigue cumpliendo tu Checklist sin fallar ninguna quincena.", tab: "checklist-pagos", completo: racha >= 8 },
+        { nombre: "Meta de ahorro completada", accion: "Completa al menos una meta de ahorro al 100%.", tab: "ahorro", completo: mejorProgresoAhorro >= 100 },
+      ],
+      jefe: {
+        nombre: "Salud financiera considerable: todo estable a la vez",
+        accion: "Mantén endeudamiento saludable, racha de 8+ quincenas, y un patrimonio neto de 6+ meses de ingreso, todo al mismo tiempo — el reto definitivo.",
+        tab: "estrategia-deudas",
+        completo: nivelEndeudamiento < 0.2 && racha >= 8 && ingresoAprox > 0 && patrimonioNeto >= ingresoAprox * 6,
+      },
     },
   ];
 
