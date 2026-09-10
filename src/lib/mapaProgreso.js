@@ -55,6 +55,7 @@ export function calcularMapaProgreso(datos) {
   const mundos = [
     {
       id: "primeros-pasos",
+      puntos: 100,
       nombre: "Primeros pasos",
       niveles: [
         { nombre: "Configura tus ingresos", accion: "Ve a Ingresos y agrega tu fuente de ingreso principal.", tab: "ingresos", completo: fuentesIngreso.length > 0 },
@@ -65,6 +66,7 @@ export function calcularMapaProgreso(datos) {
     },
     {
       id: "cazador-de-gastos",
+      puntos: 150,
       nombre: "Cazador de gastos",
       niveles: [
         { nombre: "Cumple 1 quincena seguida", accion: "Ve al Checklist de pagos y marca todos los pagos de esta quincena.", tab: "checklist-pagos", completo: racha >= 1 },
@@ -75,6 +77,7 @@ export function calcularMapaProgreso(datos) {
     },
     {
       id: "guerrero-anti-deuda",
+      puntos: 300,
       nombre: "Guerrero anti-deuda",
       niveles: [
         { nombre: "Registra tu primer pago de deuda", accion: "Ve a Préstamos o al Checklist y registra un pago a una deuda.", tab: "prestamos", completo: pagosPrestamo.length > 0 },
@@ -85,6 +88,7 @@ export function calcularMapaProgreso(datos) {
     },
     {
       id: "escudo-de-emergencia",
+      puntos: 300,
       nombre: "Escudo de emergencia",
       niveles: [
         { nombre: "Crea tu primera meta de ahorro", accion: "Ve a Ahorro y crea una meta (ej. fondo de emergencia).", tab: "ahorro", completo: metasAhorro.length > 0 },
@@ -95,6 +99,7 @@ export function calcularMapaProgreso(datos) {
     },
     {
       id: "libre-de-deudas-malas",
+      puntos: 500,
       nombre: "Libre de deudas malas",
       niveles: [
         { nombre: "Baja tu endeudamiento de nivel crítico", accion: "Reduce tus cuotas de deuda o aumenta tu ingreso hasta bajar de 43%.", tab: "estrategia-deudas", completo: nivelEndeudamiento < 0.43 },
@@ -105,6 +110,7 @@ export function calcularMapaProgreso(datos) {
     },
     {
       id: "inversionista",
+      puntos: 400,
       nombre: "Inversionista",
       niveles: [
         { nombre: "Registra tu primera cuenta", accion: "Ve a Cuentas y registra tu cuenta bancaria.", tab: "cuentas", completo: cuentas.length > 0 },
@@ -115,6 +121,7 @@ export function calcularMapaProgreso(datos) {
     },
     {
       id: "protector-de-patrimonio",
+      puntos: 400,
       nombre: "Protector de patrimonio",
       niveles: [
         { nombre: "Registra un seguro", accion: "Ve a Seguros y registra una póliza (vehículo, salud, vida, etc.).", tab: "seguros", completo: seguros.length > 0 },
@@ -130,6 +137,7 @@ export function calcularMapaProgreso(datos) {
     },
     {
       id: "diversificador",
+      puntos: 450,
       nombre: "Diversificador",
       niveles: [
         { nombre: "Ten más de una fuente de ingreso", accion: "Ve a Ingresos y agrega una segunda fuente (freelance, negocio, etc.).", tab: "ingresos", completo: fuentesIngreso.length >= 2 },
@@ -145,6 +153,7 @@ export function calcularMapaProgreso(datos) {
     },
     {
       id: "constructor-de-riqueza",
+      puntos: 600,
       nombre: "Constructor de riqueza",
       niveles: [
         { nombre: "Patrimonio neto positivo", accion: "Ya lo lograste en Inversionista — sigue construyendo desde ahí.", tab: "activos", completo: patrimonioNeto > 0 },
@@ -160,6 +169,7 @@ export function calcularMapaProgreso(datos) {
     },
     {
       id: "maestro-financiero",
+      puntos: 1500,
       nombre: "Maestro financiero",
       niveles: [
         { nombre: "Endeudamiento saludable (<20%)", accion: "Mantén tu relación deuda/ingreso por debajo del 20%.", tab: "estrategia-deudas", completo: nivelEndeudamiento < 0.2 },

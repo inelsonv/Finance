@@ -2046,6 +2046,26 @@ export async function saveNotifConfig(email) {
 // Estrategia de pago de deudas activa (avalancha o bola de nieve) — se
 // guarda para poder mencionarla en las notificaciones cuando la deuda
 // prioritaria según ese plan esté atrasada.
+// Mundos del Mapa de progreso que ya fueron premiados con puntos, para no
+// volver a otorgarlos cada vez que se recalcula el mapa (que se completó
+// una vez, se queda completado).
+export function watchMundosPremiados(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "mapaProgreso"),
+    (snap) => onChange(snap.exists() ? snap.data()?.premiados || [] : []),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function premiarMundoCompletado(mundoId, puntos, nombreMundo) {
+  const ref = doc(db, "config", "mapaProgreso");
+  const snap = await getDoc(ref);
+  const yaPremiados = snap.exists() ? snap.data()?.premiados || [] : [];
+  if (yaPremiados.includes(mundoId)) return; // ya se otorgó antes, no duplicar
+  await otorgarPuntos(`¡Mundo completado! ${nombreMundo}`, puntos, "mapaProgreso");
+  await setDoc(ref, { premiados: arrayUnion(mundoId) }, { merge: true });
+}
+
 export function watchEstrategiaDeudas(onChange, onError) {
   return onSnapshot(
     doc(db, "config", "estrategiaDeudas"),

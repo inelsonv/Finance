@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Lock, Check, MapPin, X } from "lucide-react";
 import { calcularMapaProgreso } from "../lib/mapaProgreso";
+import { watchMundosPremiados, premiarMundoCompletado } from "../lib/db";
 
 // Posiciones (en % del ancho/alto del lienzo) de cada uno de los mundos,
 // en zigzag ascendente — igual que un mapa clásico de mundos de plataformas.
@@ -35,6 +36,7 @@ export default function MapaProgreso({
   onNavigate,
 }) {
   const [mundoSeleccionado, setMundoSeleccionado] = useState(null);
+  const [mundosPremiados, setMundosPremiados] = useState(null); // null = aún no cargado
 
   const mundos = useMemo(
     () =>
@@ -54,6 +56,24 @@ export default function MapaProgreso({
       }),
     [fuentesIngreso, categoriasGasto, movimientos, presupuesto, checklistTodos, prestamos, tarjetas, estrategiaDeudas, metasAhorro, cuentas, activos, seguros]
   );
+
+  useEffect(() => {
+    const unsub = watchMundosPremiados(setMundosPremiados, () => setMundosPremiados([]));
+    return () => unsub && unsub();
+  }, []);
+
+  // Cuando un mundo se completa por primera vez (y todavía no se le había
+  // otorgado el premio), le da una cantidad considerable de puntos —
+  // premiarMundoCompletado ya se encarga de no duplicar si ya se otorgó.
+  useEffect(() => {
+    if (mundosPremiados === null) return; // aún cargando, evita otorgar de más
+    for (const mundo of mundos) {
+      if (mundo.completado && !mundosPremiados.includes(mundo.id)) {
+        premiarMundoCompletado(mundo.id, mundo.puntos, mundo.nombre).catch(() => {});
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mundos, mundosPremiados]);
 
   const completados = mundos.filter((m) => m.completado).length;
 
@@ -204,6 +224,7 @@ export default function MapaProgreso({
               <div style={{ fontSize: 13, fontWeight: 600 }}>{mundo.nombre}</div>
               <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
                 {mundo.bloqueado ? "Bloqueado" : `${mundo.pasosCompletos}/${mundo.totalPasos} pasos`}
+                {!mundo.bloqueado && !mundo.completado && ` · ${mundo.puntos} pts al completar`}
               </div>
             </div>
             {mundo.completado && <Check size={16} style={{ color: "var(--amber)" }} />}
