@@ -367,6 +367,15 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
                           Prioridad
                         </span>
                       )}
+                      {d.esUSD && (
+                        <span
+                          className="despensa-tab-font"
+                          style={{ fontSize: 10, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: "var(--amber-bg)", color: "var(--amber)" }}
+                          title="Esta deuda está denominada en dólares, no en pesos"
+                        >
+                          Consumo en USD
+                        </span>
+                      )}
                     </div>
                     <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2 }}>
                       {d.subtitulo}
@@ -374,8 +383,15 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
                       {d.cuotaMinima != null && ` · mín. ${d.esUSD ? "US$" + d.cuotaMinima.toLocaleString("es", { minimumFractionDigits: 2 }) : formatMoney(d.cuotaMinima)}`}
                     </div>
                   </div>
-                  <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: esPrioridad ? "var(--sage)" : "var(--ink)", flexShrink: 0 }}>
-                    {d.esUSD ? "US$" + d.saldoOriginalUSD.toLocaleString("es", { minimumFractionDigits: 2 }) : formatMoney(d.saldo)}
+                  <div style={{ flexShrink: 0, textAlign: "right" }}>
+                    <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: esPrioridad ? "var(--sage)" : "var(--ink)" }}>
+                      {d.esUSD ? "US$" + d.saldoOriginalUSD.toLocaleString("es", { minimumFractionDigits: 2 }) : formatMoney(d.saldo)}
+                    </div>
+                    {d.esUSD && (
+                      <div className="despensa-mono" style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+                        ≈ {formatMoney(d.saldo)}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
