@@ -120,7 +120,7 @@ export default function MapaProgreso({
               key={mundo.id}
               onClick={() => !mundo.bloqueado && setMundoSeleccionado(mundo)}
               disabled={mundo.bloqueado}
-              title={mundo.nombre}
+              title={`${mundo.nombre} — ${mundo.puntos} pts`}
               style={{
                 position: "absolute",
                 left: `${pos.x}%`,
@@ -224,7 +224,7 @@ export default function MapaProgreso({
               <div style={{ fontSize: 13, fontWeight: 600 }}>{mundo.nombre}</div>
               <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
                 {mundo.bloqueado ? "Bloqueado" : `${mundo.pasosCompletos}/${mundo.totalPasos} pasos`}
-                {!mundo.bloqueado && !mundo.completado && ` · ${mundo.puntos} pts al completar`}
+                {!mundo.completado && ` · ${mundo.puntos} pts al completar`}
               </div>
             </div>
             {mundo.completado && <Check size={16} style={{ color: "var(--amber)" }} />}
