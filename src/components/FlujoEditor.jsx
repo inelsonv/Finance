@@ -689,7 +689,13 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     }
     if (pasos.length <= 1) return;
 
-    let saldoRestante = Number(nodoIngreso.data.amount) || 0;
+    // El monto del nodo Ingreso es mensual (ver ingresoSugerido más
+    // arriba), pero el pipeline se ejecuta para UNA quincena específica —
+    // se divide entre 2 para obtener el ingreso disponible en esa
+    // quincena en particular.
+    const ingresoMensualNodo = Number(nodoIngreso.data.amount) || 0;
+    const ingresoQuincenal = ingresoMensualNodo / 2;
+    let saldoRestante = ingresoQuincenal;
     const categoriasLimitadas = [];
 
     setEjecutando(true);
@@ -697,8 +703,9 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     for (const paso of pasos) {
       if (paso.esIngreso) {
         setPasoActivoEjecucion(paso.ids);
+        setPasoLimitado({ nombre: paso.nombre, informativo: true, disponible: ingresoQuincenal });
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         setPasoLimitado(null);
-        await new Promise((resolve) => setTimeout(resolve, 900));
         continue;
       }
 
@@ -819,7 +826,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     () =>
       nodes.map((n) => {
         const activoEjecucion = pasoActivoEjecucion?.includes(n.id) || false;
-        const limitadoEjecucion = activoEjecucion && !!pasoLimitado;
+        const limitadoEjecucion = activoEjecucion && !!pasoLimitado && !pasoLimitado.informativo;
         if (montosCalculados.has(n.id)) {
           return { ...n, data: { ...n.data, amount: montosCalculados.get(n.id), calculado: true, activoEjecucion, limitadoEjecucion } };
         }
@@ -1002,15 +1009,21 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
               padding: "8px 14px",
               fontSize: 12.5,
               fontWeight: 600,
-              background: "#d9432e",
+              background: pasoLimitado.informativo ? "var(--sage)" : "#d9432e",
               color: "#fff",
               borderRadius: 10,
               boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
               whiteSpace: "nowrap",
             }}
           >
-            ⚠ Flujo limitado en "{pasoLimitado.nombre}" — faltan {formatMoney(pasoLimitado.faltante)}{" "}
-            (solo quedaban {formatMoney(pasoLimitado.disponible)} disponibles)
+            {pasoLimitado.informativo ? (
+              <>💰 Ingreso disponible esta quincena: {formatMoney(pasoLimitado.disponible)} (mitad del ingreso mensual)</>
+            ) : (
+              <>
+                ⚠ Flujo limitado en "{pasoLimitado.nombre}" — faltan {formatMoney(pasoLimitado.faltante)}{" "}
+                (solo quedaban {formatMoney(pasoLimitado.disponible)} disponibles)
+              </>
+            )}
           </div>
         )}
         {selectedEdgeId && (
