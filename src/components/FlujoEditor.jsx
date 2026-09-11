@@ -126,13 +126,17 @@ function ActivityFlowNode({ data }) {
         gap: 10,
         background: color,
         color: "#fff",
-        border: data.advertencia ? "2px solid #e0a52e" : data.activoEjecucion ? "2px solid #f5c518" : `2px solid ${color}`,
+        border: data.advertencia ? "2px solid #e0a52e" : data.limitadoEjecucion ? "2px solid #d9432e" : data.activoEjecucion ? "2px solid #f5c518" : `2px solid ${color}`,
         borderRadius: 10,
         padding: "8px 12px",
         fontFamily: "Inter, sans-serif",
         width: 190,
         boxSizing: "border-box",
-        boxShadow: data.activoEjecucion ? "0 0 0 6px rgba(245, 197, 24, 0.35), 0 2px 8px rgba(0,0,0,0.25)" : "0 1px 4px rgba(0,0,0,0.15)",
+        boxShadow: data.limitadoEjecucion
+          ? "0 0 0 6px rgba(217, 67, 46, 0.35), 0 2px 8px rgba(0,0,0,0.25)"
+          : data.activoEjecucion
+            ? "0 0 0 6px rgba(245, 197, 24, 0.35), 0 2px 8px rgba(0,0,0,0.25)"
+            : "0 1px 4px rgba(0,0,0,0.15)",
         transform: data.activoEjecucion ? "scale(1.06)" : "scale(1)",
         transition: "box-shadow 0.3s ease, transform 0.3s ease, border 0.3s ease",
       }}
@@ -251,6 +255,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState(() => periodoActualConfigurado(diasCobro));
   const [ejecutando, setEjecutando] = useState(false);
   const [pasoActivoEjecucion, setPasoActivoEjecucion] = useState(null);
+  const [pasoLimitado, setPasoLimitado] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
 
   const edgesConSeleccion = useMemo(
@@ -656,10 +661,11 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
   // Animación del pipeline: recorre el diagrama en el orden de prioridad
   // real (Gastos fijos → Pago de deudas → Ahorro → Inversión), resaltando
   // cada nodo y sus conexiones entrantes por turno, como si el dinero
-  // fluyera visualmente por esa ruta.
+  // fluyera visualmente por esa ruta — y calcula, según lo presupuestado,
+  // en qué punto el flujo de efectivo se queda sin dinero disponible.
   const ejecutarPipeline = async () => {
     if (ejecutando) return;
-    const ORDEN_PASOS = ["gastos fijos", "pago de deudas", "deuda", "ahorro", "inversión", "inversion"];
+    const ORDEN_PASOS = ["gastos fijos", "pago de deudas", "ahorro", "inversión", "inversion"];
     const grupos = [];
     const yaUsados = new Set();
     for (const clave of ORDEN_PASOS) {
@@ -668,18 +674,30 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
       );
       if (coincidencias.length === 0) continue;
       coincidencias.forEach((n) => yaUsados.add(n.id));
-      grupos.push(coincidencias.map((n) => n.id));
+      // El nodo "principal" del grupo es el que coincide exactamente con la
+      // etiqueta del paso (no sus hijos/categorías individuales) — es el
+      // que tiene el monto total ya sumado, usado para el saldo restante.
+      const nodoPrincipal = coincidencias.find((n) => (n.data?.label || "").toLowerCase() === clave) || coincidencias[0];
+      grupos.push({ nombre: nodoPrincipal.data.label, ids: coincidencias.map((n) => n.id), monto: Number(nodoPrincipal.data.amount) || 0 });
     }
     if (grupos.length === 0) return;
 
+    const nodoIngreso = nodes.find((n) => n.data?.tipo === "ingreso");
+    let saldoRestante = Number(nodoIngreso?.data?.amount) || 0;
+
     setEjecutando(true);
-    for (const grupoIds of grupos) {
-      setPasoActivoEjecucion(grupoIds);
+    for (const grupo of grupos) {
+      const saldoAntes = saldoRestante;
+      saldoRestante -= grupo.monto;
+      const limitado = saldoAntes < grupo.monto;
+      setPasoActivoEjecucion(grupo.ids);
+      setPasoLimitado(limitado ? { nombre: grupo.nombre, faltante: grupo.monto - Math.max(saldoAntes, 0), disponible: Math.max(saldoAntes, 0) } : null);
       // eslint-disable-next-line no-loop-func
-      setEdges((eds) => eds.map((e) => ({ ...e, animated: grupoIds.includes(e.target) || grupoIds.includes(e.source) ? true : e.animated })));
-      await new Promise((resolve) => setTimeout(resolve, 1100));
+      setEdges((eds) => eds.map((e) => ({ ...e, animated: grupo.ids.includes(e.target) || grupo.ids.includes(e.source) ? true : e.animated })));
+      await new Promise((resolve) => setTimeout(resolve, limitado ? 1800 : 1100));
     }
     setPasoActivoEjecucion(null);
+    setPasoLimitado(null);
     setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
     setEjecutando(false);
   };
@@ -762,16 +780,17 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     () =>
       nodes.map((n) => {
         const activoEjecucion = pasoActivoEjecucion?.includes(n.id) || false;
+        const limitadoEjecucion = activoEjecucion && !!pasoLimitado;
         if (montosCalculados.has(n.id)) {
-          return { ...n, data: { ...n.data, amount: montosCalculados.get(n.id), calculado: true, activoEjecucion } };
+          return { ...n, data: { ...n.data, amount: montosCalculados.get(n.id), calculado: true, activoEjecucion, limitadoEjecucion } };
         }
         if (progresoPorNodo.has(n.id)) {
           const info = progresoPorNodo.get(n.id);
-          return { ...n, data: { ...n.data, progresoPct: info.pct, ...(info.monto != null ? { amount: info.monto } : {}), activoEjecucion } };
+          return { ...n, data: { ...n.data, progresoPct: info.pct, ...(info.monto != null ? { amount: info.monto } : {}), activoEjecucion, limitadoEjecucion } };
         }
-        return activoEjecucion ? { ...n, data: { ...n.data, activoEjecucion } } : n;
+        return activoEjecucion ? { ...n, data: { ...n.data, activoEjecucion, limitadoEjecucion } } : n;
       }),
-    [nodes, montosCalculados, progresoPorNodo, pasoActivoEjecucion]
+    [nodes, montosCalculados, progresoPorNodo, pasoActivoEjecucion, pasoLimitado]
   );
 
   const resumen = useMemo(() => {
@@ -930,6 +949,31 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
       </div>
 
       <div style={{ height: canvasAltura, transition: "height 0.25s ease", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)", position: "relative" }}>
+        {pasoLimitado && (
+          <div
+            style={{
+              position: "absolute",
+              top: 10,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 14px",
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: "#d9432e",
+              color: "#fff",
+              borderRadius: 10,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ⚠ Flujo limitado en "{pasoLimitado.nombre}" — faltan {formatMoney(pasoLimitado.faltante)}{" "}
+            (solo quedaban {formatMoney(pasoLimitado.disponible)} disponibles)
+          </div>
+        )}
         {selectedEdgeId && (
           <button
             onClick={() => {
