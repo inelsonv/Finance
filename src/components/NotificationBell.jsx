@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, Flame, ListTodo, Lightbulb, BookOpen, FileText } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, TrendingDown as TrendingDownIcon, Flame, ListTodo, Lightbulb, BookOpen, FileText } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { periodoDeFecha } from "../lib/rachaHabito";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
@@ -94,6 +94,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     // mínimo de tarjetas) ÷ ingreso neto mensual — la métrica estándar en
     // finanzas personales (debt-to-income ratio). Según el nivel, se
     // sugiere una recomendación concreta.
+    let nivelEndeudamientoCalculado = null;
     if (fuentesIngreso && (prestamos?.length || tarjetas?.length)) {
       const ingresoNeto = ingresoMensualNeto(fuentesIngreso);
       if (ingresoNeto > 0) {
@@ -108,6 +109,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
           if (t.saldoActualUSD > 0) cuotasMensuales += (Number(t.pagoMinimoUSD) || 0) * (tipoCambio || 1);
         }
         const nivelEndeudamiento = cuotasMensuales / ingresoNeto;
+        nivelEndeudamientoCalculado = nivelEndeudamiento;
         let nivel = null;
         if (nivelEndeudamiento >= 0.43) {
           nivel = {
@@ -135,6 +137,47 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
             tab: "estrategia-deudas",
           });
         }
+      }
+    }
+
+    // Flujo de caja negativo sostenido: revisa los últimos 3 meses
+    // COMPLETOS (sin contar el actual, que sigue en curso) y cuenta en
+    // cuántos de ellos gastaste más de lo que ingresó. Combinado con un
+    // endeudamiento alto, es de las señales más confiables de riesgo real
+    // de insolvencia.
+    if (movimientos && movimientos.length > 0) {
+      const mesesAnalizar = [];
+      for (let i = 1; i <= 3; i++) {
+        let m = today.month - i;
+        let y = today.year;
+        if (m <= 0) {
+          m += 12;
+          y -= 1;
+        }
+        mesesAnalizar.push(ymPrefix(y, m));
+      }
+      const mesesNegativos = mesesAnalizar.filter((prefijo) => {
+        const delMes = movimientos.filter((mv) => (mv.date || "").startsWith(prefijo));
+        if (delMes.length === 0) return false;
+        const ingresos = delMes.filter((mv) => mv.type === "Ingreso").reduce((s, mv) => s + (Number(mv.amount) || 0), 0);
+        const salidas = delMes.filter((mv) => mv.type !== "Ingreso").reduce((s, mv) => s + (Number(mv.amount) || 0), 0);
+        return ingresos > 0 && salidas > ingresos;
+      });
+
+      if (mesesNegativos.length >= 2) {
+        const esRiesgoAlto = nivelEndeudamientoCalculado != null && nivelEndeudamientoCalculado >= 0.36;
+        list.push({
+          id: `flujo-negativo-${today.year}-${today.month}`,
+          icon: esRiesgoAlto ? AlertCircle : TrendingDownIcon,
+          titulo: esRiesgoAlto
+            ? `⚠ Riesgo de insolvencia — flujo negativo + endeudamiento alto`
+            : `Gastaste más de lo que ganaste ${mesesNegativos.length} de los últimos 3 meses`,
+          subtitulo: esRiesgoAlto
+            ? "Gastas más de lo que ganas y tu deuda ya es alta — es momento de recortar gastos y buscar ingreso extra antes de que se vuelva insostenible."
+            : "Revisa en qué se está yendo el dinero — un mes malo pasa, pero un patrón sostenido es una señal a atender.",
+          dias: esRiesgoAlto ? -1 : 0,
+          tab: "movimientos",
+        });
       }
     }
 
