@@ -256,6 +256,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
   const [ejecutando, setEjecutando] = useState(false);
   const [pasoActivoEjecucion, setPasoActivoEjecucion] = useState(null);
   const [pasoLimitado, setPasoLimitado] = useState(null);
+  const [resumenLimitados, setResumenLimitados] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
 
   const edgesConSeleccion = useMemo(
@@ -658,49 +659,87 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     setDirty(true);
   };
 
-  // Animación del pipeline: recorre el diagrama en el orden de prioridad
-  // real (Gastos fijos → Pago de deudas → Ahorro → Inversión), resaltando
-  // cada nodo y sus conexiones entrantes por turno, como si el dinero
-  // fluyera visualmente por esa ruta — y calcula, según lo presupuestado,
-  // en qué punto el flujo de efectivo se queda sin dinero disponible.
+  // Ejecuta el diagrama como un pipeline de datos real: empieza en el nodo
+  // Ingreso (con su monto asociado), sigue por Diezmo, y continúa por cada
+  // categoría principal en su orden de prioridad — restando cada monto del
+  // saldo disponible. Si una categoría (o alguna de sus subcategorías) no
+  // alcanza a cubrirse por completo, queda marcada como limitada, y al
+  // terminar se muestra un resumen de todas las categorías afectadas.
   const ejecutarPipeline = async () => {
     if (ejecutando) return;
-    const ORDEN_PASOS = ["gastos fijos", "pago de deudas", "ahorro", "inversión", "inversion"];
-    const grupos = [];
-    const yaUsados = new Set();
-    for (const clave of ORDEN_PASOS) {
-      const coincidencias = nodes.filter(
-        (n) => !yaUsados.has(n.id) && (n.data?.label || "").toLowerCase().includes(clave)
-      );
-      if (coincidencias.length === 0) continue;
-      coincidencias.forEach((n) => yaUsados.add(n.id));
-      // El nodo "principal" del grupo es el que coincide exactamente con la
-      // etiqueta del paso (no sus hijos/categorías individuales) — es el
-      // que tiene el monto total ya sumado, usado para el saldo restante.
-      const nodoPrincipal = coincidencias.find((n) => (n.data?.label || "").toLowerCase() === clave) || coincidencias[0];
-      grupos.push({ nombre: nodoPrincipal.data.label, ids: coincidencias.map((n) => n.id), monto: Number(nodoPrincipal.data.amount) || 0 });
-    }
-    if (grupos.length === 0) return;
 
     const nodoIngreso = nodes.find((n) => n.data?.tipo === "ingreso");
-    let saldoRestante = Number(nodoIngreso?.data?.amount) || 0;
+    if (!nodoIngreso) return;
+
+    const hijosDe = (nodeId) => edges.filter((e) => e.source === nodeId).map((e) => nodes.find((n) => n.id === e.target)).filter(Boolean);
+
+    // Orden real del pipeline: Ingreso → Diezmo → Gastos fijos → Pago de
+    // deudas → Ahorro → Inversión (mismo orden en que el generador
+    // automático arma el diagrama).
+    const ETIQUETAS_PASO = ["diezmo", "gastos fijos", "pago de deudas", "ahorro", "inversión", "inversion"];
+    const pasos = [{ nombre: nodoIngreso.data.label, ids: [nodoIngreso.id], monto: 0, esIngreso: true }];
+    const yaUsados = new Set([nodoIngreso.id]);
+    for (const clave of ETIQUETAS_PASO) {
+      const nodoPrincipal = nodes.find((n) => !yaUsados.has(n.id) && (n.data?.label || "").toLowerCase() === clave);
+      if (!nodoPrincipal) continue;
+      yaUsados.add(nodoPrincipal.id);
+      const hijos = hijosDe(nodoPrincipal.id).filter((h) => !yaUsados.has(h.id) && h.data?.amount != null);
+      hijos.forEach((h) => yaUsados.add(h.id));
+      pasos.push({ nombre: nodoPrincipal.data.label, ids: [nodoPrincipal.id, ...hijos.map((h) => h.id)], monto: Number(nodoPrincipal.data.amount) || 0, hijos });
+    }
+    if (pasos.length <= 1) return;
+
+    let saldoRestante = Number(nodoIngreso.data.amount) || 0;
+    const categoriasLimitadas = [];
 
     setEjecutando(true);
-    for (const grupo of grupos) {
-      const saldoAntes = saldoRestante;
-      saldoRestante -= grupo.monto;
-      const limitado = saldoAntes < grupo.monto;
-      setPasoActivoEjecucion(grupo.ids);
-      setPasoLimitado(limitado ? { nombre: grupo.nombre, faltante: grupo.monto - Math.max(saldoAntes, 0), disponible: Math.max(saldoAntes, 0) } : null);
+    setResumenLimitados(null);
+    for (const paso of pasos) {
+      if (paso.esIngreso) {
+        setPasoActivoEjecucion(paso.ids);
+        setPasoLimitado(null);
+        await new Promise((resolve) => setTimeout(resolve, 900));
+        continue;
+      }
+
+      const saldoAntesDelPaso = saldoRestante;
+      saldoRestante -= paso.monto;
+      const limitado = saldoAntesDelPaso < paso.monto;
+
+      // Si el grupo completo no alcanza a cubrirse, revisa cuáles
+      // subcategorías específicas quedan sin cubrir, recorriéndolas en el
+      // mismo orden en que aparecen (las últimas son las que se quedan sin
+      // dinero primero, ya que las anteriores ya se alcanzaron a pagar).
+      if (limitado && paso.hijos?.length > 0) {
+        let disponibleParaHijos = Math.max(saldoAntesDelPaso, 0);
+        for (const hijo of paso.hijos) {
+          const montoHijo = Number(hijo.data.amount) || 0;
+          if (disponibleParaHijos < montoHijo) {
+            categoriasLimitadas.push({
+              nombre: hijo.data.label,
+              grupo: paso.nombre,
+              faltante: montoHijo - Math.max(disponibleParaHijos, 0),
+            });
+          }
+          disponibleParaHijos -= montoHijo;
+        }
+      } else if (limitado) {
+        categoriasLimitadas.push({ nombre: paso.nombre, grupo: null, faltante: paso.monto - Math.max(saldoAntesDelPaso, 0) });
+      }
+
+      setPasoActivoEjecucion(paso.ids);
+      setPasoLimitado(limitado ? { nombre: paso.nombre, faltante: paso.monto - Math.max(saldoAntesDelPaso, 0), disponible: Math.max(saldoAntesDelPaso, 0) } : null);
       // eslint-disable-next-line no-loop-func
-      setEdges((eds) => eds.map((e) => ({ ...e, animated: grupo.ids.includes(e.target) || grupo.ids.includes(e.source) ? true : e.animated })));
+      setEdges((eds) => eds.map((e) => ({ ...e, animated: paso.ids.includes(e.target) || paso.ids.includes(e.source) ? true : e.animated })));
       await new Promise((resolve) => setTimeout(resolve, limitado ? 1800 : 1100));
     }
     setPasoActivoEjecucion(null);
     setPasoLimitado(null);
     setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+    setResumenLimitados(categoriasLimitadas);
     setEjecutando(false);
   };
+
 
   const handleSave = async () => {
     setSaving(true);
@@ -1067,6 +1106,42 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
           <Controls position="top-right" />
                   </ReactFlow>
       </div>
+
+      {resumenLimitados && (
+        <div
+          style={{
+            marginTop: 10,
+            background: resumenLimitados.length > 0 ? "#fdeceb" : "var(--sage-bg)",
+            border: `1px solid ${resumenLimitados.length > 0 ? "#d9432e" : "var(--sage)"}`,
+            borderRadius: 10,
+            padding: "12px 14px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: resumenLimitados.length > 0 ? 8 : 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: resumenLimitados.length > 0 ? "#a23e2e" : "var(--sage)" }}>
+              {resumenLimitados.length > 0
+                ? `⚠ ${resumenLimitados.length} categoría${resumenLimitados.length !== 1 ? "s" : ""} limitada${resumenLimitados.length !== 1 ? "s" : ""} de ingreso`
+                : "✓ Tu ingreso alcanza para cubrir todas las categorías del pipeline"}
+            </span>
+            <button
+              onClick={() => setResumenLimitados(null)}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              <X size={13} />
+            </button>
+          </div>
+          {resumenLimitados.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {resumenLimitados.map((c, i) => (
+                <div key={i} style={{ fontSize: 12, color: "var(--ink)" }}>
+                  • <strong>{c.nombre}</strong>
+                  {c.grupo ? ` (dentro de ${c.grupo})` : ""} — faltan {formatMoney(c.faltante)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
         <div style={{ display: "flex", borderBottom: "1px solid var(--line)" }}>
