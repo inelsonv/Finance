@@ -126,13 +126,15 @@ function ActivityFlowNode({ data }) {
         gap: 10,
         background: color,
         color: "#fff",
-        border: data.advertencia ? "2px solid #e0a52e" : `2px solid ${color}`,
+        border: data.advertencia ? "2px solid #e0a52e" : data.activoEjecucion ? "2px solid #f5c518" : `2px solid ${color}`,
         borderRadius: 10,
         padding: "8px 12px",
         fontFamily: "Inter, sans-serif",
         width: 190,
         boxSizing: "border-box",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+        boxShadow: data.activoEjecucion ? "0 0 0 6px rgba(245, 197, 24, 0.35), 0 2px 8px rgba(0,0,0,0.25)" : "0 1px 4px rgba(0,0,0,0.15)",
+        transform: data.activoEjecucion ? "scale(1.06)" : "scale(1)",
+        transition: "box-shadow 0.3s ease, transform 0.3s ease, border 0.3s ease",
       }}
     >
       <Handle type="target" position={Position.Top} style={{ background: "#fff", border: `2px solid ${color}` }} />
@@ -246,6 +248,9 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState(() => periodoActualConfigurado(diasCobro));
+  const [ejecutando, setEjecutando] = useState(false);
+  const [pasoActivoEjecucion, setPasoActivoEjecucion] = useState(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
 
   const edgesConSeleccion = useMemo(
@@ -569,7 +574,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
 
     // Quincena actual, para traer los montos presupuestados reales de cada
     // categoría (mismos datos que ves en Presupuesto mensual).
-    const periodoActualParaCascada = periodoActualConfigurado(diasCobro);
+    const periodoActualParaCascada = periodoSeleccionado;
     const montoPresupuestado = (nombreCategoria) =>
       Number(presupuesto?.[nombreCategoria]?.[String(periodoActualParaCascada.month)]?.[periodoActualParaCascada.quincena]) || 0;
 
@@ -646,6 +651,37 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     setEdges(nuevasAristas);
     setColorIndex(colorIdx);
     setDirty(true);
+  };
+
+  // Animación del pipeline: recorre el diagrama en el orden de prioridad
+  // real (Gastos fijos → Pago de deudas → Ahorro → Inversión), resaltando
+  // cada nodo y sus conexiones entrantes por turno, como si el dinero
+  // fluyera visualmente por esa ruta.
+  const ejecutarPipeline = async () => {
+    if (ejecutando) return;
+    const ORDEN_PASOS = ["gastos fijos", "pago de deudas", "deuda", "ahorro", "inversión", "inversion"];
+    const grupos = [];
+    const yaUsados = new Set();
+    for (const clave of ORDEN_PASOS) {
+      const coincidencias = nodes.filter(
+        (n) => !yaUsados.has(n.id) && (n.data?.label || "").toLowerCase().includes(clave)
+      );
+      if (coincidencias.length === 0) continue;
+      coincidencias.forEach((n) => yaUsados.add(n.id));
+      grupos.push(coincidencias.map((n) => n.id));
+    }
+    if (grupos.length === 0) return;
+
+    setEjecutando(true);
+    for (const grupoIds of grupos) {
+      setPasoActivoEjecucion(grupoIds);
+      // eslint-disable-next-line no-loop-func
+      setEdges((eds) => eds.map((e) => ({ ...e, animated: grupoIds.includes(e.target) || grupoIds.includes(e.source) ? true : e.animated })));
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+    }
+    setPasoActivoEjecucion(null);
+    setEdges((eds) => eds.map((e) => ({ ...e, animated: false })));
+    setEjecutando(false);
   };
 
   const handleSave = async () => {
@@ -725,16 +761,17 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
   const nodesParaRender = useMemo(
     () =>
       nodes.map((n) => {
+        const activoEjecucion = pasoActivoEjecucion?.includes(n.id) || false;
         if (montosCalculados.has(n.id)) {
-          return { ...n, data: { ...n.data, amount: montosCalculados.get(n.id), calculado: true } };
+          return { ...n, data: { ...n.data, amount: montosCalculados.get(n.id), calculado: true, activoEjecucion } };
         }
         if (progresoPorNodo.has(n.id)) {
           const info = progresoPorNodo.get(n.id);
-          return { ...n, data: { ...n.data, progresoPct: info.pct, ...(info.monto != null ? { amount: info.monto } : {}) } };
+          return { ...n, data: { ...n.data, progresoPct: info.pct, ...(info.monto != null ? { amount: info.monto } : {}), activoEjecucion } };
         }
-        return n;
+        return activoEjecucion ? { ...n, data: { ...n.data, activoEjecucion } } : n;
       }),
-    [nodes, montosCalculados, progresoPorNodo]
+    [nodes, montosCalculados, progresoPorNodo, pasoActivoEjecucion]
   );
 
   const resumen = useMemo(() => {
@@ -802,6 +839,41 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
           </button>
           <button onClick={generarPlantillaCompleta} style={btnStyle("var(--sage-bg)", "var(--sage)", false, false)}>
             <ListOrdered size={14} /> Generar cascada de prioridad
+          </button>
+        </div>
+
+        <div style={{ width: 1, alignSelf: "stretch", background: "var(--line)" }} />
+
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <select
+            value={periodoSeleccionado.month}
+            onChange={(e) => setPeriodoSeleccionado({ ...periodoSeleccionado, month: Number(e.target.value) })}
+            style={{ padding: "7px 8px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12, background: "var(--card)" }}
+          >
+            {["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].map((nombre, i) => (
+              <option key={nombre} value={i + 1}>{nombre}</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            value={periodoSeleccionado.year}
+            onChange={(e) => setPeriodoSeleccionado({ ...periodoSeleccionado, year: Number(e.target.value) || periodoSeleccionado.year })}
+            style={{ width: 64, padding: "7px 8px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12 }}
+          />
+          <select
+            value={periodoSeleccionado.quincena}
+            onChange={(e) => setPeriodoSeleccionado({ ...periodoSeleccionado, quincena: e.target.value })}
+            style={{ padding: "7px 8px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12, background: "var(--card)" }}
+          >
+            <option value="Q1">Q1</option>
+            <option value="Q2">Q2</option>
+          </select>
+          <button
+            onClick={ejecutarPipeline}
+            disabled={ejecutando}
+            style={btnStyle(ejecutando ? "var(--line)" : "var(--sage)", "#fff", ejecutando)}
+          >
+            <TrendingUp size={14} /> {ejecutando ? "Ejecutando…" : "Ejecutar"}
           </button>
         </div>
 
