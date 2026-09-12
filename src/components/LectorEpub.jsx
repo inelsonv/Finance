@@ -318,9 +318,12 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     return fragmentos;
   };
 
+  const pausadoRef = useRef(false);
+
   const detenerVoz = () => {
     sesionVozRef.current += 1;
     avanzandoAutomaticamenteRef.current = false;
+    pausadoRef.current = false;
     window.speechSynthesis.cancel();
     fragmentosVozRef.current = [];
     indiceFragmentoVozRef.current = 0;
@@ -418,7 +421,18 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
   const alternarVoz = () => {
     if (leyendoEnVoz) {
-      detenerVoz();
+      // Pausa de verdad (no detiene del todo) — usa pause() del navegador
+      // para poder retomar exactamente a mitad de la oración donde quedó,
+      // no solo desde el inicio del párrafo.
+      pausadoRef.current = true;
+      window.speechSynthesis.pause();
+      setLeyendoEnVoz(false);
+      return;
+    }
+    if (pausadoRef.current) {
+      pausadoRef.current = false;
+      window.speechSynthesis.resume();
+      setLeyendoEnVoz(true);
       return;
     }
     const contents = renditionRef.current?.getContents();
