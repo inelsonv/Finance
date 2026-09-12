@@ -5,7 +5,7 @@ import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchM
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
-import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas, watchEstrategiaDeudas, watchTipoCambioCache } from "./lib/db";
+import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas, watchEstrategiaDeudas, watchTipoCambioCache, demoteOtrosLeyendo, updateLibro } from "./lib/db";
 import { periodoDeFecha } from "./lib/rachaHabito";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
@@ -55,6 +55,7 @@ import Wallet from "./components/Wallet.jsx";
 import Asistente from "./components/Asistente.jsx";
 import MapaProgreso from "./components/MapaProgreso.jsx";
 import Biblioteca from "./components/Biblioteca.jsx";
+import LectorEpub from "./components/LectorEpub.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import NotificacionesPage from "./components/NotificacionesPage.jsx";
@@ -181,6 +182,7 @@ export default function App() {
   const [habitosRegistro, setHabitosRegistro] = useState([]);
   const [datosCorporales, setDatosCorporales] = useState(null);
   const [libros, setLibros] = useState([]);
+  const [libroLeyendo, setLibroLeyendo] = useState(null);
   const [habitosPenalizaciones, setHabitosPenalizaciones] = useState([]);
   const [versiculoHoy, setVersiculoHoy] = useState(null);
   const [cofresGanados, setCofresGanados] = useState([]);
@@ -233,6 +235,21 @@ export default function App() {
     }, 200);
     return () => clearTimeout(timer);
   }, [highlightId, tab]);
+
+  const handleAbrirLectura = async (l) => {
+    setLibroLeyendo(l);
+    if (l.estado !== "Leyendo") {
+      try {
+        await demoteOtrosLeyendo(l.id);
+        await updateLibro(l.id, { estado: "Leyendo" });
+      } catch (err) {
+        // Si falla el cambio de estado, igual se deja abrir el libro para
+        // leer — no bloquea la lectura por esto.
+      }
+    }
+  };
+
+  const handleCerrarLectura = () => setLibroLeyendo(null);
 
   const handleNavigate = (tabId, periodoObjetivo) => {
     if (tabId === "consejo-modal") {
@@ -841,7 +858,7 @@ export default function App() {
         )}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}
         {tab === "wallet" && <Wallet tarjetas={tarjetas} membresias={membresias} onNavigate={setTab} />}
-        {tab === "biblioteca" && <Biblioteca libros={libros} />}
+        {tab === "biblioteca" && <Biblioteca libros={libros} libroLeyendo={libroLeyendo} onAbrirLectura={handleAbrirLectura} onCerrarLectura={handleCerrarLectura} />}
         {tab === "compras" && (
           <Compras
             products={products}
@@ -928,6 +945,7 @@ export default function App() {
             ahorroConfig={ahorroAutoConfig}
             diasCobro={diasCobro}
             puntosHistorial={puntosHistorial}
+            entidades={entidades}
           />
         )}
         {tab === "presupuesto-flujo" && (
@@ -942,6 +960,7 @@ export default function App() {
             presupuesto={presupuestoAnual}
             diasCobro={diasCobro}
             cuentas={cuentas}
+            estrategiaDeudas={estrategiaDeudas}
           />
         )}
         {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
@@ -1203,6 +1222,17 @@ export default function App() {
             </button>
           </div>
         </div>
+      )}
+
+      {libroLeyendo && (
+        <LectorEpub
+          epubUrl={libroLeyendo.epubUrl}
+          titulo={libroLeyendo.titulo}
+          libroId={libroLeyendo.id}
+          ultimaPosicion={libroLeyendo.ultimaPosicion}
+          marcadores={libroLeyendo.marcadores}
+          onClose={handleCerrarLectura}
+        />
       )}
     </div>
   );

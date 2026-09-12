@@ -113,6 +113,13 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
     return { saldoTotal, cuotaTotal };
   }, [deudas, tipoCambio]);
 
+  // La deuda con la tasa de interés más alta — se resalta con color de
+  // advertencia porque es la que más "sangra" en intereses con el tiempo.
+  const mayorTasaInteres = useMemo(() => {
+    const tasas = deudas.map((d) => d.tasaInteres).filter((t) => t != null);
+    return tasas.length > 0 ? Math.max(...tasas) : null;
+  }, [deudas]);
+
   // Cuánto dinero "extra" queda disponible esta quincena, después de tu
   // ingreso esperado menos todo lo presupuestado (gastos fijos/variables +
   // cuotas de préstamo) y los pagos mínimos de tarjeta — esa es la parte que
@@ -324,6 +331,7 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
             {deudas.map((d, i) => {
               const Icon = d.icon;
               const esPrioridad = i === 0;
+              const esMayorInteres = mayorTasaInteres != null && d.tasaInteres === mayorTasaInteres && d.tasaInteres > 0;
               return (
                 <div
                   key={d.id}
@@ -332,7 +340,7 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
                     alignItems: "center",
                     gap: 12,
                     background: "var(--card)",
-                    border: esPrioridad ? "2px solid var(--sage)" : "1px solid var(--line)",
+                    border: esPrioridad ? "2px solid var(--amber)" : "1px solid var(--line)",
                     borderRadius: 10,
                     padding: "12px 14px",
                   }}
@@ -343,7 +351,7 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
                       width: 26,
                       height: 26,
                       borderRadius: "50%",
-                      background: esPrioridad ? "var(--sage)" : "var(--line-soft)",
+                      background: esPrioridad ? "var(--amber)" : "var(--line-soft)",
                       color: esPrioridad ? "#fff" : "var(--ink-soft)",
                       display: "flex",
                       alignItems: "center",
@@ -362,7 +370,7 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
                       {esPrioridad && (
                         <span
                           className="despensa-tab-font"
-                          style={{ fontSize: 10, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: "var(--sage-bg)", color: "var(--sage)" }}
+                          style={{ fontSize: 10, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: "var(--amber-bg)", color: "var(--amber)" }}
                         >
                           Prioridad
                         </span>
@@ -370,10 +378,19 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
                       {d.esUSD && (
                         <span
                           className="despensa-tab-font"
-                          style={{ fontSize: 10, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: "var(--amber-bg)", color: "var(--amber)" }}
+                          style={{ fontSize: 10, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: "var(--blue-bg)", color: "var(--blue)" }}
                           title="Esta deuda está denominada en dólares, no en pesos"
                         >
                           Consumo en USD
+                        </span>
+                      )}
+                      {esMayorInteres && (
+                        <span
+                          className="despensa-tab-font"
+                          style={{ fontSize: 10, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: "var(--stamp-bg)", color: "var(--stamp)" }}
+                          title="La tasa de interés más alta entre todas tus deudas — es la que más te cuesta con el tiempo"
+                        >
+                          ⚠ Mayor interés
                         </span>
                       )}
                     </div>
@@ -384,7 +401,7 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
                     </div>
                   </div>
                   <div style={{ flexShrink: 0, textAlign: "right" }}>
-                    <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: esPrioridad ? "var(--sage)" : "var(--ink)" }}>
+                    <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: esPrioridad ? "var(--amber)" : "var(--ink)" }}>
                       {d.esUSD ? "US$" + d.saldoOriginalUSD.toLocaleString("es", { minimumFractionDigits: 2 }) : formatMoney(d.saldo)}
                     </div>
                     {d.esUSD && (

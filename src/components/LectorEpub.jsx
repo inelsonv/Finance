@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { X, ChevronLeft, ChevronRight, List, Loader2, Palette, Highlighter, Trash2, Bookmark, Volume2, Pause, Maximize, Minimize, Settings2 } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, ChevronDown, List, Loader2, Palette, Highlighter, Trash2, Bookmark, Volume2, Pause, Maximize, Minimize, Settings2 } from "lucide-react";
 import ePub from "epubjs";
 import { updateLibro, agregarMarcadorLibro, quitarMarcadorLibro } from "../lib/db";
 
@@ -67,6 +67,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const [vozSeleccionada, setVozSeleccionada] = useState(() => localStorage.getItem(VOZ_KEY) || "");
   const [velocidadVoz, setVelocidadVoz] = useState(cargarVelocidadVozGuardada);
   const [mostrarPanelVoz, setMostrarPanelVoz] = useState(false);
+  const [minimizado, setMinimizado] = useState(false);
   const utteranceRef = useRef(null);
   const fragmentosVozRef = useRef([]);
   const indiceFragmentoVozRef = useRef(0);
@@ -518,7 +519,57 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   };
 
   return (
-    <div ref={contenedorRef} style={{ position: "fixed", inset: 0, background: "var(--paper)", zIndex: 1100, display: "flex", flexDirection: "column" }}>
+    <div
+      ref={contenedorRef}
+      style={
+        minimizado
+          ? { position: "fixed", bottom: 16, right: 16, width: 280, height: 64, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 14, zIndex: 1100, boxShadow: "0 6px 24px rgba(0,0,0,0.25)", overflow: "hidden" }
+          : { position: "fixed", inset: 0, background: "var(--paper)", zIndex: 1100, display: "flex", flexDirection: "column" }
+      }
+    >
+      {minimizado && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "0 12px",
+            background: "var(--card)",
+            zIndex: 1,
+          }}
+        >
+          <button
+            onClick={alternarVoz}
+            title={leyendoEnVoz ? "Pausar" : "Reanudar"}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: "50%", background: "var(--sage)", color: "#fff", border: "none", cursor: "pointer", flexShrink: 0 }}
+          >
+            {leyendoEnVoz ? <Pause size={16} /> : <Volume2 size={16} />}
+          </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titulo}</div>
+            <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>{leyendoEnVoz ? "Leyendo en voz alta…" : "En pausa"} · {progreso}%</div>
+          </div>
+          <button
+            onClick={() => setMinimizado(false)}
+            title="Expandir"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer", flexShrink: 0 }}
+          >
+            <Maximize size={13} />
+          </button>
+          <button
+            onClick={() => {
+              detenerVoz();
+              onClose();
+            }}
+            title="Cerrar"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer", flexShrink: 0 }}
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid var(--line)", background: "var(--card)" }}>
         <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titulo}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -572,6 +623,13 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
             style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
           >
             {pantallaCompleta ? <Minimize size={15} /> : <Maximize size={15} />}
+          </button>
+          <button
+            onClick={() => setMinimizado(true)}
+            title="Minimizar (seguir escuchando en segundo plano)"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer" }}
+          >
+            <ChevronDown size={15} />
           </button>
           <button
             onClick={onClose}

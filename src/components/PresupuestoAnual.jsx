@@ -108,7 +108,7 @@ function totalItemsOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones, flujo, diasCobro, puntosHistorial }) {
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones, flujo, diasCobro, puntosHistorial, entidades = [] }) {
   // Puramente informativo: el orden de prioridad definido en el Editor de
   // flujo, mostrado como referencia visual. No depende de ningún otro cálculo
   // de este componente ni los modifica.
@@ -1028,6 +1028,10 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     title="Calculado automáticamente desde Préstamos"
                   >
                     <Landmark size={10} /> Préstamo {p.numero}
+                    {(() => {
+                      const entidad = entidades.find((e) => e.docId === p.entidadId);
+                      return entidad ? <span style={{ opacity: 0.7, fontWeight: 400 }}> · {entidad.nombre}</span> : null;
+                    })()}
                   </td>
                   {MESES.map((_, i) => {
                     const mes = i + 1;

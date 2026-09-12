@@ -3,7 +3,6 @@ import { Plus, Trash2, X, Pencil, Check, Star, BookOpen, BookMarked, BookCheck, 
 import { addLibro, updateLibro, deleteLibro, uploadLibroEpub, eliminarLibroEpub, demoteOtrosLeyendo, uploadLibroPortada } from "../lib/db";
 import { buscarPortadasLibro } from "../lib/openLibrary";
 import { confirm } from "../lib/confirm";
-import LectorEpub from "./LectorEpub.jsx";
 
 const ESTADOS = ["Pendiente", "Leyendo", "Leído"];
 const ESTADO_ICONS = { Pendiente: BookMarked, Leyendo: BookOpen, Leído: BookCheck };
@@ -182,13 +181,12 @@ function SelectorPortada({ titulo, autor, portadaUrl, onSelect, libroId }) {
   );
 }
 
-export default function Biblioteca({ libros }) {
+export default function Biblioteca({ libros, libroLeyendo, onAbrirLectura, onCerrarLectura }) {
   const [filtro, setFiltro] = useState("Todos");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [libroLeyendo, setLibroLeyendo] = useState(null);
   const [subiendoEpub, setSubiendoEpub] = useState(false);
   const epubInputRef = useRef(null);
 
@@ -289,16 +287,7 @@ export default function Biblioteca({ libros }) {
   };
 
   const handleAbrirLectura = async (l) => {
-    setLibroLeyendo(l);
-    if (l.estado !== "Leyendo") {
-      try {
-        await demoteOtrosLeyendo(l.id);
-        await updateLibro(l.id, { estado: "Leyendo" });
-      } catch (err) {
-        // Si falla el cambio de estado, igual se deja abrir el libro para
-        // leer — no bloquea la lectura por esto.
-      }
-    }
+    onAbrirLectura(l);
   };
 
   const handleEliminar = async (l) => {
@@ -687,17 +676,6 @@ export default function Biblioteca({ libros }) {
             );
           })}
         </div>
-      )}
-
-      {libroLeyendo && (
-        <LectorEpub
-          epubUrl={libroLeyendo.epubUrl}
-          titulo={libroLeyendo.titulo}
-          libroId={libroLeyendo.id}
-          ultimaPosicion={libroLeyendo.ultimaPosicion}
-          marcadores={libroLeyendo.marcadores}
-          onClose={() => setLibroLeyendo(null)}
-        />
       )}
     </div>
   );

@@ -245,7 +245,7 @@ function nextId() {
   return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos, tarjetas, presupuesto, diasCobro, cuentas }) {
+export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos, tarjetas, presupuesto, diasCobro, cuentas, estrategiaDeudas }) {
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
   const [colorIndex, setColorIndex] = useState(0);
