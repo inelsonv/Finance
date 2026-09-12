@@ -1232,6 +1232,7 @@ export default function App() {
           ultimaPosicion={libroLeyendo.ultimaPosicion}
           marcadores={libroLeyendo.marcadores}
           portadaUrl={libroLeyendo.portadaUrl}
+          ultimoFragmentoVoz={libroLeyendo.ultimoFragmentoVoz}
           onClose={handleCerrarLectura}
         />
       )}

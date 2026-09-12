@@ -41,7 +41,7 @@ function cargarVelocidadVozGuardada() {
 
 // Lector de libros .epub dentro de la app, usando epub.js. Se abre como un
 // modal a pantalla completa sobre el resto de la interfaz.
-export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, marcadores, onClose, portadaUrl }) {
+export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, marcadores, onClose, portadaUrl, ultimoFragmentoVoz }) {
   const viewerRef = useRef(null);
   const contenedorRef = useRef(null);
   const bookRef = useRef(null);
@@ -362,6 +362,16 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       });
   };
 
+  const guardarFragmentoVozTimeoutRef = useRef(null);
+
+  const guardarFragmentoVoz = (texto) => {
+    if (!libroId || !texto) return;
+    if (guardarFragmentoVozTimeoutRef.current) clearTimeout(guardarFragmentoVozTimeoutRef.current);
+    guardarFragmentoVozTimeoutRef.current = setTimeout(() => {
+      updateLibro(libroId, { ultimoFragmentoVoz: texto.slice(0, 300) }).catch(() => {});
+    }, 800);
+  };
+
   const hablarSiguienteFragmento = (sesion) => {
     // Si cambió de página (u ocurrió otra cosa que incrementó la sesión)
     // mientras este fragmento terminaba de hablar, no continúa — evita que
@@ -375,6 +385,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     }
     const frag = fragmentos[i];
     resaltarElemento(frag.elemento);
+    guardarFragmentoVoz(frag.texto);
     const utterance = new SpeechSynthesisUtterance(frag.texto);
     utterance.lang = "es-ES";
     utterance.rate = velocidadVoz;
@@ -403,6 +414,8 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     hablarSiguienteFragmento(sesionActual);
   };
 
+  const yaIntentoResumirVozRef = useRef(false);
+
   const alternarVoz = () => {
     if (leyendoEnVoz) {
       detenerVoz();
@@ -414,7 +427,22 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     // primera (que podría quedar de una página vieja/la introducción).
     const contentActual = contents?.[contents.length - 1];
     if (!contentActual?.document) return;
-    iniciarLecturaDeFragmentos(obtenerFragmentosDePagina(contentActual.document));
+    const fragmentos = obtenerFragmentosDePagina(contentActual.document);
+
+    // La primera vez que se toca "play" en esta sesión de lectura, intenta
+    // retomar desde el mismo párrafo exacto donde se quedó la última vez
+    // (guardado en ultimoFragmentoVoz), en vez de siempre desde el inicio
+    // de la página.
+    if (!yaIntentoResumirVozRef.current && ultimoFragmentoVoz) {
+      yaIntentoResumirVozRef.current = true;
+      const indiceGuardado = fragmentos.findIndex((f) => f.texto.trim() === ultimoFragmentoVoz.trim() || f.texto.trim().startsWith(ultimoFragmentoVoz.trim().slice(0, 60)));
+      if (indiceGuardado > 0) {
+        iniciarLecturaDeFragmentos(fragmentos.slice(indiceGuardado));
+        return;
+      }
+    }
+    yaIntentoResumirVozRef.current = true;
+    iniciarLecturaDeFragmentos(fragmentos);
   };
 
   // "Toca para leer desde aquí" — encuentra el párrafo que se tocó y
