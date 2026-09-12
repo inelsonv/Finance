@@ -673,10 +673,45 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
 
     const hijosDe = (nodeId) => edges.filter((e) => e.source === nodeId).map((e) => nodes.find((n) => n.id === e.target)).filter(Boolean);
 
-    // Orden real del pipeline: Ingreso → Diezmo → Gastos fijos → Pago de
-    // deudas → Ahorro → Inversión (mismo orden en que el generador
-    // automático arma el diagrama).
-    const ETIQUETAS_PASO = ["diezmo", "gastos fijos", "pago de deudas", "ahorro", "inversión", "inversion"];
+    // Nivel de endeudamiento (mismo cálculo que el KPI de Inicio): cuotas
+    // mensuales de préstamos + pago mínimo de tarjetas ÷ ingreso mensual.
+    // Si supera 30%, el pago de deudas se prioriza justo después de los
+    // gastos fijos; si no, se atiende con menos urgencia (después de
+    // ahorro e inversión).
+    const prestamosActivosPct = (prestamos || []).filter((p) => p.estado === "Activo");
+    const tarjetasActivasPct = (tarjetas || []).filter((t) => t.estado === "Activa");
+    const totalCuotasDeuda =
+      prestamosActivosPct.reduce((s, p) => s + (Number(p.cuota) || 0), 0) + tarjetasActivasPct.reduce((s, t) => s + (Number(t.pagoMinimo) || 0), 0);
+    const ingresoMensualParaPct = Number(nodoIngreso.data.amount) || 0;
+    const pctEndeudamiento = ingresoMensualParaPct > 0 ? (totalCuotasDeuda / ingresoMensualParaPct) * 100 : 0;
+    const deudaPrioritariaUrgente = pctEndeudamiento > 30;
+
+    // Deuda prioritaria según el método activo en Estrategia de deudas
+    // (bola de nieve: menor saldo primero; avalancha: mayor tasa de
+    // interés primero) — se usa el mismo criterio de esa pantalla.
+    let nombreDeudaPrioritaria = null;
+    if (estrategiaDeudas?.activo) {
+      const candidatas = [
+        ...prestamosActivosPct.map((p) => ({ nombre: `Préstamo ${p.numero || ""}`.trim(), saldo: Number(p.montoAprobado) || 0, tasa: Number(p.tasaInteres) || 0 })),
+        ...tarjetasActivasPct.filter((t) => t.saldoActual > 0).map((t) => ({ nombre: t.nombre, saldo: Number(t.saldoActual) || 0, tasa: Number(t.tasaInteres) || 0 })),
+      ];
+      if (candidatas.length > 0) {
+        const ordenadas =
+          estrategiaDeudas.metodo === "bola"
+            ? [...candidatas].sort((a, b) => a.saldo - b.saldo)
+            : [...candidatas].sort((a, b) => (b.tasa || -1) - (a.tasa || -1));
+        nombreDeudaPrioritaria = ordenadas[0]?.nombre || null;
+      }
+    }
+
+    // Orden real del pipeline: Ingreso → Diezmo → Gastos fijos → (Pago de
+    // deudas si el endeudamiento es urgente) → Ahorro → Inversión →
+    // (Pago de deudas, si NO era urgente, se atiende al final).
+    const ordenBase = ["diezmo", "gastos fijos"];
+    if (deudaPrioritariaUrgente) ordenBase.push("pago de deudas");
+    ordenBase.push("ahorro", "inversión", "inversion");
+    if (!deudaPrioritariaUrgente) ordenBase.push("pago de deudas");
+    const ETIQUETAS_PASO = ordenBase;
     const pasos = [{ nombre: nodoIngreso.data.label, ids: [nodoIngreso.id], monto: 0, esIngreso: true }];
     const yaUsados = new Set([nodoIngreso.id]);
     for (const clave of ETIQUETAS_PASO) {
@@ -685,7 +720,14 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
       yaUsados.add(nodoPrincipal.id);
       const hijos = hijosDe(nodoPrincipal.id).filter((h) => !yaUsados.has(h.id) && h.data?.amount != null);
       hijos.forEach((h) => yaUsados.add(h.id));
-      pasos.push({ nombre: nodoPrincipal.data.label, ids: [nodoPrincipal.id, ...hijos.map((h) => h.id)], monto: Number(nodoPrincipal.data.amount) || 0, hijos });
+      const esPasoDeDeuda = clave === "pago de deudas";
+      pasos.push({
+        nombre: nodoPrincipal.data.label,
+        ids: [nodoPrincipal.id, ...hijos.map((h) => h.id)],
+        monto: Number(nodoPrincipal.data.amount) || 0,
+        hijos,
+        notaPrioridad: esPasoDeDeuda && nombreDeudaPrioritaria ? `Atacar primero: ${nombreDeudaPrioritaria} (${estrategiaDeudas.metodo === "bola" ? "bola de nieve" : "avalancha"})` : null,
+      });
     }
     if (pasos.length <= 1) return;
 
@@ -735,10 +777,16 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
       }
 
       setPasoActivoEjecucion(paso.ids);
-      setPasoLimitado(limitado ? { nombre: paso.nombre, faltante: paso.monto - Math.max(saldoAntesDelPaso, 0), disponible: Math.max(saldoAntesDelPaso, 0) } : null);
+      if (limitado) {
+        setPasoLimitado({ nombre: paso.nombre, faltante: paso.monto - Math.max(saldoAntesDelPaso, 0), disponible: Math.max(saldoAntesDelPaso, 0), notaPrioridad: paso.notaPrioridad });
+      } else if (paso.notaPrioridad) {
+        setPasoLimitado({ nombre: paso.nombre, informativo: true, disponible: Math.max(saldoAntesDelPaso, 0), notaPrioridad: paso.notaPrioridad });
+      } else {
+        setPasoLimitado(null);
+      }
       // eslint-disable-next-line no-loop-func
       setEdges((eds) => eds.map((e) => ({ ...e, animated: paso.ids.includes(e.target) || paso.ids.includes(e.source) ? true : e.animated })));
-      await new Promise((resolve) => setTimeout(resolve, limitado ? 1800 : 1100));
+      await new Promise((resolve) => setTimeout(resolve, limitado || paso.notaPrioridad ? 1800 : 1100));
     }
     setPasoActivoEjecucion(null);
     setPasoLimitado(null);
@@ -1004,8 +1052,9 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
               transform: "translateX(-50%)",
               zIndex: 10,
               display: "flex",
+              flexDirection: "column",
               alignItems: "center",
-              gap: 8,
+              gap: 4,
               padding: "8px 14px",
               fontSize: 12.5,
               fontWeight: 600,
@@ -1016,13 +1065,18 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
               whiteSpace: "nowrap",
             }}
           >
-            {pasoLimitado.informativo ? (
-              <>💰 Ingreso disponible esta quincena: {formatMoney(pasoLimitado.disponible)} (mitad del ingreso mensual)</>
-            ) : (
-              <>
-                ⚠ Flujo limitado en "{pasoLimitado.nombre}" — faltan {formatMoney(pasoLimitado.faltante)}{" "}
-                (solo quedaban {formatMoney(pasoLimitado.disponible)} disponibles)
-              </>
+            <div>
+              {pasoLimitado.faltante != null ? (
+                <>
+                  ⚠ Flujo limitado en "{pasoLimitado.nombre}" — faltan {formatMoney(pasoLimitado.faltante)}{" "}
+                  (solo quedaban {formatMoney(pasoLimitado.disponible)} disponibles)
+                </>
+              ) : (
+                <>💰 Ingreso disponible esta quincena: {formatMoney(pasoLimitado.disponible)} (mitad del ingreso mensual)</>
+              )}
+            </div>
+            {pasoLimitado.notaPrioridad && (
+              <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.95 }}>🎯 {pasoLimitado.notaPrioridad}</div>
             )}
           </div>
         )}
