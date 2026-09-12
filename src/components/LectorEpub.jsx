@@ -281,6 +281,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
   const quitarResaltado = () => {
     if (elementoResaltadoRef.current) {
+      quitarResaltadoPalabra(elementoResaltadoRef.current);
       elementoResaltadoRef.current.style.backgroundColor = "";
       elementoResaltadoRef.current = null;
     }
@@ -296,6 +297,69 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       el.scrollIntoView?.({ block: "center", behavior: "smooth" });
     }
     elementoResaltadoRef.current = el;
+  };
+
+  // Quita el resaltado de la palabra actual (deshace el <span> que se
+  // insertó, dejando el texto tal cual estaba).
+  const quitarResaltadoPalabra = (elemento) => {
+    if (!elemento) return;
+    const actual = elemento.querySelector?.(".voz-palabra-actual");
+    if (actual) {
+      const padre = actual.parentNode;
+      while (actual.firstChild) padre.insertBefore(actual.firstChild, actual);
+      padre.removeChild(actual);
+      padre.normalize();
+    }
+  };
+
+  // Resalta la palabra exacta que se está pronunciando dentro del párrafo,
+  // usando la posición que reporta el navegador (evento "boundary" de
+  // SpeechSynthesisUtterance). Si la palabra cruza varios nodos de texto
+  // (ej. texto en negrita a mitad de palabra), simplemente no la resalta —
+  // el resaltado del párrafo completo sigue funcionando igual.
+  const resaltarPalabraEnElemento = (elemento, charIndex, charLength) => {
+    if (!elemento) return;
+    quitarResaltadoPalabra(elemento);
+
+    const doc = elemento.ownerDocument;
+    const walker = doc.createTreeWalker(elemento, NodeFilter.SHOW_TEXT);
+    let acumulado = 0;
+    let nodoInicio = null;
+    let offsetInicio = 0;
+    let nodo;
+    while ((nodo = walker.nextNode())) {
+      const len = nodo.textContent.length;
+      if (acumulado + len > charIndex) {
+        nodoInicio = nodo;
+        offsetInicio = charIndex - acumulado;
+        break;
+      }
+      acumulado += len;
+    }
+    if (!nodoInicio) return;
+
+    let longitud = charLength;
+    if (!longitud) {
+      const resto = nodoInicio.textContent.slice(offsetInicio);
+      const coincidencia = resto.match(/^\S+/);
+      longitud = coincidencia ? coincidencia[0].length : 1;
+    }
+
+    try {
+      const range = doc.createRange();
+      range.setStart(nodoInicio, offsetInicio);
+      range.setEnd(nodoInicio, Math.min(offsetInicio + longitud, nodoInicio.textContent.length));
+      const span = doc.createElement("span");
+      span.className = "voz-palabra-actual";
+      span.style.background = "#f5c518";
+      span.style.color = "#1a1a1a";
+      span.style.borderRadius = "3px";
+      span.style.padding = "0 1px";
+      range.surroundContents(span);
+    } catch (err) {
+      // La palabra cruza dos nodos de texto (ej. formato mixto) — no se
+      // puede envolver limpiamente, se omite el resaltado de esa palabra.
+    }
   };
 
   // Arma la lista de fragmentos a leer de una página, a nivel de párrafo
@@ -394,8 +458,13 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     utterance.rate = velocidadVoz;
     const vozElegida = vocesDisponibles.find((v) => v.voiceURI === vozSeleccionada);
     if (vozElegida) utterance.voice = vozElegida;
+    utterance.onboundary = (event) => {
+      if (event.name && event.name !== "word") return;
+      resaltarPalabraEnElemento(frag.elemento, event.charIndex, event.charLength);
+    };
     utterance.onend = () => {
       if (sesion !== sesionVozRef.current) return;
+      quitarResaltadoPalabra(frag.elemento);
       indiceFragmentoVozRef.current += 1;
       hablarSiguienteFragmento(sesion);
     };
