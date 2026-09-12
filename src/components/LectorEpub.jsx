@@ -570,7 +570,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
           </button>
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid var(--line)", background: "var(--card)" }}>
+      <div style={{ display: minimizado ? "none" : "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid var(--line)", background: "var(--card)" }}>
         <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titulo}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>{progreso}%</span>
@@ -641,7 +641,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       </div>
 
       <div
-        style={{ flex: 1, position: "relative", overflow: "hidden" }}
+        style={{ display: minimizado ? "none" : "block", flex: 1, position: "relative", overflow: "hidden" }}
         onPointerDown={handlePointerDownViewer}
         onPointerMove={handlePointerMoveViewer}
         onPointerUp={handlePointerUpViewer}
@@ -873,7 +873,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
         )}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--line)", background: "var(--card)" }}>
+      <div style={{ display: minimizado ? "none" : "flex", flexDirection: "column", borderTop: "1px solid var(--line)", background: "var(--card)" }}>
         {totalPaginas != null && paginaActual != null && (
           <div style={{ textAlign: "center", padding: "6px 0 0", fontSize: 11, color: "var(--ink-soft)" }} className="despensa-mono">
             Página {paginaActual} de {totalPaginas}
