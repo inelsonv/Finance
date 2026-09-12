@@ -1231,6 +1231,7 @@ export default function App() {
           libroId={libroLeyendo.id}
           ultimaPosicion={libroLeyendo.ultimaPosicion}
           marcadores={libroLeyendo.marcadores}
+          portadaUrl={libroLeyendo.portadaUrl}
           onClose={handleCerrarLectura}
         />
       )}

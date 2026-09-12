@@ -41,7 +41,7 @@ function cargarVelocidadVozGuardada() {
 
 // Lector de libros .epub dentro de la app, usando epub.js. Se abre como un
 // modal a pantalla completa sobre el resto de la interfaz.
-export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, marcadores, onClose }) {
+export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, marcadores, onClose, portadaUrl }) {
   const viewerRef = useRef(null);
   const contenedorRef = useRef(null);
   const bookRef = useRef(null);
@@ -523,7 +523,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       ref={contenedorRef}
       style={
         minimizado
-          ? { position: "fixed", bottom: 16, right: 16, width: 330, height: 64, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 14, zIndex: 1100, boxShadow: "0 6px 24px rgba(0,0,0,0.25)", overflow: "hidden" }
+          ? { position: "fixed", bottom: 16, right: 16, width: 360, height: 64, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 14, zIndex: 1100, boxShadow: "0 6px 24px rgba(0,0,0,0.25)", overflow: "hidden" }
           : { position: "fixed", inset: 0, background: "var(--paper)", zIndex: 1100, display: "flex", flexDirection: "column" }
       }
     >
@@ -540,6 +540,17 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
             zIndex: 1,
           }}
         >
+          {portadaUrl ? (
+            <img
+              src={portadaUrl}
+              alt=""
+              style={{ width: 40, height: 40, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+            />
+          ) : (
+            <div style={{ width: 40, height: 40, borderRadius: 8, background: "var(--sage-bg)", color: "var(--sage)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, flexShrink: 0 }}>
+              {titulo?.charAt(0)?.toUpperCase() || "📖"}
+            </div>
+          )}
           <button
             onClick={alternarVoz}
             title={leyendoEnVoz ? "Pausar" : "Reanudar"}
