@@ -523,7 +523,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       ref={contenedorRef}
       style={
         minimizado
-          ? { position: "fixed", bottom: 16, right: 16, width: 280, height: 64, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 14, zIndex: 1100, boxShadow: "0 6px 24px rgba(0,0,0,0.25)", overflow: "hidden" }
+          ? { position: "fixed", bottom: 16, right: 16, width: 330, height: 64, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 14, zIndex: 1100, boxShadow: "0 6px 24px rgba(0,0,0,0.25)", overflow: "hidden" }
           : { position: "fixed", inset: 0, background: "var(--paper)", zIndex: 1100, display: "flex", flexDirection: "column" }
       }
     >
@@ -547,10 +547,24 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
           >
             {leyendoEnVoz ? <Pause size={16} /> : <Volume2 size={16} />}
           </button>
+          <button
+            onClick={() => cambiarPagina("atras")}
+            title="Página anterior"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer", flexShrink: 0 }}
+          >
+            <ChevronLeft size={14} />
+          </button>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titulo}</div>
             <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>{leyendoEnVoz ? "Leyendo en voz alta…" : "En pausa"} · {progreso}%</div>
           </div>
+          <button
+            onClick={() => cambiarPagina("adelante")}
+            title="Página siguiente"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, background: "transparent", border: "1px solid var(--line)", borderRadius: 8, color: "var(--ink-soft)", cursor: "pointer", flexShrink: 0 }}
+          >
+            <ChevronRight size={14} />
+          </button>
           <button
             onClick={() => setMinimizado(false)}
             title="Expandir"
