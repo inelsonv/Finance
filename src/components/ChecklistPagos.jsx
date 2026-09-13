@@ -280,6 +280,9 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   }, [items, checklist]);
 
   const [confirmandoKey, setConfirmandoKey] = useState(null);
+  const [modoSeleccion, setModoSeleccion] = useState(false);
+  const [seleccionados, setSeleccionados] = useState(() => new Set());
+  const [confirmandoLote, setConfirmandoLote] = useState(false);
   const [moviendoKey, setMoviendoKey] = useState(null);
   const [moviendoAbiertoKey, setMoviendoAbiertoKey] = useState(null);
   const [destinoMes, setDestinoMes] = useState("");
@@ -334,29 +337,12 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     }
   };
 
-  const toggleItem = async (it) => {
+  // Lógica central de registrar un pago ya confirmado: marca el ítem como
+  // pagado y crea el movimiento correspondiente. La usan tanto el flujo de
+  // un solo ítem como el de confirmación en lote (selección múltiple).
+  const confirmarPagoItem = async (it) => {
     const actual = checklist?.items?.[it.key] || {};
-
-    if (actual.pagado) {
-      // Desmarcar no requiere confirmación ni registra nada (el movimiento ya
-      // creado, si lo hay, se puede editar/eliminar desde Movimientos).
-      setChecklistItem(periodoKey, it.key, { ...actual, pagado: false });
-      return;
-    }
-
     const metodoPago = actual.metodoPago || it.metodoDefault || "Efectivo";
-    setConfirmandoKey(it.key);
-    let confirmado;
-    try {
-      confirmado = await confirm(`¿Confirmar el pago de "${it.nombre}" por ${formatMoney(it.monto)}?`, {
-        confirmLabel: "Confirmar pago",
-        danger: false,
-      });
-    } finally {
-      setConfirmandoKey(null);
-    }
-    if (!confirmado) return;
-
     await setChecklistItem(periodoKey, it.key, { ...actual, pagado: true, metodoPago });
 
     if (it.esPrestamo) {
@@ -399,7 +385,66 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     }
   };
 
+  const toggleItem = async (it) => {
+    const actual = checklist?.items?.[it.key] || {};
+
+    if (actual.pagado) {
+      // Desmarcar no requiere confirmación ni registra nada (el movimiento ya
+      // creado, si lo hay, se puede editar/eliminar desde Movimientos).
+      setChecklistItem(periodoKey, it.key, { ...actual, pagado: false });
+      return;
+    }
+
+    setConfirmandoKey(it.key);
+    let confirmado;
+    try {
+      confirmado = await confirm(`¿Confirmar el pago de "${it.nombre}" por ${formatMoney(it.monto)}?`, {
+        confirmLabel: "Confirmar pago",
+        danger: false,
+      });
+    } finally {
+      setConfirmandoKey(null);
+    }
+    if (!confirmado) return;
+
+    await confirmarPagoItem(it);
+  };
+
   const fuenteIngresoActiva = useMemo(() => (fuentesIngreso || []).find((f) => f.estado === "Activo"), [fuentesIngreso]);
+
+  const toggleSeleccion = (key) => {
+    setSeleccionados((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const salirModoSeleccion = () => {
+    setModoSeleccion(false);
+    setSeleccionados(new Set());
+  };
+
+  const confirmarSeleccionados = async () => {
+    const itemsSeleccionados = items.filter((it) => seleccionados.has(it.key));
+    if (itemsSeleccionados.length === 0) return;
+    const total = itemsSeleccionados.reduce((s, it) => s + (Number(it.monto) || 0), 0);
+    const confirmado = await confirm(
+      `¿Confirmar el pago de ${itemsSeleccionados.length} ítem${itemsSeleccionados.length !== 1 ? "s" : ""} seleccionado${itemsSeleccionados.length !== 1 ? "s" : ""} por un total de ${formatMoney(total)}?`,
+      { confirmLabel: "Confirmar pagos", danger: false }
+    );
+    if (!confirmado) return;
+    setConfirmandoLote(true);
+    try {
+      for (const it of itemsSeleccionados) {
+        await confirmarPagoItem(it);
+      }
+    } finally {
+      setConfirmandoLote(false);
+      salirModoSeleccion();
+    }
+  };
 
   const setMetodo = (key, metodo) => {
     const actual = checklist?.items?.[key] || {};
@@ -443,6 +488,25 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Pendiente</div>
           <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700, color: totales.pendiente > 0 ? "var(--stamp)" : "var(--sage)" }}>{formatMoney(totales.pendiente)}</div>
         </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+        {modoSeleccion ? (
+          <button
+            onClick={salirModoSeleccion}
+            disabled={confirmandoLote}
+            style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+          >
+            Cancelar selección
+          </button>
+        ) : (
+          <button
+            onClick={() => setModoSeleccion(true)}
+            style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, background: "var(--sage-bg)", color: "var(--sage)", border: "none", borderRadius: 8, cursor: "pointer" }}
+          >
+            Seleccionar varios
+          </button>
+        )}
       </div>
 
       {resumenPorMetodo.length > 0 && (
@@ -549,9 +613,26 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 }}
               >
                 <button
-                  onClick={() => !it.bloqueadoPagado && toggleItem(it)}
-                  disabled={confirmandoKey === it.key || it.bloqueadoPagado}
-                  title={it.bloqueadoPagado ? "Préstamo saldado — ya no se puede modificar" : estado.pagado ? "Marcar como pendiente" : "Marcar como pagado"}
+                  onClick={() => {
+                    if (it.bloqueadoPagado) return;
+                    if (modoSeleccion) {
+                      if (!estado.pagado) toggleSeleccion(it.key);
+                      return;
+                    }
+                    toggleItem(it);
+                  }}
+                  disabled={confirmandoKey === it.key || it.bloqueadoPagado || confirmandoLote || (modoSeleccion && estado.pagado)}
+                  title={
+                    it.bloqueadoPagado
+                      ? "Préstamo saldado — ya no se puede modificar"
+                      : modoSeleccion
+                        ? seleccionados.has(it.key)
+                          ? "Quitar de la selección"
+                          : "Seleccionar para pagar"
+                        : estado.pagado
+                          ? "Marcar como pendiente"
+                          : "Marcar como pagado"
+                  }
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -559,14 +640,15 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     width: 26,
                     height: 26,
                     borderRadius: 7,
-                    border: `2px solid ${estado.pagado ? "var(--sage)" : "var(--line)"}`,
-                    background: estado.pagado ? "var(--sage)" : "transparent",
+                    border: `2px solid ${modoSeleccion ? (seleccionados.has(it.key) ? "var(--sage)" : "var(--line)") : estado.pagado ? "var(--sage)" : "var(--line)"}`,
+                    background: modoSeleccion ? (seleccionados.has(it.key) ? "var(--sage)" : "transparent") : estado.pagado ? "var(--sage)" : "transparent",
                     color: "#fff",
-                    cursor: it.bloqueadoPagado ? "not-allowed" : confirmandoKey === it.key ? "wait" : "pointer",
+                    cursor: it.bloqueadoPagado || (modoSeleccion && estado.pagado) ? "not-allowed" : confirmandoKey === it.key ? "wait" : "pointer",
                     flexShrink: 0,
+                    opacity: modoSeleccion && estado.pagado ? 0.4 : 1,
                   }}
                 >
-                  {estado.pagado && <Check size={15} />}
+                  {(modoSeleccion ? seleccionados.has(it.key) : estado.pagado) && <Check size={15} />}
                 </button>
 
                 <Icon size={14} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
@@ -682,6 +764,47 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
               </div>
             );
           })}
+        </div>
+      )}
+
+      {modoSeleccion && seleccionados.size > 0 && (
+        <div
+          style={{
+            position: "sticky",
+            bottom: 12,
+            marginTop: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            padding: "10px 14px",
+            background: "var(--card)",
+            border: "1px solid var(--sage)",
+            borderRadius: 12,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+          }}
+        >
+          <span style={{ fontSize: 12.5, fontWeight: 600 }}>
+            {seleccionados.size} ítem{seleccionados.size !== 1 ? "s" : ""} seleccionado{seleccionados.size !== 1 ? "s" : ""} ·{" "}
+            {formatMoney(items.filter((it) => seleccionados.has(it.key)).reduce((s, it) => s + (Number(it.monto) || 0), 0))}
+          </span>
+          <button
+            onClick={confirmarSeleccionados}
+            disabled={confirmandoLote}
+            style={{
+              padding: "8px 16px",
+              fontSize: 12.5,
+              fontWeight: 700,
+              background: "var(--sage)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              cursor: confirmandoLote ? "wait" : "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {confirmandoLote ? "Confirmando…" : "Confirmar pagos"}
+          </button>
         </div>
       )}
     </div>
