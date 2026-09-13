@@ -706,7 +706,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
           </button>
         </div>
       )}
-      <div style={{ display: minimizado ? "none" : "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", borderBottom: "1px solid var(--line)", background: "var(--card)" }}>
+      <div style={{ display: minimizado ? "none" : "flex", alignItems: "center", justifyContent: "space-between", padding: "calc(10px + env(safe-area-inset-top, 0px)) 14px 10px", borderBottom: "1px solid var(--line)", background: "var(--card)" }}>
         <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titulo}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>{progreso}%</span>

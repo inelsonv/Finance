@@ -46,7 +46,7 @@ export default function MobileMenu({ tab, setTab, onClose, onSignOut }) {
           height: "100%",
           background: "var(--card)",
           borderRight: "1px solid var(--line)",
-          padding: "1.25rem 1rem",
+          padding: "calc(1.25rem + env(safe-area-inset-top, 0px)) 1rem 1.25rem",
           display: "flex",
           flexDirection: "column",
           overflowY: "auto",
