@@ -1030,7 +1030,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     <Landmark size={10} /> Préstamo {p.numero}
                     {(() => {
                       const entidad = entidades.find((e) => e.docId === p.entidadId);
-                      return entidad ? <span style={{ opacity: 0.7, fontWeight: 400 }}> · {entidad.nombre}</span> : null;
+                      return entidad ? <span style={{ opacity: 0.7, fontWeight: 400 }}> · {entidad.name}</span> : null;
                     })()}
                   </td>
                   {MESES.map((_, i) => {
