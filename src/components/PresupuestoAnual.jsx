@@ -146,6 +146,15 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   // se llena con anticipación para meses futuros también.
   const calcularExtraPagoRapido = (mes, quincena) => {
     if (!pagoRapido?.activo || !fuentesIngreso || !categoriasPersonalizadas) return 0;
+
+    // La estrategia de Pago rápido nunca mira hacia atrás — solo aplica
+    // desde la quincena actual en adelante. Si la deuda ya se saldó, deja
+    // de aplicar automáticamente (no hay más celdas de esa deuda con saldo
+    // pendiente donde sumarse).
+    const hoy = periodoActualConfigurado(diasCobro);
+    const indice = (y, m, q) => y * 24 + (m - 1) * 2 + (q === "Q2" ? 1 : 0);
+    if (indice(year, mes, quincena) < indice(hoy.year, hoy.month, hoy.quincena)) return 0;
+
     const ingresoQuincenal = ingresoMensualNeto(fuentesIngreso) / 2;
     const resumenQuincena = calcularResumenQuincena({
       year,
