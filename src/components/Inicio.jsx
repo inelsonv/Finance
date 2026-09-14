@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
+import { fetchInflacionRD } from "../lib/inflacionRD";
 import { confirm } from "../lib/confirm";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 
@@ -413,18 +414,8 @@ function InflacionCard() {
   const fetchInflacion = async () => {
     setStatus("loading");
     try {
-      const res = await fetch(
-        "https://api.worldbank.org/v2/country/DO/indicator/FP.CPI.TOTL.ZG?format=json&per_page=10"
-      );
-      if (!res.ok) throw new Error("Respuesta no válida");
-      const data = await res.json();
-      // La API del Banco Mundial devuelve [metadata, [...años]] — algunos
-      // años recientes pueden venir sin dato todavía (value: null), así que
-      // se busca el más reciente que sí tenga valor.
-      const serie = Array.isArray(data) ? data[1] : null;
-      const reciente = (serie || []).find((d) => d.value != null);
-      if (!reciente) throw new Error("Sin datos de inflación");
-      setInflacion({ valor: reciente.value, anio: reciente.date });
+      const resultado = await fetchInflacionRD();
+      setInflacion(resultado);
       setStatus("ok");
     } catch (err) {
       setStatus("error");

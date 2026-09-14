@@ -6,6 +6,7 @@ import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { obtenerConsejoDelDia } from "../lib/consejosFinancieros";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
+import { fetchInflacionRD } from "../lib/inflacionRD";
 import { diasRestantesProducto } from "../lib/inventario";
 
 const UMBRAL_DIAS = 7;
@@ -86,6 +87,17 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
 }
 
 export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio }) {
+  const [inflacionRD, setInflacionRD] = useState(null);
+  useEffect(() => {
+    let cancelado = false;
+    fetchInflacionRD()
+      .then((r) => !cancelado && setInflacionRD(r))
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
   return useMemo(() => {
     const today = todayInfo();
     const list = [];
@@ -432,6 +444,21 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       tab: "consejo-modal",
     });
 
+    // Inflación anual de RD (Banco Mundial): si está en un nivel
+    // considerable, recuerda revisar si las categorías de gastos fijos
+    // siguen siendo realistas — lo que costaba X hace un año, hoy cuesta
+    // más, aunque el usuario no haya cambiado sus hábitos de gasto.
+    if (inflacionRD?.valor != null && inflacionRD.valor >= 3) {
+      list.push({
+        id: `inflacion-${inflacionRD.anio}`,
+        icon: TrendingUp,
+        titulo: `Inflación anual: ${inflacionRD.valor.toFixed(2)}% (${inflacionRD.anio})`,
+        subtitulo: "Lo que presupuestaste hace un año probablemente ya cuesta más — revisa si tus categorías de gastos fijos (comida, transporte, servicios) siguen alcanzando.",
+        dias: 0,
+        tab: "presupuesto-mensual",
+      });
+    }
+
     // Recordatorio de hábitos semanales cuyo día fijado es hoy — solo si
     // todavía no se han marcado como cumplidos esta semana.
     if (habitos && habitos.length > 0) {
@@ -516,7 +543,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, inflacionRD]);
 }
 
 export function etiquetaDias(dias) {
