@@ -150,7 +150,7 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
       if (t.estado !== "Activa" || !t.fechaPago) continue;
       const diasEnMes = new Date(periodo.year, periodo.month, 0).getDate();
       const diaPago = Math.min(Number(t.fechaPago), diasEnMes);
-      const q = diaPago > 15 ? "Q2" : "Q1";
+      const q = diaPago >= 15 ? "Q2" : "Q1";
       if (q !== periodo.quincena) continue;
       if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetas += Number(t.pagoMinimo) || 0;
       if (t.saldoActualUSD > 0 && t.pagoMinimoUSD) minimoTarjetas += (Number(t.pagoMinimoUSD) || 0) * (tipoCambio || 1);

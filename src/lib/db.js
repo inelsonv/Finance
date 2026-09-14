@@ -1160,7 +1160,7 @@ function calcularQuincenasConsecutivas(fechaInicio, cantidad) {
   const [y, m, d] = fechaInicio.split("-").map(Number);
   let year = y;
   let month = m;
-  let quincena = d > 15 ? "Q2" : "Q1";
+  let quincena = d >= 15 ? "Q2" : "Q1";
   const lista = [];
   for (let i = 0; i < cantidad; i++) {
     lista.push({ year, month, quincena });

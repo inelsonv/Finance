@@ -249,7 +249,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       if (saldo <= 0 || pagoMin <= 0 || !t.fechaPago) continue;
       const diasEnMes = new Date(periodo.year, periodo.month, 0).getDate();
       const diaPago = Math.min(Number(t.fechaPago), diasEnMes);
-      const q = diaPago > 15 ? "Q2" : "Q1";
+      const q = diaPago >= 15 ? "Q2" : "Q1";
       if (q !== periodo.quincena) continue;
       list.push({
         key: `tarjeta-${t.id}-${periodo.year}-${periodo.month}`,
@@ -287,7 +287,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         if (t.estado !== "Activa" || !t.fechaPago) continue;
         const diasEnMesT = new Date(periodo.year, periodo.month, 0).getDate();
         const diaPagoT = Math.min(Number(t.fechaPago), diasEnMesT);
-        const qT = diaPagoT > 15 ? "Q2" : "Q1";
+        const qT = diaPagoT >= 15 ? "Q2" : "Q1";
         if (qT !== periodo.quincena) continue;
         if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetasQuincena += Number(t.pagoMinimo) || 0;
         if (t.saldoActualUSD > 0 && t.pagoMinimoUSD) minimoTarjetasQuincena += (Number(t.pagoMinimoUSD) || 0) * (tipoCambio || 1);
@@ -296,7 +296,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       if (extraQuincenal > 0) {
         for (const it of list) {
           const idComparable = it.esPrestamo ? `p-${it.prestamoId}` : it.esTarjeta ? `t-${it.tarjetaId}` : null;
-          if (idComparable && idComparable === pagoRapido.deudaId) {
+          const idComparableUSD = it.esTarjeta ? `t-${it.tarjetaId}-usd` : null;
+          if (idComparable && (idComparable === pagoRapido.deudaId || idComparableUSD === pagoRapido.deudaId)) {
             it.monto = (Number(it.monto) || 0) + extraQuincenal;
             it.esPagoRapido = true;
           }

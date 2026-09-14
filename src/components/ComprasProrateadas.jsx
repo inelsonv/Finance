@@ -19,7 +19,7 @@ function periodoIndice(year, month, quincena) {
 }
 function cuotaYaPaso(c) {
   const hoy = new Date();
-  const idxHoy = periodoIndice(hoy.getFullYear(), hoy.getMonth() + 1, hoy.getDate() > 15 ? "Q2" : "Q1");
+  const idxHoy = periodoIndice(hoy.getFullYear(), hoy.getMonth() + 1, hoy.getDate() >= 15 ? "Q2" : "Q1");
   const idxCuota = periodoIndice(c.year, c.month, c.quincena);
   return idxCuota < idxHoy;
 }

@@ -5,7 +5,7 @@
 export function periodoActual(hoy = new Date()) {
   const year = hoy.getFullYear();
   const month = hoy.getMonth() + 1;
-  const quincena = hoy.getDate() > 15 ? "Q2" : "Q1";
+  const quincena = hoy.getDate() >= 15 ? "Q2" : "Q1";
   return { year, month, quincena };
 }
 

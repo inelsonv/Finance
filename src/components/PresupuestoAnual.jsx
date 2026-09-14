@@ -69,7 +69,7 @@ function celdaEvento(evento, year, mes) {
   const [ey, em, ed] = evento.fecha.split("-").map(Number);
   if (!ey || !em) return { activo: false, quincena: null };
   const activo = ey === year && em === mes;
-  const quincena = ed && ed > 15 ? "Q2" : "Q1";
+  const quincena = ed && ed >= 15 ? "Q2" : "Q1";
   return { activo, quincena };
 }
 
@@ -80,7 +80,7 @@ function celdaOrdenCompra(orden, year, mes) {
   const [oy, om, od] = orden.fechaPlaneada.split("-").map(Number);
   if (!oy || !om) return { activo: false, quincena: null };
   const activo = oy === year && om === mes;
-  const quincena = od && od > 15 ? "Q2" : "Q1";
+  const quincena = od && od >= 15 ? "Q2" : "Q1";
   return { activo, quincena };
 }
 
@@ -91,7 +91,7 @@ function celdaVacacion(vacacion, year, mes) {
   const [vy, vm, vd] = vacacion.fechaInicio.split("-").map(Number);
   if (!vy || !vm) return { activo: false, quincena: null };
   const activo = vy === year && vm === mes;
-  const quincena = vd && vd > 15 ? "Q2" : "Q1";
+  const quincena = vd && vd >= 15 ? "Q2" : "Q1";
   return { activo, quincena };
 }
 
@@ -100,7 +100,7 @@ function celdaRenovacion(renovacion, year, mes) {
   const [ry, rm, rd] = renovacion.fechaInicio.split("-").map(Number);
   if (!ry || !rm) return { activo: false, quincena: null };
   const activo = ry === year && rm === mes;
-  const quincena = rd && rd > 15 ? "Q2" : "Q1";
+  const quincena = rd && rd >= 15 ? "Q2" : "Q1";
   return { activo, quincena };
 }
 
@@ -232,7 +232,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         if (!c.fecha) continue;
         const [cy, cm, cd] = c.fecha.split("-").map(Number);
         if (cy !== year || cm !== mes) continue;
-        const q = cd && cd > 15 ? "Q2" : "Q1";
+        const q = cd && cd >= 15 ? "Q2" : "Q1";
         if (q === quincena) total += Number(c.monto) || 0;
       }
       return total;
