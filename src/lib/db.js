@@ -2082,6 +2082,25 @@ export async function desactivarEstrategiaDeudas() {
   await setDoc(doc(db, "config", "estrategiaDeudas"), { activo: false }, { merge: true });
 }
 
+// "Pago rápido" — activa destinar todo el excedente disponible (después de
+// gastos fijos y cuotas mínimas) a acelerar el pago de una deuda
+// específica, sin comprometer los gastos fijos.
+export function watchPagoRapido(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "pagoRapido"),
+    (snap) => onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function activarPagoRapido(deudaId, deudaNombre, extraMensual) {
+  await setDoc(doc(db, "config", "pagoRapido"), { activo: true, deudaId, deudaNombre, extraMensual });
+}
+
+export async function desactivarPagoRapido() {
+  await setDoc(doc(db, "config", "pagoRapido"), { activo: false }, { merge: true });
+}
+
 // ---- Integración: registro automático de gastos desde correo (Banco Popular) ----
 // El toggle "activo" lo lee la Cloud Function antes de registrar cualquier
 // gasto — si está apagado, ignora los correos aunque el Apps Script siga

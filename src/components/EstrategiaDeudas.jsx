@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
-import { Snowflake, Mountain, Landmark, CreditCard, Info, Check, Power, Sparkles } from "lucide-react";
-import { activarEstrategiaDeudas, desactivarEstrategiaDeudas } from "../lib/db";
+import React, { useMemo, useState, useEffect } from "react";
+import { Snowflake, Mountain, Landmark, CreditCard, Info, Check, Power, Sparkles, Rocket } from "lucide-react";
+import { activarEstrategiaDeudas, desactivarEstrategiaDeudas, watchPagoRapido, activarPagoRapido, desactivarPagoRapido } from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
@@ -12,6 +12,12 @@ function formatMoney(n) {
 
 export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, estrategiaDeudas, tipoCambio, fuentesIngreso, categoriasGasto, presupuesto, presupuestoYear, diasCobro }) {
   const [metodo, setMetodo] = useState(() => (estrategiaDeudas?.activo ? estrategiaDeudas.metodo : "bola"));
+  const [pagoRapido, setPagoRapido] = useState({});
+
+  useEffect(() => {
+    const unsub = watchPagoRapido(setPagoRapido, () => setPagoRapido({}));
+    return () => unsub && unsub();
+  }, []);
   const [activando, setActivando] = useState(false);
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState(() => periodoActualConfigurado(diasCobro));
 
@@ -153,6 +159,19 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
     const extra = ingreso - resumen.presupuestado - minimoTarjetas;
     return { ingreso, presupuestado: resumen.presupuestado, minimoTarjetas, extra, periodo };
   }, [fuentesIngreso, categoriasGasto, presupuesto, prestamos, tarjetas, movimientos, diasCobro, tipoCambio, periodoSeleccionado]);
+
+  // Proyección de "Pago rápido": cuánto se tardaría en saldar la deuda
+  // prioritaria a ritmo normal (solo la cuota mínima) vs. destinándole
+  // también todo el excedente disponible (que ya excluye gastos fijos y
+  // cuotas mínimas) — sin tocar el dinero que necesita para vivir.
+  const pagoRapidoInfo = useMemo(() => {
+    const dPrioridad = deudas[0];
+    if (!dPrioridad || !dPrioridad.cuotaMinima || dPrioridad.cuotaMinima <= 0) return null;
+    const extraMensual = disponibleExtra ? Math.max(disponibleExtra.extra, 0) * 2 : 0;
+    const mesesActual = Math.ceil(dPrioridad.saldo / dPrioridad.cuotaMinima);
+    const mesesRapido = extraMensual > 0 ? Math.ceil(dPrioridad.saldo / (dPrioridad.cuotaMinima + extraMensual)) : mesesActual;
+    return { deuda: dPrioridad, extraMensual, mesesActual, mesesRapido, mesesAhorrados: mesesActual - mesesRapido };
+  }, [deudas, disponibleExtra]);
 
   const tarjetasSinSaldo = tarjetas.filter((t) => t.estado === "Activa" && t.saldoActual == null);
 
@@ -322,6 +341,70 @@ export default function EstrategiaDeudas({ prestamos, tarjetas, movimientos, est
                 <div style={{ fontSize: 12.5, color: "var(--ink)", lineHeight: 1.6 }}>
                   Con tu ingreso neto esperado y tus compromisos en esta quincena, no queda margen extra para adelantar
                   deuda — con cumplir los mínimos vas bien.
+                </div>
+              )}
+            </div>
+          )}
+
+          {pagoRapidoInfo && (
+            <div
+              style={{
+                background: pagoRapido.activo ? "var(--amber-bg)" : "var(--card)",
+                border: `1px solid ${pagoRapido.activo ? "var(--amber)" : "var(--line)"}`,
+                borderRadius: 10,
+                padding: "12px 14px",
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <Rocket size={14} style={{ color: pagoRapido.activo ? "var(--amber)" : "var(--ink-soft)" }} />
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: pagoRapido.activo ? "var(--amber)" : "var(--ink)" }}>
+                  {pagoRapido.activo ? "Pago rápido activo" : "Pago rápido"} — {pagoRapidoInfo.deuda.nombre}
+                </span>
+              </div>
+
+              {pagoRapidoInfo.extraMensual > 0 ? (
+                <>
+                  <div style={{ display: "flex", gap: 16, marginBottom: 10, flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>A tu ritmo actual</div>
+                      <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700 }}>{pagoRapidoInfo.mesesActual} meses</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Con pago rápido (+{formatMoney(pagoRapidoInfo.extraMensual)}/mes)</div>
+                      <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: "var(--amber)" }}>{pagoRapidoInfo.mesesRapido} meses</div>
+                    </div>
+                    {pagoRapidoInfo.mesesAhorrados > 0 && (
+                      <div>
+                        <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Te ahorrarías</div>
+                        <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: "var(--sage)" }}>{pagoRapidoInfo.mesesAhorrados} meses</div>
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 10, lineHeight: 1.5 }}>
+                    Destina tu excedente disponible (el que ya calculamos arriba, después de tus gastos fijos y
+                    cuotas mínimas) directo a esta deuda cada quincena, sin comprometer lo que necesitas para vivir.
+                  </div>
+                  {pagoRapido.activo && pagoRapido.deudaId === pagoRapidoInfo.deuda.id ? (
+                    <button
+                      onClick={() => desactivarPagoRapido()}
+                      style={{ padding: "7px 14px", fontSize: 12, fontWeight: 600, background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+                    >
+                      Desactivar pago rápido
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => activarPagoRapido(pagoRapidoInfo.deuda.id, pagoRapidoInfo.deuda.nombre, pagoRapidoInfo.extraMensual)}
+                      style={{ padding: "7px 14px", fontSize: 12, fontWeight: 700, background: "var(--amber)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+                    >
+                      🚀 Activar pago rápido
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.6 }}>
+                  Por ahora no tienes excedente disponible para acelerar el pago sin afectar tus gastos fijos — en
+                  cuanto quede margen libre, aquí verás cuánto tiempo podrías ahorrarte.
                 </div>
               )}
             </div>
