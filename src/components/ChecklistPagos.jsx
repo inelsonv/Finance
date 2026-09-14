@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
-import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride } from "../lib/db";
+import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, watchPagoRapido } from "../lib/db";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { confirm } from "../lib/confirm";
@@ -254,8 +254,22 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         tarjetaNombre: t.nombre,
       });
     }
+    // "Pago rápido" activo: si esta deuda específica tiene esa aceleración
+    // activada, se le suma el excedente disponible (repartido entre ambas
+    // quincenas) al monto sugerido de su cuota en el checklist.
+    if (pagoRapido?.activo && pagoRapido.extraMensual > 0) {
+      const extraQuincenal = pagoRapido.extraMensual / 2;
+      for (const it of list) {
+        const idComparable = it.esPrestamo ? `p-${it.prestamoId}` : it.esTarjeta ? `t-${it.tarjetaId}` : null;
+        if (idComparable && idComparable === pagoRapido.deudaId) {
+          it.monto = (Number(it.monto) || 0) + extraQuincenal;
+          it.esPagoRapido = true;
+        }
+      }
+    }
+
     return list.sort((a, b) => b.monto - a.monto);
-  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio]);
+  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido]);
 
   const totales = useMemo(() => {
     let total = 0;
@@ -280,6 +294,12 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   }, [items, checklist]);
 
   const [confirmandoKey, setConfirmandoKey] = useState(null);
+  const [pagoRapido, setPagoRapido] = useState({});
+
+  useEffect(() => {
+    const unsub = watchPagoRapido(setPagoRapido, () => setPagoRapido({}));
+    return () => unsub && unsub();
+  }, []);
   const [modoSeleccion, setModoSeleccion] = useState(false);
   const [seleccionados, setSeleccionados] = useState(() => new Set());
   const [confirmandoLote, setConfirmandoLote] = useState(false);
@@ -670,6 +690,11 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                   {(it.esPrestamo || it.esTarjeta) && it.entidadName && (
                     <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
                       <Landmark size={10} /> Pagar a: {it.entidadName}
+                    </div>
+                  )}
+                  {it.esPagoRapido && (
+                    <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", alignItems: "center", gap: 3, marginTop: 1, fontWeight: 600 }}>
+                      🚀 Monto aumentado por Pago rápido
                     </div>
                   )}
                   {estado.metodoPago === "Descuento Nómina" && estado.fuenteIngresoNombre && (
