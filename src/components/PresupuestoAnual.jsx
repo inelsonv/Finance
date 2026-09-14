@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock } from "lucide-react";
-import { setPresupuestoCelda } from "../lib/db";
+import { setPresupuestoCelda, watchPagoRapido } from "../lib/db";
+import { calcularResumenQuincena } from "../lib/quincenaResumen";
+import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { formatearOrdenPrioridad } from "../lib/flujoPrioridad";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuincenaConfigurado } from "../lib/quincenaConfig";
@@ -130,6 +132,42 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
 
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
+
+  const [pagoRapido, setPagoRapido] = useState({});
+  useEffect(() => {
+    const unsub = watchPagoRapido(setPagoRapido, () => setPagoRapido({}));
+    return () => unsub && unsub();
+  }, []);
+
+  // Excedente real disponible en la quincena ACTUAL (mismo cálculo que en
+  // Estrategia de deudas y el Checklist) — se usa para reflejar aquí el
+  // pago extraordinario de "Pago rápido", solo en la celda de la quincena
+  // que está en curso ahora mismo (no tiene sentido proyectarlo a futuro
+  // ni al pasado, ya que depende del presupuesto real de cada quincena).
+  const extraPagoRapidoQuincenaActual = useMemo(() => {
+    if (!pagoRapido?.activo || mesActivo == null || !fuentesIngreso || !categoriasPersonalizadas) return 0;
+    const ingresoQuincenal = ingresoMensualNeto(fuentesIngreso) / 2;
+    const resumenQuincena = calcularResumenQuincena({
+      year,
+      month: mesActivo,
+      quincena: quincenaActiva,
+      presupuesto,
+      categoriasGasto: categoriasPersonalizadas,
+      prestamos,
+      movimientos,
+      diasCobro,
+    });
+    let minimoTarjetasQuincena = 0;
+    for (const t of tarjetas || []) {
+      if (t.estado !== "Activa" || !t.fechaPago) continue;
+      const diasEnMesT = new Date(year, mesActivo, 0).getDate();
+      const diaPagoT = Math.min(Number(t.fechaPago), diasEnMesT);
+      const qT = diaPagoT >= 15 ? "Q2" : "Q1";
+      if (qT !== quincenaActiva) continue;
+      if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetasQuincena += Number(t.pagoMinimo) || 0;
+    }
+    return Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
+  }, [pagoRapido, mesActivo, quincenaActiva, year, fuentesIngreso, categoriasPersonalizadas, presupuesto, prestamos, movimientos, diasCobro, tarjetas]);
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
 
   const categorias = useMemo(() => {
@@ -257,6 +295,15 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         total += Number(prestamo.cuota) || 0;
       }
     }
+
+    // "Pago rápido" activo para este préstamo: refleja el pago
+    // extraordinario en la celda de la quincena que está en curso ahora
+    // mismo (la única para la que tiene sentido calcular el excedente
+    // real disponible).
+    if (pagoRapido?.activo && pagoRapido.deudaId === `p-${prestamo.id}` && mes === mesActivo && quincena === quincenaActiva && total > 0) {
+      total += extraPagoRapidoQuincenaActual;
+    }
+
     return total;
   };
 
