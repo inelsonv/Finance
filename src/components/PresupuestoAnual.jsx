@@ -139,18 +139,18 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     return () => unsub && unsub();
   }, []);
 
-  // Excedente real disponible en la quincena ACTUAL (mismo cálculo que en
+  // Excedente real disponible en CUALQUIER quincena (mismo cálculo que en
   // Estrategia de deudas y el Checklist) — se usa para reflejar aquí el
-  // pago extraordinario de "Pago rápido", solo en la celda de la quincena
-  // que está en curso ahora mismo (no tiene sentido proyectarlo a futuro
-  // ni al pasado, ya que depende del presupuesto real de cada quincena).
-  const extraPagoRapidoQuincenaActual = useMemo(() => {
-    if (!pagoRapido?.activo || mesActivo == null || !fuentesIngreso || !categoriasPersonalizadas) return 0;
+  // pago extraordinario de "Pago rápido" en la quincena que se esté
+  // planificando (no solo la que está en curso hoy), ya que el presupuesto
+  // se llena con anticipación para meses futuros también.
+  const calcularExtraPagoRapido = (mes, quincena) => {
+    if (!pagoRapido?.activo || !fuentesIngreso || !categoriasPersonalizadas) return 0;
     const ingresoQuincenal = ingresoMensualNeto(fuentesIngreso) / 2;
     const resumenQuincena = calcularResumenQuincena({
       year,
-      month: mesActivo,
-      quincena: quincenaActiva,
+      month: mes,
+      quincena,
       presupuesto,
       categoriasGasto: categoriasPersonalizadas,
       prestamos,
@@ -160,14 +160,17 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     let minimoTarjetasQuincena = 0;
     for (const t of tarjetas || []) {
       if (t.estado !== "Activa" || !t.fechaPago) continue;
-      const diasEnMesT = new Date(year, mesActivo, 0).getDate();
+      const diasEnMesT = new Date(year, mes, 0).getDate();
       const diaPagoT = Math.min(Number(t.fechaPago), diasEnMesT);
       const qT = diaPagoT >= 15 ? "Q2" : "Q1";
-      if (qT !== quincenaActiva) continue;
+      if (qT !== quincena) continue;
+      // No cuenta el mínimo de la propia tarjeta que recibe el pago rápido,
+      // para no restarle a sí misma antes de sumarle el excedente.
+      if (pagoRapido.deudaId === `t-${t.id}`) continue;
       if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetasQuincena += Number(t.pagoMinimo) || 0;
     }
     return Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
-  }, [pagoRapido, mesActivo, quincenaActiva, year, fuentesIngreso, categoriasPersonalizadas, presupuesto, prestamos, movimientos, diasCobro, tarjetas]);
+  };
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
 
   const categorias = useMemo(() => {
@@ -305,8 +308,8 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     // extraordinario en la celda de la quincena que está en curso ahora
     // mismo (la única para la que tiene sentido calcular el excedente
     // real disponible).
-    if (pagoRapido?.activo && pagoRapido.deudaId === `p-${prestamo.id}` && mes === mesActivo && quincena === quincenaActiva && total > 0) {
-      total += extraPagoRapidoQuincenaActual;
+    if (pagoRapido?.activo && pagoRapido.deudaId === `p-${prestamo.id}` && total > 0) {
+      total += calcularExtraPagoRapido(mes, quincena);
     }
 
     return total;
@@ -549,8 +552,8 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     const q = diaPago >= 15 ? "Q2" : "Q1";
     if (q !== quincena) return 0;
     let total = Number(tarjeta.pagoMinimo) || 0;
-    if (pagoRapido?.activo && pagoRapido.deudaId === `t-${tarjeta.id}` && mes === mesActivo && quincena === quincenaActiva) {
-      total += extraPagoRapidoQuincenaActual;
+    if (pagoRapido?.activo && pagoRapido.deudaId === `t-${tarjeta.id}`) {
+      total += calcularExtraPagoRapido(mes, quincena);
     }
     return total;
   };
