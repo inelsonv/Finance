@@ -145,10 +145,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   // planificando (no solo la que está en curso hoy), ya que el presupuesto
   // se llena con anticipación para meses futuros también.
   const calcularExtraPagoRapido = (mes, quincena) => {
-    if (!pagoRapido?.activo || !fuentesIngreso || !categoriasPersonalizadas) {
-      if (mes === 9) console.log("[calcularExtraPagoRapido] sale temprano:", { activo: pagoRapido?.activo, tieneFuentes: !!fuentesIngreso, tieneCategorias: !!categoriasPersonalizadas });
-      return 0;
-    }
+    if (!pagoRapido?.activo || !fuentesIngreso || !categoriasPersonalizadas) return 0;
 
     // La estrategia de Pago rápido nunca mira hacia atrás — solo aplica
     // desde la quincena actual en adelante. Si la deuda ya se saldó, deja
@@ -156,10 +153,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     // pendiente donde sumarse).
     const hoy = periodoActualConfigurado(diasCobro);
     const indice = (y, m, q) => y * 24 + (m - 1) * 2 + (q === "Q2" ? 1 : 0);
-    if (indice(year, mes, quincena) < indice(hoy.year, hoy.month, hoy.quincena)) {
-      if (mes === 9) console.log("[calcularExtraPagoRapido] periodo pasado:", { year, mes, quincena, hoy });
-      return 0;
-    }
+    if (indice(year, mes, quincena) < indice(hoy.year, hoy.month, hoy.quincena)) return 0;
 
     const ingresoQuincenal = ingresoMensualNeto(fuentesIngreso) / 2;
     const resumenQuincena = calcularResumenQuincena({
@@ -184,45 +178,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
       if (pagoRapido.deudaId === `t-${t.id}` || pagoRapido.deudaId === `t-${t.id}-usd`) continue;
       if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetasQuincena += Number(t.pagoMinimo) || 0;
     }
-    if (mes === 9 && quincena === "Q2") {
-      const desglose = [];
-      for (const c of categoriasPersonalizadas || []) {
-        const val = presupuesto?.[c.nombre]?.[String(mes)]?.[quincena];
-        if (typeof val === "number" && val > 0) desglose.push({ tipo: "categoria", nombre: c.nombre, monto: val });
-      }
-      for (const p of prestamos || []) {
-        if (p.estado !== "Activo") continue;
-        if (p.frecuenciaCuota === "Personalizado") {
-          const { fechaInicio, fechaFin } = rangoFechasQuincenaConfigurado(year, mes, quincena, diasCobro);
-          for (const c of p.cuotasPersonalizadas || []) {
-            if (!c.fecha || !c.monto) continue;
-            if (c.fecha >= fechaInicio && c.fecha <= fechaFin) desglose.push({ tipo: "prestamo-personalizado", nombre: p.numero, monto: Number(c.monto) || 0 });
-          }
-          continue;
-        }
-        if (!p.fechaInicio || !p.cuota) continue;
-        const [sy, sm, sd] = p.fechaInicio.split("-").map(Number);
-        if (!sy || !sm) continue;
-        const mesesTotales = p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
-        const offset = (year - sy) * 12 + (mes - sm);
-        const activo = offset >= 0 && offset < mesesTotales;
-        const quincenaCuota = sd && sd >= 15 ? "Q2" : "Q1";
-        if (activo && quincenaCuota === quincena) desglose.push({ tipo: "prestamo", nombre: p.numero, monto: Number(p.cuota) || 0 });
-      }
-      console.log("[calcularExtraPagoRapido] DESGLOSE presupuestado:", desglose, "SUMA:", desglose.reduce((s, d) => s + d.monto, 0));
-    }
-    const resultado = Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
-    if (mes === 9 && quincena === "Q2") {
-      console.log("[calcularExtraPagoRapido] resultado final:", {
-        mes,
-        quincena,
-        ingresoQuincenal,
-        presupuestado: resumenQuincena.presupuestado,
-        minimoTarjetasQuincena,
-        resultado,
-      });
-    }
-    return resultado;
+    return Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
   };
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
 
@@ -248,11 +204,6 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         return p.fechaInicio && p.cuota && p.plazo;
       }),
     [prestamos]
-  );
-
-  const tarjetasActivas = useMemo(
-    () => (tarjetas || []).filter((t) => t.estado === "Activa" && t.saldoActual > 0 && t.pagoMinimo && t.fechaPago),
-    [tarjetas]
   );
 
   const ingresoMensual = useMemo(() => {
@@ -595,37 +546,6 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     prestamosActivos.reduce((s, p) => s + getCeldaPrestamo(p, mes, quincena), 0);
 
   const totalPrestamosTodos = () => prestamosActivos.reduce((s, p) => s + totalPorPrestamo(p), 0);
-
-  // Igual que getCeldaPrestamo, pero para el pago mínimo de una tarjeta —
-  // usa la misma fecha de pago para determinar la quincena, y aplica el
-  // mismo aumento de "Pago rápido" en la quincena en curso si corresponde.
-  const getCeldaTarjetaMinimo = (tarjeta, mes, quincena) => {
-    const diasEnMes = new Date(year, mes, 0).getDate();
-    const diaPago = Math.min(Number(tarjeta.fechaPago), diasEnMes);
-    const q = diaPago >= 15 ? "Q2" : "Q1";
-    if (q !== quincena) return 0;
-    let total = Number(tarjeta.pagoMinimo) || 0;
-    if (mes === 9 && quincena === "Q2") {
-      console.log("[getCeldaTarjetaMinimo] comparación ID:", {
-        tarjetaId: tarjeta.id,
-        tarjetaNombre: tarjeta.nombre,
-        idEsperado1: `t-${tarjeta.id}`,
-        idEsperado2: `t-${tarjeta.id}-usd`,
-        pagoRapidoDeudaId: pagoRapido?.deudaId,
-        pagoRapidoActivo: pagoRapido?.activo,
-      });
-    }
-    if (pagoRapido?.activo && (pagoRapido.deudaId === `t-${tarjeta.id}` || pagoRapido.deudaId === `t-${tarjeta.id}-usd`)) {
-      total += calcularExtraPagoRapido(mes, quincena);
-    }
-    return total;
-  };
-
-  const getCeldaTarjetasMinimoTodas = (mes, quincena) =>
-    tarjetasActivas.reduce((s, t) => s + getCeldaTarjetaMinimo(t, mes, quincena), 0);
-
-  const totalTarjetasMinimoTodas = () =>
-    tarjetasActivas.reduce((s, t) => s + MESES.reduce((s2, _, i) => s2 + getCeldaTarjetaMinimo(t, i + 1, "Q1") + getCeldaTarjetaMinimo(t, i + 1, "Q2"), 0), 0);
 
   const totalPorMeta = (meta) => {
     let total = 0;
@@ -1110,7 +1030,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                 {MESES.map((_, i) => {
                   const mes = i + 1;
                   return QUINCENAS.map((q) => {
-                    const val = getCeldaPrestamosTodos(mes, q) + getCeldaTarjetasMinimoTodas(mes, q);
+                    const val = getCeldaPrestamosTodos(mes, q);
                     return (
                       <td
                         key={`prestamos-resumen-${mes}-${q}`}
@@ -1204,67 +1124,6 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     }}
                   >
                     {formatMoney(totalPorPrestamo(p)) || "0"}
-                  </td>
-                </tr>
-              );
-            })}
-            {mostrarPrestamos &&
-              tarjetasActivas.map((t, idx) => {
-              const rowIdx = categorias.length + prestamosActivos.length + idx;
-              return (
-                <tr key={`tarjeta-minimo-${t.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
-                  <td
-                    style={{
-                      position: "sticky",
-                      left: 0,
-                      background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                      padding: "6px 10px 6px 24px",
-                      borderRight: "1px solid var(--line)",
-                      borderBottom: "1px solid var(--line-soft)",
-                      fontFamily: "Inter, sans-serif",
-                      fontSize: 12,
-                      color: "var(--stamp)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 5,
-                    }}
-                    title={`Pago mínimo calculado automáticamente desde Tarjetas${t.entidadName ? ` — Entidad: ${t.entidadName}` : ""}`}
-                  >
-                    <CreditCard size={10} /> Tarjeta {t.nombre}
-                  </td>
-                  {MESES.map((_, i) => {
-                    const mes = i + 1;
-                    return QUINCENAS.map((q) => {
-                      const val = getCeldaTarjetaMinimo(t, mes, q);
-                      return (
-                        <td
-                          key={`${t.id}-${mes}-${q}`}
-                          style={{
-                            borderBottom: "1px solid var(--line-soft)",
-                            borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
-                            padding: "6px 4px",
-                            textAlign: "right",
-                            color: "var(--stamp)",
-                            opacity: val ? 1 : 0.35,
-                          }}
-                        >
-                          {formatMoney(val) || "—"}
-                        </td>
-                      );
-                    });
-                  })}
-                  <td
-                    style={{
-                      borderLeft: "1px solid var(--line)",
-                      borderBottom: "1px solid var(--line-soft)",
-                      padding: "7px 10px",
-                      textAlign: "right",
-                      fontWeight: 600,
-                      background: "var(--stamp-bg)",
-                      color: "var(--stamp)",
-                    }}
-                  >
-                    {formatMoney(MESES.reduce((s, _, i) => s + getCeldaTarjetaMinimo(t, i + 1, "Q1") + getCeldaTarjetaMinimo(t, i + 1, "Q2"), 0)) || "0"}
                   </td>
                 </tr>
               );
