@@ -175,7 +175,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
       if (qT !== quincena) continue;
       // No cuenta el mínimo de la propia tarjeta que recibe el pago rápido,
       // para no restarle a sí misma antes de sumarle el excedente.
-      if (pagoRapido.deudaId === `t-${t.id}`) continue;
+      if (pagoRapido.deudaId === `t-${t.id}` || pagoRapido.deudaId === `t-${t.id}-usd`) continue;
       if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetasQuincena += Number(t.pagoMinimo) || 0;
     }
     return Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
@@ -561,7 +561,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     const q = diaPago >= 15 ? "Q2" : "Q1";
     if (q !== quincena) return 0;
     let total = Number(tarjeta.pagoMinimo) || 0;
-    if (pagoRapido?.activo && pagoRapido.deudaId === `t-${tarjeta.id}`) {
+    if (pagoRapido?.activo && (pagoRapido.deudaId === `t-${tarjeta.id}` || pagoRapido.deudaId === `t-${tarjeta.id}-usd`)) {
       total += calcularExtraPagoRapido(mes, quincena);
     }
     return total;
