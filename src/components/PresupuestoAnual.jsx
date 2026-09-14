@@ -184,6 +184,33 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
       if (pagoRapido.deudaId === `t-${t.id}` || pagoRapido.deudaId === `t-${t.id}-usd`) continue;
       if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetasQuincena += Number(t.pagoMinimo) || 0;
     }
+    if (mes === 9 && quincena === "Q2") {
+      const desglose = [];
+      for (const c of categoriasPersonalizadas || []) {
+        const val = presupuesto?.[c.nombre]?.[String(mes)]?.[quincena];
+        if (typeof val === "number" && val > 0) desglose.push({ tipo: "categoria", nombre: c.nombre, monto: val });
+      }
+      for (const p of prestamos || []) {
+        if (p.estado !== "Activo") continue;
+        if (p.frecuenciaCuota === "Personalizado") {
+          const { fechaInicio, fechaFin } = rangoFechasQuincenaConfigurado(year, mes, quincena, diasCobro);
+          for (const c of p.cuotasPersonalizadas || []) {
+            if (!c.fecha || !c.monto) continue;
+            if (c.fecha >= fechaInicio && c.fecha <= fechaFin) desglose.push({ tipo: "prestamo-personalizado", nombre: p.numero, monto: Number(c.monto) || 0 });
+          }
+          continue;
+        }
+        if (!p.fechaInicio || !p.cuota) continue;
+        const [sy, sm, sd] = p.fechaInicio.split("-").map(Number);
+        if (!sy || !sm) continue;
+        const mesesTotales = p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
+        const offset = (year - sy) * 12 + (mes - sm);
+        const activo = offset >= 0 && offset < mesesTotales;
+        const quincenaCuota = sd && sd >= 15 ? "Q2" : "Q1";
+        if (activo && quincenaCuota === quincena) desglose.push({ tipo: "prestamo", nombre: p.numero, monto: Number(p.cuota) || 0 });
+      }
+      console.log("[calcularExtraPagoRapido] DESGLOSE presupuestado:", desglose, "SUMA:", desglose.reduce((s, d) => s + d.monto, 0));
+    }
     const resultado = Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
     if (mes === 9 && quincena === "Q2") {
       console.log("[calcularExtraPagoRapido] resultado final:", {
