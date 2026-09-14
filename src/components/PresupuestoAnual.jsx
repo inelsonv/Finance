@@ -145,7 +145,10 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   // planificando (no solo la que está en curso hoy), ya que el presupuesto
   // se llena con anticipación para meses futuros también.
   const calcularExtraPagoRapido = (mes, quincena) => {
-    if (!pagoRapido?.activo || !fuentesIngreso || !categoriasPersonalizadas) return 0;
+    if (!pagoRapido?.activo || !fuentesIngreso || !categoriasPersonalizadas) {
+      if (mes === 9) console.log("[calcularExtraPagoRapido] sale temprano:", { activo: pagoRapido?.activo, tieneFuentes: !!fuentesIngreso, tieneCategorias: !!categoriasPersonalizadas });
+      return 0;
+    }
 
     // La estrategia de Pago rápido nunca mira hacia atrás — solo aplica
     // desde la quincena actual en adelante. Si la deuda ya se saldó, deja
@@ -153,7 +156,10 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     // pendiente donde sumarse).
     const hoy = periodoActualConfigurado(diasCobro);
     const indice = (y, m, q) => y * 24 + (m - 1) * 2 + (q === "Q2" ? 1 : 0);
-    if (indice(year, mes, quincena) < indice(hoy.year, hoy.month, hoy.quincena)) return 0;
+    if (indice(year, mes, quincena) < indice(hoy.year, hoy.month, hoy.quincena)) {
+      if (mes === 9) console.log("[calcularExtraPagoRapido] periodo pasado:", { year, mes, quincena, hoy });
+      return 0;
+    }
 
     const ingresoQuincenal = ingresoMensualNeto(fuentesIngreso) / 2;
     const resumenQuincena = calcularResumenQuincena({
@@ -561,6 +567,16 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     const q = diaPago >= 15 ? "Q2" : "Q1";
     if (q !== quincena) return 0;
     let total = Number(tarjeta.pagoMinimo) || 0;
+    if (mes === 9 && quincena === "Q2") {
+      console.log("[getCeldaTarjetaMinimo] comparación ID:", {
+        tarjetaId: tarjeta.id,
+        tarjetaNombre: tarjeta.nombre,
+        idEsperado1: `t-${tarjeta.id}`,
+        idEsperado2: `t-${tarjeta.id}-usd`,
+        pagoRapidoDeudaId: pagoRapido?.deudaId,
+        pagoRapidoActivo: pagoRapido?.activo,
+      });
+    }
     if (pagoRapido?.activo && (pagoRapido.deudaId === `t-${tarjeta.id}` || pagoRapido.deudaId === `t-${tarjeta.id}-usd`)) {
       total += calcularExtraPagoRapido(mes, quincena);
     }
