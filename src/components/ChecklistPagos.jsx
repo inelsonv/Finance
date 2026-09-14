@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, watchPagoRapido } from "../lib/db";
+import { calcularResumenQuincena } from "../lib/quincenaResumen";
+import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { confirm } from "../lib/confirm";
@@ -262,21 +264,48 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       });
     }
     // "Pago rápido" activo: si esta deuda específica tiene esa aceleración
-    // activada, se le suma el excedente disponible (repartido entre ambas
-    // quincenas) al monto sugerido de su cuota en el checklist.
-    if (pagoRapido?.activo && pagoRapido.extraMensual > 0) {
-      const extraQuincenal = pagoRapido.extraMensual / 2;
-      for (const it of list) {
-        const idComparable = it.esPrestamo ? `p-${it.prestamoId}` : it.esTarjeta ? `t-${it.tarjetaId}` : null;
-        if (idComparable && idComparable === pagoRapido.deudaId) {
-          it.monto = (Number(it.monto) || 0) + extraQuincenal;
-          it.esPagoRapido = true;
+    // activada, se le suma el excedente REAL disponible en ESTA quincena
+    // (no un monto fijo guardado al activarlo) — se recalcula igual que en
+    // Estrategia de deudas: ingreso neto quincenal menos todo lo
+    // presupuestado para esta quincena (gasolina, combustible, etc.) menos
+    // las cuotas mínimas de tarjeta, así nunca excede lo que realmente
+    // queda libre después de cubrir todo lo demás.
+    if (pagoRapido?.activo && fuentesIngreso && categoriasGasto && presupuesto) {
+      const ingresoQuincenal = ingresoMensualNeto(fuentesIngreso) / 2;
+      const resumenQuincena = calcularResumenQuincena({
+        year: periodo.year,
+        month: periodo.month,
+        quincena: periodo.quincena,
+        presupuesto,
+        categoriasGasto,
+        prestamos,
+        movimientos,
+        diasCobro,
+      });
+      let minimoTarjetasQuincena = 0;
+      for (const t of tarjetas || []) {
+        if (t.estado !== "Activa" || !t.fechaPago) continue;
+        const diasEnMesT = new Date(periodo.year, periodo.month, 0).getDate();
+        const diaPagoT = Math.min(Number(t.fechaPago), diasEnMesT);
+        const qT = diaPagoT > 15 ? "Q2" : "Q1";
+        if (qT !== periodo.quincena) continue;
+        if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetasQuincena += Number(t.pagoMinimo) || 0;
+        if (t.saldoActualUSD > 0 && t.pagoMinimoUSD) minimoTarjetasQuincena += (Number(t.pagoMinimoUSD) || 0) * (tipoCambio || 1);
+      }
+      const extraQuincenal = Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
+      if (extraQuincenal > 0) {
+        for (const it of list) {
+          const idComparable = it.esPrestamo ? `p-${it.prestamoId}` : it.esTarjeta ? `t-${it.tarjetaId}` : null;
+          if (idComparable && idComparable === pagoRapido.deudaId) {
+            it.monto = (Number(it.monto) || 0) + extraQuincenal;
+            it.esPagoRapido = true;
+          }
         }
       }
     }
 
     return list.sort((a, b) => b.monto - a.monto);
-  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido]);
+  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso]);
 
   const totales = useMemo(() => {
     let total = 0;
