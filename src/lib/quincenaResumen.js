@@ -31,7 +31,21 @@ export function calcularResumenQuincena({ year, month, quincena, presupuesto, ca
     const offset = (year - sy) * 12 + (month - sm);
     const activo = offset >= 0 && offset < mesesTotales;
     const quincenaCuota = sd && sd >= 15 ? "Q2" : "Q1";
-    if (activo && quincenaCuota === quincena) presupuestado += Number(p.cuota) || 0;
+
+    // Si esta cuota se movió manualmente a otra quincena ("Mover a otra
+    // quincena" en el Checklist), no debe seguir contando en su posición
+    // original — y si se movió una cuota de OTRO mes hacia esta quincena,
+    // sí debe contar aquí.
+    const overrides = p.quincenaOverrides || {};
+    const overrideEsteMesRaw = overrides[`${month}-${year}`];
+    const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
+    if (activo && !overrideEsteMes && quincenaCuota === quincena) presupuestado += Number(p.cuota) || 0;
+    for (const destino of Object.values(overrides)) {
+      if (!destino || typeof destino !== "object") continue;
+      if (destino.year === year && destino.month === month && destino.quincena === quincena) {
+        presupuestado += Number(p.cuota) || 0;
+      }
+    }
   }
 
   let gastado = 0;
