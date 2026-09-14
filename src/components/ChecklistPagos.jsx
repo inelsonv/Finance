@@ -86,6 +86,13 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
 
   const presupuestoDisponible = periodo.year === presupuestoYear;
 
+  const [pagoRapido, setPagoRapido] = useState({});
+
+  useEffect(() => {
+    const unsub = watchPagoRapido(setPagoRapido, () => setPagoRapido({}));
+    return () => unsub && unsub();
+  }, []);
+
   const items = useMemo(() => {
     const list = [];
 
@@ -294,12 +301,6 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   }, [items, checklist]);
 
   const [confirmandoKey, setConfirmandoKey] = useState(null);
-  const [pagoRapido, setPagoRapido] = useState({});
-
-  useEffect(() => {
-    const unsub = watchPagoRapido(setPagoRapido, () => setPagoRapido({}));
-    return () => unsub && unsub();
-  }, []);
   const [modoSeleccion, setModoSeleccion] = useState(false);
   const [seleccionados, setSeleccionados] = useState(() => new Set());
   const [confirmandoLote, setConfirmandoLote] = useState(false);
