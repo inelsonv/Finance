@@ -184,7 +184,18 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
       if (pagoRapido.deudaId === `t-${t.id}` || pagoRapido.deudaId === `t-${t.id}-usd`) continue;
       if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetasQuincena += Number(t.pagoMinimo) || 0;
     }
-    return Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
+    const resultado = Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
+    if (mes === 9 && quincena === "Q2") {
+      console.log("[calcularExtraPagoRapido] resultado final:", {
+        mes,
+        quincena,
+        ingresoQuincenal,
+        presupuestado: resumenQuincena.presupuestado,
+        minimoTarjetasQuincena,
+        resultado,
+      });
+    }
+    return resultado;
   };
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
 
