@@ -1025,13 +1025,12 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                       alignItems: "center",
                       gap: 5,
                     }}
-                    title="Calculado automáticamente desde Préstamos"
+                    title={`Calculado automáticamente desde Préstamos${(() => {
+                      const entidad = entidades.find((e) => e.docId === p.entidadId);
+                      return entidad ? ` — Entidad: ${entidad.name}` : "";
+                    })()}`}
                   >
                     <Landmark size={10} /> Préstamo {p.numero}
-                    {(() => {
-                      const entidad = entidades.find((e) => e.docId === p.entidadId);
-                      return entidad ? <span style={{ opacity: 0.7, fontWeight: 400 }}> · {entidad.name}</span> : null;
-                    })()}
                   </td>
                   {MESES.map((_, i) => {
                     const mes = i + 1;
