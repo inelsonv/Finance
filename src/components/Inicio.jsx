@@ -406,6 +406,87 @@ function interpretarCodigoClima(codigo) {
   return { icon: Cloud, texto: "—" };
 }
 
+function InflacionCard() {
+  const [inflacion, setInflacion] = useState(null);
+  const [status, setStatus] = useState("loading"); // loading | ok | error
+
+  const fetchInflacion = async () => {
+    setStatus("loading");
+    try {
+      const res = await fetch(
+        "https://api.worldbank.org/v2/country/DO/indicator/FP.CPI.TOTL.ZG?format=json&per_page=10"
+      );
+      if (!res.ok) throw new Error("Respuesta no válida");
+      const data = await res.json();
+      // La API del Banco Mundial devuelve [metadata, [...años]] — algunos
+      // años recientes pueden venir sin dato todavía (value: null), así que
+      // se busca el más reciente que sí tenga valor.
+      const serie = Array.isArray(data) ? data[1] : null;
+      const reciente = (serie || []).find((d) => d.value != null);
+      if (!reciente) throw new Error("Sin datos de inflación");
+      setInflacion({ valor: reciente.value, anio: reciente.date });
+      setStatus("ok");
+    } catch (err) {
+      setStatus("error");
+    }
+  };
+
+  useEffect(() => {
+    fetchInflacion();
+  }, []);
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Inflación en RD</span>
+          </div>
+          <button
+            onClick={fetchInflacion}
+            title="Actualizar"
+            disabled={status === "loading"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 26,
+              height: 26,
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: status === "loading" ? "default" : "pointer",
+            }}
+          >
+            <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
+          </button>
+        </div>
+
+        {status === "error" ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
+            <AlertTriangle size={15} />
+            No se pudo obtener la inflación ahora.
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+              <span className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--sage)" }}>
+                {inflacion?.valor != null ? inflacion.valor.toFixed(2) : "—"}%
+              </span>
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{inflacion ? `Año ${inflacion.anio}` : "Cargando…"}</span>
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 6 }}>
+              Variación anual del IPC · Fuente: Banco Mundial
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ClimaCard() {
   const [clima, setClima] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ok | error
@@ -909,7 +990,7 @@ function StocksCard() {
   );
 }
 
-const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar", "clima"];
+const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar", "clima", "inflacion"];
 
 function SortableSection({ id, isFirst, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -1146,8 +1227,9 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
 
   const dolarContent = <DolarCard />;
   const climaContent = <ClimaCard />;
+  const inflacionContent = <InflacionCard />;
 
-  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent, clima: climaContent };
+  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent, clima: climaContent, inflacion: inflacionContent };
 
   return (
     <div>
