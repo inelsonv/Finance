@@ -30,7 +30,7 @@ export function calcularResumenQuincena({ year, month, quincena, presupuesto, ca
     const mesesTotales = p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
     const offset = (year - sy) * 12 + (month - sm);
     const activo = offset >= 0 && offset < mesesTotales;
-    const quincenaCuota = sd && sd > 15 ? "Q2" : "Q1";
+    const quincenaCuota = sd && sd >= 15 ? "Q2" : "Q1";
     if (activo && quincenaCuota === quincena) presupuestado += Number(p.cuota) || 0;
   }
 

@@ -26,7 +26,7 @@ function celdaPrestamo(prestamo, year, mes) {
   if (!mesesTotales) return { activo: false, quincena: null };
   const offset = (year - sy) * 12 + (mes - sm);
   const activo = offset >= 0 && offset < mesesTotales;
-  const quincena = sd && sd > 15 ? "Q2" : "Q1";
+  const quincena = sd && sd >= 15 ? "Q2" : "Q1";
   return { activo, quincena };
 }
 

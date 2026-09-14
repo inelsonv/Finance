@@ -34,7 +34,7 @@ function celdaPrestamo(prestamo, year, mes) {
   if (!mesesTotales) return { activo: false, quincena: null };
   const offset = (year - sy) * 12 + (mes - sm);
   const activo = offset >= 0 && offset < mesesTotales;
-  const quincena = sd && sd > 15 ? "Q2" : "Q1";
+  const quincena = sd && sd >= 15 ? "Q2" : "Q1";
   return { activo, quincena };
 }
 
@@ -172,11 +172,11 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           if (!c.fecha || !c.monto) continue;
           const [cy, cm, cd] = c.fecha.split("-").map(Number);
           if (cy !== periodo.year || cm !== periodo.month) continue;
-          const q = cd && cd > 15 ? "Q2" : "Q1";
+          const q = cd && cd >= 15 ? "Q2" : "Q1";
           if (q !== periodo.quincena) continue;
           list.push({
             key: `prestamo-${p.id}-${c.fecha}`,
-            nombre: `Préstamo ${p.numero} (${c.fecha.split("-").reverse().slice(0, 2).join("/")})`,
+            nombre: `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (${c.fecha.split("-").reverse().slice(0, 2).join("/")})`,
             monto: c.monto,
             icon: Landmark,
             metodoDefault: null,
@@ -204,7 +204,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       if (activo && !overrideEsteMes && quincena === periodo.quincena && p.cuota) {
         list.push({
           key: `prestamo-${p.id}`,
-          nombre: `Préstamo ${p.numero}`,
+          nombre: `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""}`,
           monto: p.cuota,
           icon: Landmark,
           metodoDefault: null,
@@ -227,7 +227,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         const [origMes, origYear] = origenKey.split("-").map(Number);
         list.push({
           key: `prestamo-${p.id}-mov-${origenKey}`,
-          nombre: `Préstamo ${p.numero} (movida de ${MES_NOMBRES[origMes - 1]})`,
+          nombre: `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (movida de ${MES_NOMBRES[origMes - 1]})`,
           monto: p.cuota,
           icon: Landmark,
           metodoDefault: null,
