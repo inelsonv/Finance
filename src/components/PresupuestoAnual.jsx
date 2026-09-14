@@ -194,6 +194,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     [prestamos]
   );
 
+  const tarjetasActivas = useMemo(
+    () => (tarjetas || []).filter((t) => t.estado === "Activa" && t.saldoActual > 0 && t.pagoMinimo && t.fechaPago),
+    [tarjetas]
+  );
+
   const ingresoMensual = useMemo(() => {
     let total = 0;
     for (const f of fuentesIngreso || []) {
@@ -534,6 +539,27 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     prestamosActivos.reduce((s, p) => s + getCeldaPrestamo(p, mes, quincena), 0);
 
   const totalPrestamosTodos = () => prestamosActivos.reduce((s, p) => s + totalPorPrestamo(p), 0);
+
+  // Igual que getCeldaPrestamo, pero para el pago mínimo de una tarjeta —
+  // usa la misma fecha de pago para determinar la quincena, y aplica el
+  // mismo aumento de "Pago rápido" en la quincena en curso si corresponde.
+  const getCeldaTarjetaMinimo = (tarjeta, mes, quincena) => {
+    const diasEnMes = new Date(year, mes, 0).getDate();
+    const diaPago = Math.min(Number(tarjeta.fechaPago), diasEnMes);
+    const q = diaPago >= 15 ? "Q2" : "Q1";
+    if (q !== quincena) return 0;
+    let total = Number(tarjeta.pagoMinimo) || 0;
+    if (pagoRapido?.activo && pagoRapido.deudaId === `t-${tarjeta.id}` && mes === mesActivo && quincena === quincenaActiva) {
+      total += extraPagoRapidoQuincenaActual;
+    }
+    return total;
+  };
+
+  const getCeldaTarjetasMinimoTodas = (mes, quincena) =>
+    tarjetasActivas.reduce((s, t) => s + getCeldaTarjetaMinimo(t, mes, quincena), 0);
+
+  const totalTarjetasMinimoTodas = () =>
+    tarjetasActivas.reduce((s, t) => s + MESES.reduce((s2, _, i) => s2 + getCeldaTarjetaMinimo(t, i + 1, "Q1") + getCeldaTarjetaMinimo(t, i + 1, "Q2"), 0), 0);
 
   const totalPorMeta = (meta) => {
     let total = 0;
@@ -1018,7 +1044,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                 {MESES.map((_, i) => {
                   const mes = i + 1;
                   return QUINCENAS.map((q) => {
-                    const val = getCeldaPrestamosTodos(mes, q);
+                    const val = getCeldaPrestamosTodos(mes, q) + getCeldaTarjetasMinimoTodas(mes, q);
                     return (
                       <td
                         key={`prestamos-resumen-${mes}-${q}`}
@@ -1112,6 +1138,67 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     }}
                   >
                     {formatMoney(totalPorPrestamo(p)) || "0"}
+                  </td>
+                </tr>
+              );
+            })}
+            {mostrarPrestamos &&
+              tarjetasActivas.map((t, idx) => {
+              const rowIdx = categorias.length + prestamosActivos.length + idx;
+              return (
+                <tr key={`tarjeta-minimo-${t.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                  <td
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
+                      padding: "6px 10px 6px 24px",
+                      borderRight: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: 12,
+                      color: "var(--stamp)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                    title={`Pago mínimo calculado automáticamente desde Tarjetas${t.entidadName ? ` — Entidad: ${t.entidadName}` : ""}`}
+                  >
+                    <CreditCard size={10} /> Tarjeta {t.nombre}
+                  </td>
+                  {MESES.map((_, i) => {
+                    const mes = i + 1;
+                    return QUINCENAS.map((q) => {
+                      const val = getCeldaTarjetaMinimo(t, mes, q);
+                      return (
+                        <td
+                          key={`${t.id}-${mes}-${q}`}
+                          style={{
+                            borderBottom: "1px solid var(--line-soft)",
+                            borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                            padding: "6px 4px",
+                            textAlign: "right",
+                            color: "var(--stamp)",
+                            opacity: val ? 1 : 0.35,
+                          }}
+                        >
+                          {formatMoney(val) || "—"}
+                        </td>
+                      );
+                    });
+                  })}
+                  <td
+                    style={{
+                      borderLeft: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      padding: "7px 10px",
+                      textAlign: "right",
+                      fontWeight: 600,
+                      background: "var(--stamp-bg)",
+                      color: "var(--stamp)",
+                    }}
+                  >
+                    {formatMoney(MESES.reduce((s, _, i) => s + getCeldaTarjetaMinimo(t, i + 1, "Q1") + getCeldaTarjetaMinimo(t, i + 1, "Q2"), 0)) || "0"}
                   </td>
                 </tr>
               );
