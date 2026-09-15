@@ -54,6 +54,7 @@ import HabitTracker from "./components/HabitTracker.jsx";
 import Wallet from "./components/Wallet.jsx";
 import Asistente from "./components/Asistente.jsx";
 import MapaProgreso from "./components/MapaProgreso.jsx";
+import FondosSostenibles from "./components/FondosSostenibles.jsx";
 import Biblioteca from "./components/Biblioteca.jsx";
 import LectorEpub from "./components/LectorEpub.jsx";
 import Sidebar from "./components/Sidebar.jsx";
@@ -856,6 +857,7 @@ export default function App() {
             onNavigate={setTab}
           />
         )}
+        {tab === "fondos-sostenibles" && <FondosSostenibles categoriasGasto={categoriasGasto} presupuesto={presupuestoAnual} />}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}
         {tab === "wallet" && <Wallet tarjetas={tarjetas} membresias={membresias} onNavigate={setTab} />}
         {tab === "biblioteca" && <Biblioteca libros={libros} libroLeyendo={libroLeyendo} onAbrirLectura={handleAbrirLectura} onCerrarLectura={handleCerrarLectura} />}

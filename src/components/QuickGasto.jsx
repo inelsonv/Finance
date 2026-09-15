@@ -38,6 +38,7 @@ import { addMovimiento } from "../lib/db";
 import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
 import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
 import { quincenaDeFecha, consumoPresupuestoConTarjeta } from "../lib/presupuestoConsumo";
+import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import TarjetasApiladas from "./TarjetasApiladas.jsx";
 

@@ -2066,6 +2066,40 @@ export async function premiarMundoCompletado(mundoId, puntos, nombreMundo) {
   await setDoc(ref, { premiados: arrayUnion(mundoId) }, { merge: true });
 }
 
+// "Fondos autosostenibles" — capital invertido por cada gasto fijo cuyo
+// rendimiento se supone que paga ese gasto indefinidamente.
+export function watchFondosSostenibles(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "fondosSostenibles"),
+    (snap) => onChange(snap.exists() ? snap.data()?.fondos || {} : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function activarFondoSostenible(categoriaNombre) {
+  const ref = doc(db, "config", "fondosSostenibles");
+  const snap = await getDoc(ref);
+  const fondos = snap.exists() ? snap.data()?.fondos || {} : {};
+  fondos[categoriaNombre] = { activo: true, montoAcumulado: fondos[categoriaNombre]?.montoAcumulado || 0 };
+  await setDoc(ref, { fondos }, { merge: true });
+}
+
+export async function desactivarFondoSostenible(categoriaNombre) {
+  const ref = doc(db, "config", "fondosSostenibles");
+  const snap = await getDoc(ref);
+  const fondos = snap.exists() ? snap.data()?.fondos || {} : {};
+  if (fondos[categoriaNombre]) fondos[categoriaNombre].activo = false;
+  await setDoc(ref, { fondos }, { merge: true });
+}
+
+export async function actualizarMontoFondoSostenible(categoriaNombre, monto) {
+  const ref = doc(db, "config", "fondosSostenibles");
+  const snap = await getDoc(ref);
+  const fondos = snap.exists() ? snap.data()?.fondos || {} : {};
+  fondos[categoriaNombre] = { ...(fondos[categoriaNombre] || { activo: true }), montoAcumulado: Number(monto) || 0 };
+  await setDoc(ref, { fondos }, { merge: true });
+}
+
 export function watchEstrategiaDeudas(onChange, onError) {
   return onSnapshot(
     doc(db, "config", "estrategiaDeudas"),

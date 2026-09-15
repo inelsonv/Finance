@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Check, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, watchPagoRapido } from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -305,8 +305,16 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       }
     }
 
+    // Monto editado manualmente (ej. "Almuerzo" que varía por descuento de
+    // nómina) — si el checklist tiene un montoOverride guardado para este
+    // ítem, ese valor manda sobre el calculado del presupuesto.
+    for (const it of list) {
+      const override = checklist?.items?.[it.key]?.montoOverride;
+      if (override != null) it.monto = Number(override) || 0;
+    }
+
     return list.sort((a, b) => b.monto - a.monto);
-  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso]);
+  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso, checklist]);
 
   const totales = useMemo(() => {
     let total = 0;
@@ -331,6 +339,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   }, [items, checklist]);
 
   const [confirmandoKey, setConfirmandoKey] = useState(null);
+  const [editandoMontoKey, setEditandoMontoKey] = useState(null);
+  const [montoEditado, setMontoEditado] = useState("");
   const [modoSeleccion, setModoSeleccion] = useState(false);
   const [seleccionados, setSeleccionados] = useState(() => new Set());
   const [confirmandoLote, setConfirmandoLote] = useState(false);
@@ -814,9 +824,63 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                   ))}
                 </select>
 
-                <span className="despensa-mono" style={{ fontSize: 13.5, fontWeight: 600, minWidth: 80, textAlign: "right", flexShrink: 0 }}>
-                  {formatMoney(it.monto)}
-                </span>
+                {editandoMontoKey === it.key ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                    <input
+                      type="number"
+                      value={montoEditado}
+                      onChange={(e) => setMontoEditado(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+                      style={{ width: 90, padding: "4px 6px", fontSize: 12.5, border: "1px solid var(--sage)", borderRadius: 6, textAlign: "right" }}
+                    />
+                    <button
+                      onClick={async () => {
+                        const actual = checklist?.items?.[it.key] || {};
+                        await setChecklistItem(periodoKey, it.key, { ...actual, montoOverride: Number(montoEditado) || 0 });
+                        setEditandoMontoKey(null);
+                      }}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
+                    >
+                      <Check size={12} />
+                    </button>
+                    <button
+                      onClick={() => setEditandoMontoKey(null)}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (it.bloqueadoPagado) return;
+                      setEditandoMontoKey(it.key);
+                      setMontoEditado(String(it.monto || ""));
+                    }}
+                    disabled={it.bloqueadoPagado}
+                    title={it.bloqueadoPagado ? "Préstamo saldado — ya no se puede modificar" : "Tocar para editar el monto"}
+                    className="despensa-mono"
+                    style={{
+                      fontSize: 13.5,
+                      fontWeight: 600,
+                      minWidth: 80,
+                      textAlign: "right",
+                      flexShrink: 0,
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--ink)",
+                      cursor: it.bloqueadoPagado ? "default" : "pointer",
+                      padding: 0,
+                      textDecoration: it.bloqueadoPagado ? "none" : "underline",
+                      textDecorationStyle: "dotted",
+                      textDecorationColor: "var(--line)",
+                      textUnderlineOffset: 3,
+                    }}
+                  >
+                    {formatMoney(it.monto)}
+                  </button>
+                )}
               </div>
             );
           })}
