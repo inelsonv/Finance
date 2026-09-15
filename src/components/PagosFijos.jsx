@@ -26,7 +26,16 @@ export default function PagosFijos({ prestamos, tarjetas, membresias, contratos,
   }, [movimientos]);
 
   const prestamosActivos = (prestamos || []).filter((p) => p.estado === "Activo");
-  const cuotaPrestamos = prestamosActivos.reduce((s, p) => s + (Number(p.cuota) || 0), 0);
+  // Un préstamo de una sola cuota no es un pago fijo recurrente, así que
+  // no cuenta para "Cuotas préstamos" — pero sí sigue contando como saldo
+  // pendiente hasta que se pague (pendientePrestamos usa prestamosActivos
+  // completo, sin este filtro).
+  const cuotaPrestamos = prestamosActivos
+    .filter((p) => {
+      const cuotasTotales = p.frecuenciaCuota === "Personalizado" ? (p.cuotasPersonalizadas || []).length : p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
+      return cuotasTotales > 1;
+    })
+    .reduce((s, p) => s + (Number(p.cuota) || 0), 0);
   const pendientePrestamos = prestamosActivos.reduce((s, p) => {
     const pagado = pagadoPorPrestamo[p.id] || 0;
     return s + Math.max((Number(p.montoAprobado) || 0) - pagado, 0);
