@@ -1278,6 +1278,27 @@ export async function updateMovimientoFecha(id, nuevaFecha, motivo, fechaAnterio
   });
 }
 
+// Igual que updateMovimientoFecha, pero para corregir el MONTO de un
+// movimiento ya registrado (ej. si se puso un monto menor al real) — exige
+// un motivo y guarda el historial del cambio, sin borrar/recrear el
+// movimiento (conserva su id, fecha, y cualquier vínculo con préstamos,
+// tarjetas, o el checklist).
+export async function updateMovimientoMonto(id, nuevoMonto, motivo, montoAnterior) {
+  const motivoLimpio = (motivo || "").trim();
+  if (!motivoLimpio) throw new Error("Debes justificar el cambio de monto");
+  const montoNum = Number(nuevoMonto);
+  if (!Number.isFinite(montoNum) || montoNum <= 0) throw new Error("El monto debe ser un número mayor a 0");
+  await updateDoc(doc(db, "movimientos", id), {
+    amount: montoNum,
+    historialCambiosMonto: arrayUnion({
+      montoAnterior: montoAnterior != null ? Number(montoAnterior) : null,
+      montoNuevo: montoNum,
+      motivo: motivoLimpio,
+      cambiadoEn: new Date().toISOString(),
+    }),
+  });
+}
+
 // Marca una lista de consumos de tarjeta (movimientos de tipo Gasto con
 // tarjeta) como pagados, vinculándolos al pago que los saldó — se usa al
 // registrar un "Pago de tarjeta" y elegir cuáles consumos pendientes cubre.

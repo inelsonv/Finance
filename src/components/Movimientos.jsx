@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle, Pencil, History, Download } from "lucide-react";
-import { addMovimiento, deleteMovimiento, updateMovimientoFecha, marcarConsumosComoPagados } from "../lib/db";
+import { addMovimiento, deleteMovimiento, updateMovimientoFecha, updateMovimientoMonto, marcarConsumosComoPagados } from "../lib/db";
 import SwipeableRow from "./SwipeableRow.jsx";
 import Pagination from "./Pagination.jsx";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
@@ -73,6 +73,12 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const [editFechaSaving, setEditFechaSaving] = useState(false);
   const [editFechaError, setEditFechaError] = useState(null);
 
+  const [editandoMontoId, setEditandoMontoId] = useState(null);
+  const [editMonto, setEditMonto] = useState("");
+  const [editMontoMotivo, setEditMontoMotivo] = useState("");
+  const [editMontoSaving, setEditMontoSaving] = useState(false);
+  const [editMontoError, setEditMontoError] = useState(null);
+
   const startEditFecha = (m) => {
     setEditandoFechaId(m.id);
     setEditFecha(m.date || "");
@@ -105,6 +111,41 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       setEditFechaError(err.message || String(err));
     } finally {
       setEditFechaSaving(false);
+    }
+  };
+
+  const startEditMonto = (m) => {
+    setEditandoMontoId(m.id);
+    setEditMonto(m.amount != null ? String(m.amount) : "");
+    setEditMontoMotivo("");
+    setEditMontoError(null);
+  };
+
+  const cancelEditMonto = () => {
+    setEditandoMontoId(null);
+    setEditMonto("");
+    setEditMontoMotivo("");
+    setEditMontoError(null);
+  };
+
+  const saveEditMonto = async (m) => {
+    if (!editMonto || Number(editMonto) <= 0) {
+      setEditMontoError("Ingresa un monto válido");
+      return;
+    }
+    if (!editMontoMotivo.trim()) {
+      setEditMontoError("Debes justificar el cambio de monto");
+      return;
+    }
+    setEditMontoSaving(true);
+    setEditMontoError(null);
+    try {
+      await updateMovimientoMonto(m.id, editMonto, editMontoMotivo, m.amount);
+      cancelEditMonto();
+    } catch (err) {
+      setEditMontoError(err.message || String(err));
+    } finally {
+      setEditMontoSaving(false);
     }
   };
   const paginated = useMemo(() => movimientos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [movimientos, page]);
@@ -1179,13 +1220,76 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                     {editFechaError && <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--stamp)" }}>{editFechaError}</div>}
                   </div>
                 )}
+
+                {editandoMontoId === m.id && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ marginTop: 8, padding: 10, background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8 }}
+                  >
+                    <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Nuevo monto</div>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editMonto}
+                      onChange={(e) => setEditMonto(e.target.value)}
+                      style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, marginBottom: 8 }}
+                    />
+                    <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Motivo del cambio (obligatorio)</div>
+                    <input
+                      placeholder="Ej. Puse un monto menor al real por error"
+                      value={editMontoMotivo}
+                      onChange={(e) => setEditMontoMotivo(e.target.value)}
+                      style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, marginBottom: 8 }}
+                    />
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        onClick={() => saveEditMonto(m)}
+                        disabled={editMontoSaving}
+                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: editMontoSaving ? "not-allowed" : "pointer" }}
+                      >
+                        <Check size={12} /> {editMontoSaving ? "Guardando…" : "Guardar"}
+                      </button>
+                      <button
+                        onClick={cancelEditMonto}
+                        style={{ padding: "6px 12px", fontSize: 12, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 7, cursor: "pointer" }}
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                    {editMontoError && <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--stamp)" }}>{editMontoError}</div>}
+                  </div>
+                )}
               </div>
               <span
                 className="despensa-mono"
-                style={{ fontSize: 13, fontWeight: 500, color: m.type === "Ingreso" ? "var(--sage)" : "var(--stamp)", flexShrink: 0 }}
+                style={{ fontSize: 13, fontWeight: 500, color: m.type === "Ingreso" ? "var(--sage)" : "var(--stamp)", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 4 }}
               >
                 {m.type === "Ingreso" ? "+" : "−"}{formatMoney(m.amount)}
+                {m.historialCambiosMonto?.length > 0 && (
+                  <span title={`Monto editado ${m.historialCambiosMonto.length} vez(es)`} style={{ display: "inline-flex" }}>
+                    <History size={11} style={{ color: "var(--ink-soft)" }} />
+                  </span>
+                )}
               </span>
+              <button
+                onClick={() => (editandoMontoId === m.id ? cancelEditMonto() : startEditMonto(m))}
+                title="Editar monto"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 26,
+                  height: 26,
+                  background: "transparent",
+                  color: editandoMontoId === m.id ? "var(--sage)" : "var(--ink-soft)",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <Pencil size={13} />
+              </button>
               <button
                 onClick={() => (editandoFechaId === m.id ? cancelEditFecha() : startEditFecha(m))}
                 title="Editar fecha"
