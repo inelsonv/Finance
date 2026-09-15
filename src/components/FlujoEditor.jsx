@@ -507,9 +507,10 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     y += step;
 
     // 3. Pago de deudas + un nodo por cada préstamo y tarjeta de crédito activos
-    // Un préstamo con una sola cuota total no es un pago fijo recurrente —
-    // no debe contar para el índice de endeudamiento ni el pipeline.
-    const prestamosActivos = (prestamos || []).filter((p) => p.estado === "Activo" && cuotasTotalesPrestamo(p) > 1);
+    // (todos los préstamos activos se muestran como nodo — incluso los de
+    // una sola cuota, ya que igual hay que pagarlos; la exclusión de cuota
+    // única solo aplica más abajo, al índice de endeudamiento).
+    const prestamosActivos = (prestamos || []).filter((p) => p.estado === "Activo");
     const tarjetasActivas = (tarjetas || []).filter((t) => t.estado === "Activa" && (t.tipoTarjeta || "Crédito") === "Crédito");
     const totalPrestamos = prestamosActivos.reduce((s, p) => s + (Number(p.cuota) || 0), 0);
     const totalTarjetas = tarjetasActivas.reduce((s, t) => s + (Number(t.pagoMinimo) || 0), 0);
