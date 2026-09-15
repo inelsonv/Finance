@@ -35,16 +35,18 @@ function formatMoneyNotif(n) {
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function diasHasta(diaPago, today) {
+function diasHasta(diaPago, today, diasGracia = 0) {
+  const diaConGracia = (Number(diaPago) || 0) + (Number(diasGracia) || 0);
   const { year, month, day } = today;
   const daysInThisMonth = new Date(year, month, 0).getDate();
-  const targetDay = Math.min(diaPago, daysInThisMonth);
+  const targetDay = Math.min(diaConGracia, daysInThisMonth);
   let diff = targetDay - day;
-  if (diff < 0) {
+  if (diff < 0 || diaConGracia > daysInThisMonth) {
     const nextMonth = month === 12 ? 1 : month + 1;
     const nextYear = month === 12 ? year + 1 : year;
     const daysInNextMonth = new Date(nextYear, nextMonth, 0).getDate();
-    const nextTargetDay = Math.min(diaPago, daysInNextMonth);
+    const diaConGraciaAjustado = diaConGracia > daysInThisMonth ? diaConGracia - daysInThisMonth : diaConGracia;
+    const nextTargetDay = Math.min(diaConGraciaAjustado, daysInNextMonth);
     const msPerDay = 24 * 60 * 60 * 1000;
     diff = Math.round((new Date(nextYear, nextMonth - 1, nextTargetDay) - new Date(year, month - 1, day)) / msPerDay);
   }
@@ -286,7 +288,7 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     for (const c of contratos) {
       if (c.estado !== "Activo" || !c.diaPago) continue;
       if (yaPagadoEsteMes(movimientos, "Pago de servicio", "contratoId", c.id, today)) continue;
-      const dias = diasHasta(c.diaPago, today);
+      const dias = diasHasta(c.diaPago, today, c.diasGracia);
       if (dias <= UMBRAL_DIAS) {
         list.push({
           id: `c-${c.id}`,

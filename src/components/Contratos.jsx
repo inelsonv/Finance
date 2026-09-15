@@ -16,6 +16,45 @@ export const CONTRATO_TIPOS = [
 ];
 const ESTADOS = ["Activo", "Inactivo", "Cancelado"];
 
+// Dado el día de facturación y los días de gracia de un contrato, calcula
+// el día real en que vence el pago — si se pasa del fin de mes, cae en la
+// quincena correspondiente del mes SIGUIENTE (ej. factura el día 30 con 5
+// días de gracia vence el día 5 del próximo mes, en su 1ra quincena).
+export function diaEfectivoTexto(diaPago, diasGracia) {
+  const dia = Number(diaPago) || 0;
+  const gracia = Number(diasGracia) || 0;
+  if (!dia) return "—";
+  const efectivo = dia + gracia;
+  if (efectivo <= 30) {
+    const quincena = efectivo >= 15 ? "2da quincena" : "1ra quincena";
+    return `Día ${efectivo} (${quincena})`;
+  }
+  const diaProximoMes = efectivo - 30;
+  const quincena = diaProximoMes >= 15 ? "2da quincena del próximo mes" : "1ra quincena del próximo mes";
+  return `Día ${diaProximoMes} del próximo mes (${quincena})`;
+}
+
+// Igual que diaEfectivoTexto, pero devuelve directamente a qué (mes,
+// quincena) corresponde el pago para un mes/año dado — útil para reflejar
+// el contrato en la quincena correcta del Presupuesto/Checklist.
+export function calcularQuincenaEfectivaContrato(diaPago, diasGracia, year, month) {
+  const dia = Number(diaPago) || 0;
+  const gracia = Number(diasGracia) || 0;
+  if (!dia) return null;
+  const efectivo = dia + gracia;
+  if (efectivo <= 30) {
+    return { year, month, quincena: efectivo >= 15 ? "Q2" : "Q1" };
+  }
+  const diaProximoMes = efectivo - 30;
+  let mesSiguiente = month + 1;
+  let yearSiguiente = year;
+  if (mesSiguiente > 12) {
+    mesSiguiente = 1;
+    yearSiguiente += 1;
+  }
+  return { year: yearSiguiente, month: mesSiguiente, quincena: diaProximoMes >= 15 ? "Q2" : "Q1" };
+}
+
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -28,6 +67,7 @@ const emptyForm = () => ({
   numeroContrato: "",
   montoEstimado: "",
   diaPago: "",
+  diasGracia: "",
   estado: "Activo",
   notas: "",
 });
@@ -40,6 +80,7 @@ function toEditForm(c) {
     numeroContrato: c.numeroContrato || "",
     montoEstimado: c.montoEstimado != null ? String(c.montoEstimado) : "",
     diaPago: c.diaPago != null ? String(c.diaPago) : "",
+    diasGracia: c.diasGracia != null ? String(c.diasGracia) : "",
     estado: c.estado || "Activo",
     notas: c.notas || "",
   };
@@ -103,6 +144,7 @@ export default function Contratos({ contratos, entidades, movimientos }) {
         numeroContrato: form.numeroContrato.trim(),
         montoEstimado: parseFloat(form.montoEstimado) || null,
         diaPago: parseInt(form.diaPago, 10) || null,
+        diasGracia: parseInt(form.diasGracia, 10) || 0,
         estado: form.estado,
         notas: form.notas.trim(),
       });
@@ -127,6 +169,7 @@ export default function Contratos({ contratos, entidades, movimientos }) {
         numeroContrato: editForm.numeroContrato.trim(),
         montoEstimado: parseFloat(editForm.montoEstimado) || null,
         diaPago: parseInt(editForm.diaPago, 10) || null,
+        diasGracia: parseInt(editForm.diasGracia, 10) || 0,
         estado: editForm.estado,
         notas: editForm.notas.trim(),
       });
@@ -230,6 +273,16 @@ export default function Contratos({ contratos, entidades, movimientos }) {
               onChange={(e) => setForm({ ...form, diaPago: e.target.value })}
               style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
             />
+            <input
+              className="despensa-mono"
+              type="number"
+              min="0"
+              max="30"
+              placeholder="Días de gracia"
+              value={form.diasGracia}
+              onChange={(e) => setForm({ ...form, diasGracia: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
             <select
               value={form.estado}
               onChange={(e) => setForm({ ...form, estado: e.target.value })}
@@ -327,6 +380,16 @@ export default function Contratos({ contratos, entidades, movimientos }) {
                       onChange={(e) => setEditForm({ ...editForm, diaPago: e.target.value })}
                       style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                     />
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      min="0"
+                      max="30"
+                      placeholder="Días de gracia"
+                      value={editForm.diasGracia}
+                      onChange={(e) => setEditForm({ ...editForm, diasGracia: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
                   </div>
                   <div style={{ marginBottom: 8 }}>
                     <select
@@ -403,6 +466,11 @@ export default function Contratos({ contratos, entidades, movimientos }) {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
                     <Field label="Monto estimado" value={c.montoEstimado != null ? formatMoney(c.montoEstimado) : "—"} />
                     <Field label="Día de pago" value={c.diaPago || "—"} />
+                    <Field label="Días de gracia" value={c.diasGracia || "0"} />
+                    <Field
+                      label="Vence realmente el"
+                      value={c.diaPago ? diaEfectivoTexto(c.diaPago, c.diasGracia) : "—"}
+                    />
                     <Field label="No. contrato" value={c.numeroContrato || "—"} />
                   </div>
 
