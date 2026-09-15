@@ -115,6 +115,10 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
         let cuotasMensuales = 0;
         for (const p of prestamos || []) {
           if (p.estado !== "Activo") continue;
+          // Un préstamo con una sola cuota total no es un pago fijo
+          // recurrente — no debe contar para el índice de endeudamiento.
+          const cuotasTotales = p.frecuenciaCuota === "Personalizado" ? (p.cuotasPersonalizadas || []).length : p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
+          if (cuotasTotales <= 1) continue;
           cuotasMensuales += Number(p.cuota) || 0;
         }
         for (const t of tarjetas || []) {

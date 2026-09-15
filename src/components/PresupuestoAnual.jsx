@@ -359,7 +359,14 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   // Nivel de endeudamiento: % del ingreso mensual comprometido en cuotas de
   // préstamos + pagos mínimos de tarjetas (misma fórmula que el indicador de Inicio).
   const cuotaPrestamosMensual = useMemo(
-    () => (prestamos || []).filter((p) => p.estado === "Activo").reduce((s, p) => s + (Number(p.cuota) || 0), 0),
+    () =>
+      (prestamos || [])
+        .filter((p) => {
+          if (p.estado !== "Activo") return false;
+          const cuotasTotales = p.frecuenciaCuota === "Personalizado" ? (p.cuotasPersonalizadas || []).length : p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
+          return cuotasTotales > 1;
+        })
+        .reduce((s, p) => s + (Number(p.cuota) || 0), 0),
     [prestamos]
   );
   const pagoTarjetasMensual = useMemo(

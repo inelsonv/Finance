@@ -246,6 +246,12 @@ function nextId() {
 }
 
 export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos, tarjetas, presupuesto, diasCobro, cuentas, estrategiaDeudas }) {
+  // Un préstamo con una sola cuota total (plazo/cuotasPersonalizadas de
+  // longitud 1) no es un pago fijo recurrente — se excluye del índice de
+  // endeudamiento y del pipeline de flujo en varios lugares de este archivo.
+  const cuotasTotalesPrestamo = (p) =>
+    p.frecuenciaCuota === "Personalizado" ? (p.cuotasPersonalizadas || []).length : p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
+
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
   const [colorIndex, setColorIndex] = useState(0);
@@ -501,7 +507,9 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     y += step;
 
     // 3. Pago de deudas + un nodo por cada préstamo y tarjeta de crédito activos
-    const prestamosActivos = (prestamos || []).filter((p) => p.estado === "Activo");
+    // Un préstamo con una sola cuota total no es un pago fijo recurrente —
+    // no debe contar para el índice de endeudamiento ni el pipeline.
+    const prestamosActivos = (prestamos || []).filter((p) => p.estado === "Activo" && cuotasTotalesPrestamo(p) > 1);
     const tarjetasActivas = (tarjetas || []).filter((t) => t.estado === "Activa" && (t.tipoTarjeta || "Crédito") === "Crédito");
     const totalPrestamos = prestamosActivos.reduce((s, p) => s + (Number(p.cuota) || 0), 0);
     const totalTarjetas = tarjetasActivas.reduce((s, t) => s + (Number(t.pagoMinimo) || 0), 0);
@@ -510,7 +518,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     // Inicio (incluye todas las tarjetas activas, no solo las de tipo
     // "Crédito", a diferencia de los nodos hijos de abajo) — se marca con un
     // "!" si supera el 30% del ingreso.
-    const totalPrestamosKPI = (prestamos || []).filter((p) => p.estado === "Activo").reduce((s, p) => s + (Number(p.cuota) || 0), 0);
+    const totalPrestamosKPI = (prestamos || []).filter((p) => p.estado === "Activo" && cuotasTotalesPrestamo(p) > 1).reduce((s, p) => s + (Number(p.cuota) || 0), 0);
     const totalTarjetasKPI = (tarjetas || []).filter((t) => t.estado === "Activa").reduce((s, t) => s + (Number(t.pagoMinimo) || 0), 0);
     const pctDeudaSobreIngreso = ingresoSugerido > 0 ? ((totalPrestamosKPI + totalTarjetasKPI) / ingresoSugerido) * 100 : 0;
     const deudasId = nextId();
@@ -678,7 +686,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     // Si supera 30%, el pago de deudas se prioriza justo después de los
     // gastos fijos; si no, se atiende con menos urgencia (después de
     // ahorro e inversión).
-    const prestamosActivosPct = (prestamos || []).filter((p) => p.estado === "Activo");
+    const prestamosActivosPct = (prestamos || []).filter((p) => p.estado === "Activo" && cuotasTotalesPrestamo(p) > 1);
     const tarjetasActivasPct = (tarjetas || []).filter((t) => t.estado === "Activa");
     const totalCuotasDeuda =
       prestamosActivosPct.reduce((s, p) => s + (Number(p.cuota) || 0), 0) + tarjetasActivasPct.reduce((s, t) => s + (Number(t.pagoMinimo) || 0), 0);
