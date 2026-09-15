@@ -948,6 +948,7 @@ export default function App() {
             diasCobro={diasCobro}
             puntosHistorial={puntosHistorial}
             entidades={entidades}
+            contratos={contratos}
           />
         )}
         {tab === "presupuesto-flujo" && (

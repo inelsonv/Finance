@@ -55,6 +55,23 @@ export function calcularQuincenaEfectivaContrato(diaPago, diasGracia, year, mont
   return { year: yearSiguiente, month: mesSiguiente, quincena: diaProximoMes >= 15 ? "Q2" : "Q1" };
 }
 
+// Verifica si un contrato está vigente en un mes/año dado, según sus
+// fechas de inicio y fin (si no tiene fecha de fin, se asume activo
+// indefinidamente desde su inicio).
+export function contratoActivoEnMes(contrato, year, month) {
+  if (!contrato.fechaInicio) return contrato.estado === "Activo";
+  const inicioMes = year * 12 + (month - 1);
+  const [iy, im] = contrato.fechaInicio.split("-").map(Number);
+  const inicioContrato = iy * 12 + (im - 1);
+  if (inicioMes < inicioContrato) return false;
+  if (contrato.fechaFin) {
+    const [fy, fm] = contrato.fechaFin.split("-").map(Number);
+    const finContrato = fy * 12 + (fm - 1);
+    if (inicioMes > finContrato) return false;
+  }
+  return true;
+}
+
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -68,6 +85,8 @@ const emptyForm = () => ({
   montoEstimado: "",
   diaPago: "",
   diasGracia: "",
+  fechaInicio: "",
+  fechaFin: "",
   estado: "Activo",
   notas: "",
 });
@@ -81,6 +100,8 @@ function toEditForm(c) {
     montoEstimado: c.montoEstimado != null ? String(c.montoEstimado) : "",
     diaPago: c.diaPago != null ? String(c.diaPago) : "",
     diasGracia: c.diasGracia != null ? String(c.diasGracia) : "",
+    fechaInicio: c.fechaInicio || "",
+    fechaFin: c.fechaFin || "",
     estado: c.estado || "Activo",
     notas: c.notas || "",
   };
@@ -145,6 +166,8 @@ export default function Contratos({ contratos, entidades, movimientos }) {
         montoEstimado: parseFloat(form.montoEstimado) || null,
         diaPago: parseInt(form.diaPago, 10) || null,
         diasGracia: parseInt(form.diasGracia, 10) || 0,
+        fechaInicio: form.fechaInicio || null,
+        fechaFin: form.fechaFin || null,
         estado: form.estado,
         notas: form.notas.trim(),
       });
@@ -170,6 +193,8 @@ export default function Contratos({ contratos, entidades, movimientos }) {
         montoEstimado: parseFloat(editForm.montoEstimado) || null,
         diaPago: parseInt(editForm.diaPago, 10) || null,
         diasGracia: parseInt(editForm.diasGracia, 10) || 0,
+        fechaInicio: editForm.fechaInicio || null,
+        fechaFin: editForm.fechaFin || null,
         estado: editForm.estado,
         notas: editForm.notas.trim(),
       });
@@ -283,6 +308,24 @@ export default function Contratos({ contratos, entidades, movimientos }) {
               onChange={(e) => setForm({ ...form, diasGracia: e.target.value })}
               style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
             />
+            <div>
+              <label style={{ fontSize: 11, color: "var(--ink-soft)" }}>Inicio del servicio</label>
+              <input
+                type="date"
+                value={form.fechaInicio}
+                onChange={(e) => setForm({ ...form, fechaInicio: e.target.value })}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: "var(--ink-soft)" }}>Fin del servicio (opcional)</label>
+              <input
+                type="date"
+                value={form.fechaFin}
+                onChange={(e) => setForm({ ...form, fechaFin: e.target.value })}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </div>
             <select
               value={form.estado}
               onChange={(e) => setForm({ ...form, estado: e.target.value })}
@@ -390,6 +433,24 @@ export default function Contratos({ contratos, entidades, movimientos }) {
                       onChange={(e) => setEditForm({ ...editForm, diasGracia: e.target.value })}
                       style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                     />
+                    <div>
+                      <label style={{ fontSize: 11, color: "var(--ink-soft)" }}>Inicio del servicio</label>
+                      <input
+                        type="date"
+                        value={editForm.fechaInicio}
+                        onChange={(e) => setEditForm({ ...editForm, fechaInicio: e.target.value })}
+                        style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: "var(--ink-soft)" }}>Fin del servicio (opcional)</label>
+                      <input
+                        type="date"
+                        value={editForm.fechaFin}
+                        onChange={(e) => setEditForm({ ...editForm, fechaFin: e.target.value })}
+                        style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                      />
+                    </div>
                   </div>
                   <div style={{ marginBottom: 8 }}>
                     <select

@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText } from "lucide-react";
 import { setPresupuestoCelda, watchPagoRapido } from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
+import { contratoActivoEnMes, calcularQuincenaEfectivaContrato } from "./Contratos.jsx";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { formatearOrdenPrioridad } from "../lib/flujoPrioridad";
@@ -110,7 +111,7 @@ function totalItemsOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones, flujo, diasCobro, puntosHistorial, entidades = [] }) {
+export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones, flujo, diasCobro, puntosHistorial, entidades = [], contratos = [] }) {
   // Puramente informativo: el orden de prioridad definido en el Editor de
   // flujo, mostrado como referencia visual. No depende de ningún otro cálculo
   // de este componente ni los modifica.
@@ -204,6 +205,11 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         return p.fechaInicio && p.cuota && p.plazo;
       }),
     [prestamos]
+  );
+
+  const contratosActivos = useMemo(
+    () => (contratos || []).filter((c) => c.estado === "Activo" && c.diaPago && c.montoEstimado),
+    [contratos]
   );
 
   const ingresoMensual = useMemo(() => {
@@ -546,6 +552,45 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
     prestamosActivos.reduce((s, p) => s + getCeldaPrestamo(p, mes, quincena), 0);
 
   const totalPrestamosTodos = () => prestamosActivos.reduce((s, p) => s + totalPorPrestamo(p), 0);
+
+  // Igual que getCeldaPrestamo, pero para un contrato de servicio — usa el
+  // día de pago + días de gracia para saber en qué quincena vence
+  // realmente, y solo aparece en los meses en que el contrato está vigente
+  // (entre su fecha de inicio y de fin, si tiene una).
+  const getCeldaContrato = (contrato, mes, quincena) => {
+    // La facturación de ESTE mes puede vencer en este mismo mes o
+    // recorrerse al siguiente por los días de gracia — así que para saber
+    // si esta celda le corresponde, hay que revisar tanto la facturación
+    // de este mes como la del mes anterior (que pudo haberse recorrido
+    // hasta aquí).
+    for (const offset of [0, -1]) {
+      let mesFacturacion = mes + offset;
+      let yearFacturacion = year;
+      if (mesFacturacion < 1) {
+        mesFacturacion = 12;
+        yearFacturacion -= 1;
+      }
+      if (!contratoActivoEnMes(contrato, yearFacturacion, mesFacturacion)) continue;
+      const efectivo = calcularQuincenaEfectivaContrato(contrato.diaPago, contrato.diasGracia, yearFacturacion, mesFacturacion);
+      if (efectivo && efectivo.year === year && efectivo.month === mes && efectivo.quincena === quincena) {
+        return Number(contrato.montoEstimado) || 0;
+      }
+    }
+    return 0;
+  };
+
+  const totalMesContrato = (contrato, mes) => getCeldaContrato(contrato, mes, "Q1") + getCeldaContrato(contrato, mes, "Q2");
+
+  const totalPorContrato = (contrato) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesContrato(contrato, m);
+    return total;
+  };
+
+  const getCeldaContratosTodos = (mes, quincena) =>
+    contratosActivos.reduce((s, c) => s + getCeldaContrato(c, mes, quincena), 0);
+
+  const totalContratosTodos = () => contratosActivos.reduce((s, c) => s + totalPorContrato(c), 0);
 
   const totalPorMeta = (meta) => {
     let total = 0;
@@ -1030,7 +1075,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                 {MESES.map((_, i) => {
                   const mes = i + 1;
                   return QUINCENAS.map((q) => {
-                    const val = getCeldaPrestamosTodos(mes, q);
+                    const val = getCeldaPrestamosTodos(mes, q) + getCeldaContratosTodos(mes, q);
                     return (
                       <td
                         key={`prestamos-resumen-${mes}-${q}`}
@@ -1124,6 +1169,67 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                     }}
                   >
                     {formatMoney(totalPorPrestamo(p)) || "0"}
+                  </td>
+                </tr>
+              );
+            })}
+            {mostrarPrestamos &&
+              contratosActivos.map((c, idx) => {
+              const rowIdx = categorias.length + prestamosActivos.length + idx;
+              return (
+                <tr key={`contrato-${c.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                  <td
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
+                      padding: "6px 10px 6px 24px",
+                      borderRight: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: 12,
+                      color: "var(--stamp)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                    title={`Calculado automáticamente desde Contratos (día ${c.diaPago}${c.diasGracia ? ` + ${c.diasGracia} días de gracia` : ""})${c.entidadName ? ` — Entidad: ${c.entidadName}` : ""}`}
+                  >
+                    <FileText size={10} /> Contrato {c.nombre}
+                  </td>
+                  {MESES.map((_, i) => {
+                    const mes = i + 1;
+                    return QUINCENAS.map((q) => {
+                      const val = getCeldaContrato(c, mes, q);
+                      return (
+                        <td
+                          key={`${c.id}-${mes}-${q}`}
+                          style={{
+                            borderBottom: "1px solid var(--line-soft)",
+                            borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none",
+                            padding: "6px 4px",
+                            textAlign: "right",
+                            color: "var(--stamp)",
+                            opacity: val ? 1 : 0.35,
+                          }}
+                        >
+                          {formatMoney(val) || "—"}
+                        </td>
+                      );
+                    });
+                  })}
+                  <td
+                    style={{
+                      borderLeft: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      padding: "7px 10px",
+                      textAlign: "right",
+                      fontWeight: 600,
+                      background: "var(--stamp-bg)",
+                      color: "var(--stamp)",
+                    }}
+                  >
+                    {formatMoney(totalPorContrato(c)) || "0"}
                   </td>
                 </tr>
               );
