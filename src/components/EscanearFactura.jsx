@@ -73,6 +73,33 @@ export default function EscanearFactura({ products }) {
   const productosPorNombre = (nombre) =>
     products.find((p) => p.name.trim().toLowerCase() === nombre.trim().toLowerCase());
 
+  // Las fotos de cámara moderna suelen venir en resoluciones muy altas
+  // (12MP+), lo cual hace que el OCR tarde muchísimo más de lo necesario
+  // sin ninguna mejora real en la lectura del texto. Se reduce la imagen a
+  // un ancho máximo razonable antes de pasarla al OCR — acelera el
+  // procesamiento drásticamente sin perder legibilidad del texto.
+  const redimensionarImagen = (file, maxWidth = 1600) =>
+    new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        if (img.width <= maxWidth) {
+          resolve(file);
+          return;
+        }
+        const escala = maxWidth / img.width;
+        const canvas = document.createElement("canvas");
+        canvas.width = maxWidth;
+        canvas.height = Math.round(img.height * escala);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => resolve(blob || file), "image/jpeg", 0.85);
+      };
+      img.onerror = () => resolve(file);
+      img.src = url;
+    });
+
   const handleFile = async (file) => {
     if (!file) return;
     setScanError(null);
@@ -82,12 +109,13 @@ export default function EscanearFactura({ products }) {
     setScanning(true);
     setScanProgress(0);
     try {
+      const imagenParaOcr = await redimensionarImagen(file);
       const worker = await createWorker("spa", 1, {
         logger: (m) => {
           if (m.status === "recognizing text") setScanProgress(Math.round((m.progress || 0) * 100));
         },
       });
-      const { data } = await worker.recognize(file);
+      const { data } = await worker.recognize(imagenParaOcr);
       await worker.terminate();
 
       const encontrados = parsearLineas(data.text || "");
