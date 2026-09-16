@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect } from "react";
 import { createWorker } from "tesseract.js";
 import { Camera, Check, X, Loader2, AlertTriangle, Receipt } from "lucide-react";
 import { addProduct, addMovimiento, updateProductPrice, registrarCompraProducto, updateOrdenCompra } from "../lib/db";
@@ -162,6 +162,13 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
     [ordenesCompra]
   );
   const ordenActual = ordenesEnCurso.find((o) => o.id === ordenSeleccionadaId) || null;
+
+  // Al elegir una orden de compra como referencia, la tienda se llena por
+  // defecto con la entidad/proveedor de esa orden — el usuario igual puede
+  // editarla si el proveedor real fue otro.
+  useEffect(() => {
+    if (ordenActual?.proveedorNombre) setTienda(ordenActual.proveedorNombre);
+  }, [ordenSeleccionadaId]);
 
   // Busca, dentro de los items de la orden seleccionada, uno cuyo nombre se
   // parezca al renglón leído por el OCR — coincidencia simple por texto
