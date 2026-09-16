@@ -1015,7 +1015,7 @@ export default function App() {
         {tab === "configuracion" && (
           <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} categoriasGasto={categoriasGasto} />
         )}
-        {tab === "escanear-factura" && <EscanearFactura products={products} />}
+        {tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
       </main>
       <ConfirmDialogHost />
       {showMobileMenu && <MobileMenu tab={tab} setTab={(t) => setTab(t)} onClose={() => setShowMobileMenu(false)} onSignOut={() => signOut(auth)} />}

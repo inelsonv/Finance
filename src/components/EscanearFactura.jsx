@@ -1,7 +1,7 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import { createWorker } from "tesseract.js";
 import { Camera, Check, X, Loader2, AlertTriangle, Receipt } from "lucide-react";
-import { addProduct, addMovimiento, updateProductPrice, registrarCompraProducto } from "../lib/db";
+import { addProduct, addMovimiento, updateProductPrice, registrarCompraProducto, updateOrdenCompra } from "../lib/db";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 
@@ -57,10 +57,11 @@ function parsearLineas(textoCrudo) {
   return resultados;
 }
 
-export default function EscanearFactura({ products }) {
+export default function EscanearFactura({ products, ordenesCompra = [], onNavigate }) {
   const fileInputRef = useRef(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [ordenSeleccionadaId, setOrdenSeleccionadaId] = useState("");
   const [scanProgress, setScanProgress] = useState(0);
   const [scanError, setScanError] = useState(null);
   const [items, setItems] = useState([]);
@@ -120,13 +121,17 @@ export default function EscanearFactura({ products }) {
 
       const encontrados = parsearLineas(data.text || "");
       const itemsConEstado = encontrados.map((it) => {
-        const existente = productosPorNombre(it.nombre);
+        const itemOrden = itemDeOrdenPorNombre(it.nombre);
+        const existente = itemOrden
+          ? { id: itemOrden.productId, name: itemOrden.productName, price: itemOrden.precioUnitario }
+          : productosPorNombre(it.nombre);
         return {
           nombre: it.nombre,
           precio: it.precio,
           incluir: true,
           esNuevo: !existente,
           productoExistente: existente || null,
+          deOrden: !!itemOrden,
         };
       });
       setItems(itemsConEstado);
@@ -152,11 +157,33 @@ export default function EscanearFactura({ products }) {
     setItems((prev) => [...prev, { nombre: "", precio: "", incluir: true, esNuevo: true, productoExistente: null }]);
   };
 
+  const ordenesEnCurso = useMemo(
+    () => (ordenesCompra || []).filter((o) => o.estado === "Compra presencial" || o.estado === "Enviada a proveedor"),
+    [ordenesCompra]
+  );
+  const ordenActual = ordenesEnCurso.find((o) => o.id === ordenSeleccionadaId) || null;
+
+  // Busca, dentro de los items de la orden seleccionada, uno cuyo nombre se
+  // parezca al renglón leído por el OCR — coincidencia simple por texto
+  // contenido en ambos sentidos (ej. "Coca Cola 2L" con "Coca Cola").
+  const itemDeOrdenPorNombre = (nombre) => {
+    if (!ordenActual) return null;
+    const nombreNorm = nombre.trim().toLowerCase();
+    return (
+      ordenActual.items || []
+    ).find((it) => {
+      const itNombre = (it.productName || "").trim().toLowerCase();
+      return itNombre && (nombreNorm.includes(itNombre) || itNombre.includes(nombreNorm));
+    });
+  };
+
   const totalCalculado = items.filter((it) => it.incluir).reduce((s, it) => s + (parseFloat(it.precio) || 0), 0);
 
   const confirmarGuardado = async () => {
     setSaving(true);
     try {
+      const itemsOrdenActualizados = ordenActual ? [...(ordenActual.items || [])] : null;
+
       for (const it of items) {
         if (!it.incluir || !it.nombre.trim()) continue;
         const precio = parseFloat(it.precio) || 0;
@@ -164,11 +191,21 @@ export default function EscanearFactura({ products }) {
         if (it.esNuevo) {
           const docRef = await addProduct({ name: it.nombre.trim(), category: gastoCategoria, unit: "unidad", price: precio });
           productId = docRef.id;
-        } else if (it.productoExistente && precio > 0 && precio !== it.productoExistente.price) {
+        } else if (it.productoExistente && precio > 0 && precio !== it.productoExistente.price && !it.deOrden) {
           await updateProductPrice(it.productoExistente.id, precio);
         }
         if (productId) {
           registrarCompraProducto({ productId, productName: it.nombre.trim(), fecha, cantidad: 1 });
+        }
+
+        // Si este renglón coincidió con un item de la orden de compra
+        // seleccionada, márcalo como comprado y actualiza su precio real
+        // (el que muestra la factura, que puede diferir del estimado).
+        if (it.deOrden && itemsOrdenActualizados) {
+          const idx = itemsOrdenActualizados.findIndex((oi) => oi.productName === it.productoExistente?.name);
+          if (idx !== -1) {
+            itemsOrdenActualizados[idx] = { ...itemsOrdenActualizados[idx], comprado: true, precioUnitario: precio || itemsOrdenActualizados[idx].precioUnitario };
+          }
         }
       }
 
@@ -182,6 +219,14 @@ export default function EscanearFactura({ products }) {
         clasificacion: "Variable",
         metodoPago: "Efectivo",
       });
+
+      if (ordenActual && itemsOrdenActualizados) {
+        const todosComprados = itemsOrdenActualizados.every((it) => it.comprado);
+        await updateOrdenCompra(ordenActual.id, {
+          items: itemsOrdenActualizados,
+          ...(todosComprados ? { estado: "Completada" } : {}),
+        });
+      }
 
       setSavedOk(true);
     } catch (err) {
@@ -205,6 +250,31 @@ export default function EscanearFactura({ products }) {
 
   return (
     <div>
+      {ordenesEnCurso.length > 0 && !imagePreview && !scanning && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 5 }}>
+            ¿Esta factura corresponde a una orden de compra en curso? (opcional)
+          </div>
+          <select
+            value={ordenSeleccionadaId}
+            onChange={(e) => setOrdenSeleccionadaId(e.target.value)}
+            style={{ width: "100%", padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+          >
+            <option value="">Ninguna — registrar como compra suelta</option>
+            {ordenesEnCurso.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.proveedorNombre || "Sin proveedor"} · {(o.items || []).length} producto{(o.items || []).length !== 1 ? "s" : ""}
+              </option>
+            ))}
+          </select>
+          {ordenActual && (
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 4 }}>
+              Los renglones que coincidan con esta orden se marcarán como comprados y su precio se actualizará al de la factura.
+            </div>
+          )}
+        </div>
+      )}
+
       {!imagePreview && !scanning && (
         <div style={{ textAlign: "center", padding: "2rem 1rem", background: "var(--card)", border: "1px dashed var(--line)", borderRadius: 12 }}>
           <Receipt size={32} style={{ color: "var(--ink-soft)", marginBottom: 10 }} />
