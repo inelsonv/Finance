@@ -228,10 +228,14 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
       });
 
       if (ordenActual && itemsOrdenActualizados) {
-        const todosComprados = itemsOrdenActualizados.every((it) => it.comprado);
+        // Al registrar la compra a través de la factura escaneada, la orden
+        // se marca como Completada directamente — sin importar si TODOS
+        // los productos originales de la lista coincidieron o no (puede que
+        // algunos no se hayan comprado finalmente, o que el OCR no los
+        // haya detectado, pero la orden ya se dio por concluida).
         await updateOrdenCompra(ordenActual.id, {
           items: itemsOrdenActualizados,
-          ...(todosComprados ? { estado: "Completada" } : {}),
+          estado: "Completada",
         });
       }
 
