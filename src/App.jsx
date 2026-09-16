@@ -681,29 +681,9 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               {tab === "catalogo" && (
-                <>
-                  <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-                    {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
-                  </span>
-                  <button
-                    onClick={() => setTab("escanear-factura")}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                      padding: "6px 12px",
-                      fontSize: 12,
-                      fontWeight: 500,
-                      background: "var(--ink)",
-                      color: "var(--paper)",
-                      border: "none",
-                      borderRadius: 8,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Registrar compra (factura)
-                  </button>
-                </>
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                  {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
+                </span>
               )}
               {tab === "entidades" && (
                 <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>

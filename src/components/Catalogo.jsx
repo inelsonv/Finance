@@ -317,6 +317,30 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         </div>
       )}
 
+      {onNavigate && (
+        <button
+          onClick={() => onNavigate("escanear-factura")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            width: "100%",
+            padding: "11px 14px",
+            fontSize: 13.5,
+            fontWeight: 500,
+            background: "var(--ink)",
+            color: "var(--paper)",
+            border: "none",
+            borderRadius: 10,
+            cursor: "pointer",
+            marginBottom: 16,
+          }}
+        >
+          <Camera size={15} /> Registrar compra (escanear factura)
+        </button>
+      )}
+
       {sugerencias.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
