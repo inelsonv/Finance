@@ -344,13 +344,25 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
                 onChange={(e) => setPeso(e.target.value)}
                 style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
               />
-              <input
-                type="number"
-                placeholder="Estatura (cm)"
-                value={estatura}
-                onChange={(e) => setEstatura(e.target.value)}
-                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-              />
+              <div>
+                <input
+                  type="number"
+                  placeholder="Estatura (cm)"
+                  value={estatura}
+                  onChange={(e) => setEstatura(e.target.value)}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
+                {estatura && parseFloat(estatura) > 0 && (
+                  <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 3 }}>
+                    {(() => {
+                      const totalPulgadas = parseFloat(estatura) / 2.54;
+                      const pies = Math.floor(totalPulgadas / 12);
+                      const pulgadas = (totalPulgadas - pies * 12).toFixed(1);
+                      return `≈ ${pies}' ${pulgadas}"`;
+                    })()}
+                  </div>
+                )}
+              </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
               <input
