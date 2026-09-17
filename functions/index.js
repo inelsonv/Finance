@@ -609,20 +609,17 @@ function candidatosDeImagen(html, baseUrl) {
   return candidatos;
 }
 
-exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (request) => {
-  if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
-    throw new HttpsError("permission-denied", "No autorizado");
-  }
-  const { url } = request.data || {};
-  if (!url) throw new HttpsError("invalid-argument", "Falta la URL del producto");
-
+// Lógica compartida de extracción — usada tanto por el botón manual
+// "Importar desde URL" como por el proceso programado de actualización de
+// precios, para no duplicar el código.
+async function extraerDatosDeUrlCore(url, apiKeyValue) {
   let html;
   try {
     const resp = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; SmartFinanceBot/1.0)" } });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     html = await resp.text();
   } catch (err) {
-    throw new HttpsError("internal", "No se pudo abrir esa página: " + err.message);
+    throw new Error("No se pudo abrir esa página: " + err.message);
   }
 
   // supermercadosrd.com muestra el mismo producto con precios de VARIOS
@@ -634,6 +631,11 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
   const esSupermercadosRD = /supermercadosrd\.com/i.test(url);
 
   let resultado = esSupermercadosRD ? { nombre: null, precio: null, imagenUrl: null } : extraerConMetadatos(html);
+
+  // Siempre se recopilan las imágenes candidatas de la página (no solo
+  // cuando falta imagenUrl) — así el usuario puede elegir cuál usar en vez
+  // de quedarse forzosamente con la que la IA o los metadatos adivinaron.
+  const imagenesCandidatas = candidatosDeImagen(html, url);
 
   // Si los metadatos estándar no dieron nombre, precio, o imagen, se intenta
   // con IA como respaldo — mandándole el texto visible de la página y, si
@@ -648,10 +650,9 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
       .trim()
       .slice(0, 6000);
 
-    const candidatosImagen = resultado.imagenUrl ? [] : candidatosDeImagen(html, url);
     const bloqueImagenes =
-      candidatosImagen.length > 0
-        ? `\n\nEstas son las URLs de imágenes encontradas en la página — si alguna es claramente la foto principal del producto, inclúyela como "imagenUrl" (copiada exacta, tal cual aparece aquí). Si ninguna parece ser del producto, pon null:\n${candidatosImagen.join("\n")}`
+      imagenesCandidatas.length > 0
+        ? `\n\nEstas son las URLs de imágenes encontradas en la página — si alguna es claramente la foto principal del producto, inclúyela como "imagenUrl" (copiada exacta, tal cual aparece aquí). Si ninguna parece ser del producto, pon null:\n${imagenesCandidatas.join("\n")}`
         : "";
 
     const instruccionPrecio = esSupermercadosRD
@@ -663,7 +664,7 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "x-api-key": anthropicApiKey.value(),
+          "x-api-key": apiKeyValue,
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
@@ -692,8 +693,81 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
     }
   }
 
-  return resultado;
+  return { ...resultado, imagenesCandidatas: imagenesCandidatas.slice(0, 10), urlReferencia: url };
+}
+
+exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (request) => {
+  if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
+    throw new HttpsError("permission-denied", "No autorizado");
+  }
+  const { url } = request.data || {};
+  if (!url) throw new HttpsError("invalid-argument", "Falta la URL del producto");
+
+  try {
+    return await extraerDatosDeUrlCore(url, anthropicApiKey.value());
+  } catch (err) {
+    throw new HttpsError("internal", err.message);
+  }
 });
+
+// ---- Actualización automática de precios (programada) ----
+// Corre todos los días a una hora fija, pero solo hace el trabajo real
+// según la frecuencia que el usuario eligió en Configuración (diario,
+// semanal, mensual) — comparando contra la última vez que corrió. Así el
+// usuario puede cambiar la frecuencia desde la app sin necesitar
+// redesplegar la función cada vez.
+exports.actualizarPreciosAutomatico = onSchedule(
+  { schedule: "every day 06:00", timeZone: "America/Santo_Domingo", secrets: [anthropicApiKey] },
+  async () => {
+    const configRef = db.collection("config").doc("actualizacionPreciosAuto");
+    const configSnap = await configRef.get();
+    const config = configSnap.exists ? configSnap.data() : null;
+    if (!config?.activo) {
+      console.log("Actualización automática de precios desactivada, no se hace nada.");
+      return;
+    }
+
+    const ahora = new Date();
+    const ultimaEjecucion = config.ultimaEjecucion ? config.ultimaEjecucion.toDate() : null;
+    const diasDesdeUltima = ultimaEjecucion ? (ahora - ultimaEjecucion) / (1000 * 60 * 60 * 24) : Infinity;
+    const diasMinimos = { diario: 1, semanal: 7, mensual: 28 }[config.frecuencia || "semanal"] || 7;
+    if (diasDesdeUltima < diasMinimos - 0.5) {
+      console.log(`Aún no toca actualizar (frecuencia: ${config.frecuencia}, última hace ${diasDesdeUltima.toFixed(1)} días).`);
+      return;
+    }
+
+    // Solo se procesan los productos que se importaron desde una URL (con
+    // urlReferencia guardada) — los que se agregaron manualmente no tienen
+    // de dónde volver a consultar el precio.
+    const productsSnap = await db.collection("products").where("urlReferencia", "!=", null).get();
+    console.log(`Actualizando precios de ${productsSnap.size} producto(s) con URL de referencia.`);
+
+    let actualizados = 0;
+    let errores = 0;
+    for (const doc of productsSnap.docs) {
+      const producto = doc.data();
+      try {
+        const resultado = await extraerDatosDeUrlCore(producto.urlReferencia, anthropicApiKey.value());
+        if (resultado.precio != null && resultado.precio !== producto.price) {
+          await doc.ref.update({ price: resultado.precio, updatedAt: new Date().toISOString() });
+          actualizados++;
+        }
+      } catch (err) {
+        console.error(`Error actualizando "${producto.name}" (${doc.id}):`, err.message);
+        errores++;
+      }
+      // Pequeña pausa entre productos para no saturar el sitio de origen ni
+      // la API de IA con ráfagas de solicitudes.
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+
+    await configRef.set(
+      { ultimaEjecucion: new Date(), ultimoResultado: { actualizados, errores, total: productsSnap.size } },
+      { merge: true }
+    );
+    console.log(`Listo: ${actualizados} precio(s) actualizado(s), ${errores} error(es), de ${productsSnap.size} producto(s).`);
+  }
+);
 
 // ---- Registrar gasto automáticamente desde un correo de notificación ----
 // Pensado para recibir datos ya interpretados (monto, fecha, comercio,

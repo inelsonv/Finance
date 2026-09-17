@@ -42,6 +42,8 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const [importandoUrl, setImportandoUrl] = useState(false);
   const [importarUrlMsg, setImportarUrlMsg] = useState(null);
   const [imagenPendienteUrl, setImagenPendienteUrl] = useState(null);
+  const [imagenesCandidatas, setImagenesCandidatas] = useState([]);
+  const [urlReferenciaGuardada, setUrlReferenciaGuardada] = useState(null);
 
   const handleImportarDesdeUrl = async () => {
     if (!productoUrl.trim()) {
@@ -62,6 +64,8 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         price: resultado.precio != null ? String(resultado.precio) : f.price,
       }));
       setImagenPendienteUrl(resultado.imagenUrl || null);
+      setImagenesCandidatas(resultado.imagenesCandidatas || []);
+      setUrlReferenciaGuardada(resultado.urlReferencia || productoUrl.trim());
       setImportarUrlMsg({ tipo: "ok", texto: "Se llenó el nombre y el precio — revísalos antes de guardar." + (resultado.imagenUrl ? " También se encontró una imagen." : "") });
     } catch (err) {
       setImportarUrlMsg({ tipo: "error", texto: err.message || String(err) });
@@ -173,6 +177,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         unit: form.unit,
         price: Number.isFinite(price) ? price : 0,
         codigoBarras: form.codigoBarras || null,
+        urlReferencia: urlReferenciaGuardada || null,
       });
       if (formImage) {
         await uploadProductImage(docRef.id, formImage);
@@ -187,6 +192,8 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
       setFormImagePreview(null);
       setProductoUrl("");
       setImagenPendienteUrl(null);
+      setImagenesCandidatas([]);
+      setUrlReferenciaGuardada(null);
       setImportarUrlMsg(null);
       setShowForm(false);
     } catch (err) {
@@ -527,6 +534,32 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
             {importarUrlMsg && (
               <div style={{ marginTop: 8, fontSize: 11.5, color: importarUrlMsg.tipo === "ok" ? "var(--sage)" : "var(--stamp)" }}>
                 {importarUrlMsg.texto}
+              </div>
+            )}
+            {imagenesCandidatas.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Elige la foto del producto:</div>
+                <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4 }}>
+                  {imagenesCandidatas.map((img) => (
+                    <button
+                      key={img}
+                      onClick={() => setImagenPendienteUrl(img)}
+                      style={{
+                        flexShrink: 0,
+                        width: 56,
+                        height: 56,
+                        padding: 0,
+                        borderRadius: 8,
+                        border: img === imagenPendienteUrl ? "2px solid var(--sage)" : "1px solid var(--line)",
+                        overflow: "hidden",
+                        cursor: "pointer",
+                        background: "var(--card)",
+                      }}
+                    >
+                      <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal } from "../lib/db";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 
@@ -20,6 +20,8 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
   const [fechaNacimientoInput, setFechaNacimientoInput] = useState("");
   const [savingFechaNacimiento, setSavingFechaNacimiento] = useState(false);
   const [savedFechaNacimiento, setSavedFechaNacimiento] = useState(false);
+  const [actualizacionPreciosConfig, setActualizacionPreciosConfig] = useState({ activo: false, frecuencia: "semanal" });
+  const [savingActualizacionPrecios, setSavingActualizacionPrecios] = useState(false);
   const [diezmoPorcentaje, setDiezmoPorcentaje] = useState("10");
   const [savingDiezmo, setSavingDiezmo] = useState(false);
 
@@ -57,6 +59,7 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       setPerfilPersonal(p);
       setFechaNacimientoInput(p?.fechaNacimiento || "");
     }, () => {});
+    const unsub11 = watchActualizacionPreciosAutoConfig(setActualizacionPreciosConfig, () => {});
     return () => {
       unsub1();
       unsub2();
@@ -68,6 +71,7 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       unsub8();
       unsub9();
       unsub10();
+      unsub11();
     };
   }, []);
 
@@ -167,6 +171,24 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       setTimeout(() => setSavedFechaNacimiento(false), 2000);
     } finally {
       setSavingFechaNacimiento(false);
+    }
+  };
+
+  const handleToggleActualizacionPrecios = async () => {
+    setSavingActualizacionPrecios(true);
+    try {
+      await saveActualizacionPreciosAutoConfig({ activo: !actualizacionPreciosConfig.activo, frecuencia: actualizacionPreciosConfig.frecuencia || "semanal" });
+    } finally {
+      setSavingActualizacionPrecios(false);
+    }
+  };
+
+  const handleChangeFrecuenciaPrecios = async (frecuencia) => {
+    setSavingActualizacionPrecios(true);
+    try {
+      await saveActualizacionPreciosAutoConfig({ activo: !!actualizacionPreciosConfig.activo, frecuencia });
+    } finally {
+      setSavingActualizacionPrecios(false);
     }
   };
 
@@ -304,6 +326,49 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
             Se usa para calcular tu edad automáticamente en Salud, en vez de tener que escribirla a mano.
           </div>
         </div>
+      </Section>
+
+      <Section icon={LineChart} title="Actualización automática de precios">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ fontSize: 12.5 }}>
+            {actualizacionPreciosConfig.activo ? "Activa" : "Desactivada"}
+          </div>
+          <button
+            onClick={handleToggleActualizacionPrecios}
+            disabled={savingActualizacionPrecios}
+            style={{
+              padding: "6px 14px",
+              fontSize: 12,
+              fontWeight: 600,
+              background: actualizacionPreciosConfig.activo ? "var(--sage)" : "var(--line)",
+              color: actualizacionPreciosConfig.activo ? "#fff" : "var(--ink-soft)",
+              border: "none",
+              borderRadius: 8,
+              cursor: savingActualizacionPrecios ? "wait" : "pointer",
+            }}
+          >
+            {actualizacionPreciosConfig.activo ? "Desactivar" : "Activar"}
+          </button>
+        </div>
+        <label style={{ fontSize: 11.5, color: "var(--ink-soft)", display: "block", marginBottom: 4 }}>Frecuencia</label>
+        <select
+          value={actualizacionPreciosConfig.frecuencia || "semanal"}
+          onChange={(e) => handleChangeFrecuenciaPrecios(e.target.value)}
+          disabled={!actualizacionPreciosConfig.activo || savingActualizacionPrecios}
+          style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+        >
+          <option value="diario">Diario</option>
+          <option value="semanal">Semanal</option>
+          <option value="mensual">Mensual</option>
+        </select>
+        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8, lineHeight: 1.5 }}>
+          Revisa automáticamente los productos que importaste desde una URL (Catálogo → Importar desde URL) y actualiza su precio si cambió. Corre en segundo plano, no necesitas tener la app abierta.
+        </div>
+        {actualizacionPreciosConfig.ultimoResultado && (
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6 }}>
+            Última corrida: {actualizacionPreciosConfig.ultimoResultado.actualizados} precio(s) actualizado(s) de {actualizacionPreciosConfig.ultimoResultado.total} revisado(s).
+          </div>
+        )}
       </Section>
 
       <Section icon={theme === "dark" ? Moon : Sun} title="Apariencia">

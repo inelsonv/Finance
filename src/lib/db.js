@@ -62,7 +62,7 @@ export function watchList(onChange, onError) {
   );
 }
 
-export async function addProduct({ name, category, unit, price, codigoBarras }) {
+export async function addProduct({ name, category, unit, price, codigoBarras, urlReferencia }) {
   const docRef = await addDoc(productsCol, {
     name,
     category,
@@ -71,6 +71,7 @@ export async function addProduct({ name, category, unit, price, codigoBarras }) 
     imageUrl: null,
     updatedAt: null,
     codigoBarras: codigoBarras || null,
+    urlReferencia: urlReferencia || null,
   });
   return docRef;
 }
@@ -978,6 +979,22 @@ export async function saveDiasCobroConfig(dias) {
   const limpio = [...new Set((dias || []).map((d) => parseInt(d, 10)).filter((d) => Number.isFinite(d) && d >= 1 && d <= 31))].sort((a, b) => a - b);
   if (limpio.length === 0) throw new Error("Debes tener al menos un día de cobro válido (1-31)");
   await setDoc(doc(db, "config", "diasCobro"), { dias: limpio });
+}
+
+// Actualización automática de precios de productos importados por URL — la
+// Cloud Function programada (actualizarPreciosAutomatico) corre todos los
+// días, pero solo hace el trabajo real según esta frecuencia configurada
+// aquí, comparando contra la última vez que corrió.
+export function watchActualizacionPreciosAutoConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "actualizacionPreciosAuto"),
+    (snap) => onChange(snap.exists() ? snap.data() : { activo: false, frecuencia: "semanal" }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveActualizacionPreciosAutoConfig({ activo, frecuencia }) {
+  await setDoc(doc(db, "config", "actualizacionPreciosAuto"), { activo: !!activo, frecuencia: frecuencia || "semanal" }, { merge: true });
 }
 
 export function watchTarjetaCargosHistorial(onChange, onError) {
