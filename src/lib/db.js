@@ -124,6 +124,17 @@ export async function extraerProductoDeUrl(url) {
   return res.data;
 }
 
+// Busca un producto por nombre en supermercadosrd.com sin que el usuario
+// tenga que ir al sitio y copiar la URL él mismo — la Cloud Function la
+// encuentra por su cuenta usando búsqueda web, y devuelve el mismo formato
+// que extraerProductoDeUrl (incluyendo la URL encontrada, para guardarla
+// como referencia).
+export async function buscarYExtraerProducto(nombreProducto) {
+  const fn = httpsCallable(functions, "buscarYExtraerProducto");
+  const res = await fn({ nombreProducto });
+  return res.data;
+}
+
 // Manda una pregunta al asistente de IA junto con el resumen financiero
 // actual y (opcionalmente) el historial corto de la conversación, para dar
 // contexto de seguimiento. No persiste nada — la conversación vive solo en

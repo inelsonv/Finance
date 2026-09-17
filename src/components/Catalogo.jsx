@@ -10,6 +10,7 @@ import {
   uploadProductImageFromUrl,
   removeProductImage,
   extraerProductoDeUrl,
+  buscarYExtraerProducto,
 } from "../lib/db";
 import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
 import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
@@ -44,6 +45,8 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const [imagenPendienteUrl, setImagenPendienteUrl] = useState(null);
   const [imagenesCandidatas, setImagenesCandidatas] = useState([]);
   const [urlReferenciaGuardada, setUrlReferenciaGuardada] = useState(null);
+  const [nombreBusqueda, setNombreBusqueda] = useState("");
+  const [buscandoPorNombre, setBuscandoPorNombre] = useState(false);
 
   const handleImportarDesdeUrl = async () => {
     if (!productoUrl.trim()) {
@@ -71,6 +74,35 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
       setImportarUrlMsg({ tipo: "error", texto: err.message || String(err) });
     } finally {
       setImportandoUrl(false);
+    }
+  };
+
+  const handleBuscarPorNombre = async () => {
+    if (!nombreBusqueda.trim()) {
+      setImportarUrlMsg({ tipo: "error", texto: "Escribe el nombre del producto a buscar" });
+      return;
+    }
+    setBuscandoPorNombre(true);
+    setImportarUrlMsg(null);
+    try {
+      const resultado = await buscarYExtraerProducto(nombreBusqueda.trim());
+      if (!resultado.nombre && !resultado.precio) {
+        setImportarUrlMsg({ tipo: "error", texto: "Se encontró la página pero no se pudo extraer el nombre ni el precio — agrégalo manualmente." });
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        name: resultado.nombre || f.name,
+        price: resultado.precio != null ? String(resultado.precio) : f.price,
+      }));
+      setImagenPendienteUrl(resultado.imagenUrl || null);
+      setImagenesCandidatas(resultado.imagenesCandidatas || []);
+      setUrlReferenciaGuardada(resultado.urlReferencia || null);
+      setImportarUrlMsg({ tipo: "ok", texto: "Se encontró el producto y se llenó el nombre y el precio — revísalos antes de guardar." + (resultado.imagenUrl ? " También se encontró una imagen." : "") });
+    } catch (err) {
+      setImportarUrlMsg({ tipo: "error", texto: err.message || String(err) });
+    } finally {
+      setBuscandoPorNombre(false);
     }
   };
 
@@ -497,6 +529,42 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
 
       {showForm && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid var(--line-soft)" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+              Buscar producto por nombre (lo encuentra en supermercadosrd.com automáticamente, sin que pegues ninguna URL)
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                placeholder='Ej. "jabón de avena protex"'
+                value={nombreBusqueda}
+                onChange={(e) => setNombreBusqueda(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleBuscarPorNombre()}
+                style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <button
+                type="button"
+                onClick={handleBuscarPorNombre}
+                disabled={buscandoPorNombre}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  background: "var(--sage)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: buscandoPorNombre ? "wait" : "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <Search size={13} /> {buscandoPorNombre ? "Buscando…" : "Buscar"}
+              </button>
+            </div>
+          </div>
+
           <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid var(--line-soft)" }}>
             <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
               Importar desde una página de producto (opcional — puede que no funcione en todos los sitios)

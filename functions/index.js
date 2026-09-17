@@ -710,6 +710,59 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
   }
 });
 
+// Busca un producto por NOMBRE (sin que el usuario tenga que ir a
+// supermercadosrd.com y copiar la URL él mismo) — usa la herramienta de
+// búsqueda web de Claude para encontrar la página exacta del producto en
+// ese sitio, y luego reutiliza la misma lógica de extracción (precio de
+// Bravo, imágenes candidatas) que ya usa extraerProductoDeUrl.
+exports.buscarYExtraerProducto = onCall({ secrets: [anthropicApiKey], timeoutSeconds: 60 }, async (request) => {
+  if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
+    throw new HttpsError("permission-denied", "No autorizado");
+  }
+  const { nombreProducto } = request.data || {};
+  if (!nombreProducto || !nombreProducto.trim()) throw new HttpsError("invalid-argument", "Falta el nombre del producto a buscar");
+
+  let urlEncontrada = null;
+  try {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": anthropicApiKey.value(),
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 500,
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        messages: [
+          {
+            role: "user",
+            content: `Busca en supermercadosrd.com la página del producto "${nombreProducto.trim()}" — es un sitio dominicano que compara precios de supermercados (Sirena, Bravo, Nacional, etc.). Necesito la URL exacta de la página de ESE producto específico en supermercadosrd.com (las URLs de producto en ese sitio tienen el formato https://supermercadosrd.com/productos/nombre-del-producto/numero). Responde SOLO con la URL encontrada, sin explicación ni texto adicional. Si no encuentras un producto que coincida razonablemente, responde exactamente: NO_ENCONTRADO`,
+          },
+        ],
+      }),
+    });
+    const data = await resp.json();
+    const textBlocks = (data.content || []).filter((c) => c.type === "text");
+    const textoCompleto = textBlocks.map((b) => b.text).join(" ").trim();
+    const match = textoCompleto.match(/https:\/\/supermercadosrd\.com\/productos\/[^\s"'<>]+/);
+    if (match) urlEncontrada = match[0];
+  } catch (err) {
+    throw new HttpsError("internal", "No se pudo buscar el producto: " + err.message);
+  }
+
+  if (!urlEncontrada) {
+    throw new HttpsError("not-found", `No se encontró "${nombreProducto}" en supermercadosrd.com — intenta con un nombre más específico, o pega la URL directamente si ya la tienes.`);
+  }
+
+  try {
+    return await extraerDatosDeUrlCore(urlEncontrada, anthropicApiKey.value());
+  } catch (err) {
+    throw new HttpsError("internal", err.message);
+  }
+});
+
 // ---- Actualización automática de precios (programada) ----
 // Corre todos los días a una hora fija, pero solo hace el trabajo real
 // según la frecuencia que el usuario eligió en Configuración (diario,
