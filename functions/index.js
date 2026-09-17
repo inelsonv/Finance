@@ -625,7 +625,15 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
     throw new HttpsError("internal", "No se pudo abrir esa página: " + err.message);
   }
 
-  let resultado = extraerConMetadatos(html);
+  // supermercadosrd.com muestra el mismo producto con precios de VARIOS
+  // supermercados en una sola página — los metadatos genéricos (og:price,
+  // JSON-LD) suelen apuntar al más barato de todos, no necesariamente a
+  // Bravo. Para este dominio, se salta la extracción genérica y se va
+  // directo a la IA con una instrucción específica de tomar el precio de
+  // Bravo (no el "mejor precio" que muestra la página por defecto).
+  const esSupermercadosRD = /supermercadosrd\.com/i.test(url);
+
+  let resultado = esSupermercadosRD ? { nombre: null, precio: null, imagenUrl: null } : extraerConMetadatos(html);
 
   // Si los metadatos estándar no dieron nombre, precio, o imagen, se intenta
   // con IA como respaldo — mandándole el texto visible de la página y, si
@@ -646,6 +654,10 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
         ? `\n\nEstas son las URLs de imágenes encontradas en la página — si alguna es claramente la foto principal del producto, inclúyela como "imagenUrl" (copiada exacta, tal cual aparece aquí). Si ninguna parece ser del producto, pon null:\n${candidatosImagen.join("\n")}`
         : "";
 
+    const instruccionPrecio = esSupermercadosRD
+      ? 'Esta página compara el mismo producto en varios supermercados dominicanos (Sirena, Bravo, Merca Jumbo, Nacional, Jumbo, Carrefour, Plaza Lama, etc.), cada uno con su propio precio. IMPORTANTE: extrae específicamente el precio del supermercado "Bravo" (busca el bloque de texto donde aparece la palabra "Bravo" junto a un precio en pesos) — NO el precio más barato de la lista ni el primero que aparezca. Si Bravo no aparece entre los supermercados listados para este producto, pon null en "precio".'
+      : "Extrae el nombre del producto y su precio en pesos dominicanos (solo el número, sin símbolo).";
+
     try {
       const resp = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -660,7 +672,7 @@ exports.extraerProductoDeUrl = onCall({ secrets: [anthropicApiKey] }, async (req
           messages: [
             {
               role: "user",
-              content: `Este es el texto visible de la página de un producto de una tienda en línea. Extrae el nombre del producto y su precio en pesos dominicanos (solo el número, sin símbolo). Responde SOLO con JSON, sin explicación ni markdown: {"nombre": "...", "precio": 123.45, "imagenUrl": "..."}. Si no encuentras alguno de los campos, pon null en ese campo.\n\nTexto de la página:\n${textoPlano}${bloqueImagenes}`,
+              content: `Este es el texto visible de la página de un producto de una tienda en línea. ${instruccionPrecio} Responde SOLO con JSON, sin explicación ni markdown: {"nombre": "...", "precio": 123.45, "imagenUrl": "..."}. Si no encuentras alguno de los campos, pon null en ese campo.\n\nTexto de la página:\n${textoPlano}${bloqueImagenes}`,
             },
           ],
         }),
