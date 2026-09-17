@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado } from "../lib/db";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 
@@ -16,6 +16,10 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
   const [savedKey, setSavedKey] = useState(false);
 
   const [diezmoConfig, setDiezmoConfig] = useState(undefined);
+  const [perfilPersonal, setPerfilPersonal] = useState(undefined);
+  const [fechaNacimientoInput, setFechaNacimientoInput] = useState("");
+  const [savingFechaNacimiento, setSavingFechaNacimiento] = useState(false);
+  const [savedFechaNacimiento, setSavedFechaNacimiento] = useState(false);
   const [diezmoPorcentaje, setDiezmoPorcentaje] = useState("10");
   const [savingDiezmo, setSavingDiezmo] = useState(false);
 
@@ -49,6 +53,10 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       setTarjetasHabilitadasInput((c.tarjetas || []).join(", "));
     }, () => {});
     const unsub9 = watchIntegracionCorreoEstado(setIntegracionCorreoEstado, () => {});
+    const unsub10 = watchPerfilPersonal((p) => {
+      setPerfilPersonal(p);
+      setFechaNacimientoInput(p?.fechaNacimiento || "");
+    }, () => {});
     return () => {
       unsub1();
       unsub2();
@@ -59,6 +67,7 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       unsub7();
       unsub8();
       unsub9();
+      unsub10();
     };
   }, []);
 
@@ -146,6 +155,18 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       await saveDiezmoConfig({ activo: !!diezmoConfig?.activo, porcentaje: parseFloat(diezmoPorcentaje) || 10 });
     } finally {
       setSavingDiezmo(false);
+    }
+  };
+
+  const handleSaveFechaNacimiento = async () => {
+    setSavingFechaNacimiento(true);
+    setSavedFechaNacimiento(false);
+    try {
+      await savePerfilPersonal({ fechaNacimiento: fechaNacimientoInput || null });
+      setSavedFechaNacimiento(true);
+      setTimeout(() => setSavedFechaNacimiento(false), 2000);
+    } finally {
+      setSavingFechaNacimiento(false);
     }
   };
 
@@ -259,6 +280,30 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
         >
           <LogOut size={13} /> Cerrar sesión
         </button>
+      </Section>
+
+      <Section icon={UserIcon} title="Perfil personal">
+        <div>
+          <label style={{ fontSize: 11.5, color: "var(--ink-soft)", display: "block", marginBottom: 4 }}>Fecha de nacimiento</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="date"
+              value={fechaNacimientoInput}
+              onChange={(e) => setFechaNacimientoInput(e.target.value)}
+              style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+            <button
+              onClick={handleSaveFechaNacimiento}
+              disabled={savingFechaNacimiento}
+              style={{ padding: "8px 14px", fontSize: 12.5, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: savingFechaNacimiento ? "wait" : "pointer", whiteSpace: "nowrap" }}
+            >
+              {savingFechaNacimiento ? "Guardando…" : savedFechaNacimiento ? "✓ Guardado" : "Guardar"}
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6, lineHeight: 1.5 }}>
+            Se usa para calcular tu edad automáticamente en Salud, en vez de tener que escribirla a mano.
+          </div>
+        </div>
       </Section>
 
       <Section icon={theme === "dark" ? Moon : Sun} title="Apariencia">

@@ -44,7 +44,7 @@ import {
   HeartPulse,
   ListTodo,
 } from "lucide-react";
-import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos, updateHabito, saveDatosCorporales } from "../lib/db";
+import { addHabito, deleteHabito, toggleHabitoRegistro, reordenarHabitos, updateHabito, saveDatosCorporales, watchPerfilPersonal } from "../lib/db";
 import { calcularRachaHabito, historialHabitoVisual, periodoDeFecha, periodosSinCumplir } from "../lib/rachaHabito";
 import { calcularAguaRecomendada, calcularIMC, clasificarIMC } from "../lib/saludCalculos";
 import { confirm } from "../lib/confirm";
@@ -151,6 +151,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
   const [edad, setEdad] = useState(datosCorporales?.edad != null ? String(datosCorporales.edad) : "");
   const [nivelActividad, setNivelActividad] = useState(datosCorporales?.nivelActividad || "Moderado");
   const [guardandoDatos, setGuardandoDatos] = useState(false);
+  const [perfilPersonal, setPerfilPersonal] = useState(null);
 
   useEffect(() => {
     setPeso(datosCorporales?.peso != null ? String(datosCorporales.peso) : "");
@@ -159,13 +160,31 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
     setNivelActividad(datosCorporales?.nivelActividad || "Moderado");
   }, [datosCorporales]);
 
+  useEffect(() => {
+    const unsub = watchPerfilPersonal(setPerfilPersonal, () => setPerfilPersonal(null));
+    return () => unsub && unsub();
+  }, []);
+
+  // Si hay fecha de nacimiento guardada en el Perfil personal, la edad se
+  // calcula sola en vez de tener que escribirla a mano cada vez.
+  const edadCalculada = useMemo(() => {
+    if (!perfilPersonal?.fechaNacimiento) return null;
+    const [y, m, d] = perfilPersonal.fechaNacimiento.split("-").map(Number);
+    if (!y || !m || !d) return null;
+    const hoy = new Date();
+    let edadCalc = hoy.getFullYear() - y;
+    const noHaCumplidoEsteAno = hoy.getMonth() + 1 < m || (hoy.getMonth() + 1 === m && hoy.getDate() < d);
+    if (noHaCumplidoEsteAno) edadCalc -= 1;
+    return edadCalc;
+  }, [perfilPersonal]);
+
   const handleGuardarDatosCorporales = async () => {
     setGuardandoDatos(true);
     try {
       await saveDatosCorporales({
         peso: peso ? parseFloat(peso) : null,
         estatura: estatura ? parseFloat(estatura) : null,
-        edad: edad ? parseInt(edad, 10) : null,
+        edad: edadCalculada != null ? edadCalculada : edad ? parseInt(edad, 10) : null,
         nivelActividad,
       });
     } finally {
@@ -365,13 +384,22 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-              <input
-                type="number"
-                placeholder="Edad"
-                value={edad}
-                onChange={(e) => setEdad(e.target.value)}
-                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-              />
+              {edadCalculada != null ? (
+                <div
+                  title="Calculada desde tu fecha de nacimiento en Configuración → Perfil personal"
+                  style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, color: "var(--ink-soft)", background: "var(--paper)" }}
+                >
+                  {edadCalculada} años (auto)
+                </div>
+              ) : (
+                <input
+                  type="number"
+                  placeholder="Edad"
+                  value={edad}
+                  onChange={(e) => setEdad(e.target.value)}
+                  style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
+              )}
               <select
                 value={nivelActividad}
                 onChange={(e) => setNivelActividad(e.target.value)}

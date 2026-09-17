@@ -593,6 +593,20 @@ export async function saveDatosCorporales({ peso, estatura, edad, nivelActividad
   );
 }
 
+// Perfil personal — fecha de nacimiento, usada para calcular la edad
+// automáticamente en vez de tener que escribirla a mano cada vez.
+export function watchPerfilPersonal(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "perfilPersonal"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function savePerfilPersonal({ fechaNacimiento }) {
+  await setDoc(doc(db, "config", "perfilPersonal"), { fechaNacimiento: fechaNacimiento || null, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 // ---- Habit Tracker ----
 // Hábitos definidos libremente por el usuario (ej. "Buena alimentación",
 // "Consumo de agua"), con seguimiento diario y puntos por cumplirlos.
