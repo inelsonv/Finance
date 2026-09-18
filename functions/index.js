@@ -3,9 +3,11 @@ const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https")
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
 
 initializeApp();
 const db = getFirestore();
+const bucket = getStorage().bucket();
 
 const ALLOWED_EMAIL = "iventuramena@gmail.com";
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
@@ -761,6 +763,38 @@ exports.buscarYExtraerProducto = onCall({ secrets: [anthropicApiKey], timeoutSec
   } catch (err) {
     throw new HttpsError("internal", err.message);
   }
+});
+
+// Descarga una imagen de producto desde el SERVIDOR (no desde el
+// navegador) y la sube a Firebase Storage — evita el problema de CORS que
+// bloquea al navegador cuando intenta descargar directo de CDNs de
+// terceros (como el de superbravo.com.do) que no permiten peticiones
+// cross-origin desde otros sitios.
+exports.descargarImagenProducto = onCall({}, async (request) => {
+  if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
+    throw new HttpsError("permission-denied", "No autorizado");
+  }
+  const { productId, url } = request.data || {};
+  if (!productId || !url) throw new HttpsError("invalid-argument", "Falta el ID del producto o la URL de la imagen");
+
+  let response;
+  try {
+    response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; SmartFinanceBot/1.0)" } });
+  } catch (err) {
+    throw new HttpsError("internal", "No se pudo descargar esa imagen: " + err.message);
+  }
+  if (!response.ok) throw new HttpsError("internal", `No se pudo descargar la imagen (respuesta ${response.status})`);
+
+  const contentType = response.headers.get("content-type") || "image/jpeg";
+  if (!contentType.startsWith("image/")) throw new HttpsError("invalid-argument", "Esa URL no parece apuntar a una imagen");
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const file = bucket.file(`productos/${productId}`);
+  await file.save(buffer, { contentType, public: true });
+  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(`productos/${productId}`)}?alt=media`;
+
+  await db.collection("productos").doc(productId).update({ imageUrl: downloadUrl });
+  return { imageUrl: downloadUrl };
 });
 
 // ---- Actualización automática de precios (programada) ----

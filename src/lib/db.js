@@ -151,21 +151,29 @@ export async function preguntarAsistente(pregunta, resumen, historial) {
 // permite descargas desde el navegador (CORS); en ese caso se informa al
 // usuario para que la descargue y suba manualmente.
 export async function uploadProductImageFromUrl(id, url) {
-  let response;
+  // Primero se intenta descargar directo desde el navegador (más rápido) —
+  // si el sitio de origen no permite CORS (como los CDNs de algunos
+  // supermercados), se recurre a una Cloud Function que la descarga desde
+  // el servidor, donde no aplica esa restricción.
   try {
-    response = await fetch(url, { mode: "cors" });
+    const response = await fetch(url, { mode: "cors" });
+    if (response.ok) {
+      const blob = await response.blob();
+      if (blob.type.startsWith("image/")) {
+        const imgRef = ref(storage, `productos/${id}`);
+        await uploadBytes(imgRef, blob, { contentType: blob.type });
+        const downloadUrl = await getDownloadURL(imgRef);
+        await updateDoc(doc(db, "productos", id), { imageUrl: downloadUrl });
+        return downloadUrl;
+      }
+    }
   } catch (err) {
-    throw new Error("No se pudo descargar esa imagen — el sitio de origen no permite descargarla directo desde aquí. Descárgala tú y súbela como archivo.");
+    // Falla silenciosa aquí — se cae al respaldo del servidor abajo.
   }
-  if (!response.ok) throw new Error("No se pudo descargar la imagen de esa URL (respuesta " + response.status + ")");
-  const blob = await response.blob();
-  if (!blob.type.startsWith("image/")) throw new Error("Esa URL no parece apuntar a una imagen");
 
-  const imgRef = ref(storage, `productos/${id}`);
-  await uploadBytes(imgRef, blob, { contentType: blob.type });
-  const downloadUrl = await getDownloadURL(imgRef);
-  await updateDoc(doc(db, "productos", id), { imageUrl: downloadUrl });
-  return downloadUrl;
+  const fn = httpsCallable(functions, "descargarImagenProducto");
+  const res = await fn({ productId: id, url });
+  return res.data.imageUrl;
 }
 
 export async function removeProductImage(id) {
