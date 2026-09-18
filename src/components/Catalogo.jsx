@@ -819,6 +819,40 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                 >
                   <LinkIcon size={12} />
                 </button>
+                {p.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const motivo = await confirm(`¿Quitar la foto de "${p.name}"?`, { requireReason: false });
+                      if (motivo === false) return;
+                      setUploadingId(p.id);
+                      try {
+                        await removeProductImage(p.id);
+                      } finally {
+                        setUploadingId(null);
+                      }
+                    }}
+                    title="Quitar foto"
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      right: 6,
+                      width: 24,
+                      height: 24,
+                      borderRadius: "50%",
+                      border: "none",
+                      background: "rgba(0,0,0,0.55)",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
                 {urlPickerId === p.id && (
                   <div
                     onClick={(e) => e.stopPropagation()}
