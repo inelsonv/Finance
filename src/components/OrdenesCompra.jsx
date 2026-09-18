@@ -13,6 +13,7 @@ import {
   Send,
   RotateCcw,
   Pencil,
+  Package,
 } from "lucide-react";
 import { addOrdenCompra, updateOrdenCompra, deleteOrdenCompra, registrarCompraProducto, deleteHistorialCompra, addMovimiento, deleteMovimiento, agregarItemABorrador } from "../lib/db";
 import { confirm } from "../lib/confirm";
@@ -492,42 +493,93 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
                     {(o.items || []).length === 0 && (
                       <div style={{ fontSize: 11.5, color: "var(--ink-soft)", padding: "6px 0" }}>Sin productos en esta orden.</div>
                     )}
-                    {(o.items || []).map((it, idx) => (
-                      <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--paper)", borderRadius: 7, padding: "6px 9px" }}>
-                        {o.estado === "Compra presencial" && editandoId !== o.id && (
-                          <input type="checkbox" checked={!!it.comprado} onChange={() => toggleCompradoItem(o, idx)} />
-                        )}
-                        <span style={{ flex: 1, fontSize: 12, minWidth: 0, textDecoration: it.comprado ? "line-through" : "none", color: it.comprado ? "var(--ink-soft)" : "var(--ink)" }}>
-                          {it.productName}
-                        </span>
-                        {editandoId === o.id ? (
-                          <input
-                            className="despensa-mono"
-                            type="number"
-                            min="1"
-                            value={it.cantidad}
-                            onChange={(e) => cambiarCantidadItem(o, idx, e.target.value)}
-                            style={{ width: 48, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 11, flexShrink: 0 }}
-                          />
-                        ) : (
-                          <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)", flexShrink: 0 }}>x{it.cantidad}</span>
-                        )}
-                        {it.precioUnitario != null && (
-                          <span className="despensa-mono" style={{ fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
-                            {formatMoney(it.precioUnitario * it.cantidad)}
+                    {(o.items || []).map((it, idx) => {
+                      const producto = it.productId ? (products || []).find((p) => p.id === it.productId) : null;
+                      const modoCompra = o.estado === "Compra presencial" && editandoId !== o.id;
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            background: modoCompra && it.comprado ? "var(--sage-bg)" : "var(--paper)",
+                            border: modoCompra && it.comprado ? "1px solid var(--sage)" : "1px solid transparent",
+                            borderRadius: 7,
+                            padding: modoCompra ? "8px 10px" : "6px 9px",
+                          }}
+                        >
+                          {modoCompra && (
+                            <div
+                              style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 6,
+                                flexShrink: 0,
+                                background: producto?.imageUrl ? `url(${producto.imageUrl}) center/cover` : "var(--line-soft)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              {!producto?.imageUrl && <Package size={16} style={{ color: "var(--ink-soft)" }} />}
+                            </div>
+                          )}
+                          {!modoCompra && o.estado === "Compra presencial" && (
+                            <input type="checkbox" checked={!!it.comprado} onChange={() => toggleCompradoItem(o, idx)} />
+                          )}
+                          <span style={{ flex: 1, fontSize: 12, minWidth: 0, textDecoration: it.comprado ? "line-through" : "none", color: it.comprado ? "var(--ink-soft)" : "var(--ink)" }}>
+                            {it.productName}
                           </span>
-                        )}
-                        {editandoId === o.id && (
-                          <button
-                            onClick={() => eliminarItemOrden(o, idx)}
-                            title="Quitar de la orden"
-                            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, background: "transparent", color: "var(--stamp)", border: "none", cursor: "pointer", flexShrink: 0 }}
-                          >
-                            <X size={12} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                          {editandoId === o.id ? (
+                            <input
+                              className="despensa-mono"
+                              type="number"
+                              min="1"
+                              value={it.cantidad}
+                              onChange={(e) => cambiarCantidadItem(o, idx, e.target.value)}
+                              style={{ width: 48, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 11, flexShrink: 0 }}
+                            />
+                          ) : (
+                            <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)", flexShrink: 0 }}>x{it.cantidad}</span>
+                          )}
+                          {it.precioUnitario != null && (
+                            <span className="despensa-mono" style={{ fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+                              {formatMoney(it.precioUnitario * it.cantidad)}
+                            </span>
+                          )}
+                          {editandoId === o.id && (
+                            <button
+                              onClick={() => eliminarItemOrden(o, idx)}
+                              title="Quitar de la orden"
+                              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, background: "transparent", color: "var(--stamp)", border: "none", cursor: "pointer", flexShrink: 0 }}
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                          {modoCompra && (
+                            <button
+                              onClick={() => toggleCompradoItem(o, idx)}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 30,
+                                height: 30,
+                                borderRadius: "50%",
+                                flexShrink: 0,
+                                border: it.comprado ? "none" : "2px solid var(--line)",
+                                background: it.comprado ? "var(--sage)" : "transparent",
+                                color: "#fff",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {it.comprado && <Check size={18} />}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
 
                     {editandoId === o.id && (
                       <div style={{ marginTop: 6, position: "relative" }}>
