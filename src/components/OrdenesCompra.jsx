@@ -81,6 +81,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
   const [buscarAgregar, setBuscarAgregar] = useState("");
   const [busy, setBusy] = useState(null);
   const [modoCompraId, setModoCompraId] = useState(null);
+  const [verHistorial, setVerHistorial] = useState(false);
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -374,36 +375,142 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
           })}
         </div>
 
-        <div style={{ position: "sticky", bottom: 12, display: "flex", gap: 8 }}>
-          <button
-            onClick={async () => {
-              await finalizarCompraPresencial(ordenEnModoCompra);
-              setModoCompraId(null);
-            }}
-            disabled={busyThis}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              padding: "14px",
-              fontSize: 14,
-              fontWeight: 600,
-              background: "var(--sage)",
-              color: "#fff",
-              border: "none",
-              borderRadius: 10,
-              cursor: busyThis ? "wait" : "pointer",
-              boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
-            }}
-          >
-            <Check size={16} /> Finalizar compra
-          </button>
+        <div style={{ position: "sticky", bottom: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {ordenEnModoCompra.estado === "Borrador" && (
+            <>
+              <button
+                onClick={() => solicitarAProveedor(ordenEnModoCompra)}
+                disabled={busyThis}
+                style={{
+                  flex: 1,
+                  minWidth: 140,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "14px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  background: "var(--stamp)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor: busyThis ? "wait" : "pointer",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+                }}
+              >
+                <Send size={16} /> Solicitar al proveedor
+              </button>
+              <button
+                onClick={async () => {
+                  await iniciarCompraPresencial(ordenEnModoCompra);
+                }}
+                disabled={busyThis}
+                style={{
+                  flex: 1,
+                  minWidth: 140,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "14px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  background: "var(--amber)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor: busyThis ? "wait" : "pointer",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+                }}
+              >
+                <Store size={16} /> Iniciar compra presencial
+              </button>
+            </>
+          )}
+          {ordenEnModoCompra.estado === "Enviada a proveedor" && (
+            <>
+              <button
+                onClick={() => descargarCSV(ordenEnModoCompra)}
+                style={{
+                  flex: 1,
+                  minWidth: 140,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "14px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  background: "var(--card)",
+                  color: "var(--ink-soft)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <Download size={16} /> Descargar CSV
+              </button>
+              <button
+                onClick={async () => {
+                  await updateOrdenCompra(ordenEnModoCompra.id, { estado: "Completada" });
+                  setModoCompraId(null);
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: 140,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "14px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  background: "var(--sage)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+                }}
+              >
+                <Check size={16} /> Marcar como recibida
+              </button>
+            </>
+          )}
+          {ordenEnModoCompra.estado === "Compra presencial" && (
+            <button
+              onClick={async () => {
+                await finalizarCompraPresencial(ordenEnModoCompra);
+                setModoCompraId(null);
+              }}
+              disabled={busyThis}
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                padding: "14px",
+                fontSize: 14,
+                fontWeight: 600,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 10,
+                cursor: busyThis ? "wait" : "pointer",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+              }}
+            >
+              <Check size={16} /> Finalizar compra
+            </button>
+          )}
         </div>
       </div>
     );
   }
+
+  const ordenesVisibles = (ordenes || []).filter((o) => (verHistorial ? o.estado === "Completada" : o.estado !== "Completada"));
 
   return (
     <div>
@@ -532,13 +639,46 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
         </div>
       )}
 
-      {ordenes.length === 0 ? (
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        <button
+          onClick={() => setVerHistorial(false)}
+          style={{
+            padding: "6px 14px",
+            fontSize: 12.5,
+            fontWeight: 600,
+            background: !verHistorial ? "var(--ink)" : "var(--card)",
+            color: !verHistorial ? "var(--paper)" : "var(--ink-soft)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            cursor: "pointer",
+          }}
+        >
+          Activas
+        </button>
+        <button
+          onClick={() => setVerHistorial(true)}
+          style={{
+            padding: "6px 14px",
+            fontSize: 12.5,
+            fontWeight: 600,
+            background: verHistorial ? "var(--ink)" : "var(--card)",
+            color: verHistorial ? "var(--paper)" : "var(--ink-soft)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            cursor: "pointer",
+          }}
+        >
+          Historial
+        </button>
+      </div>
+
+      {ordenesVisibles.length === 0 ? (
         <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
-          Todavía no has creado ninguna orden de compra.
+          {verHistorial ? "Todavía no tienes órdenes completadas." : "Todavía no has creado ninguna orden de compra."}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {ordenes.map((o) => {
+          {ordenesVisibles.map((o) => {
             const estadoStyle = ESTADO_COLORES[o.estado] || ESTADO_COLORES.Borrador;
             const busyThis = busy === o.id;
             return (
@@ -581,6 +721,14 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+                  {o.estado !== "Completada" && o.estado !== "Cancelada" && (
+                    <button
+                      onClick={() => setModoCompraId(o.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}
+                    >
+                      <ShoppingCart size={12} /> Abrir
+                    </button>
+                  )}
                   {o.estado !== "Completada" && o.estado !== "Cancelada" && (
                     <button
                       onClick={() => setEditandoId(editandoId === o.id ? null : o.id)}
