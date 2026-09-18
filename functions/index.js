@@ -791,7 +791,7 @@ exports.descargarImagenProducto = onCall({}, async (request) => {
   const buffer = Buffer.from(await response.arrayBuffer());
   const file = bucket.file(`productos/${productId}`);
   await file.save(buffer, { contentType, public: true });
-  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(`productos/${productId}`)}?alt=media`;
+  const downloadUrl = `https://storage.googleapis.com/${bucket.name}/productos/${productId}`;
 
   await db.collection("productos").doc(productId).update({ imageUrl: downloadUrl });
   return { imageUrl: downloadUrl };
