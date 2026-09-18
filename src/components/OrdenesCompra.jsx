@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Pencil,
   Package,
+  ShoppingCart,
 } from "lucide-react";
 import { addOrdenCompra, updateOrdenCompra, deleteOrdenCompra, registrarCompraProducto, deleteHistorialCompra, addMovimiento, deleteMovimiento, agregarItemABorrador } from "../lib/db";
 import { confirm } from "../lib/confirm";
@@ -79,6 +80,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
   const [editandoId, setEditandoId] = useState(null);
   const [buscarAgregar, setBuscarAgregar] = useState("");
   const [busy, setBusy] = useState(null);
+  const [modoCompraId, setModoCompraId] = useState(null);
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -163,7 +165,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
         modalidad: "Presencial",
         items: orden.items.map((it) => ({ ...it, comprado: it.comprado || false })),
       });
-      setExpandidoId(orden.id);
+      setModoCompraId(orden.id);
     } finally {
       setBusy(null);
     }
@@ -257,7 +259,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
         historialIds: [],
         movimientoId: null,
       });
-      setExpandidoId(orden.id);
+      setModoCompraId(orden.id);
     } finally {
       setBusy(null);
     }
@@ -267,6 +269,141 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
     const p = products.find((pr) => pr.id === id);
     return s + (p?.price || 0) * (Number(cant) || 0);
   }, 0);
+
+  const ordenEnModoCompra = modoCompraId ? (ordenes || []).find((o) => o.id === modoCompraId) : null;
+  if (ordenEnModoCompra) {
+    const items = ordenEnModoCompra.items || [];
+    const totalItems = items.length;
+    const compradosCount = items.filter((it) => it.comprado).length;
+    const busyThis = busy === ordenEnModoCompra.id;
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <button
+            onClick={() => setModoCompraId(null)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)", cursor: "pointer", flexShrink: 0 }}
+          >
+            <ChevronUp size={18} style={{ transform: "rotate(-90deg)" }} />
+          </button>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {ordenEnModoCompra.proveedorNombre || "Compra presencial"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+              {ordenEnModoCompra.folio} · {compradosCount} de {totalItems} comprados
+            </div>
+          </div>
+        </div>
+
+        <div style={{ height: 8, background: "var(--line-soft)", borderRadius: 4, overflow: "hidden", marginBottom: 18 }}>
+          <div
+            style={{
+              height: "100%",
+              width: totalItems > 0 ? `${(compradosCount / totalItems) * 100}%` : "0%",
+              background: "var(--sage)",
+              borderRadius: 4,
+              transition: "width 0.25s",
+            }}
+          />
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 90 }}>
+          {items.length === 0 && (
+            <div style={{ fontSize: 13, color: "var(--ink-soft)", textAlign: "center", padding: "2rem 0" }}>Sin productos en esta orden.</div>
+          )}
+          {items.map((it, idx) => {
+            const producto = it.productId ? (products || []).find((p) => p.id === it.productId) : null;
+            return (
+              <button
+                key={idx}
+                onClick={() => toggleCompradoItem(ordenEnModoCompra, idx)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  width: "100%",
+                  textAlign: "left",
+                  background: it.comprado ? "var(--sage-bg)" : "var(--card)",
+                  border: it.comprado ? "1px solid var(--sage)" : "1px solid var(--line)",
+                  borderRadius: 12,
+                  padding: 14,
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 10,
+                    flexShrink: 0,
+                    background: producto?.imageUrl ? `url(${producto.imageUrl}) center/cover` : "var(--line-soft)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {!producto?.imageUrl && <Package size={24} style={{ color: "var(--ink-soft)" }} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, textDecoration: it.comprado ? "line-through" : "none", color: it.comprado ? "var(--ink-soft)" : "var(--ink)" }}>
+                    {it.productName}
+                  </div>
+                  <div className="despensa-mono" style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 2 }}>
+                    x{it.cantidad}
+                    {it.precioUnitario != null && ` · ${formatMoney(it.precioUnitario * it.cantidad)}`}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    border: it.comprado ? "none" : "2px solid var(--line)",
+                    background: it.comprado ? "var(--sage)" : "transparent",
+                    color: "#fff",
+                  }}
+                >
+                  {it.comprado && <Check size={22} />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ position: "sticky", bottom: 12, display: "flex", gap: 8 }}>
+          <button
+            onClick={async () => {
+              await finalizarCompraPresencial(ordenEnModoCompra);
+              setModoCompraId(null);
+            }}
+            disabled={busyThis}
+            style={{
+              flex: 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              padding: "14px",
+              fontSize: 14,
+              fontWeight: 600,
+              background: "var(--sage)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 10,
+              cursor: busyThis ? "wait" : "pointer",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+            }}
+          >
+            <Check size={16} /> Finalizar compra
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -663,6 +800,12 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
 
                 {o.estado === "Compra presencial" && (
                   <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => setModoCompraId(o.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--amber)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}
+                    >
+                      <ShoppingCart size={12} /> Continuar comprando
+                    </button>
                     <button
                       onClick={() => finalizarCompraPresencial(o)}
                       disabled={busyThis}
