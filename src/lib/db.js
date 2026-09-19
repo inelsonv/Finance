@@ -62,7 +62,7 @@ export function watchList(onChange, onError) {
   );
 }
 
-export async function addProduct({ name, category, unit, price, codigoBarras, urlReferencia }) {
+export async function addProduct({ name, category, unit, price, codigoBarras, urlReferencia, proteinaPor100g }) {
   const docRef = await addDoc(productsCol, {
     name,
     category,
@@ -72,6 +72,7 @@ export async function addProduct({ name, category, unit, price, codigoBarras, ur
     updatedAt: null,
     codigoBarras: codigoBarras || null,
     urlReferencia: urlReferencia || null,
+    proteinaPor100g: proteinaPor100g != null ? Number(proteinaPor100g) : null,
   });
   return docRef;
 }

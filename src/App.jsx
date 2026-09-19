@@ -838,7 +838,7 @@ export default function App() {
           />
         )}
         {tab === "fondos-sostenibles" && <FondosSostenibles categoriasGasto={categoriasGasto} presupuesto={presupuestoAnual} />}
-        {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} />}
+        {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} products={products} historialCompras={historialCompras} />}
         {tab === "wallet" && <Wallet tarjetas={tarjetas} membresias={membresias} onNavigate={setTab} />}
         {tab === "biblioteca" && <Biblioteca libros={libros} libroLeyendo={libroLeyendo} onAbrirLectura={handleAbrirLectura} onCerrarLectura={handleCerrarLectura} />}
         {tab === "compras" && (

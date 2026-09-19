@@ -38,7 +38,7 @@ async function buscarProductoPorCodigo(codigo) {
 export default function Catalogo({ products, entidades, historialCompras, ordenesCompra, onNavigate, categoriasGasto, comprasProrateadas }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "" });
+  const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "", proteinaPor100g: "" });
   const [productoUrl, setProductoUrl] = useState("");
   const [importandoUrl, setImportandoUrl] = useState(false);
   const [importarUrlMsg, setImportarUrlMsg] = useState(null);
@@ -210,6 +210,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         price: Number.isFinite(price) ? price : 0,
         codigoBarras: form.codigoBarras || null,
         urlReferencia: urlReferenciaGuardada || null,
+        proteinaPor100g: form.proteinaPor100g ? parseFloat(form.proteinaPor100g) : null,
       });
       if (formImage) {
         await uploadProductImage(docRef.id, formImage);
@@ -219,7 +220,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
           // bloquea el guardado del producto — solo se queda sin foto.
         });
       }
-      setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "" });
+      setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "", proteinaPor100g: "" });
       setFormImage(null);
       setFormImagePreview(null);
       setProductoUrl("");
@@ -703,6 +704,17 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                 placeholder="Precio"
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: e.target.value })}
+                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <input
+                className="despensa-mono"
+                type="number"
+                step="0.1"
+                min="0"
+                placeholder="Proteína g/100g (opcional)"
+                value={form.proteinaPor100g}
+                onChange={(e) => setForm({ ...form, proteinaPor100g: e.target.value })}
                 onKeyDown={(e) => e.key === "Enter" && handleAdd()}
                 style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
               />

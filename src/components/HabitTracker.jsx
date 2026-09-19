@@ -143,7 +143,7 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function HabitTracker({ habitos, habitosRegistro, datosCorporales }) {
+export default function HabitTracker({ habitos, habitosRegistro, datosCorporales, products = [], historialCompras = [] }) {
   const [showForm, setShowForm] = useState(false);
   const [showDatosCorporales, setShowDatosCorporales] = useState(false);
   const [peso, setPeso] = useState(datosCorporales?.peso != null ? String(datosCorporales.peso) : "");
@@ -177,6 +177,38 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
     if (noHaCumplidoEsteAno) edadCalc -= 1;
     return edadCalc;
   }, [perfilPersonal]);
+
+  // Meta diaria de proteína, calculada a partir del peso guardado y el
+  // nivel de actividad ya registrado (mismos niveles que se usan en el
+  // cálculo de agua recomendada más abajo).
+  const FACTOR_PROTEINA_POR_ACTIVIDAD = { Sedentario: 0.8, Moderado: 1.2, Activo: 1.6, "Muy activo": 2.0 };
+  const metaProteinaDiaria = useMemo(() => {
+    const pesoNum = parseFloat(peso);
+    if (!pesoNum || pesoNum <= 0) return null;
+    const factor = FACTOR_PROTEINA_POR_ACTIVIDAD[nivelActividad] || 1.2;
+    return pesoNum * factor;
+  }, [peso, nivelActividad]);
+
+  // Proteína "disponible" según lo comprado en los últimos 7 días — suma
+  // el historial de compras de productos que tienen proteinaPor100g
+  // guardada en el Catálogo, convirtiendo cantidad (asumida en unidades de
+  // 100g cuando el producto se vende por peso) a gramos totales de
+  // proteína. Es una referencia aproximada, no un conteo exacto de lo que
+  // realmente comiste.
+  const proteinaDisponibleSemana = useMemo(() => {
+    const hace7Dias = new Date();
+    hace7Dias.setDate(hace7Dias.getDate() - 7);
+    let total = 0;
+    for (const compra of historialCompras || []) {
+      if (!compra.fecha) continue;
+      const fechaCompra = new Date(compra.fecha);
+      if (fechaCompra < hace7Dias) continue;
+      const producto = (products || []).find((p) => p.id === compra.productId);
+      if (!producto?.proteinaPor100g) continue;
+      total += producto.proteinaPor100g * (Number(compra.cantidad) || 0);
+    }
+    return total;
+  }, [historialCompras, products]);
 
   const handleGuardarDatosCorporales = async () => {
     setGuardandoDatos(true);
@@ -436,11 +468,46 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
                     </div>
                   </div>
                 )}
+                {metaProteinaDiaria && (
+                  <div style={{ flex: 1, minWidth: 130, background: "var(--paper)", borderRadius: 8, padding: "8px 10px" }}>
+                    <div style={{ fontSize: 10, color: "var(--ink-soft)", marginBottom: 2 }}>Proteína recomendada</div>
+                    <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: "var(--sage)" }}>
+                      {metaProteinaDiaria.toFixed(0)}g/día
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
       </div>
+
+      {metaProteinaDiaria && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "14px", marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Proteína disponible esta semana</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 6 }}>
+            <span className="despensa-mono" style={{ fontSize: 20, fontWeight: 700, color: proteinaDisponibleSemana >= metaProteinaDiaria * 7 ? "var(--sage)" : "var(--stamp)" }}>
+              {proteinaDisponibleSemana.toFixed(0)}g
+            </span>
+            <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>de {(metaProteinaDiaria * 7).toFixed(0)}g necesarios (7 días)</span>
+          </div>
+          <div style={{ height: 8, background: "var(--line-soft)", borderRadius: 4, overflow: "hidden" }}>
+            <div
+              style={{
+                height: "100%",
+                width: `${Math.min(100, (proteinaDisponibleSemana / (metaProteinaDiaria * 7)) * 100)}%`,
+                background: "var(--sage)",
+                borderRadius: 4,
+                transition: "width 0.3s",
+              }}
+            />
+          </div>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8, lineHeight: 1.5 }}>
+            Basado en lo comprado en los últimos 7 días de productos con proteína registrada en Catálogo — es una
+            referencia aproximada, no un conteo exacto de lo consumido.
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Hábitos</span>
