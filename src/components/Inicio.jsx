@@ -733,6 +733,16 @@ function StocksCard() {
   const [newSymbol, setNewSymbol] = useState("");
   const [newNombre, setNewNombre] = useState("");
   const [addError, setAddError] = useState(null);
+  // Tipo de cambio USD→RD$ ya cacheado por el widget de Dólar — se
+  // reutiliza aquí para mostrar el valor de cada acción también en pesos,
+  // sin disparar una consulta nueva.
+  const [tipoCambioUSD, setTipoCambioUSD] = useState(null);
+  useEffect(() => {
+    const unsub = watchTipoCambioCache((c) => {
+      if (c?.rates?.USD) setTipoCambioUSD(c.rates.USD);
+    }, () => {});
+    return () => unsub();
+  }, []);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [fetchError, setFetchError] = useState(null);
 
@@ -962,6 +972,11 @@ function StocksCard() {
                 {p && p.price != null ? (
                   <>
                     <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, marginTop: 6 }}>${p.price.toFixed(2)}</div>
+                    {tipoCambioUSD && (
+                      <div className="despensa-mono" style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+                        RD${(p.price * tipoCambioUSD).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    )}
                     <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: up ? "var(--sage)" : "var(--stamp)", marginTop: 1 }}>
                       {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                       {p.change != null ? `${p.change.toFixed(2)}%` : ""}
