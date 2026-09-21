@@ -2100,16 +2100,7 @@ export function watchTipoCambioCache(onChange, onError) {
 }
 
 export async function saveTipoCambioCache(rates) {
-  // Guarda el tipo de cambio actual y, además, va acumulando un pequeño
-  // historial (últimos 30 registros) para poder graficar la tendencia —
-  // sin esto, cada guardado sobreescribía el anterior y no había forma de
-  // ver cómo ha ido cambiando el dólar/euro con el tiempo.
-  const ref = doc(db, "config", "tipoCambio");
-  const snap = await getDoc(ref);
-  const historialPrevio = snap.exists() ? snap.data()?.historial || [] : [];
-  const nuevoPunto = { fecha: new Date().toISOString(), USD: rates?.USD ?? null, EUR: rates?.EUR ?? null };
-  const historial = [...historialPrevio, nuevoPunto].slice(-30);
-  await setDoc(ref, { rates, fetchedAt: serverTimestamp(), historial });
+  await setDoc(doc(db, "config", "tipoCambio"), { rates, fetchedAt: serverTimestamp() });
 }
 
 export function watchNotifConfig(onChange, onError) {
