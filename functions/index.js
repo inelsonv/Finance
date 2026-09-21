@@ -856,6 +856,65 @@ exports.actualizarPreciosAutomatico = onSchedule(
   }
 );
 
+// ---- Precio de combustible (RD) — actualización semanal automática ----
+// El Ministerio de Industria, Comercio y Mipymes (MICM) publica cada
+// semana (normalmente los viernes) un aviso con los precios de venta al
+// público de la gasolina, pero no ofrece una API — así que se usa
+// búsqueda web de Claude para encontrar el aviso más reciente y extraer
+// los precios de Gasolina Premium y Regular.
+exports.actualizarPrecioCombustible = onSchedule(
+  { schedule: "every friday 20:00", timeZone: "America/Santo_Domingo", secrets: [anthropicApiKey] },
+  async () => {
+    try {
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": anthropicApiKey.value(),
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 500,
+          tools: [{ type: "web_search_20250305", name: "web_search" }],
+          messages: [
+            {
+              role: "user",
+              content:
+                'Busca el aviso semanal MÁS RECIENTE del Ministerio de Industria, Comercio y Mipymes (MICM) de República Dominicana con los precios de venta al público de los combustibles (normalmente se publica los viernes, vigente para la semana siguiente). Necesito específicamente el precio por galón de "Gasolina Premium" y "Gasolina Regular" en pesos dominicanos (RD$). Responde SOLO con JSON, sin explicación ni markdown: {"premium": 123.45, "regular": 123.45, "semana": "descripción breve de la semana que cubre, ej. 19 al 25 de septiembre 2026"}. Si no encuentras un aviso confiable y reciente, responde exactamente: NO_ENCONTRADO',
+            },
+          ],
+        }),
+      });
+      const data = await resp.json();
+      const textBlocks = (data.content || []).filter((c) => c.type === "text");
+      const textoCompleto = textBlocks.map((b) => b.text).join(" ").trim();
+      if (textoCompleto.includes("NO_ENCONTRADO")) {
+        console.log("No se encontró un aviso reciente de precios de combustible.");
+        return;
+      }
+      const clean = textoCompleto.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(clean);
+      if (parsed.premium == null && parsed.regular == null) {
+        console.log("La IA no devolvió precios válidos.");
+        return;
+      }
+      await db.collection("config").doc("combustible").set(
+        {
+          precios: { premium: parsed.premium ?? null, regular: parsed.regular ?? null },
+          semana: parsed.semana || null,
+          updatedAt: new Date(),
+          actualizadoAutomaticamente: true,
+        },
+        { merge: true }
+      );
+      console.log(`Precios de combustible actualizados: Premium ${parsed.premium}, Regular ${parsed.regular} (${parsed.semana || "sin descripción de semana"}).`);
+    } catch (err) {
+      console.error("Error actualizando precio de combustible:", err.message);
+    }
+  }
+);
+
 // ---- Registrar gasto automáticamente desde un correo de notificación ----
 // Pensado para recibir datos ya interpretados (monto, fecha, comercio,
 // últimos 4 dígitos) desde un Google Apps Script que lee el Gmail del

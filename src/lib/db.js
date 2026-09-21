@@ -2271,7 +2271,7 @@ export function watchCombustibleConfig(onChange, onError) {
 }
 
 export async function saveCombustibleConfig(precios) {
-  await setDoc(doc(db, "config", "combustible"), { precios, updatedAt: serverTimestamp() });
+  await setDoc(doc(db, "config", "combustible"), { precios, updatedAt: serverTimestamp(), actualizadoAutomaticamente: false, semana: null });
 }
 
 export function watchChecklistPeriodo(periodoKey, onChange, onError) {

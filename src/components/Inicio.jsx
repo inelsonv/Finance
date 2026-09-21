@@ -602,7 +602,9 @@ function CombustibleCard() {
           </div>
           <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
             Por galón · Fuente: aviso semanal del MICM
+            {combustibleConfig?.semana && ` (${combustibleConfig.semana})`}
             {updatedAt && ` · Actualizado ${updatedAt.toLocaleDateString("es")}`}
+            {combustibleConfig?.actualizadoAutomaticamente && " · automático"}
           </div>
         </>
       )}
