@@ -4,6 +4,7 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
+import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { fetchInflacionRD } from "../lib/inflacionRD";
 import { confirm } from "../lib/confirm";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -478,7 +479,7 @@ function InflacionCard() {
   );
 }
 
-function CombustibleCard() {
+function CombustibleCard({ presupuesto, diasCobro }) {
   const [combustibleConfig, setCombustibleConfig] = useState(undefined);
   const [editando, setEditando] = useState(false);
   const [premiumInput, setPremiumInput] = useState("");
@@ -510,6 +511,22 @@ function CombustibleCard() {
   };
 
   const updatedAt = combustibleConfig?.updatedAt?.toDate ? combustibleConfig.updatedAt.toDate() : null;
+
+  // Cuánto hay presupuestado para "Combustible" en la quincena ACTUAL
+  // (ambas quincenas del mes, sumadas), para calcular cuántos galones
+  // equivalen a ese monto al precio de esta semana.
+  const montoPresupuestadoCombustible = useMemo(() => {
+    if (!presupuesto) return 0;
+    const hoy = periodoActualConfigurado(diasCobro);
+    const porCategoria = presupuesto?.["Combustible"];
+    if (!porCategoria) return 0;
+    const q1 = Number(porCategoria[String(hoy.month)]?.Q1) || 0;
+    const q2 = Number(porCategoria[String(hoy.month)]?.Q2) || 0;
+    return q1 + q2;
+  }, [presupuesto, diasCobro]);
+
+  const precioPremium = combustibleConfig?.precios?.premium;
+  const precioRegular = combustibleConfig?.precios?.regular;
 
   return (
     <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
@@ -600,6 +617,33 @@ function CombustibleCard() {
               </div>
             </div>
           </div>
+
+          {montoPresupuestadoCombustible > 0 && (precioPremium || precioRegular) && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--line-soft)" }}>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
+                Con lo presupuestado este mes ({formatMoney(montoPresupuestadoCombustible)}):
+              </div>
+              <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+                {precioPremium > 0 && (
+                  <div>
+                    <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: "var(--sage)" }}>
+                      {(montoPresupuestadoCombustible / precioPremium).toFixed(1)}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--ink-soft)" }}> gal Premium</span>
+                  </div>
+                )}
+                {precioRegular > 0 && (
+                  <div>
+                    <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: "var(--sage)" }}>
+                      {(montoPresupuestadoCombustible / precioRegular).toFixed(1)}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--ink-soft)" }}> gal Regular</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
             Por galón · Fuente: aviso semanal del MICM
             {combustibleConfig?.semana && ` (${combustibleConfig.semana})`}
@@ -1165,7 +1209,7 @@ function SortableSection({ id, isFirst, children }) {
   );
 }
 
-export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas }) {
+export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas, presupuesto, diasCobro }) {
   const [orden, setOrden] = useState(SECTION_IDS_DEFAULT);
   const [gastosPorMesYear, setGastosPorMesYear] = useState(new Date().getFullYear());
 
@@ -1375,7 +1419,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const dolarContent = <DolarCard />;
   const climaContent = <ClimaCard />;
   const inflacionContent = <InflacionCard />;
-  const combustibleContent = <CombustibleCard />;
+  const combustibleContent = <CombustibleCard presupuesto={presupuesto} diasCobro={diasCobro} />;
 
   const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent, clima: climaContent, inflacion: inflacionContent, combustible: combustibleContent };
 
