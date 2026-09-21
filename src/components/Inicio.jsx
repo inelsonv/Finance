@@ -566,11 +566,34 @@ function ClimaCard() {
   );
 }
 
+// Gráfico de tendencia minimalista (sin librería externa) — dibuja una
+// línea SVG a partir de una serie de valores, escalada al rango real de
+// esos valores para que las variaciones se noten aunque sean pequeñas.
+function Sparkline({ data, color = "var(--sage)" }) {
+  if (!data || data.length < 2) return null;
+  const w = 100;
+  const h = 32;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const rango = max - min || 1;
+  const puntos = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / rango) * h;
+    return `${x},${y}`;
+  });
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width="100%" height={h} preserveAspectRatio="none" style={{ display: "block" }}>
+      <polyline points={puntos.join(" ")} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function DolarCard() {
   const [rates, setRates] = useState({ USD: null, EUR: null });
   const [updatedAt, setUpdatedAt] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ok | error
   const [cache, setCache] = useState(undefined);
+  const [historial, setHistorial] = useState([]);
 
   const DOCE_HORAS_MS = 12 * 60 * 60 * 1000;
 
@@ -608,6 +631,7 @@ function DolarCard() {
     if (cache && cache.rates) {
       setRates(cache.rates);
       setStatus("ok");
+      setHistorial(cache.historial || []);
       const fechaCache = cache.fetchedAt?.toDate ? cache.fetchedAt.toDate() : null;
       if (fechaCache) setUpdatedAt(fechaCache);
       const desactualizada = fechaCache ? Date.now() - fechaCache.getTime() > DOCE_HORAS_MS : true;
@@ -662,6 +686,12 @@ function DolarCard() {
           </div>
         )}
 
+        {historial.length >= 2 && (
+          <div style={{ marginTop: 10 }}>
+            <Sparkline data={historial.map((h) => h.USD).filter((v) => v != null)} />
+          </div>
+        )}
+
         {updatedAt && (
           <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
             Actualizado {updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
@@ -708,6 +738,12 @@ function DolarCard() {
               {rates.EUR != null ? rates.EUR.toFixed(2) : "—"}
             </span>
             <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>DOP</span>
+          </div>
+        )}
+
+        {historial.length >= 2 && (
+          <div style={{ marginTop: 10 }}>
+            <Sparkline data={historial.map((h) => h.EUR).filter((v) => v != null)} />
           </div>
         )}
 
