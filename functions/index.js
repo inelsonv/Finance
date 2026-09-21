@@ -735,7 +735,7 @@ exports.buscarYExtraerProducto = onCall({ secrets: [anthropicApiKey], timeoutSec
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 500,
+        max_tokens: 2000,
         tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages: [
           {
@@ -875,7 +875,7 @@ exports.actualizarPrecioCombustible = onSchedule(
         },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
-          max_tokens: 500,
+          max_tokens: 2000,
           tools: [{ type: "web_search_20250305", name: "web_search" }],
           messages: [
             {
@@ -889,12 +889,26 @@ exports.actualizarPrecioCombustible = onSchedule(
       const data = await resp.json();
       const textBlocks = (data.content || []).filter((c) => c.type === "text");
       const textoCompleto = textBlocks.map((b) => b.text).join(" ").trim();
+      if (!textoCompleto) {
+        // Respuesta vacía — normalmente porque se acabó el límite de
+        // tokens en medio de las búsquedas web sin llegar a un texto
+        // final, o porque la API devolvió un error. Se registra la
+        // respuesta completa para poder diagnosticarlo.
+        console.error("Respuesta sin texto utilizable. stop_reason:", data.stop_reason, "— respuesta completa:", JSON.stringify(data).slice(0, 2000));
+        return;
+      }
       if (textoCompleto.includes("NO_ENCONTRADO")) {
         console.log("No se encontró un aviso reciente de precios de combustible.");
         return;
       }
       const clean = textoCompleto.replace(/```json|```/g, "").trim();
-      const parsed = JSON.parse(clean);
+      let parsed;
+      try {
+        parsed = JSON.parse(clean);
+      } catch (parseErr) {
+        console.error("No se pudo interpretar la respuesta como JSON. Texto recibido:", clean.slice(0, 1000));
+        return;
+      }
       if (parsed.premium == null && parsed.regular == null) {
         console.log("La IA no devolvió precios válidos.");
         return;
