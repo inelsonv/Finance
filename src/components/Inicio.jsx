@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
 import { fetchInflacionRD } from "../lib/inflacionRD";
 import { confirm } from "../lib/confirm";
@@ -474,6 +474,138 @@ function InflacionCard() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function CombustibleCard() {
+  const [combustibleConfig, setCombustibleConfig] = useState(undefined);
+  const [editando, setEditando] = useState(false);
+  const [premiumInput, setPremiumInput] = useState("");
+  const [regularInput, setRegularInput] = useState("");
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => {
+    const unsub = watchCombustibleConfig(setCombustibleConfig, () => setCombustibleConfig(null));
+    return () => unsub && unsub();
+  }, []);
+
+  const iniciarEdicion = () => {
+    setPremiumInput(combustibleConfig?.precios?.premium != null ? String(combustibleConfig.precios.premium) : "");
+    setRegularInput(combustibleConfig?.precios?.regular != null ? String(combustibleConfig.precios.regular) : "");
+    setEditando(true);
+  };
+
+  const guardar = async () => {
+    setGuardando(true);
+    try {
+      await saveCombustibleConfig({
+        premium: premiumInput ? parseFloat(premiumInput) : null,
+        regular: regularInput ? parseFloat(regularInput) : null,
+      });
+      setEditando(false);
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const updatedAt = combustibleConfig?.updatedAt?.toDate ? combustibleConfig.updatedAt.toDate() : null;
+
+  return (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Fuel size={16} style={{ color: "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Combustible (RD)</span>
+        </div>
+        {!editando && (
+          <button
+            onClick={iniciarEdicion}
+            title="Actualizar precios (semanal, MICM)"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 26,
+              height: 26,
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: "pointer",
+            }}
+          >
+            <Pencil size={12} />
+          </button>
+        )}
+      </div>
+
+      {editando ? (
+        <div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+            <div>
+              <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 3 }}>Premium (RD$/galón)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={premiumInput}
+                onChange={(e) => setPremiumInput(e.target.value)}
+                style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13 }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 3 }}>Regular (RD$/galón)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={regularInput}
+                onChange={(e) => setRegularInput(e.target.value)}
+                style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13 }}
+              />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              onClick={guardar}
+              disabled={guardando}
+              style={{ padding: "7px 14px", fontSize: 12, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: guardando ? "wait" : "pointer" }}
+            >
+              {guardando ? "Guardando…" : "Guardar"}
+            </button>
+            <button
+              onClick={() => setEditando(false)}
+              style={{ padding: "7px 14px", fontSize: 12, fontWeight: 600, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 7, cursor: "pointer" }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : combustibleConfig?.precios?.premium == null && combustibleConfig?.precios?.regular == null ? (
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+          Toca el lápiz para registrar el precio de esta semana (según el aviso del MICM).
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Premium</div>
+              <div className="despensa-mono" style={{ fontSize: 20, fontWeight: 700 }}>
+                {combustibleConfig?.precios?.premium != null ? `RD$${combustibleConfig.precios.premium.toFixed(2)}` : "—"}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Regular</div>
+              <div className="despensa-mono" style={{ fontSize: 20, fontWeight: 700 }}>
+                {combustibleConfig?.precios?.regular != null ? `RD$${combustibleConfig.precios.regular.toFixed(2)}` : "—"}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
+            Por galón · Fuente: aviso semanal del MICM
+            {updatedAt && ` · Actualizado ${updatedAt.toLocaleDateString("es")}`}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -996,7 +1128,7 @@ function StocksCard() {
   );
 }
 
-const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar", "clima", "inflacion"];
+const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar", "clima", "inflacion", "combustible"];
 
 function SortableSection({ id, isFirst, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -1241,8 +1373,9 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const dolarContent = <DolarCard />;
   const climaContent = <ClimaCard />;
   const inflacionContent = <InflacionCard />;
+  const combustibleContent = <CombustibleCard />;
 
-  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent, clima: climaContent, inflacion: inflacionContent };
+  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent, clima: climaContent, inflacion: inflacionContent, combustible: combustibleContent };
 
   return (
     <div>
