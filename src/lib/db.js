@@ -2012,6 +2012,14 @@ export function watchPresupuestoAnual(year, onChange, onError) {
   );
 }
 
+export function watchPresupuestosHistoricos(onChange, onError) {
+  return onSnapshot(
+    collection(db, "presupuestos"),
+    (snap) => onChange(Object.fromEntries(snap.docs.map((d) => [d.id, d.data()]))),
+    (err) => onError && onError(err)
+  );
+}
+
 export async function setPresupuestoCelda(year, category, month, quincena, amount) {
   await setDoc(
     doc(db, "presupuestos", String(year)),

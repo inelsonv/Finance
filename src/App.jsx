@@ -664,7 +664,7 @@ export default function App() {
         seguros={seguros}
       />
       <PullToRefresh />
-      <main className="despensa-main">
+      <main className={`despensa-main${tab === "asistente" ? " despensa-main--assistant" : ""}`}>
         <div className="despensa-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
           <div className={`despensa-header-left${searchOpen ? " despensa-header-left--search-open" : ""}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
@@ -820,6 +820,13 @@ export default function App() {
             diasCobro={diasCobro}
             categoriasGasto={categoriasGasto}
             checklistTodos={checklistTodos}
+            membresias={membresias}
+            contratos={contratos}
+            activos={activos}
+            metasAhorro={metasAhorro}
+            seguros={seguros}
+            ingresosPuntuales={ingresosPuntuales}
+            eventos={eventos}
           />
         )}
         {tab === "mapa-progreso" && (

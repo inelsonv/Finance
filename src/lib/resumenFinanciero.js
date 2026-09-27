@@ -12,6 +12,7 @@ export function construirResumenFinanciero({
   movimientos,
   presupuesto,
   presupuestoYear,
+  presupuestosHistoricos = {},
   prestamos,
   tarjetas,
   cuentas,
@@ -20,10 +21,57 @@ export function construirResumenFinanciero({
   diasCobro,
   categoriasGasto,
   checklistTodos,
+  membresias = [],
+  contratos = [],
+  activos = [],
+  metasAhorro = [],
+  seguros = [],
+  ingresosPuntuales = [],
+  eventos = [],
 }) {
   const hoy = new Date();
   const mesActual = hoy.getMonth() + 1;
   const yearActual = hoy.getFullYear();
+
+  // Historial agregado, sin enviar movimientos individuales al proveedor IA.
+  const historialPorPeriodo = {};
+  for (const m of movimientos || []) {
+    if (!m.date || !/^\d{4}-\d{2}/.test(m.date)) continue;
+    const [year, month] = m.date.split("-").map(Number);
+    const periodo = `${year}-${String(month).padStart(2, "0")}`;
+    const resumen = historialPorPeriodo[periodo] ||= { gastos: 0, ingresos: 0, gastosPorCategoria: {}, ingresosPorCategoria: {} };
+    const amount = Number(m.amount) || 0;
+    if (m.type === "Gasto") {
+      resumen.gastos += amount;
+      resumen.gastosPorCategoria[m.category || "Sin categoría"] = (resumen.gastosPorCategoria[m.category || "Sin categoría"] || 0) + amount;
+    } else if (m.type === "Ingreso") {
+      resumen.ingresos += amount;
+      resumen.ingresosPorCategoria[m.category || "Sin categoría"] = (resumen.ingresosPorCategoria[m.category || "Sin categoría"] || 0) + amount;
+    }
+  }
+  for (const periodo of Object.values(historialPorPeriodo)) {
+    periodo.gastos = formatMoney(periodo.gastos);
+    periodo.ingresos = formatMoney(periodo.ingresos);
+    for (const campo of ["gastosPorCategoria", "ingresosPorCategoria"]) {
+      periodo[campo] = Object.fromEntries(Object.entries(periodo[campo]).map(([cat, monto]) => [cat, formatMoney(monto)]));
+    }
+  }
+
+  const presupuestosPorPeriodo = {};
+  for (const [year, presupuestoYearData] of Object.entries(presupuestosHistoricos || {})) {
+    for (let month = 1; month <= 12; month++) {
+      const porCategoria = {};
+      let total = 0;
+      for (const [categoria, meses] of Object.entries(presupuestoYearData || {})) {
+        const datos = meses?.[String(month)];
+        const monto = (Number(datos?.Q1) || 0) + (Number(datos?.Q2) || 0);
+        if (!monto) continue;
+        porCategoria[categoria] = formatMoney(monto);
+        total += monto;
+      }
+      if (total) presupuestosPorPeriodo[`${year}-${String(month).padStart(2, "0")}`] = { total: formatMoney(total), porCategoria };
+    }
+  }
 
   // Gastos del mes actual, agrupados por categoría
   const gastosPorCategoria = {};
@@ -127,6 +175,8 @@ export function construirResumenFinanciero({
   return {
     fechaHoy: hoy.toISOString().slice(0, 10),
     mesActual: `${mesActual}/${yearActual}`,
+    historialMensual: historialPorPeriodo,
+    presupuestosHistoricosPorMes: presupuestosPorPeriodo,
     quincenaActual: {
       periodo: periodoKey,
       fechaInicio: rangoActual.fechaInicio,
@@ -147,5 +197,14 @@ export function construirResumenFinanciero({
     tarjetasCredito: tarjetasResumen,
     cuentasBancarias: cuentasResumen,
     puntosAcumulados: typeof puntos === "number" ? puntos : puntos?.total || 0,
+    otrosDatosFinancieros: {
+      membresiasActivas: (membresias || []).filter((x) => x.estado === "Activa" || x.estado === "Activo").map((x) => ({ nombre: x.nombre, costo: formatMoney(x.costo), frecuencia: x.frecuencia, diaPago: x.diaPago })),
+      contratosActivos: (contratos || []).filter((x) => x.estado === "Activo" || x.estado === "Activa").map((x) => ({ nombre: x.nombre, montoEstimado: formatMoney(x.montoEstimado), fechaFin: x.fechaFin, diaPago: x.diaPago })),
+      activos: (activos || []).filter((x) => x.estado !== "Inactivo").map((x) => ({ nombre: x.nombre, valorCompra: formatMoney(x.valorCompra), tipo: x.tipo, fechaCompra: x.fechaCompra })),
+      metasAhorro: (metasAhorro || []).filter((x) => x.estado === "Activa").map((x) => ({ nombre: x.nombre, tipoMeta: x.tipoMeta, objetivo: formatMoney(x.montoObjetivo), fechaObjetivo: x.fechaObjetivo, cuentaId: x.cuentaId })),
+      segurosActivos: (seguros || []).filter((x) => x.estado !== "Inactivo").map((x) => ({ nombre: x.nombre, prima: formatMoney(x.primaMonto), frecuenciaPrima: x.primaFrecuencia, vencimiento: x.fechaVencimiento })),
+      ingresosPuntuales: (ingresosPuntuales || []).map((x) => ({ concepto: x.concepto || x.nombre, monto: formatMoney(x.monto ?? x.amount), fecha: x.fecha || x.date })),
+      eventosFinancieros: (eventos || []).map((x) => ({ titulo: x.titulo || x.nombre, fecha: x.fecha || x.date, monto: formatMoney(x.monto ?? x.amount) })),
+    },
   };
 }

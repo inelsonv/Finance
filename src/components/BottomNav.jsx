@@ -75,7 +75,7 @@ export default function BottomNav({
 
   return (
     <>
-      <nav className="despensa-bottomnav">
+      <nav className={`despensa-bottomnav${tab === "asistente" ? " despensa-bottomnav--assistant" : ""}`}>
         <button
           onClick={() => setTab("calendario")}
           className="despensa-bottomnav-item"

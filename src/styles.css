@@ -194,6 +194,23 @@ button:hover {
   .despensa-main {
     padding: 1.25rem 1rem calc(70px + env(safe-area-inset-bottom, 0px));
   }
+  .despensa-main--assistant {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding: calc(1.25rem + env(safe-area-inset-top, 0px)) 1rem env(safe-area-inset-bottom, 0px);
+  }
+  .despensa-main--assistant .despensa-header {
+    flex-shrink: 0;
+  }
+  .despensa-main--assistant .despensa-asistente {
+    flex: 1;
+    min-height: 0;
+    height: auto !important;
+    max-height: none !important;
+  }
   .despensa-header {
     position: sticky;
     top: 0;
@@ -237,6 +254,9 @@ button:hover {
 @media (max-width: 640px) {
   .despensa-bottomnav {
     display: flex;
+  }
+  .despensa-bottomnav--assistant {
+    display: none;
   }
 }
 

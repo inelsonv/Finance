@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Send, Sparkles, Loader2, Plus } from "lucide-react";
-import { crearAsistenteChat, guardarAsistenteChat, preguntarAsistente, watchAsistenteChat, watchAsistenteChats } from "../lib/db";
+import { crearAsistenteChat, guardarAsistenteChat, preguntarAsistente, watchAsistenteChat, watchAsistenteChats, watchPresupuestosHistoricos } from "../lib/db";
 import { construirResumenFinanciero } from "../lib/resumenFinanciero";
 
 const SUGERENCIAS = [
@@ -11,7 +11,7 @@ const SUGERENCIAS = [
   "¿Me estoy pasando del presupuesto en algo?",
 ];
 
-export default function Asistente({ movimientos, presupuesto, presupuestoYear, prestamos, tarjetas, cuentas, fuentesIngreso, puntos, diasCobro, categoriasGasto, checklistTodos }) {
+export default function Asistente({ movimientos, presupuesto, presupuestoYear, prestamos, tarjetas, cuentas, fuentesIngreso, puntos, diasCobro, categoriasGasto, checklistTodos, membresias, contratos, activos, metasAhorro, seguros, ingresosPuntuales, eventos }) {
   const [mensajes, setMensajes] = useState([]);
   const [chats, setChats] = useState([]);
   const [chatId, setChatId] = useState(null);
@@ -20,8 +20,15 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
   const [input, setInput] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
+  const [presupuestosHistoricos, setPresupuestosHistoricos] = useState({});
   const scrollRef = useRef(null);
   const chatCreadoPendiente = useRef(null);
+
+  useEffect(() => {
+    return watchPresupuestosHistoricos(setPresupuestosHistoricos, (err) => {
+      console.error("No se pudieron cargar los presupuestos históricos:", err);
+    });
+  }, []);
 
   useEffect(() => {
     return watchAsistenteChats((lista) => {
@@ -93,6 +100,7 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
         movimientos,
         presupuesto,
         presupuestoYear,
+        presupuestosHistoricos,
         prestamos,
         tarjetas,
         cuentas,
@@ -101,6 +109,13 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
         diasCobro,
         categoriasGasto,
         checklistTodos,
+        membresias,
+        contratos,
+        activos,
+        metasAhorro,
+        seguros,
+        ingresosPuntuales,
+        eventos,
       });
       // El historial persistido es largo; solo enviamos los últimos turnos
       // para mantener un contexto útil sin inflar cada petición.
@@ -132,7 +147,7 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)", maxHeight: 640 }}>
+      <div className="despensa-asistente" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)", maxHeight: 640 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <Sparkles size={17} style={{ color: "var(--sage)" }} />
         <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Asistente</span>
