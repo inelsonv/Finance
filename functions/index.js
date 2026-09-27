@@ -11,6 +11,7 @@ const bucket = getStorage().bucket("finance-6e127.firebasestorage.app");
 
 const ALLOWED_EMAIL = "iventuramena@gmail.com";
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
+const groqApiKey = defineSecret("GROQ_API_KEY");
 const emailWebhookSecret = defineSecret("EMAIL_WEBHOOK_SECRET");
 
 const UMBRAL_DIAS = 7;
@@ -1076,17 +1077,9 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
 });
 
 // ---- Asistente conversacional de finanzas ----
-// Recibe la pregunta del usuario más un resumen compacto de sus datos
-// financieros reales (armado del lado del cliente, no se manda todo el
-// historial crudo por costo/tokens), y responde con Claude basándose SOLO
-// en ese resumen. Mantiene un historial corto de la conversación para dar
-// contexto de seguimiento. La Cloud Function no persiste la conversación;
-// el cliente la guarda en Firestore bajo las reglas de acceso del propietario.
-// Nota: se fuerza un pequeño cambio aquí para que el próximo deploy
-// realmente actualice esta función (y con eso, vuelva a verificar/otorgar
-// el acceso al secreto ANTHROPIC_API_KEY) en vez de saltarla por "sin
-// cambios detectados".
-exports.preguntarAsistente = onCall({ secrets: [anthropicApiKey] }, async (request) => {
+// Recibe un resumen financiero compacto y un historial corto. Responde con
+// Groq GPT-OSS 20B; el cliente conserva las conversaciones en Firestore.
+exports.preguntarAsistente = onCall({ secrets: [groqApiKey] }, async (request) => {
   if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
     throw new HttpsError("permission-denied", "No autorizado");
   }
@@ -1102,29 +1095,34 @@ Ayuda a interpretar gastos por categoría, presupuesto, deudas, cuentas y la qui
 Resumen de datos financieros actuales del usuario:
 ${JSON.stringify(resumen, null, 2)}`;
 
-  const mensajes = [...(Array.isArray(historial) ? historial : []), { role: "user", content: pregunta }];
+  const historialSeguro = (Array.isArray(historial) ? historial : [])
+    .filter((mensaje) => ["user", "assistant"].includes(mensaje?.role) && typeof mensaje?.content === "string")
+    .slice(-8)
+    .map(({ role, content }) => ({ role, content }));
+  const mensajes = [
+    { role: "system", content: systemPrompt },
+    ...historialSeguro,
+    { role: "user", content: pregunta },
+  ];
 
   try {
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": anthropicApiKey.value(),
-        "anthropic-version": "2023-06-01",
+        authorization: `Bearer ${groqApiKey.value()}`,
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: "openai/gpt-oss-20b",
         max_tokens: 700,
-        system: systemPrompt,
         messages: mensajes,
       }),
     });
     const data = await resp.json();
     if (!resp.ok) {
-      throw new HttpsError("internal", data?.error?.message || `Error de la API de Anthropic (HTTP ${resp.status})`);
+      throw new HttpsError("internal", data?.error?.message || `Error de la API de Groq (HTTP ${resp.status})`);
     }
-    const textBlock = (data.content || []).find((c) => c.type === "text");
-    return { respuesta: textBlock?.text || "No obtuve una respuesta clara, intenta de nuevo." };
+    return { respuesta: data?.choices?.[0]?.message?.content || "No obtuve una respuesta clara, intenta de nuevo." };
   } catch (err) {
     if (err instanceof HttpsError) throw err;
     throw new HttpsError("internal", err.message || String(err));
