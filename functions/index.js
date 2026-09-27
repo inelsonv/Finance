@@ -7,7 +7,7 @@ const { getStorage } = require("firebase-admin/storage");
 
 initializeApp();
 const db = getFirestore();
-const bucket = getStorage().bucket();
+const bucket = getStorage().bucket("finance-6e127.firebasestorage.app");
 
 const ALLOWED_EMAIL = "iventuramena@gmail.com";
 const anthropicApiKey = defineSecret("ANTHROPIC_API_KEY");
