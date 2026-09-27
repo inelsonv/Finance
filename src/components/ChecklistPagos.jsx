@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
-import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, watchPagoRapido } from "../lib/db";
+import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, watchPagoRapido, setPresupuestoCelda } from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
@@ -307,8 +307,12 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
 
     // Monto editado manualmente (ej. "Almuerzo" que varía por descuento de
     // nómina) — si el checklist tiene un montoOverride guardado para este
-    // ítem, ese valor manda sobre el calculado del presupuesto.
+    // ítem, ese valor manda sobre el calculado del presupuesto. Se guarda
+    // el monto ORIGINAL presupuestado aparte (montoPresupuestado), para
+    // poder detectar más adelante si se pagó de menos y arrastrar el resto
+    // a la próxima quincena.
     for (const it of list) {
+      it.montoPresupuestado = it.monto;
       const override = checklist?.items?.[it.key]?.montoOverride;
       if (override != null) it.monto = Number(override) || 0;
     }
@@ -443,6 +447,17 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         metodoPago,
         origenChecklist: { periodoKey, itemKey: it.key },
       });
+
+      // Si se pagó MENOS de lo presupuestado, el resto se suma
+      // automáticamente al monto ya presupuestado de la PRÓXIMA quincena
+      // para esta misma categoría (ej. cita odontológica: si faltó pagar
+      // parte, se espera saldarlo en la próxima cita).
+      const resto = (it.montoPresupuestado || 0) - (it.monto || 0);
+      if (resto > 0 && !it.esPrestamo && !it.esTarjeta) {
+        const siguiente = periodoAdyacente(periodo, 1);
+        const yaPresupuestadoSiguiente = Number(presupuesto?.[it.nombre]?.[String(siguiente.month)]?.[siguiente.quincena]) || 0;
+        await setPresupuestoCelda(siguiente.year, it.nombre, siguiente.month, siguiente.quincena, yaPresupuestadoSiguiente + resto);
+      }
     }
   };
 
