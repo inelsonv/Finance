@@ -818,6 +818,8 @@ export default function App() {
             fuentesIngreso={fuentesIngreso}
             puntos={puntos}
             diasCobro={diasCobro}
+            categoriasGasto={categoriasGasto}
+            checklistTodos={checklistTodos}
           />
         )}
         {tab === "mapa-progreso" && (

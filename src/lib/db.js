@@ -137,13 +137,53 @@ export async function buscarYExtraerProducto(nombreProducto) {
 }
 
 // Manda una pregunta al asistente de IA junto con el resumen financiero
-// actual y (opcionalmente) el historial corto de la conversación, para dar
-// contexto de seguimiento. No persiste nada — la conversación vive solo en
-// el estado del componente mientras la pantalla esté abierta.
+// actual y el historial corto para dar contexto de seguimiento. El componente
+// guarda el historial visible en Firestore para poder retomarlo después.
 export async function preguntarAsistente(pregunta, resumen, historial) {
   const fn = httpsCallable(functions, "preguntarAsistente");
   const res = await fn({ pregunta, resumen, historial });
   return res.data;
+}
+
+const asistenteChatsCol = collection(db, "asistenteChats");
+
+export function watchAsistenteChats(onChange, onError) {
+  const q = query(asistenteChatsCol, orderBy("actualizadoAt", "desc"));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchAsistenteChat(id, onChange, onError) {
+  return onSnapshot(
+    doc(db, "asistenteChats", id),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function crearAsistenteChat(titulo = "Nueva conversación", mensajes = []) {
+  const ref = await addDoc(asistenteChatsCol, {
+    titulo,
+    mensajes: (mensajes || []).slice(-80),
+    creadoAt: serverTimestamp(),
+    actualizadoAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function guardarAsistenteChat(id, titulo, mensajes) {
+  await setDoc(
+    doc(db, "asistenteChats", id),
+    {
+      titulo,
+      mensajes: (mensajes || []).slice(-80),
+      actualizadoAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
 }
 
 // Descarga una imagen desde una URL externa y la guarda en Firebase Storage

@@ -1,6 +1,8 @@
 // Arma un resumen COMPACTO de las finanzas actuales del usuario, para
 // mandárselo al asistente de IA en vez del historial crudo completo (más
 // barato, más rápido, y evita exponer más datos de los necesarios).
+import { calcularResumenQuincena } from "./quincenaResumen";
+import { periodoActualConfigurado, rangoFechasQuincenaConfigurado } from "./quincenaConfig";
 
 function formatMoney(n) {
   return Math.round(Number(n) || 0);
@@ -16,6 +18,8 @@ export function construirResumenFinanciero({
   fuentesIngreso,
   puntos,
   diasCobro,
+  categoriasGasto,
+  checklistTodos,
 }) {
   const hoy = new Date();
   const mesActual = hoy.getMonth() + 1;
@@ -69,9 +73,71 @@ export function construirResumenFinanciero({
     .filter((f) => f.estado === "Activo")
     .reduce((s, f) => s + (Number(f.montoMensual) || Number(f.montoQuincenal) * 2 || 0), 0);
 
+  const periodoActual = periodoActualConfigurado(diasCobro, hoy);
+  const periodoKey = `${periodoActual.year}-${periodoActual.month}-${periodoActual.quincena}`;
+  const rangoActual = rangoFechasQuincenaConfigurado(
+    periodoActual.year,
+    periodoActual.month,
+    periodoActual.quincena,
+    diasCobro
+  );
+  const resumenQuincena = calcularResumenQuincena({
+    ...periodoActual,
+    presupuesto: presupuestoYear === periodoActual.year ? presupuesto : null,
+    categoriasGasto,
+    prestamos,
+    movimientos,
+    diasCobro,
+  });
+  const gastosPorCategoriaQuincena = {};
+  for (const m of movimientos || []) {
+    if (m.type !== "Gasto" || !m.date || m.date < rangoActual.fechaInicio || m.date > rangoActual.fechaFin) continue;
+    gastosPorCategoriaQuincena[m.category] = (gastosPorCategoriaQuincena[m.category] || 0) + (Number(m.amount) || 0);
+  }
+  const prioridadesChecklist = (categoriasGasto || [])
+    .filter((c) => c.clasificacion === "Fijo" || /^(combustible|gasolina)$/i.test(c.nombre?.trim() || ""))
+    .map((c) => {
+      const presupuestado = Number(presupuesto?.[c.nombre]?.[String(periodoActual.month)]?.[periodoActual.quincena]) || 0;
+      return {
+        categoria: c.nombre,
+        prioridad: c.clasificacion === "Fijo" ? "Gasto fijo" : "Prioridad indicada por el usuario",
+        montoPresupuestado: formatMoney(presupuestado),
+        gastadoEnQuincena: formatMoney(gastosPorCategoriaQuincena[c.nombre] || 0),
+        pagadoEnChecklist: Boolean(checklistTodos?.[periodoKey]?.items?.[c.nombre]?.pagado),
+      };
+    })
+    .filter((c) => c.montoPresupuestado > 0 || c.gastadoEnQuincena > 0);
+
+  const mensajesChecklist = Object.entries(checklistTodos?.[periodoKey]?.items || {}).map(([key, estado]) => {
+    const categoria = (categoriasGasto || []).find((c) => c.nombre === key);
+    if (categoria) {
+      return { concepto: categoria.nombre, pagado: Boolean(estado?.pagado), tipo: categoria.clasificacion || "Gasto" };
+    }
+    const prestamo = (prestamos || []).find((p) => key.startsWith(`prestamo-${p.id}`));
+    if (prestamo) {
+      return { concepto: `Préstamo ${prestamo.numero}${prestamo.entidadName ? ` · ${prestamo.entidadName}` : ""}`, pagado: Boolean(estado?.pagado), tipo: "Deuda" };
+    }
+    const tarjeta = (tarjetas || []).find((t) => key.startsWith(`tarjeta-${t.id}-`));
+    if (tarjeta) {
+      return { concepto: `Tarjeta ${tarjeta.nombre} — pago mínimo`, pagado: Boolean(estado?.pagado), tipo: "Deuda" };
+    }
+    return { concepto: key, pagado: Boolean(estado?.pagado), tipo: "Otro" };
+  });
+
   return {
     fechaHoy: hoy.toISOString().slice(0, 10),
     mesActual: `${mesActual}/${yearActual}`,
+    quincenaActual: {
+      periodo: periodoKey,
+      fechaInicio: rangoActual.fechaInicio,
+      fechaFin: rangoActual.fechaFin,
+      montoPresupuestado: formatMoney(resumenQuincena.presupuestado),
+      montoGastado: formatMoney(resumenQuincena.gastado),
+      presupuestoSinConsumir: formatMoney(resumenQuincena.presupuestado - resumenQuincena.gastado),
+      gastosPorCategoria: Object.fromEntries(Object.entries(gastosPorCategoriaQuincena).map(([k, v]) => [k, formatMoney(v)])),
+      prioridadesChecklist,
+      estadosChecklistGuardados: mensajesChecklist,
+    },
     gastosPorCategoriaEsteMes: Object.fromEntries(Object.entries(gastosPorCategoria).map(([k, v]) => [k, formatMoney(v)])),
     totalGastadoEsteMes: formatMoney(totalGastadoMes),
     totalIngresoEsteMes: formatMoney(totalIngresoMes),

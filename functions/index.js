@@ -1080,7 +1080,8 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
 // financieros reales (armado del lado del cliente, no se manda todo el
 // historial crudo por costo/tokens), y responde con Claude basándose SOLO
 // en ese resumen. Mantiene un historial corto de la conversación para dar
-// contexto de seguimiento, pero no persiste nada en el servidor.
+// contexto de seguimiento. La Cloud Function no persiste la conversación;
+// el cliente la guarda en Firestore bajo las reglas de acceso del propietario.
 // Nota: se fuerza un pequeño cambio aquí para que el próximo deploy
 // realmente actualice esta función (y con eso, vuelva a verificar/otorgar
 // el acceso al secreto ANTHROPIC_API_KEY) en vez de saltarla por "sin
@@ -1094,7 +1095,9 @@ exports.preguntarAsistente = onCall({ secrets: [anthropicApiKey] }, async (reque
     throw new HttpsError("invalid-argument", "Falta la pregunta o el resumen financiero");
   }
 
-  const systemPrompt = `Eres el asistente financiero personal dentro de Smart Finance, una app de finanzas personales para una persona en República Dominicana. Respondes preguntas SOLO basándote en el resumen de datos que se te da a continuación — nunca inventes cifras que no estén ahí. Si algo no está en el resumen, dilo claramente en vez de adivinar. Sé conciso (2-4 oraciones normalmente, más solo si piden detalle). Usa RD$ para los montos. No repitas disclaimers de "no soy asesor financiero" a menos que la pregunta sea sobre una decisión de inversión importante. Habla en español, con un tono cercano pero directo.
+  const systemPrompt = `Eres el asistente financiero personal dentro de Smart Finance, una app de finanzas personales para una persona en República Dominicana. Respondes preguntas SOLO basándote en el resumen de datos que se te da a continuación — nunca inventes cifras que no estén ahí. Si algo no está en el resumen, dilo claramente en vez de adivinar. Sé conciso (2-4 oraciones normalmente, más solo si piden detalle). Usa RD$ para los montos. Habla en español, con un tono cercano pero directo.
+
+Ayuda a interpretar gastos por categoría, presupuesto, deudas, cuentas y la quincena actual. Al recomendar qué atender primero, prioriza los gastos fijos y las categorías señaladas en prioridadesChecklist (incluido Combustible/Gasolina), y después considera cuotas y otros gastos. Distingue el presupuesto sin consumir del efectivo realmente disponible: solo afirma cuánto efectivo hay si las cuentas del resumen permiten calcularlo. Usa los estadosChecklistGuardados como estados registrados; no supongas que los ítems ausentes del resumen ya se pagaron. Cuando compares gasto y presupuesto, indica el período al que corresponden. Para decisiones de inversión importantes, explica los riesgos y mantén la recomendación prudente.
 
 Resumen de datos financieros actuales del usuario:
 ${JSON.stringify(resumen, null, 2)}`;

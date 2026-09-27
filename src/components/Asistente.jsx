@@ -1,21 +1,64 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Sparkles, Loader2 } from "lucide-react";
-import { preguntarAsistente } from "../lib/db";
+import { Send, Sparkles, Loader2, Plus } from "lucide-react";
+import { crearAsistenteChat, guardarAsistenteChat, preguntarAsistente, watchAsistenteChat, watchAsistenteChats } from "../lib/db";
 import { construirResumenFinanciero } from "../lib/resumenFinanciero";
 
 const SUGERENCIAS = [
   "¿Cuánto he gastado este mes?",
   "¿En qué categoría gasté más?",
-  "¿Cuánto debo en total?",
+  "¿Cuánto presupuesto me queda esta quincena?",
+  "¿Qué pagos debería priorizar?",
   "¿Me estoy pasando del presupuesto en algo?",
 ];
 
-export default function Asistente({ movimientos, presupuesto, presupuestoYear, prestamos, tarjetas, cuentas, fuentesIngreso, puntos, diasCobro }) {
+export default function Asistente({ movimientos, presupuesto, presupuestoYear, prestamos, tarjetas, cuentas, fuentesIngreso, puntos, diasCobro, categoriasGasto, checklistTodos }) {
   const [mensajes, setMensajes] = useState([]);
+  const [chats, setChats] = useState([]);
+  const [chatId, setChatId] = useState(null);
+  const [cargandoChats, setCargandoChats] = useState(true);
+  const [cargandoMensajes, setCargandoMensajes] = useState(false);
   const [input, setInput] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
   const scrollRef = useRef(null);
+  const chatCreadoPendiente = useRef(null);
+
+  useEffect(() => {
+    return watchAsistenteChats((lista) => {
+      setChats(lista);
+      setCargandoChats(false);
+    }, () => {
+      setCargandoChats(false);
+      setError("No se pudo cargar el historial de conversaciones.");
+    });
+  }, []);
+
+  useEffect(() => {
+    if (cargandoChats) return;
+    if (!chats.length) return;
+    if (chatId && chatCreadoPendiente.current === chatId) {
+      if (chats.some((chat) => chat.id === chatId)) chatCreadoPendiente.current = null;
+      else return;
+    }
+    if (!chatId || !chats.some((chat) => chat.id === chatId)) setChatId(chats[0].id);
+  }, [chats, cargandoChats, chatId]);
+
+  useEffect(() => {
+    if (!chatId) {
+      setMensajes([]);
+      setCargandoMensajes(false);
+      return;
+    }
+    setMensajes([]);
+    setCargandoMensajes(true);
+    return watchAsistenteChat(chatId, (chat) => {
+      setMensajes(Array.isArray(chat?.mensajes) ? chat.mensajes : []);
+      setCargandoMensajes(false);
+    }, () => {
+      setCargandoMensajes(false);
+      setError("No se pudo abrir esta conversación.");
+    });
+  }, [chatId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -32,6 +75,20 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
     setError(null);
 
     try {
+      let idConversacion = chatId;
+      const tituloGuardado = chats.find((chat) => chat.id === idConversacion)?.titulo;
+      const titulo = tituloGuardado && tituloGuardado !== "Nueva conversación" ? tituloGuardado : pregunta.slice(0, 52);
+      if (!idConversacion) {
+        try {
+          idConversacion = await crearAsistenteChat(titulo, nuevosMensajes);
+          chatCreadoPendiente.current = idConversacion;
+          setChatId(idConversacion);
+        } catch (err) {
+          // El asistente sigue respondiendo aunque no se pueda guardar el historial.
+          setError("No se pudo guardar el historial; intentaré responder de todos modos.");
+        }
+      }
+
       const resumen = construirResumenFinanciero({
         movimientos,
         presupuesto,
@@ -42,13 +99,30 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
         fuentesIngreso,
         puntos,
         diasCobro,
+        categoriasGasto,
+        checklistTodos,
       });
-      // Solo se manda el historial de texto (sin campos extra) para no
-      // inflar la petición — los últimos 6 mensajes son de sobra para dar
-      // contexto de seguimiento razonable.
-      const historialParaEnviar = mensajes.slice(-6).map((m) => ({ role: m.role, content: m.content }));
+      // El historial persistido es largo; solo enviamos los últimos turnos
+      // para mantener un contexto útil sin inflar cada petición.
+      const historialParaEnviar = mensajes.slice(-8).map((m) => ({ role: m.role, content: m.content }));
+      if (historialParaEnviar.at(-1)?.role === "user") historialParaEnviar.pop();
+      if (idConversacion) {
+        try {
+          await guardarAsistenteChat(idConversacion, titulo, nuevosMensajes);
+        } catch (err) {
+          setError("No se pudo guardar el historial; la respuesta seguirá disponible en esta sesión.");
+        }
+      }
       const { respuesta } = await preguntarAsistente(pregunta, resumen, historialParaEnviar);
-      setMensajes([...nuevosMensajes, { role: "assistant", content: respuesta }]);
+      const mensajesCompletos = [...nuevosMensajes, { role: "assistant", content: respuesta }];
+      setMensajes(mensajesCompletos);
+      if (idConversacion) {
+        try {
+          await guardarAsistenteChat(idConversacion, titulo, mensajesCompletos);
+        } catch (err) {
+          setError("Recibí la respuesta, pero no se pudo guardar en el historial.");
+        }
+      }
     } catch (err) {
       setError(err.message || String(err));
       setMensajes(nuevosMensajes);
@@ -62,13 +136,47 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <Sparkles size={17} style={{ color: "var(--sage)" }} />
         <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Asistente</span>
+        <button
+          onClick={async () => {
+            if (enviando) return;
+            setError(null);
+            try {
+              const id = await crearAsistenteChat("Nueva conversación");
+              chatCreadoPendiente.current = id;
+              setChatId(id);
+              setMensajes([]);
+            } catch (err) {
+              setError(err.message || "No se pudo crear una conversación.");
+            }
+          }}
+          disabled={enviando}
+          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, border: "1px solid var(--line)", borderRadius: 9, background: "var(--card)", color: "var(--ink-soft)", padding: "6px 9px", cursor: "pointer", fontSize: 12 }}
+        >
+          <Plus size={14} /> Nuevo chat
+        </button>
       </div>
 
+      {chats.length > 0 && (
+        <select
+          aria-label="Conversaciones guardadas"
+          value={chatId || ""}
+          onChange={(e) => { setError(null); setChatId(e.target.value); }}
+          disabled={enviando || cargandoChats || cargandoMensajes}
+          style={{ width: "100%", marginBottom: 10, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 9, background: "var(--card)", color: "var(--ink)", fontSize: 12.5 }}
+        >
+          {chats.map((chat) => <option key={chat.id} value={chat.id}>{chat.titulo || "Conversación"}</option>)}
+        </select>
+      )}
+
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 4 }}>
-        {mensajes.length === 0 && (
+        {cargandoMensajes && (
+          <div style={{ alignSelf: "center", padding: "1rem", color: "var(--ink-soft)", fontSize: 12.5 }}>Cargando conversación…</div>
+        )}
+
+        {mensajes.length === 0 && !cargandoMensajes && (
           <div style={{ textAlign: "center", padding: "1.5rem 1rem" }}>
             <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 14 }}>
-              Pregúntame lo que quieras sobre tus finanzas — respondo con tus datos reales.
+              Pregúntame por tus gastos, la quincena actual, el presupuesto o qué pagos priorizar.
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
               {SUGERENCIAS.map((s) => (
@@ -113,7 +221,7 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
 
         {error && (
           <div style={{ alignSelf: "flex-start", fontSize: 12, color: "var(--stamp)", padding: "6px 10px" }}>
-            No se pudo responder: {error}
+          Aviso: {error}
           </div>
         )}
       </div>
@@ -124,12 +232,13 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && enviarPregunta()}
           placeholder="Escribe tu pregunta…"
-          disabled={enviando}
+          maxLength={2000}
+          disabled={enviando || cargandoChats || cargandoMensajes}
           style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 13.5 }}
         />
         <button
           onClick={() => enviarPregunta()}
-          disabled={enviando || !input.trim()}
+          disabled={enviando || cargandoChats || cargandoMensajes || !input.trim()}
           style={{
             display: "flex",
             alignItems: "center",
@@ -138,9 +247,9 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
             height: 40,
             borderRadius: 10,
             border: "none",
-            background: enviando || !input.trim() ? "var(--line)" : "var(--sage)",
+            background: enviando || cargandoChats || cargandoMensajes || !input.trim() ? "var(--line)" : "var(--sage)",
             color: "#fff",
-            cursor: enviando || !input.trim() ? "not-allowed" : "pointer",
+            cursor: enviando || cargandoChats || cargandoMensajes || !input.trim() ? "not-allowed" : "pointer",
             flexShrink: 0,
           }}
         >

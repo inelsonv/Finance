@@ -114,6 +114,9 @@ service cloud.firestore {
     match /checklistPagos/{doc} {
       allow read, write: if esPropietario();
     }
+    match /asistenteChats/{doc} {
+      allow read, write: if esPropietario();
+    }
     match /habitos/{doc} {
       allow read, write: if esPropietario();
     }
