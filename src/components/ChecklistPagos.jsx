@@ -317,7 +317,15 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       if (override != null) it.monto = Number(override) || 0;
     }
 
-    return list.sort((a, b) => b.monto - a.monto);
+    // Prioriza los gastos fijos y el combustible antes de deudas y gastos
+    // variables, manteniendo el orden por monto dentro de cada grupo.
+    const esGastoPrioritario = (item) =>
+      item.clasificacion === "Fijo" || /^(combustible|gasolina)$/i.test(item.nombre?.trim() || "");
+    return list.sort((a, b) => {
+      const prioridadA = esGastoPrioritario(a) ? 0 : 1;
+      const prioridadB = esGastoPrioritario(b) ? 0 : 1;
+      return prioridadA - prioridadB || b.monto - a.monto;
+    });
   }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso, checklist]);
 
   const totales = useMemo(() => {
