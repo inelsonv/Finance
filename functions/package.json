@@ -2,7 +2,7 @@
   "name": "functions",
   "description": "Cloud Functions para Smart Finance: aviso diario de alertas por correo",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "index.js",
   "dependencies": {
