@@ -117,9 +117,8 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
         ingresosPuntuales,
         eventos,
       });
-      // El historial persistido es largo; solo enviamos los últimos turnos
-      // para mantener un contexto útil sin inflar cada petición.
-      const historialParaEnviar = mensajes.slice(-8).map((m) => ({ role: m.role, content: m.content }));
+      // Limita el historial enviado para no elevar innecesariamente el consumo TPM.
+      const historialParaEnviar = mensajes.slice(-4).map((m) => ({ role: m.role, content: m.content.slice(0, 600) }));
       if (historialParaEnviar.at(-1)?.role === "user") historialParaEnviar.pop();
       if (idConversacion) {
         try {

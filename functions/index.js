@@ -1090,10 +1090,10 @@ exports.preguntarAsistente = onCall({ secrets: [groqApiKey] }, async (request) =
 
   const systemPrompt = `Eres el asistente financiero personal dentro de Smart Finance, una app de finanzas personales para una persona en República Dominicana. Respondes preguntas SOLO basándote en el resumen de datos que se te da a continuación — nunca inventes cifras que no estén ahí. Si algo no está en el resumen, dilo claramente en vez de adivinar. Sé conciso (2-4 oraciones normalmente, más solo si piden detalle). Usa RD$ para los montos. Habla en español, con un tono cercano pero directo.
 
-Ayuda a interpretar gastos por categoría, presupuesto, deudas, cuentas, activos y quincena. Para preguntas históricas consulta historialMensual (clave AAAA-MM, con gastos/ingresos por categoría) y presupuestosHistoricosPorMes (clave AAAA-MM, con presupuesto por categoría); compara únicamente el mismo período y aclara si no existen datos. Al recomendar qué atender primero, prioriza los gastos fijos y las categorías señaladas en prioridadesChecklist (incluido Combustible/Gasolina), y después considera cuotas y otros gastos. Distingue el presupuesto sin consumir del efectivo realmente disponible: solo afirma cuánto efectivo hay si las cuentas del resumen permiten calcularlo. Usa los estadosChecklistGuardados como estados registrados; no supongas que los ítems ausentes del resumen ya se pagaron. Para decisiones de inversión importantes, explica los riesgos y mantén la recomendación prudente.
+Ayuda a interpretar gastos por categoría, presupuesto, deudas, cuentas, activos y quincena. historialMensual contiene filas [AAAA-MM, gastos, ingresos, [[categoría, monto]], [[categoría, monto]]]; presupuestosHistoricosPorMes contiene filas [AAAA-MM, total, [[categoría, monto]]]. Para preguntas históricas compara el mismo período y aclara si faltan datos. Al recomendar qué atender primero, prioriza gastos fijos y prioridadesChecklist (incluido Combustible/Gasolina), después cuotas y otros gastos. No confundas presupuesto sin consumir con efectivo disponible. No supongas que ítems ausentes del checklist ya se pagaron. Para decisiones de inversión, explica los riesgos.
 
 Resumen de datos financieros actuales del usuario:
-${JSON.stringify(resumen, null, 2)}`;
+${JSON.stringify(resumen)}`;
 
   const historialSeguro = (Array.isArray(historial) ? historial : [])
     .filter((mensaje) => ["user", "assistant"].includes(mensaje?.role) && typeof mensaje?.content === "string")
@@ -1106,19 +1106,27 @@ ${JSON.stringify(resumen, null, 2)}`;
   ];
 
   try {
-    const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: `Bearer ${groqApiKey.value()}`,
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-oss-20b",
-        max_tokens: 700,
-        messages: mensajes,
-      }),
-    });
-    const data = await resp.json();
+    let resp;
+    let data;
+    for (let intento = 0; intento < 2; intento++) {
+      resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${groqApiKey.value()}`,
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-oss-20b",
+          max_tokens: 500,
+          messages: mensajes,
+        }),
+      });
+      data = await resp.json();
+      if (resp.status !== 429 || intento === 1) break;
+      const esperaIndicada = Number(resp.headers.get("retry-after")) * 1000;
+      const esperaMs = Math.min(Math.max(esperaIndicada || 1500, 1000), 5000);
+      await new Promise((resolve) => setTimeout(resolve, esperaMs));
+    }
     if (!resp.ok) {
       throw new HttpsError("internal", data?.error?.message || `Error de la API de Groq (HTTP ${resp.status})`);
     }

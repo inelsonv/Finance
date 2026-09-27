@@ -57,7 +57,11 @@ export function construirResumenFinanciero({
     }
   }
 
-  const presupuestosPorPeriodo = {};
+  const historialMensualCompacto = Object.entries(historialPorPeriodo)
+    .filter(([periodo]) => periodo !== `${yearActual}-${String(mesActual).padStart(2, "0")}`)
+    .map(([periodo, datos]) => [periodo, datos.gastos, datos.ingresos, Object.entries(datos.gastosPorCategoria), Object.entries(datos.ingresosPorCategoria)]);
+
+  const presupuestosPorPeriodo = [];
   for (const [year, presupuestoYearData] of Object.entries(presupuestosHistoricos || {})) {
     for (let month = 1; month <= 12; month++) {
       const porCategoria = {};
@@ -69,7 +73,10 @@ export function construirResumenFinanciero({
         porCategoria[categoria] = formatMoney(monto);
         total += monto;
       }
-      if (total) presupuestosPorPeriodo[`${year}-${String(month).padStart(2, "0")}`] = { total: formatMoney(total), porCategoria };
+      const periodo = `${year}-${String(month).padStart(2, "0")}`;
+      if (total && periodo !== `${yearActual}-${String(mesActual).padStart(2, "0")}`) {
+        presupuestosPorPeriodo.push([periodo, formatMoney(total), Object.entries(porCategoria)]);
+      }
     }
   }
 
@@ -175,7 +182,7 @@ export function construirResumenFinanciero({
   return {
     fechaHoy: hoy.toISOString().slice(0, 10),
     mesActual: `${mesActual}/${yearActual}`,
-    historialMensual: historialPorPeriodo,
+    historialMensual: historialMensualCompacto,
     presupuestosHistoricosPorMes: presupuestosPorPeriodo,
     quincenaActual: {
       periodo: periodoKey,
