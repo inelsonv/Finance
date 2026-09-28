@@ -183,7 +183,7 @@ export function construirResumenFinanciero({
     fechaHoy: hoy.toISOString().slice(0, 10),
     mesActual: `${mesActual}/${yearActual}`,
     historialMensual: historialMensualCompacto,
-    presupuestosHistoricosPorMes: presupuestosPorPeriodo,
+    presupuestosPorMes: presupuestosPorPeriodo,
     quincenaActual: {
       periodo: periodoKey,
       fechaInicio: rangoActual.fechaInicio,
