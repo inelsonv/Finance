@@ -1,7 +1,7 @@
 import React, { useRef, useState, useMemo, useEffect } from "react";
 import { createWorker } from "tesseract.js";
 import { Camera, Check, X, Loader2, AlertTriangle, Receipt } from "lucide-react";
-import { addProduct, addMovimiento, updateProductPrice, registrarCompraProducto, updateOrdenCompra } from "../lib/db";
+import { addProduct, addMovimiento, updateProductPrice, registrarCompraProducto, updateOrdenCompra, escanearFactura } from "../lib/db";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 
@@ -20,6 +20,15 @@ function todayStr() {
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function blobABase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] || "");
+    reader.onerror = () => reject(new Error("No se pudo preparar la imagen."));
+    reader.readAsDataURL(blob);
+  });
 }
 
 // Heurística simple: busca un precio (número con 2 decimales, opcionalmente con separador
@@ -70,6 +79,8 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
   const [gastoCategoria, setGastoCategoria] = useState("Alimentos");
   const [fecha, setFecha] = useState(todayStr());
   const [tienda, setTienda] = useState("");
+  const [totalFactura, setTotalFactura] = useState("");
+  const [metodoPago, setMetodoPago] = useState("Efectivo");
 
   const productosPorNombre = (nombre) =>
     products.find((p) => p.name.trim().toLowerCase() === nombre.trim().toLowerCase());
@@ -110,16 +121,37 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
     setScanning(true);
     setScanProgress(0);
     try {
-      const imagenParaOcr = await redimensionarImagen(file);
-      const worker = await createWorker("spa", 1, {
-        logger: (m) => {
-          if (m.status === "recognizing text") setScanProgress(Math.round((m.progress || 0) * 100));
-        },
-      });
-      const { data } = await worker.recognize(imagenParaOcr);
-      await worker.terminate();
-
-      const encontrados = parsearLineas(data.text || "");
+      const imagenParaLeer = await redimensionarImagen(file);
+      let encontrados = [];
+      let datosFactura = null;
+      try {
+        const imageBase64 = await blobABase64(imagenParaLeer);
+        datosFactura = await escanearFactura(imageBase64, imagenParaLeer.type || file.type || "image/jpeg");
+        encontrados = (datosFactura.items || []).map((it) => {
+          const cantidad = Number(it.cantidad) > 0 ? Number(it.cantidad) : 1;
+          const precio = Number(it.precioUnitario) > 0
+            ? Number(it.precioUnitario)
+            : Number(it.totalLinea) > 0 ? Number(it.totalLinea) / cantidad : 0;
+          return { nombre: it.nombre, precio, cantidad };
+        }).filter((it) => it.nombre && it.precio > 0);
+        if (datosFactura.tienda) setTienda(datosFactura.tienda);
+        if (datosFactura.fecha) setFecha(datosFactura.fecha);
+        setTotalFactura(datosFactura.total != null ? String(datosFactura.total) : "");
+      } catch {
+        // Conserva el registro básico si la función de visión aún no está desplegada.
+        const worker = await createWorker("spa", 1, {
+          logger: (m) => {
+            if (m.status === "recognizing text") setScanProgress(Math.round((m.progress || 0) * 100));
+          },
+        });
+        const { data } = await worker.recognize(imagenParaLeer);
+        await worker.terminate();
+        encontrados = parsearLineas(data.text || "").map((it) => ({ ...it, cantidad: 1 }));
+        setTotalFactura("");
+        if (encontrados.length) {
+          setScanError("No se pudo usar la lectura inteligente; se aplicó OCR básico. Revisa con cuidado cada producto y el total.");
+        }
+      }
       const itemsConEstado = encontrados.map((it) => {
         const itemOrden = itemDeOrdenPorNombre(it.nombre);
         const existente = itemOrden
@@ -128,6 +160,7 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
         return {
           nombre: it.nombre,
           precio: it.precio,
+          cantidad: it.cantidad || 1,
           incluir: true,
           esNuevo: !existente,
           productoExistente: existente || null,
@@ -136,7 +169,9 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
       });
       setItems(itemsConEstado);
       if (itemsConEstado.length === 0) {
-        setScanError("No se detectaron líneas con precio reconocible. Puedes agregar productos manualmente abajo, o intentar con una foto más nítida y bien iluminada.");
+        setScanError(Number(datosFactura?.total) > 0
+          ? "No se detectaron productos. Puedes guardar el gasto por el total de la factura o añadir productos manualmente para el catálogo."
+          : "No se detectaron líneas con precio reconocible. Agrega productos manualmente o intenta con una foto más nítida y bien iluminada.");
       }
     } catch (err) {
       setScanError(err.message || String(err));
@@ -154,7 +189,7 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
   };
 
   const agregarLineaVacia = () => {
-    setItems((prev) => [...prev, { nombre: "", precio: "", incluir: true, esNuevo: true, productoExistente: null }]);
+    setItems((prev) => [...prev, { nombre: "", precio: "", cantidad: 1, incluir: true, esNuevo: true, productoExistente: null }]);
   };
 
   const ordenesEnCurso = useMemo(
@@ -184,7 +219,8 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
     });
   };
 
-  const totalCalculado = items.filter((it) => it.incluir).reduce((s, it) => s + (parseFloat(it.precio) || 0), 0);
+  const totalCalculado = items.filter((it) => it.incluir).reduce((s, it) => s + (parseFloat(it.precio) || 0) * (parseFloat(it.cantidad) || 1), 0);
+  const totalARegistrar = Number(totalFactura) > 0 ? Number(totalFactura) : totalCalculado;
 
   const confirmarGuardado = async () => {
     setSaving(true);
@@ -194,6 +230,7 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
       for (const it of items) {
         if (!it.incluir || !it.nombre.trim()) continue;
         const precio = parseFloat(it.precio) || 0;
+        const cantidad = parseFloat(it.cantidad) || 1;
         let productId = it.productoExistente?.id || null;
         if (it.esNuevo) {
           const docRef = await addProduct({ name: it.nombre.trim(), category: gastoCategoria, unit: "unidad", price: precio });
@@ -202,7 +239,7 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
           await updateProductPrice(it.productoExistente.id, precio);
         }
         if (productId) {
-          registrarCompraProducto({ productId, productName: it.nombre.trim(), fecha, cantidad: 1 });
+          await registrarCompraProducto({ productId, productName: it.nombre.trim(), fecha, cantidad });
         }
 
         // Si este renglón coincidió con un item de la orden de compra
@@ -220,11 +257,11 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
       await addMovimiento({
         type: "Gasto",
         category: gastoCategoria,
-        amount: totalCalculado,
+        amount: totalARegistrar,
         description: `Compra${nombreTienda} (factura escaneada)`,
         date: fecha,
         clasificacion: "Variable",
-        metodoPago: "Efectivo",
+        metodoPago,
       });
 
       if (ordenActual && itemsOrdenActualizados) {
@@ -254,6 +291,8 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
     setSavedOk(false);
     setTienda("");
     setFecha(todayStr());
+    setTotalFactura("");
+    setMetodoPago("Efectivo");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -291,8 +330,8 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
           <Receipt size={32} style={{ color: "var(--ink-soft)", marginBottom: 10 }} />
           <div style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 4 }}>Registrar compra desde una factura</div>
           <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 16, maxWidth: 340, marginLeft: "auto", marginRight: "auto" }}>
-            Toma una foto o sube una imagen de tu factura o recibo. Se usa lectura de texto (OCR) gratuita en
-            tu propio navegador — revisa bien los resultados, puede equivocarse separando nombres y precios.
+            Toma una foto o sube la factura. La imagen se procesa con la IA de la app para leer tienda, fecha,
+            productos y total; revisa y corrige los datos antes de guardarlos.
           </div>
           <input
             ref={fileInputRef}
@@ -332,7 +371,7 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
       {scanning && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "1.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
           <Loader2 size={22} style={{ animation: "despensa-spin 1s linear infinite" }} />
-          Leyendo la factura (OCR)… {scanProgress}%
+          Analizando la factura… {scanProgress > 0 ? `OCR de respaldo ${scanProgress}%` : ""}
           <style>{`@keyframes despensa-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
@@ -359,6 +398,34 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
               onChange={(e) => setFecha(e.target.value)}
               style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
             />
+          </div>
+
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11.5, color: "var(--ink-soft)" }}>
+              Total de la factura
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder={formatMoney(totalCalculado)}
+                value={totalFactura}
+                onChange={(e) => setTotalFactura(e.target.value)}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 11.5, color: "var(--ink-soft)" }}>
+              Método de pago
+              <select
+                value={metodoPago}
+                onChange={(e) => setMetodoPago(e.target.value)}
+                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+              >
+                <option>Efectivo</option>
+                <option>Tarjeta de crédito</option>
+                <option>Transferencia</option>
+                <option>Otro</option>
+              </select>
+            </label>
           </div>
 
           <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
@@ -404,12 +471,25 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
                 <input
                   className="despensa-mono"
                   type="number"
+                  min="0.01"
                   step="0.01"
-                  placeholder="0.00"
+                  placeholder="Cant."
+                  value={it.cantidad ?? 1}
+                  onChange={(e) => actualizarItem(idx, { cantidad: e.target.value })}
+                  style={{ width: 58, padding: "6px 6px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+                />
+                <input
+                  className="despensa-mono"
+                  type="number"
+                  step="0.01"
+                  placeholder="Precio unit."
                   value={it.precio}
                   onChange={(e) => actualizarItem(idx, { precio: e.target.value })}
-                  style={{ width: 80, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
+                  style={{ width: 88, padding: "6px 7px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5 }}
                 />
+                <span className="despensa-mono" style={{ minWidth: 68, textAlign: "right", fontSize: 11.5, color: "var(--ink-soft)" }}>
+                  {formatMoney((parseFloat(it.precio) || 0) * (parseFloat(it.cantidad) || 1))}
+                </span>
                 <span
                   className="despensa-tab-font"
                   style={{
@@ -444,13 +524,18 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, fontSize: 13 }}>
             <span style={{ color: "var(--ink-soft)" }}>Total a registrar:</span>
-            <span className="despensa-mono" style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(totalCalculado)}</span>
+            <span className="despensa-mono" style={{ fontWeight: 700, fontSize: 15 }}>{formatMoney(totalARegistrar)}</span>
           </div>
+          {Number(totalFactura) > 0 && Math.abs(totalFactura - totalCalculado) > 0.02 && (
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: -10, marginBottom: 14 }}>
+              La suma de productos ({formatMoney(totalCalculado)}) no coincide con el total leído. Se registrará el total de factura; puedes corregirlo arriba.
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={confirmarGuardado}
-              disabled={saving || items.filter((it) => it.incluir && it.nombre.trim()).length === 0}
+              disabled={saving || (items.filter((it) => it.incluir && it.nombre.trim()).length === 0 && totalARegistrar <= 0)}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 16px", fontSize: 13, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer" }}
             >
               <Check size={14} /> {saving ? "Guardando…" : "Confirmar y guardar"}

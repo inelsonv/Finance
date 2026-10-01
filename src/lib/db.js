@@ -145,6 +145,13 @@ export async function preguntarAsistente(pregunta, resumen, historial) {
   return res.data;
 }
 
+// Lee una factura de supermercado mediante la Cloud Function de visión.
+export async function escanearFactura(imageBase64, mediaType) {
+  const fn = httpsCallable(functions, "escanearFactura");
+  const res = await fn({ imageBase64, mediaType });
+  return res.data;
+}
+
 const asistenteChatsCol = collection(db, "asistenteChats");
 
 export function watchAsistenteChats(onChange, onError) {

@@ -484,17 +484,25 @@ exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request)
   }
 
   const { imageBase64, mediaType } = request.data || {};
-  if (!imageBase64 || !mediaType) {
+  if (!imageBase64 || !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mediaType)) {
     throw new HttpsError("invalid-argument", "Falta la imagen de la factura");
+  }
+  if (typeof imageBase64 !== "string" || imageBase64.length > 12_000_000) {
+    throw new HttpsError("invalid-argument", "La imagen es demasiado grande. Intenta con una foto más pequeña.");
   }
 
   const prompt =
-    'Lee esta factura o recibo de compra y responde ÚNICAMENTE con un JSON válido (sin texto adicional, ' +
-    "sin bloques de código markdown) con exactamente esta forma: " +
-    '{"tienda": string o null, "fecha": "YYYY-MM-DD" o null, "items": ' +
-    '[{"nombre": string, "precio": number, "cantidad": number}], "total": number o null}. ' +
-    "Los precios y el total deben ser números (sin símbolo de moneda). Si no puedes leer algo, usa null. " +
-    "Ignora líneas que no sean productos (impuestos, descuentos, subtotales) — esas ya están incluidas en el total.";
+    'Lee esta imagen de una factura de supermercado y responde ÚNICAMENTE con JSON válido, sin Markdown, ' +
+    'con esta forma exacta: {"tienda": string|null, "fecha": "YYYY-MM-DD"|null, "total": number|null, ' +
+    '"moneda": string|null, "items": [{"nombre": string, "cantidad": number, "precioUnitario": number|null, "totalLinea": number|null}]}. ' +
+    'La factura puede ser larga, estar inclinada o tener pegado un recibo de pago bancario. Lee los productos SOLO ' +
+    'de la factura principal; ignora el comprobante bancario, datos de tarjeta, autorizaciones, QR, NCF, subtotales, ' +
+    'impuestos y mensajes promocionales. No confundas el total del recibo bancario con el total de la factura ni ' +
+    'dupliques los productos. Usa el monto que aparece como TOTAL A PAGAR/TOTAL de la factura principal. ' +
+    'Devuelve cada producto una sola vez. Cuando aparezca cantidad x precio unitario, conserva ambos y calcula ' +
+    'totalLinea; si solo aparece el importe de la línea, usa cantidad 1 y ese importe como totalLinea. ' +
+    'No incluyas una línea de descuento como producto. Todos los importes deben ser números sin símbolos; ' +
+    'usa la moneda indicada en el documento, normalmente DOP o RD$. Si un dato es ilegible, usa null; no lo inventes.';
 
   let resp;
   try {
@@ -507,7 +515,7 @@ exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request)
       },
       body: JSON.stringify({
         model: "claude-3-5-sonnet-20241022",
-        max_tokens: 2000,
+        max_tokens: 4000,
         messages: [
           {
             role: "user",
@@ -541,6 +549,17 @@ exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request)
   }
 
   if (!Array.isArray(parsed.items)) parsed.items = [];
+  parsed.items = parsed.items
+    .filter((item) => item && typeof item.nombre === "string" && item.nombre.trim())
+    .map((item) => ({
+      nombre: item.nombre.trim(),
+      cantidad: Number(item.cantidad) > 0 ? Number(item.cantidad) : 1,
+      precioUnitario: Number.isFinite(Number(item.precioUnitario)) && item.precioUnitario != null ? Number(item.precioUnitario) : null,
+      totalLinea: Number.isFinite(Number(item.totalLinea)) && item.totalLinea != null ? Number(item.totalLinea) : null,
+    }));
+  parsed.total = Number.isFinite(Number(parsed.total)) && parsed.total != null ? Number(parsed.total) : null;
+  if (typeof parsed.tienda !== "string") parsed.tienda = null;
+  if (typeof parsed.fecha !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.fecha)) parsed.fecha = null;
   return parsed;
 });
 
