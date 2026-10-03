@@ -1,13 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LogOut, Settings, Smartphone, X } from "lucide-react";
+import { LogOut, Settings, Smartphone, X, PiggyBank, TrendingDown } from "lucide-react";
 import { confirm } from "../lib/confirm";
 
 const APP_URL = "https://inelsonv.github.io/Finance/";
 
-export default function AccountMenu({ user, onSignOut, onOpenSettings, synced }) {
+export default function AccountMenu({ user, onSignOut, onOpenSettings, synced, ahorroActivo, estrategiaDeudas }) {
   const [open, setOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const ref = useRef(null);
+  const modosActivos = [
+    ...(ahorroActivo ? [{ id: "ahorro", label: "Modo Ahorro", Icon: PiggyBank, color: "var(--sage)" }] : []),
+    ...(estrategiaDeudas?.activo ? [{ id: "deuda", label: `Pago de deuda · ${estrategiaDeudas.metodo === "bola" ? "Bola de nieve" : "Avalancha"}`, Icon: TrendingDown, color: "var(--amber)" }] : []),
+  ];
 
   useEffect(() => {
     const onClickOutside = (e) => {
@@ -39,6 +43,30 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings, synced })
             flexShrink: 0,
           }}
         />
+        {modosActivos.map(({ id, label, Icon, color }, index) => (
+          <span
+            key={id}
+            title={label}
+            aria-label={label}
+            style={{
+              position: "absolute",
+              top: index === 0 ? -5 : 12,
+              left: -7,
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
+            }}
+          >
+            <Icon size={10} strokeWidth={2.5} />
+          </span>
+        ))}
         <span
           title={synced === null ? "Conectando…" : synced ? "Sincronizado" : "Sin conexión"}
           style={{
@@ -79,6 +107,15 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings, synced })
               {user.email}
             </div>
           </div>
+          {modosActivos.length > 0 && (
+            <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--line-soft)", display: "flex", flexDirection: "column", gap: 6 }}>
+              {modosActivos.map(({ id, label, Icon, color }) => (
+                <div key={id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--ink)" }}>
+                  <Icon size={13} style={{ color, flexShrink: 0 }} /> {label}
+                </div>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => {
               setOpen(false);

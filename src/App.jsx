@@ -759,7 +759,14 @@ export default function App() {
                   tipoCambio={tipoCambio}
                 />
               </div>
-              <AccountMenu user={authUser} onSignOut={() => signOut(auth)} onOpenSettings={() => setTab("configuracion")} synced={synced} />
+              <AccountMenu
+                user={authUser}
+                onSignOut={() => signOut(auth)}
+                onOpenSettings={() => setTab("configuracion")}
+                synced={synced}
+                ahorroActivo={!!ahorroAutoConfig?.activo}
+                estrategiaDeudas={estrategiaDeudas}
+              />
             </div>
             <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
               {fechaHoy}
