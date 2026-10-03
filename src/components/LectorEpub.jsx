@@ -487,10 +487,10 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     const frag = fragmentos[i];
     resaltarElemento(frag.elemento);
     guardarFragmentoVoz(frag.texto);
+    const vozElegida = vocesDisponibles.find((v) => v.voiceURI === vozSeleccionada);
     const utterance = new SpeechSynthesisUtterance(frag.texto);
     utterance.lang = vozElegida?.lang || "es-ES";
     utterance.rate = velocidadVoz;
-    const vozElegida = vocesDisponibles.find((v) => v.voiceURI === vozSeleccionada);
     if (vozElegida) utterance.voice = vozElegida;
     utterance.onboundary = (event) => {
       if (event.name && event.name !== "word") return;
