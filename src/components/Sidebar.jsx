@@ -37,7 +37,6 @@ const NAV_ITEMS = [
     icon: Wallet,
     children: [
       { id: "presupuesto-categoria-gasto", label: "Categoría de gasto" },
-      { id: "presupuesto-mensual", label: "Presupuesto" },
       { id: "presupuesto-flujo", label: "Editor de flujo" },
       { id: "estrategia-deudas", label: "Estrategia de deudas" },
       { id: "checklist-pagos", label: "Checklist de pagos" },
@@ -165,7 +164,7 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
       <div className="despensa-navlist">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const active = tab === item.id;
+          const active = tab === item.id || (item.id === "presupuesto" && tab === "presupuesto-mensual");
           const itemHasChildren = item.children && item.children.length > 0;
           const hasChildren = !collapsed && itemHasChildren;
           const expanded = hasChildren && expandedId === item.id;
@@ -176,7 +175,7 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
           return (
             <div key={item.id}>
               <button
-                onClick={() => setTab(item.id)}
+                onClick={() => setTab(item.id === "presupuesto" ? "presupuesto-mensual" : item.id)}
                 onDoubleClick={hasChildren ? () => setExpandedId(expanded ? null : item.id) : undefined}
                 title={collapsed ? item.label : hasChildren ? `${item.label} (doble clic para ver subcategorías)` : undefined}
                 className="despensa-tab-font despensa-navitem"

@@ -29,7 +29,6 @@ function normalizar(texto) {
 
 const MODULOS = [
   { nombre: "Inicio", tab: "inicio" },
-  { nombre: "Presupuesto", tab: "presupuesto" },
   { nombre: "Categoría de gasto", tab: "presupuesto-categoria-gasto" },
   { nombre: "Presupuesto", tab: "presupuesto-mensual" },
   { nombre: "Editor de flujo", tab: "presupuesto-flujo" },

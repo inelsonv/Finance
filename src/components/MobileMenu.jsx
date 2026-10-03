@@ -30,7 +30,7 @@ function activoEnGrupo(tab, grupoId) {
 
 export default function MobileMenu({ tab, setTab, onClose, onSignOut }) {
   const irA = (id) => {
-    setTab(id);
+    setTab(id === "presupuesto" ? "presupuesto-mensual" : id);
     onClose();
   };
 

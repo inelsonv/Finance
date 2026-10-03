@@ -25,7 +25,6 @@ import Finanzas from "./components/Finanzas.jsx";
 import PagosFijos from "./components/PagosFijos.jsx";
 import Vacaciones from "./components/Vacaciones.jsx";
 import Entidades from "./components/Entidades.jsx";
-import Presupuesto from "./components/Presupuesto.jsx";
 import Movimientos from "./components/Movimientos.jsx";
 import Prestamos from "./components/Prestamos.jsx";
 import Cuentas from "./components/Cuentas.jsx";
@@ -67,7 +66,6 @@ const SIDEBAR_KEY = "smart-finance-sidebar-collapsed";
 const TITLES = {
   inicio: "Inicio",
   notificaciones: "Notificaciones",
-  presupuesto: "Presupuesto",
   movimientos: "Movimientos",
   catalogo: "Catálogo",
   compras: "Compras",
@@ -140,7 +138,10 @@ function leerParamsURL() {
 
 export default function App() {
   const [authUser, setAuthUser] = useState(undefined); // undefined = cargando, null = sin sesión
-  const [tab, setTab] = useState(() => leerParamsURL()?.tab || "inicio");
+  const [tab, setTab] = useState(() => {
+    const initialTab = leerParamsURL()?.tab || "inicio";
+    return initialTab === "presupuesto" ? "presupuesto-mensual" : initialTab;
+  });
   const [products, setProducts] = useState([]);
   const [list, setList] = useState([]);
   const [entidades, setEntidades] = useState([]);
@@ -879,17 +880,6 @@ export default function App() {
           />
         )}
         {tab === "entidades" && <Entidades entidades={entidades} tiposPersonalizados={tiposEntidad} />}
-        {tab === "presupuesto" && (
-          <Presupuesto
-            movimientos={movimientos}
-            onOpenMovimientos={() => setTab("movimientos")}
-            presupuesto={presupuestoAnual}
-            categoriasGasto={categoriasGasto}
-            prestamos={prestamos}
-            diasCobro={diasCobro}
-            tarjetas={tarjetas}
-          />
-        )}
         {tab === "movimientos" && (
           <Movimientos
             movimientos={movimientos}
