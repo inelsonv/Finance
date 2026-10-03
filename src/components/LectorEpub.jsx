@@ -39,6 +39,29 @@ function cargarVelocidadVozGuardada() {
   return Number.isFinite(guardado) && guardado >= 0.5 && guardado <= 2 ? guardado : 1;
 }
 
+function esVozNaturalEspanol(voz) {
+  const nombre = (voz.name || "").toLowerCase();
+  const vocesNaturalesWindows = /(?:^|\s)(alvaro|elvira|jorge|dalia)(?:\s|$)/i.test(nombre);
+  return voz.lang?.toLowerCase().startsWith("es") &&
+    (/natural|neural/i.test(nombre) || vocesNaturalesWindows);
+}
+
+function elegirVozEspanol(voces) {
+  const espanolas = voces.filter((voz) => voz.lang?.toLowerCase().startsWith("es"));
+  const naturales = espanolas.filter(esVozNaturalEspanol);
+  const preferidas = [
+    ...naturales.filter((voz) => voz.lang.toLowerCase().startsWith("es-mx")),
+    ...naturales,
+    ...espanolas.filter((voz) => voz.lang.toLowerCase().startsWith("es-419")),
+    ...espanolas.filter((voz) => voz.lang.toLowerCase().startsWith("es-bo")),
+    ...espanolas.filter((voz) => voz.lang.toLowerCase().startsWith("es-mx")),
+    ...espanolas.filter((voz) => voz.lang.toLowerCase().startsWith("es-us")),
+    ...espanolas.filter((voz) => voz.lang.toLowerCase().startsWith("es-es")),
+    ...espanolas,
+  ];
+  return preferidas[0] || voces.find((voz) => voz.default) || null;
+}
+
 // Lector de libros .epub dentro de la app, usando epub.js. Se abre como un
 // modal a pantalla completa sobre el resto de la interfaz.
 export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, marcadores, onClose, portadaUrl, ultimoFragmentoVoz }) {
@@ -118,7 +141,18 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   useEffect(() => {
     const cargarVoces = () => {
       const voces = window.speechSynthesis.getVoices();
-      if (voces.length > 0) setVocesDisponibles(voces);
+      if (voces.length > 0) {
+        setVocesDisponibles(voces);
+        const preferenciaGuardada = localStorage.getItem(VOZ_KEY);
+        const vozGuardadaExiste = voces.some((voz) => voz.voiceURI === preferenciaGuardada);
+        if (preferenciaGuardada === null || (preferenciaGuardada && !vozGuardadaExiste)) {
+          const vozPreferida = elegirVozEspanol(voces);
+          if (vozPreferida) {
+            setVozSeleccionada(vozPreferida.voiceURI);
+            localStorage.setItem(VOZ_KEY, vozPreferida.voiceURI);
+          }
+        }
+      }
     };
     cargarVoces();
     window.speechSynthesis.addEventListener("voiceschanged", cargarVoces);
@@ -454,7 +488,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     resaltarElemento(frag.elemento);
     guardarFragmentoVoz(frag.texto);
     const utterance = new SpeechSynthesisUtterance(frag.texto);
-    utterance.lang = "es-ES";
+    utterance.lang = vozElegida?.lang || "es-ES";
     utterance.rate = velocidadVoz;
     const vozElegida = vocesDisponibles.find((v) => v.voiceURI === vozSeleccionada);
     if (vozElegida) utterance.voice = vozElegida;
@@ -839,6 +873,14 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Voz</div>
+              <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 6, lineHeight: 1.4 }}>
+                La app prioriza una voz natural en español disponible en tu equipo. Las voces instaladas no usan una API de pago.
+              </div>
+              {!vocesDisponibles.some(esVozNaturalEspanol) && (
+                <div style={{ fontSize: 10.5, color: "var(--amber)", marginBottom: 6, lineHeight: 1.4 }}>
+                  No se encontró una voz natural en español. En Windows, abre Narrador con Win + Ctrl + N, agrega una voz natural en español y vuelve a abrir el lector.
+                </div>
+              )}
               <select
                 value={vozSeleccionada}
                 onChange={(e) => handleCambiarVoz(e.target.value)}
@@ -847,7 +889,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
                 <option value="">Predeterminada del dispositivo</option>
                 {vocesDisponibles.map((v) => (
                   <option key={v.voiceURI} value={v.voiceURI}>
-                    {v.name} ({v.lang})
+                    {v.name}{esVozNaturalEspanol(v) ? " · Natural/IA" : ""} ({v.lang})
                   </option>
                 ))}
               </select>
