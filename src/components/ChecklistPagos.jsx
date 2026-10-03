@@ -389,7 +389,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     const [destYear, destMonth] = destinoMes.split("-").map(Number);
     setMoviendoKey(it.key);
     try {
-      await setPrestamoQuincenaOverride(it.prestamoId, periodo.year, periodo.month, {
+      const [origenMonth, origenYear] = it.origenKey.split("-").map(Number);
+      await setPrestamoQuincenaOverride(it.prestamoId, origenYear, origenMonth, {
         year: destYear,
         month: destMonth,
         quincena: destinoQuincena,
@@ -768,16 +769,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                   )}
                   {it.esPrestamo && !it.bloqueadoPagado && it.origenKey && (
                     <div style={{ marginTop: 3 }}>
-                      {it.tieneOverride ? (
-                        <button
-                          onClick={() => quitarMover(it)}
-                          disabled={moviendoKey === it.key}
-                          title="Volver esta cuota a su quincena original"
-                          style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--amber)", background: "transparent", border: "none", cursor: moviendoKey === it.key ? "wait" : "pointer" }}
-                        >
-                          <ArrowLeftRight size={10} /> Movida manualmente — volver a la original
-                        </button>
-                      ) : moviendoAbiertoKey === it.key ? (
+                      {moviendoAbiertoKey === it.key ? (
                         <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
                           <select
                             value={destinoMes}
@@ -814,13 +806,25 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => abrirMoverQuincena(it)}
-                          title="Mover esta cuota a otra quincena, aunque sea de otro mes"
-                          style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer" }}
-                        >
-                          <ArrowLeftRight size={10} /> Mover a otra quincena
-                        </button>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          {it.tieneOverride && (
+                            <button
+                              onClick={() => quitarMover(it)}
+                              disabled={moviendoKey === it.key}
+                              title="Volver esta cuota a su quincena original"
+                              style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--amber)", background: "transparent", border: "none", cursor: moviendoKey === it.key ? "wait" : "pointer" }}
+                            >
+                              <ArrowLeftRight size={10} /> Volver a la quincena original
+                            </button>
+                          )}
+                          <button
+                            onClick={() => abrirMoverQuincena(it)}
+                            title="Mover esta cuota a otra quincena, aunque sea de otro mes"
+                            style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer" }}
+                          >
+                            <ArrowLeftRight size={10} /> {it.tieneOverride ? "Mover otra vez" : "Mover a otra quincena"}
+                          </button>
+                        </div>
                       )}
                     </div>
                   )}
