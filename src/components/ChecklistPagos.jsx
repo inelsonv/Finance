@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
-import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, watchPagoRapido, setPresupuestoCelda } from "../lib/db";
+import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda } from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
@@ -180,15 +180,20 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       if (p.estado !== "Activo" && p.estado !== "Pagado") continue;
       const saldado = p.estado === "Pagado";
       if (p.frecuenciaCuota === "Personalizado") {
+        const fechasOverride = p.cuotasPersonalizadasOverrides || {};
         for (const c of p.cuotasPersonalizadas || []) {
           if (!c.fecha || !c.monto) continue;
-          const [cy, cm, cd] = c.fecha.split("-").map(Number);
+          const overrideFecha = fechasOverride[c.fecha];
+          const fechaEfectiva = typeof overrideFecha === "string" ? overrideFecha : overrideFecha?.fecha || c.fecha;
+          const [cy, cm, cd] = fechaEfectiva.split("-").map(Number);
           if (cy !== periodo.year || cm !== periodo.month) continue;
           const q = cd && cd >= 15 ? "Q2" : "Q1";
           if (q !== periodo.quincena) continue;
           list.push({
             key: `prestamo-${p.id}-${c.fecha}`,
-            nombre: `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (${c.fecha.split("-").reverse().slice(0, 2).join("/")})`,
+            nombre: overrideFecha
+              ? `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (movida desde ${c.fecha.split("-").reverse().slice(0, 2).join("/")})`
+              : `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (${c.fecha.split("-").reverse().slice(0, 2).join("/")})`,
             monto: c.monto,
             icon: Landmark,
             metodoDefault: null,
@@ -196,11 +201,14 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
             esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
             prestamoId: p.id,
             prestamoNumero: p.numero,
-            fechaCuota: c.fecha,
-            diaCuota: Number(c.fecha.slice(-2)),
+            fechaCuota: fechaEfectiva,
+            diaCuota: Number(fechaEfectiva.slice(-2)),
             entidadId: p.entidadId || "",
             entidadName: p.entidadName || "",
             bloqueadoPagado: saldado,
+            origenKey: c.fecha,
+            tieneOverride: !!overrideFecha,
+            cuotaPersonalizada: true,
           });
         }
         continue;
@@ -393,13 +401,17 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     if (!destYear || !destMonth || !destDay) return;
     setMoviendoKey(it.key);
     try {
-      const [origenMonth, origenYear] = it.origenKey.split("-").map(Number);
-      await setPrestamoQuincenaOverride(it.prestamoId, origenYear, origenMonth, {
-        year: destYear,
-        month: destMonth,
-        quincena: destDay >= 15 ? "Q2" : "Q1",
-        fecha: destinoFecha,
-      });
+      if (it.cuotaPersonalizada) {
+        await setPrestamoCuotaPersonalizadaFechaOverride(it.prestamoId, it.origenKey, destinoFecha);
+      } else {
+        const [origenMonth, origenYear] = it.origenKey.split("-").map(Number);
+        await setPrestamoQuincenaOverride(it.prestamoId, origenYear, origenMonth, {
+          year: destYear,
+          month: destMonth,
+          quincena: destDay >= 15 ? "Q2" : "Q1",
+          fecha: destinoFecha,
+        });
+      }
       setMoviendoAbiertoKey(null);
     } finally {
       setMoviendoKey(null);
@@ -409,8 +421,12 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   const quitarMover = async (it) => {
     setMoviendoKey(it.key);
     try {
-      const [origMes, origYear] = it.origenKey.split("-").map(Number);
-      await quitarPrestamoQuincenaOverride(it.prestamoId, origYear, origMes);
+      if (it.cuotaPersonalizada) {
+        await quitarPrestamoCuotaPersonalizadaFechaOverride(it.prestamoId, it.origenKey);
+      } else {
+        const [origMes, origYear] = it.origenKey.split("-").map(Number);
+        await quitarPrestamoQuincenaOverride(it.prestamoId, origYear, origMes);
+      }
     } finally {
       setMoviendoKey(null);
     }

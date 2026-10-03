@@ -91,6 +91,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
   const startEdit = (p) => {
     setEditingId(p.id);
     setEditError(null);
+    const fechasOverride = p.cuotasPersonalizadasOverrides || {};
     setEditForm({
       tipo: p.tipo || TIPOS_PRESTAMO[0],
       entidadId: p.entidadId || "",
@@ -108,7 +109,13 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       notas: p.notas || "",
       notificarWhatsapp: !!p.notificarWhatsapp,
       frecuenciaCuota: p.frecuenciaCuota || "Mensual",
-      cuotasPersonalizadas: p.cuotasPersonalizadas ? p.cuotasPersonalizadas.map((c) => ({ fecha: c.fecha || "", monto: c.monto != null ? String(c.monto) : "" })) : [],
+      cuotasPersonalizadas: p.cuotasPersonalizadas ? p.cuotasPersonalizadas.map((c) => {
+        const override = fechasOverride[c.fecha];
+        return {
+          fecha: (typeof override === "string" ? override : override?.fecha) || c.fecha || "",
+          monto: c.monto != null ? String(c.monto) : "",
+        };
+      }) : [],
     });
   };
 
@@ -163,6 +170,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         notificarWhatsapp: editForm.notificarWhatsapp,
         frecuenciaCuota: editForm.frecuenciaCuota,
         cuotasPersonalizadas: normalizarCuotas(editForm.cuotasPersonalizadas),
+        cuotasPersonalizadasOverrides: {},
       });
       cancelEdit();
     } catch (err) {

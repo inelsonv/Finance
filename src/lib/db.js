@@ -1665,6 +1665,18 @@ export async function quitarPrestamoQuincenaOverride(id, origenYear, origenMonth
   });
 }
 
+export async function setPrestamoCuotaPersonalizadaFechaOverride(id, fechaOriginal, fechaDestino) {
+  await updateDoc(doc(db, "prestamos", id), {
+    [`cuotasPersonalizadasOverrides.${fechaOriginal}`]: fechaDestino,
+  });
+}
+
+export async function quitarPrestamoCuotaPersonalizadaFechaOverride(id, fechaOriginal) {
+  await updateDoc(doc(db, "prestamos", id), {
+    [`cuotasPersonalizadasOverrides.${fechaOriginal}`]: deleteField(),
+  });
+}
+
 export async function deletePrestamo(id) {
   await deleteDoc(doc(db, "prestamos", id));
 }
