@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText, Fuel, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Receipt } from "lucide-react";
 import { setPresupuestoCelda, watchPagoRapido } from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { contratoActivoEnMes, calcularQuincenaEfectivaContrato } from "./Contratos.jsx";
@@ -7,11 +7,19 @@ import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { formatearOrdenPrioridad } from "../lib/flujoPrioridad";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuincenaConfigurado } from "../lib/quincenaConfig";
+import { iconoParaCategoria } from "../lib/categoriaIconos";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
 const FRECUENCIA_FACTOR = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1 / 12, Único: 0 };
 const TIPOS_CUENTA_AHORRO = ["Ahorro", "Inversión", "Corretaje"];
+const ICONOS_CATEGORIA = {
+  fuel: Fuel, parking: SquareParking, utensils: UtensilsCrossed, coffee: Coffee, dumbbell: Dumbbell,
+  church: Church, wrench: Wrench, car: Car, landmark: Landmark, scissors: Scissors, heartpulse: HeartPulse,
+  stethoscope: Stethoscope, pill: Pill, repeat: Repeat, creditcard: CreditCard, wifi: Wifi, home: Home,
+  shoppingbag: ShoppingBag, shirt: Shirt, graduationcap: GraduationCap, baby: Baby, dog: Dog, gift: Gift,
+  plane: Plane, bus: Bus, music: Music, film: Film, gamepad: Gamepad2, book: BookOpen, receipt: Receipt,
+};
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -989,6 +997,10 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                   }}
                   title={cat.clasificacion}
                 >
+                  {(() => {
+                    const IconoCategoria = ICONOS_CATEGORIA[iconoParaCategoria(cat.nombre)] || Receipt;
+                    return <IconoCategoria size={13} style={{ display: "inline", verticalAlign: "-2px", marginRight: 6, color: cat.color || "var(--ink-soft)" }} />;
+                  })()}
                   {cat.nombre}
                   {eventosConGasto.some((e) => e.categoriaGasto === cat.nombre) && (
                     <span title="Esta categoría también tiene eventos del calendario sumados a su total" style={{ marginLeft: 4, opacity: 0.7 }}>
