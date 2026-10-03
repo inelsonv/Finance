@@ -253,6 +253,15 @@ export default function App() {
 
   const handleCerrarLectura = () => setLibroLeyendo(null);
 
+  const seleccionarTab = (tabId) => {
+    if (tabId === "presupuesto" || tabId === "presupuesto-mensual") {
+      setPresupuestoYear(new Date().getFullYear());
+      setTab("presupuesto-mensual");
+      return;
+    }
+    setTab(tabId);
+  };
+
   const handleNavigate = (tabId, periodoObjetivo) => {
     if (tabId === "consejo-modal") {
       setShowConsejoModal(true);
@@ -275,11 +284,11 @@ export default function App() {
       }
       return;
     }
-    setTab(tabId);
+    seleccionarTab(tabId);
     if (periodoObjetivo) setChecklistPeriodoInicial(periodoObjetivo);
   };
   const handleSearchNavigate = (tabId, recordId) => {
-    setTab(tabId);
+    seleccionarTab(tabId);
     if (recordId) setHighlightId(recordId);
   };
   const toggleSidebar = () => setSidebarCollapsed((c) => !c);
@@ -631,7 +640,7 @@ export default function App() {
     <div className="despensa-shell">
       <Sidebar
         tab={tab}
-        setTab={setTab}
+        setTab={seleccionarTab}
         listCount={(ordenesCompra.find((o) => o.estado === "Borrador")?.items || []).length}
         prestamosActivosCount={prestamos.filter((p) => p.estado === "Activo").length}
         theme={theme}
@@ -641,7 +650,7 @@ export default function App() {
       />
       <BottomNav
         tab={tab}
-        setTab={setTab}
+        setTab={seleccionarTab}
         categoriasGasto={categoriasGasto}
         ingresosPuntuales={ingresosPuntuales}
         ajustesPresupuesto={ajustesPresupuesto}
@@ -1005,7 +1014,7 @@ export default function App() {
         {tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
       </main>
       <ConfirmDialogHost />
-      {showMobileMenu && <MobileMenu tab={tab} setTab={(t) => setTab(t)} onClose={() => setShowMobileMenu(false)} onSignOut={() => signOut(auth)} />}
+      {showMobileMenu && <MobileMenu tab={tab} setTab={seleccionarTab} onClose={() => setShowMobileMenu(false)} onSignOut={() => signOut(auth)} />}
       {showVersiculoModal && versiculoHoy && (
         <div
           onClick={() => setShowVersiculoModal(false)}

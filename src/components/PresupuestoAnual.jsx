@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText, Fuel, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Receipt } from "lucide-react";
 import { setPresupuestoCelda, watchPagoRapido } from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
@@ -141,6 +141,19 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
 
   const [savingKey, setSavingKey] = useState(null);
   const [mostrarComparacion, setMostrarComparacion] = useState(true);
+  const tablaPresupuestoRef = useRef(null);
+
+  useEffect(() => {
+    if (!mesActivo) return undefined;
+    const frame = requestAnimationFrame(() => {
+      const contenedor = tablaPresupuestoRef.current;
+      const encabezadoMes = contenedor?.querySelector(`[data-mes-presupuesto="${mesActivo}"]`);
+      if (!contenedor || !encabezadoMes) return;
+      const desplazamiento = encabezadoMes.getBoundingClientRect().left - contenedor.getBoundingClientRect().left;
+      contenedor.scrollLeft = Math.max(0, contenedor.scrollLeft + desplazamiento - 150);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [year, mesActivo]);
 
   const [pagoRapido, setPagoRapido] = useState({});
   useEffect(() => {
@@ -901,7 +914,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
         </div>
       )}
 
-      <div style={{ overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 }}>
+      <div ref={tablaPresupuestoRef} style={{ overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 }}>
         <table className="despensa-mono" style={{ borderCollapse: "collapse", fontSize: 11, minWidth: 1500, width: "100%" }}>
           <thead>
             <tr>
@@ -931,6 +944,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
                 return (
                   <th
                     key={m}
+                    data-mes-presupuesto={mesNum}
                     colSpan={2}
                     style={{
                       padding: "6px 4px",
