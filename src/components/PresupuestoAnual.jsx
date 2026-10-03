@@ -728,9 +728,14 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
   };
 
   const cellStyle = { border: "none", background: "transparent", textAlign: "right", padding: "6px 4px", fontSize: 11, fontFamily: "IBM Plex Mono, monospace", color: "var(--ink)", width: 52 };
+  const columnaQuincena = (mes, quincena) => 2 + (mes - 1) * 2 + (quincena === "Q2" ? 1 : 0);
 
   return (
     <div>
+      <style>{`
+        ${mesActivo ? `.presupuesto-grid tbody tr > td:nth-child(${columnaQuincena(mesActivo, quincenaActiva)}) { box-shadow: inset 0 0 0 999px var(--sage-bg) !important; }` : ""}
+        ${mesProximo ? `.presupuesto-grid tbody tr > td:nth-child(${columnaQuincena(mesProximo, quincenaProxima)}) { box-shadow: inset 0 0 0 999px var(--amber-bg) !important; }` : ""}
+      `}</style>
       {ingresoQuincenal > 0 && excesoActual > 0 && (
         <div
           style={{
@@ -915,7 +920,7 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
       )}
 
       <div ref={tablaPresupuestoRef} style={{ overflowX: "auto", border: "1px solid var(--line)", borderRadius: 10 }}>
-        <table className="despensa-mono" style={{ borderCollapse: "collapse", fontSize: 11, minWidth: 1500, width: "100%" }}>
+        <table className="despensa-mono presupuesto-grid" style={{ borderCollapse: "collapse", fontSize: 11, minWidth: 1500, width: "100%" }}>
           <thead>
             <tr>
               <th
