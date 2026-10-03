@@ -17,6 +17,18 @@ function formatMoney(n) {
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function fechaCuotaEnMes(year, month, day) {
+  const ultimoDia = new Date(year, month, 0).getDate();
+  const dia = Math.min(Math.max(Number(day) || 1, 1), ultimoDia);
+  return `${year}-${String(month).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+function formatoFechaCuota(fecha) {
+  if (!fecha) return "";
+  const [year, month, day] = fecha.split("-");
+  return `${day}/${month}/${year}`;
+}
+
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -63,7 +75,7 @@ function periodoAdyacente(periodo, dir) {
   }
 }
 
-export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos, estrategiaDeudas, tipoCambio }) {
+export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos, estrategiaDeudas, tipoCambio, onOpenPrestamo }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
 
@@ -184,6 +196,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
             esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
             prestamoId: p.id,
             prestamoNumero: p.numero,
+            fechaCuota: c.fecha,
+            diaCuota: Number(c.fecha.slice(-2)),
             entidadId: p.entidadId || "",
             entidadName: p.entidadName || "",
             bloqueadoPagado: saldado,
@@ -212,6 +226,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
           prestamoId: p.id,
           prestamoNumero: p.numero,
+          fechaCuota: fechaCuotaEnMes(periodo.year, periodo.month, Number(p.fechaInicio.slice(-2))),
+          diaCuota: Number(p.fechaInicio.slice(-2)),
           entidadId: p.entidadId || "",
           entidadName: p.entidadName || "",
           bloqueadoPagado: saldado,
@@ -235,6 +251,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
           prestamoId: p.id,
           prestamoNumero: p.numero,
+          fechaCuota: destino.fecha || fechaCuotaEnMes(destino.year, destino.month, Number(p.fechaInicio?.slice(-2))),
+          diaCuota: Number(p.fechaInicio?.slice(-2)),
           entidadId: p.entidadId || "",
           entidadName: p.entidadName || "",
           bloqueadoPagado: saldado,
@@ -358,42 +376,29 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   const [confirmandoLote, setConfirmandoLote] = useState(false);
   const [moviendoKey, setMoviendoKey] = useState(null);
   const [moviendoAbiertoKey, setMoviendoAbiertoKey] = useState(null);
-  const [destinoMes, setDestinoMes] = useState("");
-  const [destinoQuincena, setDestinoQuincena] = useState("Q1");
-
-  const opcionesDestino = useMemo(() => {
-    const opciones = [];
-    let { year, month } = periodo;
-    for (let i = 0; i < 6; i++) {
-      for (const q of ["Q1", "Q2"]) {
-        opciones.push({ value: `${year}-${month}-${q}`, label: `${MES_NOMBRES[month - 1]} ${year} · ${q === "Q1" ? "1ra" : "2da"} quincena`, year, month, quincena: q });
-      }
-      month += 1;
-      if (month > 12) {
-        month = 1;
-        year += 1;
-      }
-    }
-    return opciones;
-  }, [periodo]);
+  const [destinoFecha, setDestinoFecha] = useState("");
 
   const abrirMoverQuincena = (it) => {
     setMoviendoAbiertoKey(it.key);
-    const primeraOpcionFutura = opcionesDestino.find((o) => `${o.year}-${o.month}` !== `${periodo.year}-${periodo.month}`);
-    setDestinoMes(primeraOpcionFutura ? `${primeraOpcionFutura.year}-${primeraOpcionFutura.month}` : "");
-    setDestinoQuincena(primeraOpcionFutura?.quincena || "Q1");
+    const nextMonth = periodo.month === 12
+      ? { year: periodo.year + 1, month: 1 }
+      : { year: periodo.year, month: periodo.month + 1 };
+    const diaBase = it.diaCuota || Number(it.fechaCuota?.slice(-2)) || 1;
+    setDestinoFecha(fechaCuotaEnMes(nextMonth.year, nextMonth.month, diaBase));
   };
 
   const confirmarMoverQuincena = async (it) => {
-    if (!destinoMes) return;
-    const [destYear, destMonth] = destinoMes.split("-").map(Number);
+    if (!destinoFecha) return;
+    const [destYear, destMonth, destDay] = destinoFecha.split("-").map(Number);
+    if (!destYear || !destMonth || !destDay) return;
     setMoviendoKey(it.key);
     try {
       const [origenMonth, origenYear] = it.origenKey.split("-").map(Number);
       await setPrestamoQuincenaOverride(it.prestamoId, origenYear, origenMonth, {
         year: destYear,
         month: destMonth,
-        quincena: destinoQuincena,
+        quincena: destDay >= 15 ? "Q2" : "Q1",
+        fecha: destinoFecha,
       });
       setMoviendoAbiertoKey(null);
     } finally {
@@ -739,7 +744,11 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 <Icon size={14} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 500, textDecoration: estado.pagado ? "line-through" : "none" }}>
+                  <div
+                    onDoubleClick={it.esPrestamo && onOpenPrestamo ? () => onOpenPrestamo(it.prestamoId) : undefined}
+                    title={it.esPrestamo && onOpenPrestamo ? "Doble clic para abrir este préstamo" : undefined}
+                    style={{ fontSize: 13.5, fontWeight: 500, textDecoration: estado.pagado ? "line-through" : "none", cursor: it.esPrestamo && onOpenPrestamo ? "pointer" : undefined }}
+                  >
                     {it.nombre}
                     {it.bloqueadoPagado && (
                       <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--sage-bg)", color: "var(--sage)", textDecoration: "none" }}>
@@ -752,6 +761,11 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                       </span>
                     )}
                   </div>
+                  {it.esPrestamo && it.fechaCuota && (
+                    <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 1 }}>
+                      Vence: {formatoFechaCuota(it.fechaCuota)}
+                    </div>
+                  )}
                   {(it.esPrestamo || it.esTarjeta) && it.entidadName && (
                     <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
                       <Landmark size={10} /> Pagar a: {it.entidadName}
@@ -771,26 +785,17 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     <div style={{ marginTop: 3 }}>
                       {moviendoAbiertoKey === it.key ? (
                         <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-                          <select
-                            value={destinoMes}
-                            onChange={(e) => setDestinoMes(e.target.value)}
+                          <input
+                            value={destinoFecha}
+                            onChange={(e) => setDestinoFecha(e.target.value)}
                             style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
-                          >
-                            {[...new Set(opcionesDestino.map((o) => `${o.year}-${o.month}`))].map((ym) => {
-                              const [y, m] = ym.split("-").map(Number);
-                              return (
-                                <option key={ym} value={ym}>{MES_NOMBRES[m - 1]} {y}</option>
-                              );
-                            })}
-                          </select>
-                          <select
-                            value={destinoQuincena}
-                            onChange={(e) => setDestinoQuincena(e.target.value)}
-                            style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
-                          >
-                            <option value="Q1">1ra quincena</option>
-                            <option value="Q2">2da quincena</option>
-                          </select>
+                            type="date"
+                          />
+                          {destinoFecha && (() => {
+                            const [year, month, day] = destinoFecha.split("-").map(Number);
+                            const quincenaDestino = day >= 15 ? "2da" : "1ra";
+                            return <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Se mostrará en {quincenaDestino} quincena de {MES_NOMBRES[month - 1]} {year}</span>;
+                          })()}
                           <button
                             onClick={() => confirmarMoverQuincena(it)}
                             disabled={moviendoKey === it.key}

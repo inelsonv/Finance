@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 import { confirm } from "../lib/confirm";
@@ -60,7 +60,7 @@ const emptyForm = (numero) => ({
   cuotasPersonalizadas: [],
 });
 
-export default function Prestamos({ prestamos, entidades, movimientos, activos }) {
+export default function Prestamos({ prestamos, entidades, movimientos, activos, focusPrestamoId }) {
   const [showForm, setShowForm] = useState(false);
   const [showHistorico, setShowHistorico] = useState(false);
 
@@ -75,6 +75,12 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos }
 
   const prestamosActivos = useMemo(() => prestamos.filter((p) => p.estado !== "Pagado" || p.id === editingId), [prestamos, editingId]);
   const prestamosPagados = useMemo(() => prestamos.filter((p) => p.estado === "Pagado" && p.id !== editingId), [prestamos, editingId]);
+
+  useEffect(() => {
+    if (focusPrestamoId && prestamos.some((p) => p.id === focusPrestamoId && p.estado === "Pagado")) {
+      setShowHistorico(true);
+    }
+  }, [focusPrestamoId, prestamos]);
 
   const openForm = () => {
     setForm(emptyForm(nextNumero(prestamos)));
