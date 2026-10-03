@@ -5,7 +5,7 @@ import { confirm } from "../lib/confirm";
 const OPCIONES = [
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "dinero-cuentas", label: "Finanzas", icon: Coins },
-  { id: "presupuesto", label: "Presupuesto", icon: Wallet },
+  { id: "presupuesto-mensual", label: "Presupuesto", icon: Wallet },
   { id: "deudas-pagos", label: "Pagos fijos", icon: Banknote },
   { id: "activos", label: "Activos", icon: Car },
   { id: "entidades", label: "Entidades", icon: Landmark },
@@ -30,7 +30,7 @@ function activoEnGrupo(tab, grupoId) {
 
 export default function MobileMenu({ tab, setTab, onClose, onSignOut }) {
   const irA = (id) => {
-    setTab(id === "presupuesto" ? "presupuesto-mensual" : id);
+    setTab(id);
     onClose();
   };
 
