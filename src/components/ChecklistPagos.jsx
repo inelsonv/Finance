@@ -78,6 +78,17 @@ function periodoAdyacente(periodo, dir) {
 export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos, estrategiaDeudas, tipoCambio, onOpenPrestamo }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
+  const [overridesLocales, setOverridesLocales] = useState({});
+
+  const guardarOverrideLocal = (prestamoId, tipo, origenKey, valor) => {
+    setOverridesLocales((actuales) => ({
+      ...actuales,
+      [prestamoId]: {
+        ...actuales[prestamoId],
+        [tipo]: { ...actuales[prestamoId]?.[tipo], [origenKey]: valor },
+      },
+    }));
+  };
 
   // Cuando llegamos aquí desde la notificación de "día de cobro", saltamos directo
   // a la quincena que corresponde pagar (Q1 del mes siguiente si el cobro es a fin
@@ -180,7 +191,10 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       if (p.estado !== "Activo" && p.estado !== "Pagado") continue;
       const saldado = p.estado === "Pagado";
       if (p.frecuenciaCuota === "Personalizado") {
-        const fechasOverride = p.cuotasPersonalizadasOverrides || {};
+        const fechasOverride = {
+          ...(p.cuotasPersonalizadasOverrides || {}),
+          ...(overridesLocales[p.id]?.personalizadas || {}),
+        };
         for (const c of p.cuotasPersonalizadas || []) {
           if (!c.fecha || !c.monto) continue;
           const overrideFecha = fechasOverride[c.fecha];
@@ -214,7 +228,10 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         continue;
       }
 
-      const overrides = p.quincenaOverrides || {};
+      const overrides = {
+        ...(p.quincenaOverrides || {}),
+        ...(overridesLocales[p.id]?.mensuales || {}),
+      };
       const origenKeyEsteMes = `${periodo.month}-${periodo.year}`;
       const overrideEsteMesRaw = overrides[origenKeyEsteMes];
       // Solo cuenta como "movida" si es un destino válido (objeto con
@@ -352,7 +369,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       const prioridadB = esGastoPrioritario(b) ? 0 : 1;
       return prioridadA - prioridadB || b.monto - a.monto;
     });
-  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso, checklist]);
+  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso, checklist, overridesLocales]);
 
   const totales = useMemo(() => {
     let total = 0;
@@ -402,15 +419,33 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     setMoviendoKey(it.key);
     try {
       if (it.cuotaPersonalizada) {
-        await setPrestamoCuotaPersonalizadaFechaOverride(it.prestamoId, it.origenKey, destinoFecha);
+        guardarOverrideLocal(it.prestamoId, "personalizadas", it.origenKey, destinoFecha);
+        try {
+          await setPrestamoCuotaPersonalizadaFechaOverride(it.prestamoId, it.origenKey, destinoFecha);
+        } catch (error) {
+          guardarOverrideLocal(it.prestamoId, "personalizadas", it.origenKey, it.tieneOverride ? it.fechaCuota : null);
+          throw error;
+        }
       } else {
         const [origenMonth, origenYear] = it.origenKey.split("-").map(Number);
-        await setPrestamoQuincenaOverride(it.prestamoId, origenYear, origenMonth, {
+        const destino = {
           year: destYear,
           month: destMonth,
           quincena: destDay >= 15 ? "Q2" : "Q1",
           fecha: destinoFecha,
-        });
+        };
+        guardarOverrideLocal(it.prestamoId, "mensuales", it.origenKey, destino);
+        try {
+          await setPrestamoQuincenaOverride(it.prestamoId, origenYear, origenMonth, destino);
+        } catch (error) {
+          const fechaAnterior = it.tieneOverride ? it.fechaCuota : null;
+          const [yearAnterior, monthAnterior, dayAnterior] = (fechaAnterior || "").split("-").map(Number);
+          const overrideAnterior = fechaAnterior
+            ? { year: yearAnterior, month: monthAnterior, quincena: dayAnterior >= 15 ? "Q2" : "Q1", fecha: fechaAnterior }
+            : null;
+          guardarOverrideLocal(it.prestamoId, "mensuales", it.origenKey, overrideAnterior);
+          throw error;
+        }
       }
       setMoviendoAbiertoKey(null);
     } finally {
@@ -422,10 +457,23 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     setMoviendoKey(it.key);
     try {
       if (it.cuotaPersonalizada) {
-        await quitarPrestamoCuotaPersonalizadaFechaOverride(it.prestamoId, it.origenKey);
+        guardarOverrideLocal(it.prestamoId, "personalizadas", it.origenKey, null);
+        try {
+          await quitarPrestamoCuotaPersonalizadaFechaOverride(it.prestamoId, it.origenKey);
+        } catch (error) {
+          guardarOverrideLocal(it.prestamoId, "personalizadas", it.origenKey, it.fechaCuota);
+          throw error;
+        }
       } else {
         const [origMes, origYear] = it.origenKey.split("-").map(Number);
-        await quitarPrestamoQuincenaOverride(it.prestamoId, origYear, origMes);
+        const overrideAnterior = { year: periodo.year, month: periodo.month, quincena: periodo.quincena, fecha: it.fechaCuota };
+        guardarOverrideLocal(it.prestamoId, "mensuales", it.origenKey, null);
+        try {
+          await quitarPrestamoQuincenaOverride(it.prestamoId, origYear, origMes);
+        } catch (error) {
+          guardarOverrideLocal(it.prestamoId, "mensuales", it.origenKey, overrideAnterior);
+          throw error;
+        }
       }
     } finally {
       setMoviendoKey(null);
@@ -561,11 +609,21 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     setChecklistItem(periodoKey, key, { ...actual, metodoPago: metodo, ...extra });
   };
 
+  const navegarPeriodo = (direccion) => {
+    if (moviendoKey) return;
+    setChecklist({});
+    setMoviendoAbiertoKey(null);
+    setModoSeleccion(false);
+    setSeleccionados(new Set());
+    setPeriodo((actual) => periodoAdyacente(actual, direccion));
+  };
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 16 }}>
         <button
-          onClick={() => setPeriodo(periodoAdyacente(periodo, -1))}
+          onClick={() => navegarPeriodo(-1)}
+          disabled={!!moviendoKey}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
         >
           <ChevronLeft size={16} />
@@ -574,7 +632,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           {MESES[periodo.month - 1]} {periodo.year} · {periodo.quincena === "Q1" ? "1ra quincena" : "2da quincena"}
         </div>
         <button
-          onClick={() => setPeriodo(periodoAdyacente(periodo, 1))}
+          onClick={() => navegarPeriodo(1)}
+          disabled={!!moviendoKey}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
         >
           <ChevronRight size={16} />
@@ -678,7 +737,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
               const excedido = it.gastadoReal > it.monto;
               return (
                 <div
-                  key={it.key}
+                  key={`${periodoKey}:${it.key}`}
                   style={{
                     background: "var(--card)",
                     border: `1px solid ${excedido ? "var(--stamp)" : "var(--line)"}`,
@@ -706,7 +765,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
 
             return (
               <div
-                key={it.key}
+                key={`${periodoKey}:${it.key}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
