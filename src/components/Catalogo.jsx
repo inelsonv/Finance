@@ -145,6 +145,22 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
     () => (ordenesCompra || []).filter((orden) => orden.estado !== "Completada" && orden.estado !== "Cancelada"),
     [ordenesCompra]
   );
+  const productosEnOrdenesAbiertas = useMemo(() => {
+    const incluidos = new Map();
+    for (const orden of ordenesAbiertas) {
+      for (const item of orden.items || []) {
+        if (!item.productId) continue;
+        const ordenesProducto = incluidos.get(item.productId) || [];
+        ordenesProducto.push({
+          id: orden.id,
+          folio: orden.folio,
+          cantidad: Number(item.cantidad) || 1,
+        });
+        incluidos.set(item.productId, ordenesProducto);
+      }
+    }
+    return incluidos;
+  }, [ordenesAbiertas]);
   const productosMarcados = useMemo(
     () => products.filter((product) => productosSeleccionados.has(product.id)),
     [products, productosSeleccionados]
@@ -907,6 +923,10 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         >
           {filtered.map((p) => {
             const seleccionado = productosSeleccionados.has(p.id);
+            const ordenesDelProducto = productosEnOrdenesAbiertas.get(p.id) || [];
+            const incluidoEnOrden = ordenesDelProducto.length > 0;
+            const incluidoEnDestino = ordenesDelProducto.some((orden) => orden.id === ordenSeleccionadaId);
+            const unidadesEnOrden = ordenesDelProducto.reduce((total, orden) => total + orden.cantidad, 0);
             return (
             <div
               key={p.id}
@@ -918,14 +938,14 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
               aria-disabled={!ordenesAbiertas.length}
               title={ordenesAbiertas.length ? "Haz clic para seleccionar este producto" : "Crea una orden de compra para habilitar la selección"}
               style={{
-                background: seleccionado ? "var(--sage-bg)" : "var(--card)",
-                border: seleccionado ? "2px solid var(--sage)" : "1px solid var(--line)",
+                background: seleccionado || incluidoEnOrden ? "var(--sage-bg)" : "var(--card)",
+                border: seleccionado || incluidoEnOrden ? "2px solid var(--sage)" : "1px solid var(--line)",
                 borderRadius: 12,
                 overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
                 cursor: ordenesAbiertas.length ? "pointer" : "default",
-                boxShadow: seleccionado ? "0 0 0 2px var(--sage-bg)" : "none",
+                boxShadow: seleccionado || incluidoEnOrden ? "0 0 0 2px var(--sage-bg)" : "none",
               }}
             >
               <div style={{ position: "relative" }}>
@@ -1107,9 +1127,23 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                 >
                   {p.name}
                 </div>
-                <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 2, marginBottom: 8 }}>
+                <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 2, marginBottom: incluidoEnOrden || seleccionado ? 5 : 8 }}>
                   {p.category} · por {p.unit}
                 </div>
+                {(incluidoEnOrden || seleccionado) && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 7 }}>
+                    {incluidoEnOrden && (
+                      <span title={`${unidadesEnOrden} unidad(es) en ${ordenesDelProducto.map((orden) => orden.folio).join(", ")}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 6px", borderRadius: 6, background: "var(--sage)", color: "#fff", fontSize: 9.5, fontWeight: 600 }}>
+                        <Check size={10} /> {incluidoEnDestino ? "En esta orden" : "En otra orden"} · {unidadesEnOrden}
+                      </span>
+                    )}
+                    {seleccionado && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 6px", borderRadius: 6, background: "var(--card)", border: "1px solid var(--sage)", color: "var(--sage)", fontSize: 9.5, fontWeight: 600 }}>
+                        Para agregar
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div style={{ marginTop: "auto", display: "flex", alignItems: "center", gap: 5 }}>
                   <div className="despensa-mono" style={{ display: "flex", alignItems: "center", gap: 1, fontSize: 12.5, flex: 1, minWidth: 0 }}>
