@@ -290,6 +290,53 @@ INSTRUCCIONES CLAVES:
   }
 });
 
+// Endpoint TTS con voz de IA casi real y gratuita (Gemini Flash Lite TTS)
+app.post('/api/tts', async (req, res) => {
+  try {
+    const { text, voice = 'Aoede' } = req.body;
+    if (!text || typeof text !== 'string') {
+      return res.status(400).json({ error: 'Texto requerido para síntesis de voz' });
+    }
+
+    const textoLimpio = text.trim().slice(0, 800);
+    const validVoices = ['Aoede', 'Charon', 'Kore', 'Fenrir', 'Puck'];
+    const vozFinal = validVoices.includes(voice) ? voice : 'Aoede';
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash-lite-tts',
+      contents: textoLimpio,
+      config: {
+        responseModalities: ['AUDIO'],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: vozFinal,
+            },
+          },
+        },
+      },
+    });
+
+    const part = response.candidates?.[0]?.content?.parts?.[0];
+    const inlineData = part?.inlineData;
+
+    if (!inlineData?.data) {
+      return res.status(500).json({ error: 'No se pudo generar el audio de voz' });
+    }
+
+    res.json({
+      audioBase64: inlineData.data,
+      mimeType: inlineData.mimeType || 'audio/wav',
+      voice: vozFinal,
+    });
+  } catch (error: any) {
+    console.error('Error en /api/tts:', error);
+    res.status(500).json({
+      error: error.message || 'Error al generar voz IA',
+    });
+  }
+});
+
 async function startServer() {
   const isProd = process.env.NODE_ENV === 'production';
 
