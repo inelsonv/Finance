@@ -105,6 +105,8 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const sintetizadorIARef = useRef(null);
   const audioIARef = useRef(null);
   const urlAudioIARef = useRef(null);
+  const contextoAudioIARef = useRef(null);
+  const fuenteAudioIARef = useRef(null);
   const fragmentosVozRef = useRef([]);
   const indiceFragmentoVozRef = useRef(0);
   const sesionVozRef = useRef(0);
@@ -433,6 +435,12 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const pausadoRef = useRef(false);
 
   const limpiarAudioIA = () => {
+    if (fuenteAudioIARef.current) {
+      fuenteAudioIARef.current.onended = null;
+      try { fuenteAudioIARef.current.stop(); } catch {}
+      fuenteAudioIARef.current.disconnect();
+      fuenteAudioIARef.current = null;
+    }
     if (audioIARef.current) {
       audioIARef.current.pause();
       audioIARef.current.onended = null;
@@ -513,7 +521,10 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
           progress_callback: ({ status, progress }) => {
             if (sesion !== sesionVozRef.current) return;
             if (status === "progress" && Number.isFinite(progress)) {
-              setEstadoVozIA(`Descargando modelo de voz… ${Math.round(progress)}%`);
+              const porcentaje = Math.round(progress);
+              setEstadoVozIA(porcentaje >= 100
+                ? "Descarga lista; inicializando el motor de voz…"
+                : `Descargando modelo de voz… ${porcentaje}%`);
             } else if (status === "initiate") {
               setEstadoVozIA("Descargando modelo de voz…");
             }
@@ -531,6 +542,29 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       if (sesion !== sesionVozRef.current) return;
 
       const blob = await audioGenerado.toBlob();
+      const contexto = contextoAudioIARef.current;
+      if (contexto && typeof contexto.decodeAudioData === "function") {
+        const datosAudio = await blob.arrayBuffer();
+        const bufferAudio = await contexto.decodeAudioData(datosAudio);
+        if (sesion !== sesionVozRef.current) return;
+        const fuente = contexto.createBufferSource();
+        fuente.buffer = bufferAudio;
+        fuente.connect(contexto.destination);
+        fuenteAudioIARef.current = fuente;
+        fuente.onended = () => {
+          if (sesion !== sesionVozRef.current) return;
+          fuente.disconnect();
+          fuenteAudioIARef.current = null;
+          indiceFragmentoVozRef.current += 1;
+          hablarSiguienteFragmento(sesion);
+        };
+        setEstadoVozIA(pausadoRef.current ? "Audio listo; toca reproducir para continuar." : "");
+        if (!pausadoRef.current && contexto.state === "suspended") await contexto.resume();
+        fuente.start();
+        if (!pausadoRef.current && sesion === sesionVozRef.current) setLeyendoEnVoz(true);
+        return;
+      }
+
       const url = URL.createObjectURL(blob);
       urlAudioIARef.current = url;
       const audio = new Audio(url);
@@ -623,17 +657,24 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       // para poder retomar exactamente a mitad de la oración donde quedó,
       // no solo desde el inicio del párrafo.
       pausadoRef.current = true;
-      if (audioIARef.current) audioIARef.current.pause();
+      if (motorVoz === "ia" && contextoAudioIARef.current) contextoAudioIARef.current.suspend();
+      else if (audioIARef.current) audioIARef.current.pause();
       else window.speechSynthesis.pause();
       setLeyendoEnVoz(false);
       return;
     }
     if (pausadoRef.current) {
       pausadoRef.current = false;
-      if (audioIARef.current) audioIARef.current.play().catch((err) => setEstadoVozIA(err.message || "No se pudo reanudar el audio."));
+      if (fuenteAudioIARef.current && contextoAudioIARef.current) contextoAudioIARef.current.resume().catch((err) => setEstadoVozIA(err.message || "No se pudo reanudar el audio."));
+      else if (audioIARef.current) audioIARef.current.play().catch((err) => setEstadoVozIA(err.message || "No se pudo reanudar el audio."));
       else window.speechSynthesis.resume();
       setLeyendoEnVoz(true);
       return;
+    }
+    if (motorVoz === "ia" && typeof window !== "undefined") {
+      const ContextoAudio = window.AudioContext || window.webkitAudioContext;
+      if (ContextoAudio && !contextoAudioIARef.current) contextoAudioIARef.current = new ContextoAudio();
+      if (contextoAudioIARef.current?.state === "suspended") contextoAudioIARef.current.resume().catch(() => {});
     }
     const contents = renditionRef.current?.getContents();
     // getContents() puede devolver más de una vista si epub.js no limpió
