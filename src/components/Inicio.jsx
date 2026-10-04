@@ -244,7 +244,9 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
                     cx={xFor(i)}
                     cy={yFor(v)}
                     r={esPico ? 4 : 2.5}
-                    fill={color}
+                    fill={esPico ? "#ffd166" : color}
+                    stroke={esPico ? "#6d4b0b" : "none"}
+                    strokeWidth={esPico ? 1.2 : 0}
                   >
                     <title>{`${s.category} · ${MESES[i]}: ${formatMoney(v)}`}</title>
                   </circle>
@@ -253,10 +255,32 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
             </g>
           );
         })}
+        {Array.from({ length: currentMonth }).map((_, monthIndex) => {
+          const left = monthIndex === 0 ? padL : (xFor(monthIndex - 1) + xFor(monthIndex)) / 2;
+          const right = monthIndex === currentMonth - 1 ? width - padR : (xFor(monthIndex) + xFor(monthIndex + 1)) / 2;
+          const detalle = series
+            .map((s) => ({ category: s.category, amount: s.values[monthIndex] || 0 }))
+            .filter((item) => item.amount > 0)
+            .sort((a, b) => b.amount - a.amount)
+            .map((item) => `${item.category}: ${formatMoney(item.amount)}`);
+          return (
+            <rect
+              key={`detalle-${monthIndex}`}
+              x={left}
+              y={padT}
+              width={Math.max(1, right - left)}
+              height={plotH}
+              fill="transparent"
+              pointerEvents="all"
+            >
+              <title>{`${MESES[monthIndex]} · ${detalle.length ? detalle.join(" · ") : "Sin gastos registrados"}`}</title>
+            </rect>
+          );
+        })}
       </svg>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", marginTop: 10, justifyContent: "center" }}>
+      <div className="despensa-scroll-x" style={{ display: "flex", flexWrap: "nowrap", gap: "6px 14px", marginTop: 10, justifyContent: "flex-start", overflowX: "auto", overflowY: "hidden", paddingBottom: 7, whiteSpace: "nowrap" }}>
         {series.map((s, si) => (
-          <span key={s.category} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--ink-soft)" }}>
+          <span key={s.category} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--ink-soft)", flex: "0 0 auto" }}>
             <span style={{ width: 8, height: 8, borderRadius: "50%", background: LINE_COLORS[si % LINE_COLORS.length], flexShrink: 0 }} />
             {s.category}
           </span>
