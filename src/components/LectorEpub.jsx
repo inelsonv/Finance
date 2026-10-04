@@ -7,7 +7,14 @@ const TEMA_KEY = "smart-finance-lector-tema";
 const BRILLO_KEY = "smart-finance-lector-brillo";
 const FUENTE_KEY = "smart-finance-lector-fuente";
 const VOZ_KEY = "smart-finance-lector-voz";
+const MOTOR_VOZ_KEY = "smart-finance-lector-motor-voz";
+const VOZ_IA_KEY = "smart-finance-lector-voz-ia";
 const VELOCIDAD_VOZ_KEY = "smart-finance-lector-velocidad-voz";
+const MODELO_VOZ_IA = "onnx-community/Supertonic-TTS-2-ONNX";
+const VOCES_IA = [
+  ...[1, 2, 3, 4, 5].map((numero) => ({ id: `F${numero}`, label: `Femenina ${numero}` })),
+  ...[1, 2, 3, 4, 5].map((numero) => ({ id: `M${numero}`, label: `Masculina ${numero}` })),
+];
 const PRESETS = [
   { nombre: "Claro", texto: "#1a1a1a", fondo: "#ffffff" },
   { nombre: "Oscuro", texto: "#e8e8e8", fondo: "#1a1a1a" },
@@ -88,10 +95,16 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
   const [vocesDisponibles, setVocesDisponibles] = useState([]);
   const [vozSeleccionada, setVozSeleccionada] = useState(() => localStorage.getItem(VOZ_KEY) || "");
+  const [motorVoz, setMotorVoz] = useState(() => localStorage.getItem(MOTOR_VOZ_KEY) || "dispositivo");
+  const [vozIA, setVozIA] = useState(() => localStorage.getItem(VOZ_IA_KEY) || "F1");
+  const [estadoVozIA, setEstadoVozIA] = useState("");
   const [velocidadVoz, setVelocidadVoz] = useState(cargarVelocidadVozGuardada);
   const [mostrarPanelVoz, setMostrarPanelVoz] = useState(false);
   const [minimizado, setMinimizado] = useState(false);
   const utteranceRef = useRef(null);
+  const sintetizadorIARef = useRef(null);
+  const audioIARef = useRef(null);
+  const urlAudioIARef = useRef(null);
   const fragmentosVozRef = useRef([]);
   const indiceFragmentoVozRef = useRef(0);
   const sesionVozRef = useRef(0);
@@ -298,6 +311,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       cancelado = true;
       sesionVozRef.current += 1;
       window.speechSynthesis.cancel();
+      limpiarAudioIA();
       fragmentosVozRef.current = [];
       indiceFragmentoVozRef.current = 0;
       elementoResaltadoRef.current = null;
@@ -418,15 +432,32 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
   const pausadoRef = useRef(false);
 
+  const limpiarAudioIA = () => {
+    if (audioIARef.current) {
+      audioIARef.current.pause();
+      audioIARef.current.onended = null;
+      audioIARef.current.onerror = null;
+      audioIARef.current.removeAttribute("src");
+      audioIARef.current.load();
+      audioIARef.current = null;
+    }
+    if (urlAudioIARef.current) {
+      URL.revokeObjectURL(urlAudioIARef.current);
+      urlAudioIARef.current = null;
+    }
+  };
+
   const detenerVoz = () => {
     sesionVozRef.current += 1;
     avanzandoAutomaticamenteRef.current = false;
     pausadoRef.current = false;
     window.speechSynthesis.cancel();
+    limpiarAudioIA();
     fragmentosVozRef.current = [];
     indiceFragmentoVozRef.current = 0;
     quitarResaltado();
     setLeyendoEnVoz(false);
+    setEstadoVozIA("");
   };
 
   // Cuando se termina de leer toda la página, avanza automáticamente a la
@@ -473,6 +504,65 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     }, 800);
   };
 
+  const hablarFragmentoIA = async (frag, sesion) => {
+    try {
+      if (!sintetizadorIARef.current) {
+        setEstadoVozIA("Preparando la voz IA gratuita…");
+        const { pipeline } = await import("@huggingface/transformers");
+        sintetizadorIARef.current = await pipeline("text-to-speech", MODELO_VOZ_IA, {
+          progress_callback: ({ status, progress }) => {
+            if (sesion !== sesionVozRef.current) return;
+            if (status === "progress" && Number.isFinite(progress)) {
+              setEstadoVozIA(`Descargando modelo de voz… ${Math.round(progress)}%`);
+            } else if (status === "initiate") {
+              setEstadoVozIA("Descargando modelo de voz…");
+            }
+          },
+        });
+      }
+      if (sesion !== sesionVozRef.current) return;
+
+      setEstadoVozIA("Generando voz…");
+      const audioGenerado = await sintetizadorIARef.current(`<es>${frag.texto}</es>`, {
+        speaker_embeddings: `https://huggingface.co/${MODELO_VOZ_IA}/resolve/main/voices/${vozIA}.bin`,
+        num_inference_steps: 5,
+        speed: velocidadVoz,
+      });
+      if (sesion !== sesionVozRef.current) return;
+
+      const blob = await audioGenerado.toBlob();
+      const url = URL.createObjectURL(blob);
+      urlAudioIARef.current = url;
+      const audio = new Audio(url);
+      audioIARef.current = audio;
+      audio.onended = () => {
+        if (sesion !== sesionVozRef.current) return;
+        limpiarAudioIA();
+        indiceFragmentoVozRef.current += 1;
+        hablarSiguienteFragmento(sesion);
+      };
+      audio.onerror = () => {
+        if (sesion !== sesionVozRef.current) return;
+        limpiarAudioIA();
+        pausadoRef.current = false;
+        setEstadoVozIA("No se pudo reproducir el audio IA. Comprueba tu conexión e inténtalo otra vez.");
+        setLeyendoEnVoz(false);
+      };
+      setEstadoVozIA("");
+      if (!pausadoRef.current) {
+        await audio.play();
+        if (sesion === sesionVozRef.current) setLeyendoEnVoz(true);
+      }
+    } catch (err) {
+      if (sesion === sesionVozRef.current) {
+        pausadoRef.current = false;
+        setEstadoVozIA(`No se pudo iniciar la voz IA: ${err?.message || "error desconocido"}`);
+        setLeyendoEnVoz(false);
+        quitarResaltadoPalabra(frag.elemento);
+      }
+    }
+  };
+
   const hablarSiguienteFragmento = (sesion) => {
     // Si cambió de página (u ocurrió otra cosa que incrementó la sesión)
     // mientras este fragmento terminaba de hablar, no continúa — evita que
@@ -487,6 +577,10 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     const frag = fragmentos[i];
     resaltarElemento(frag.elemento);
     guardarFragmentoVoz(frag.texto);
+    if (motorVoz === "ia") {
+      hablarFragmentoIA(frag, sesion);
+      return;
+    }
     const vozElegida = vocesDisponibles.find((v) => v.voiceURI === vozSeleccionada);
     const utterance = new SpeechSynthesisUtterance(frag.texto);
     utterance.lang = vozElegida?.lang || "es-ES";
@@ -514,6 +608,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     sesionVozRef.current += 1;
     const sesionActual = sesionVozRef.current;
     window.speechSynthesis.cancel();
+    limpiarAudioIA();
     fragmentosVozRef.current = fragmentos;
     indiceFragmentoVozRef.current = 0;
     setLeyendoEnVoz(true);
@@ -528,13 +623,15 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       // para poder retomar exactamente a mitad de la oración donde quedó,
       // no solo desde el inicio del párrafo.
       pausadoRef.current = true;
-      window.speechSynthesis.pause();
+      if (audioIARef.current) audioIARef.current.pause();
+      else window.speechSynthesis.pause();
       setLeyendoEnVoz(false);
       return;
     }
     if (pausadoRef.current) {
       pausadoRef.current = false;
-      window.speechSynthesis.resume();
+      if (audioIARef.current) audioIARef.current.play().catch((err) => setEstadoVozIA(err.message || "No se pudo reanudar el audio."));
+      else window.speechSynthesis.resume();
       setLeyendoEnVoz(true);
       return;
     }
@@ -581,12 +678,21 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
 
   const handleCambiarVoz = (voiceURI) => {
+    if (leyendoEnVoz || pausadoRef.current) detenerVoz();
     setVozSeleccionada(voiceURI);
     localStorage.setItem(VOZ_KEY, voiceURI);
-    if (leyendoEnVoz) {
-      detenerVoz();
-      setTimeout(alternarVoz, 150);
-    }
+  };
+
+  const handleCambiarMotorVoz = (motor) => {
+    if (leyendoEnVoz || pausadoRef.current) detenerVoz();
+    setMotorVoz(motor);
+    localStorage.setItem(MOTOR_VOZ_KEY, motor);
+  };
+
+  const handleCambiarVozIA = (id) => {
+    if (leyendoEnVoz || pausadoRef.current) detenerVoz();
+    setVozIA(id);
+    localStorage.setItem(VOZ_IA_KEY, id);
   };
 
   const handleCambiarVelocidadVoz = (valor) => {
@@ -872,31 +978,65 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
             <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 12, color: "var(--ink-soft)" }}>Ajustes de voz</div>
 
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Voz</div>
-              <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 6, lineHeight: 1.4 }}>
-                La app prioriza una voz natural en español disponible en tu equipo. Las voces instaladas no usan una API de pago.
-              </div>
-              {!vocesDisponibles.some(esVozNaturalEspanol) && (
-                <div style={{ fontSize: 10.5, color: "var(--amber)", marginBottom: 6, lineHeight: 1.4 }}>
-                  No se encontró una voz natural en español. En Windows, abre Narrador con Win + Ctrl + N, agrega una voz natural en español y vuelve a abrir el lector.
-                </div>
-              )}
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Motor de voz</div>
               <select
-                value={vozSeleccionada}
-                onChange={(e) => handleCambiarVoz(e.target.value)}
+                value={motorVoz}
+                onChange={(e) => handleCambiarMotorVoz(e.target.value)}
                 style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--paper)" }}
               >
-                <option value="">Predeterminada del dispositivo</option>
-                {vocesDisponibles.map((v) => (
-                  <option key={v.voiceURI} value={v.voiceURI}>
-                    {v.name}{esVozNaturalEspanol(v) ? " · Natural/IA" : ""} ({v.lang})
-                  </option>
-                ))}
+                <option value="dispositivo">Voz del dispositivo · Gratis</option>
+                <option value="ia">Voz IA natural en español · Gratis</option>
               </select>
-              {vocesDisponibles.length === 0 && (
-                <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
-                  Cargando voces disponibles del dispositivo…
-                </div>
+
+              {motorVoz === "ia" ? (
+                <>
+                  <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 7, lineHeight: 1.45 }}>
+                    La voz se genera en este dispositivo, sin enviar el texto del libro a un servicio externo. La primera vez requiere conexión y descarga alrededor de 263 MB; después el modelo queda guardado en el navegador.
+                  </div>
+                  <select
+                    value={vozIA}
+                    onChange={(e) => handleCambiarVozIA(e.target.value)}
+                    style={{ width: "100%", marginTop: 8, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--paper)" }}
+                  >
+                    {VOCES_IA.map((voz) => <option key={voz.id} value={voz.id}>{voz.label}</option>)}
+                  </select>
+                  <div style={{ fontSize: 10, color: "var(--ink-soft)", marginTop: 7, lineHeight: 1.4 }}>
+                    Audio generado por IA con Supertonic 2 (<a href="https://huggingface.co/Supertone/supertonic-2" target="_blank" rel="noreferrer" style={{ color: "inherit" }}>modelo y licencia</a>).
+                  </div>
+                  {estadoVozIA && (
+                    <div role="status" style={{ fontSize: 10.5, color: estadoVozIA.startsWith("No se pudo") ? "var(--stamp)" : "var(--sage)", marginTop: 8, lineHeight: 1.4 }}>
+                      {estadoVozIA}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 7, marginBottom: 6, lineHeight: 1.4 }}>
+                    Usa gratis las voces instaladas en tu equipo.
+                  </div>
+                  {!vocesDisponibles.some(esVozNaturalEspanol) && (
+                    <div style={{ fontSize: 10.5, color: "var(--amber)", marginBottom: 6, lineHeight: 1.4 }}>
+                      No se encontró una voz natural en español. En Windows puedes agregar una desde Narrador con Win + Ctrl + N.
+                    </div>
+                  )}
+                  <select
+                    value={vozSeleccionada}
+                    onChange={(e) => handleCambiarVoz(e.target.value)}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--paper)" }}
+                  >
+                    <option value="">Predeterminada del dispositivo</option>
+                    {vocesDisponibles.map((v) => (
+                      <option key={v.voiceURI} value={v.voiceURI}>
+                        {v.name}{esVozNaturalEspanol(v) ? " · Natural/IA" : ""} ({v.lang})
+                      </option>
+                    ))}
+                  </select>
+                  {vocesDisponibles.length === 0 && (
+                    <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
+                      Cargando voces disponibles del dispositivo…
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
