@@ -18,7 +18,7 @@ import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
 import MobileMenu from "./components/MobileMenu.jsx";
 import PullToRefresh from "./components/PullToRefresh.jsx";
-import { Menu, Trophy, Sparkles, X } from "lucide-react";
+import { Menu, Trophy, Sparkles, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import Catalogo from "./components/Catalogo.jsx";
 import Compras from "./components/Compras.jsx";
 import Finanzas from "./components/Finanzas.jsx";
@@ -62,6 +62,7 @@ import NotificacionesPage from "./components/NotificacionesPage.jsx";
 
 const THEME_KEY = "smart-finance-theme";
 const SIDEBAR_KEY = "smart-finance-sidebar-collapsed";
+const SIDEBAR_VISIBLE_KEY = "smart-finance-sidebar-visible";
 const ASISTENTE_FLOTANTE_KEY = "smart-finance-asistente-flotante";
 
 const TITLES = {
@@ -117,6 +118,14 @@ function getInitialCollapsed() {
     return localStorage.getItem(SIDEBAR_KEY) === "1";
   } catch (e) {
     return false;
+  }
+}
+
+function getInitialSidebarVisible() {
+  try {
+    return localStorage.getItem(SIDEBAR_VISIBLE_KEY) !== "0";
+  } catch (e) {
+    return true;
   }
 }
 
@@ -210,6 +219,7 @@ export default function App() {
   const [synced, setSynced] = useState(null);
   const [theme, setTheme] = useState(getInitialTheme);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialCollapsed);
+  const [sidebarVisible, setSidebarVisible] = useState(getInitialSidebarVisible);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showAsistenteFlotante, setShowAsistenteFlotante] = useState(false);
   const [asistenteFlotanteActivo, setAsistenteFlotanteActivo] = useState(getInitialAsistenteFlotante);
@@ -231,6 +241,14 @@ export default function App() {
       // si falla el guardado, la preferencia sigue funcionando solo en esta sesión
     }
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_VISIBLE_KEY, sidebarVisible ? "1" : "0");
+    } catch (e) {
+      // La preferencia sigue funcionando durante esta sesión.
+    }
+  }, [sidebarVisible]);
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
   const cambiarAsistenteFlotante = (activo) => {
@@ -687,8 +705,8 @@ export default function App() {
   };
 
   return (
-    <div className="despensa-shell">
-      <Sidebar
+    <div className={`despensa-shell${sidebarVisible ? "" : " despensa-shell--sidebar-hidden"}`}>
+      {sidebarVisible && <Sidebar
         tab={tab}
         setTab={seleccionarTab}
         listCount={(ordenesCompra.find((o) => o.estado === "Borrador")?.items || []).length}
@@ -697,7 +715,7 @@ export default function App() {
         onToggleTheme={toggleTheme}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
-      />
+      />}
       <BottomNav
         tab={tab}
         setTab={seleccionarTab}
@@ -740,6 +758,16 @@ export default function App() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="despensa-sidebar-visibility-toggle despensa-desktop-only"
+                onClick={() => setSidebarVisible((visible) => !visible)}
+                title={sidebarVisible ? "Ocultar menú lateral" : "Mostrar menú lateral"}
+                aria-label={sidebarVisible ? "Ocultar menú lateral" : "Mostrar menú lateral"}
+                aria-pressed={sidebarVisible}
+              >
+                {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+              </button>
               {tab === "catalogo" && (
                 <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
                   {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo

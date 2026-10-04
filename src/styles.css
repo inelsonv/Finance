@@ -145,6 +145,29 @@ button:hover {
   margin: 0 auto;
 }
 
+.despensa-shell--sidebar-hidden {
+  max-width: 1120px;
+}
+
+.despensa-sidebar-visibility-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.despensa-sidebar-visibility-toggle:hover {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+
 .despensa-sidebar {
   width: 200px;
   flex-shrink: 0;
