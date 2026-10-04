@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge } from "lucide-react";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Sparkles } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 
-export default function Configuracion({ theme, onToggleTheme, user, onSignOut, categoriasGasto }) {
+export default function Configuracion({ theme, onToggleTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante }) {
   const [emailConfig, setEmailConfig] = useState(undefined);
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
@@ -416,6 +416,20 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
           >
             <Moon size={14} /> Oscuro
           </button>
+        </div>
+      </Section>
+
+      <Section icon={Sparkles} title="Asistente flotante en escritorio">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 4 }}>
+              {asistenteFlotanteActivo ? "Botón flotante activado" : "Botón flotante desactivado"}
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+              Muestra el acceso al asistente en la esquina inferior de la versión web. El menú móvil seguirá disponible.
+            </div>
+          </div>
+          <Switch checked={asistenteFlotanteActivo} onChange={onToggleAsistenteFlotante} />
         </div>
       </Section>
 

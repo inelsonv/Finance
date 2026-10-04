@@ -62,6 +62,7 @@ import NotificacionesPage from "./components/NotificacionesPage.jsx";
 
 const THEME_KEY = "smart-finance-theme";
 const SIDEBAR_KEY = "smart-finance-sidebar-collapsed";
+const ASISTENTE_FLOTANTE_KEY = "smart-finance-asistente-flotante";
 
 const TITLES = {
   inicio: "Inicio",
@@ -116,6 +117,14 @@ function getInitialCollapsed() {
     return localStorage.getItem(SIDEBAR_KEY) === "1";
   } catch (e) {
     return false;
+  }
+}
+
+function getInitialAsistenteFlotante() {
+  try {
+    return localStorage.getItem(ASISTENTE_FLOTANTE_KEY) !== "0";
+  } catch (e) {
+    return true;
   }
 }
 
@@ -203,6 +212,7 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialCollapsed);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showAsistenteFlotante, setShowAsistenteFlotante] = useState(false);
+  const [asistenteFlotanteActivo, setAsistenteFlotanteActivo] = useState(getInitialAsistenteFlotante);
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
@@ -223,6 +233,15 @@ export default function App() {
   }, [sidebarCollapsed]);
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const cambiarAsistenteFlotante = (activo) => {
+    setAsistenteFlotanteActivo(activo);
+    if (!activo) setShowAsistenteFlotante(false);
+    try {
+      localStorage.setItem(ASISTENTE_FLOTANTE_KEY, activo ? "1" : "0");
+    } catch (e) {
+      // El ajuste sigue aplicado durante esta sesión aunque no se pueda guardar.
+    }
+  };
 
   useEffect(() => {
     if (!showAsistenteFlotante) return undefined;
@@ -1021,11 +1040,11 @@ export default function App() {
         )}
         {tab === "ordenes-compra" && <OrdenesCompra ordenes={ordenesCompra} products={products} entidades={entidades} categoriasGasto={categoriasGasto} />}
         {tab === "configuracion" && (
-          <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} categoriasGasto={categoriasGasto} />
+          <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} categoriasGasto={categoriasGasto} asistenteFlotanteActivo={asistenteFlotanteActivo} onToggleAsistenteFlotante={cambiarAsistenteFlotante} />
         )}
         {tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
       </main>
-      {tab !== "asistente" && (
+      {asistenteFlotanteActivo && tab !== "asistente" && (
         <div className="despensa-asistente-flotante">
           {showAsistenteFlotante && (
             <section className="despensa-asistente-ventana" aria-label="Asistente financiero">
