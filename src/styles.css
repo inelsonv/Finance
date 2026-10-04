@@ -40,6 +40,75 @@ body {
   transition: background-color 0.15s ease;
 }
 
+.despensa-loading-screen {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 24px;
+  background: var(--paper);
+}
+
+.despensa-loading-content {
+  display: flex;
+  width: min(100%, 320px);
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.despensa-loading-title {
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.despensa-loading-track {
+  position: relative;
+  width: min(100%, 240px);
+  height: 7px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--line-soft);
+}
+
+.despensa-loading-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  border-radius: inherit;
+  background: var(--sage);
+  animation: despensa-loading-progress 1.25s ease-in-out infinite;
+}
+
+.despensa-loading-caption {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+@keyframes despensa-loading-progress {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(270%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .despensa-loading-indicator {
+    animation: none;
+    transform: translateX(80%);
+  }
+}
+
 * {
   box-sizing: border-box;
   scrollbar-width: thin;

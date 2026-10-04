@@ -661,8 +661,14 @@ export default function App() {
 
   if (loading) {
     return (
-      <div style={{ padding: "3rem 1rem", textAlign: "center", color: "var(--ink-soft)" }}>
-        Cargando Smart Finance…
+      <div className="despensa-loading-screen">
+        <div className="despensa-loading-content">
+          <div className="despensa-tab-font despensa-loading-title">Cargando Smart Finance</div>
+          <div className="despensa-loading-track" role="progressbar" aria-label="Cargando Smart Finance" aria-valuetext="Cargando">
+            <span className="despensa-loading-indicator" />
+          </div>
+          <div className="despensa-loading-caption">Preparando tus datos…</div>
+        </div>
       </div>
     );
   }
