@@ -181,6 +181,14 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
 
   const xFor = (i) => padL + (i / Math.max(currentMonth - 1, 1)) * plotW;
   const yFor = (v) => padT + plotH - (v / maxVal) * plotH;
+  const puntosDeMayorGasto = new Set(
+    series
+      .flatMap((s) => s.values.map((value, monthIndex) => ({ category: s.category, monthIndex, value })))
+      .filter((point) => point.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 3)
+      .map((point) => `${point.category}:${point.monthIndex}`),
+  );
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -227,9 +235,21 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
           return (
             <g key={s.category}>
               <polyline points={points} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-              {s.values.map((v, i) => (
-                <circle key={i} cx={xFor(i)} cy={yFor(v)} r={2.5} fill={color} />
-              ))}
+              {s.values.map((v, i) => {
+                const esPico = puntosDeMayorGasto.has(`${s.category}:${i}`);
+                return (
+                  <circle
+                    key={i}
+                    className={esPico ? "despensa-gasto-punto-pico" : undefined}
+                    cx={xFor(i)}
+                    cy={yFor(v)}
+                    r={esPico ? 4 : 2.5}
+                    fill={color}
+                  >
+                    <title>{`${s.category} · ${MESES[i]}: ${formatMoney(v)}`}</title>
+                  </circle>
+                );
+              })}
             </g>
           );
         })}
