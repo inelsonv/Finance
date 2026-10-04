@@ -2780,6 +2780,32 @@ export async function agregarItemABorrador(ordenBorrador, { productId, productNa
   return ordenBorrador.id;
 }
 
+export async function agregarItemsABorrador(ordenBorrador, productos) {
+  const nuevosProductos = (productos || []).map((producto) => ({
+    productId: producto.productId,
+    productName: producto.productName || "",
+    cantidad: Number(producto.cantidad) || 1,
+    precioUnitario: producto.precioUnitario ?? null,
+  }));
+  if (!nuevosProductos.length) return null;
+  if (!ordenBorrador) {
+    const { id } = await addOrdenCompra({ items: nuevosProductos });
+    return id;
+  }
+
+  const items = [...(ordenBorrador.items || [])];
+  for (const nuevo of nuevosProductos) {
+    const indice = items.findIndex((item) => item.productId === nuevo.productId);
+    if (indice >= 0) {
+      items[indice] = { ...items[indice], cantidad: (Number(items[indice].cantidad) || 0) + nuevo.cantidad };
+    } else {
+      items.push(nuevo);
+    }
+  }
+  await updateOrdenCompra(ordenBorrador.id, { items });
+  return ordenBorrador.id;
+}
+
 export async function updateOrdenCompra(id, fields) {
   await updateDoc(doc(db, "ordenesCompra", id), fields);
 }

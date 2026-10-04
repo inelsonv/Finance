@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine, Link as LinkIcon } from "lucide-react";
 import {
   addProduct,
@@ -6,6 +6,7 @@ import {
   updateProductPrice,
   updateProducto,
   agregarItemABorrador,
+  agregarItemsABorrador,
   uploadProductImage,
   uploadProductImageFromUrl,
   removeProductImage,
@@ -122,6 +123,10 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const [showScanner, setShowScanner] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
   const [scanMsg, setScanMsg] = useState(null);
+  const [productosSeleccionados, setProductosSeleccionados] = useState(() => new Set());
+  const [ordenSeleccionadaId, setOrdenSeleccionadaId] = useState("");
+  const [agregandoSeleccionados, setAgregandoSeleccionados] = useState(false);
+  const [errorSeleccion, setErrorSeleccion] = useState(null);
   const formFileRef = useRef(null);
   const rowFileRefs = useRef({});
 
@@ -134,6 +139,21 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
     [ordenesCompra]
   );
 
+  const ordenesAbiertas = useMemo(
+    () => (ordenesCompra || []).filter((orden) => orden.estado !== "Completada" && orden.estado !== "Cancelada"),
+    [ordenesCompra]
+  );
+  const productosMarcados = useMemo(
+    () => products.filter((product) => productosSeleccionados.has(product.id)),
+    [products, productosSeleccionados]
+  );
+
+  useEffect(() => {
+    if (!ordenesAbiertas.some((orden) => orden.id === ordenSeleccionadaId)) {
+      setOrdenSeleccionadaId(ordenesAbiertas[0]?.id || "");
+    }
+  }, [ordenesAbiertas, ordenSeleccionadaId]);
+
   const sugerencias = useMemo(() => {
     const productIds = new Set(products.map((p) => p.id));
     return calcularSugerenciasRecompra(historialCompras || [])
@@ -145,6 +165,42 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
     await agregarItemABorrador(ordenVigente, { productId: product.id, productName: product.name, precioUnitario: product.price });
     setAgregadoId(product.id);
     setTimeout(() => setAgregadoId(null), 1500);
+  };
+
+  const alternarSeleccionProducto = (productId) => {
+    setErrorSeleccion(null);
+    setProductosSeleccionados((prev) => {
+      const siguiente = new Set(prev);
+      if (siguiente.has(productId)) siguiente.delete(productId);
+      else siguiente.add(productId);
+      return siguiente;
+    });
+  };
+
+  const agregarSeleccionAOrden = async () => {
+    if (!productosMarcados.length || agregandoSeleccionados) return;
+    const ordenDestino = ordenesAbiertas.find((orden) => orden.id === ordenSeleccionadaId) || null;
+    if (ordenesAbiertas.length > 0 && !ordenDestino) {
+      setErrorSeleccion("Selecciona una orden abierta para continuar.");
+      return;
+    }
+    setAgregandoSeleccionados(true);
+    setErrorSeleccion(null);
+    try {
+      const items = productosMarcados.map((product) => ({
+        productId: product.id,
+        productName: product.name,
+        cantidad: 1,
+        precioUnitario: product.price ?? null,
+      }));
+      await agregarItemsABorrador(ordenDestino, items);
+      setProductosSeleccionados(new Set());
+      if (onNavigate) onNavigate("ordenes-compra");
+    } catch (err) {
+      setErrorSeleccion(err.message || "No se pudieron agregar los productos a la orden.");
+    } finally {
+      setAgregandoSeleccionados(false);
+    }
   };
 
   const agregarSugerenciaACompra = async (sugerencia) => {
@@ -354,6 +410,56 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
               <ShoppingCart size={12} /> Ver orden de compra
             </button>
           )}
+        </div>
+      )}
+
+      {productosMarcados.length > 0 && (
+        <div className="despensa-catalogo-seleccion-barra">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+              {productosMarcados.length} producto{productosMarcados.length === 1 ? "" : "s"} seleccionado{productosMarcados.length === 1 ? "" : "s"}
+            </div>
+            <div className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 3 }}>
+              Total estimado: ${productosMarcados.reduce((total, product) => total + (Number(product.price) || 0), 0).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+          {ordenesAbiertas.length > 0 && ordenesAbiertas.length > 1 && (
+            <select
+              aria-label="Orden de compra abierta"
+              value={ordenSeleccionadaId}
+              onChange={(event) => setOrdenSeleccionadaId(event.target.value)}
+              style={{ minWidth: 150, maxWidth: 210, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", color: "var(--ink)", fontSize: 12 }}
+            >
+              {ordenesAbiertas.map((orden) => (
+                <option key={orden.id} value={orden.id}>
+                  {orden.folio} · {orden.estado}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            type="button"
+            onClick={agregarSeleccionAOrden}
+            disabled={agregandoSeleccionados}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "9px 13px", border: "none", borderRadius: 9, background: "var(--sage)", color: "#fff", fontWeight: 600, fontSize: 12, cursor: agregandoSeleccionados ? "wait" : "pointer", whiteSpace: "nowrap" }}
+          >
+            <ShoppingCart size={14} />
+            {agregandoSeleccionados
+              ? "Agregando…"
+              : ordenesAbiertas.length > 0
+                ? `Agregar a ${ordenesAbiertas.find((orden) => orden.id === ordenSeleccionadaId)?.folio || "la orden"}`
+                : "Crear orden de compra"}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setProductosSeleccionados(new Set()); setErrorSeleccion(null); }}
+            aria-label="Limpiar selección"
+            title="Limpiar selección"
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, flexShrink: 0, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
+          >
+            <X size={15} />
+          </button>
+          {errorSeleccion && <div role="alert" style={{ flexBasis: "100%", fontSize: 11.5, color: "var(--stamp)" }}>{errorSeleccion}</div>}
         </div>
       )}
 
@@ -758,17 +864,26 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
             gap: 12,
           }}
         >
-          {filtered.map((p) => (
+          {filtered.map((p) => {
+            const seleccionado = productosSeleccionados.has(p.id);
+            return (
             <div
               key={p.id}
               data-record-id={p.id}
+              onClick={(event) => {
+                if (urlPickerId === p.id || event.target.closest("button, input, select, textarea, a")) return;
+                alternarSeleccionProducto(p.id);
+              }}
+              title="Haz clic para seleccionar este producto"
               style={{
-                background: "var(--card)",
-                border: "1px solid var(--line)",
+                background: seleccionado ? "var(--sage-bg)" : "var(--card)",
+                border: seleccionado ? "2px solid var(--sage)" : "1px solid var(--line)",
                 borderRadius: 12,
                 overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
+                cursor: "pointer",
+                boxShadow: seleccionado ? "0 0 0 2px var(--sage-bg)" : "none",
               }}
             >
               <div style={{ position: "relative" }}>
@@ -803,6 +918,15 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                   }}
                 >
                   {!p.imageUrl && <ImageIcon size={26} />}
+                </button>
+                <button
+                  type="button"
+                  aria-label={seleccionado ? `Quitar ${p.name} de la selección` : `Seleccionar ${p.name}`}
+                  aria-pressed={seleccionado}
+                  onClick={(event) => { event.stopPropagation(); alternarSeleccionProducto(p.id); }}
+                  style={{ position: "absolute", top: 6, left: 6, zIndex: 2, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", border: seleccionado ? "1px solid var(--sage)" : "1px solid var(--line)", borderRadius: 8, background: seleccionado ? "var(--sage)" : "var(--paper)", color: seleccionado ? "#fff" : "var(--ink-soft)", boxShadow: "0 1px 6px rgba(0,0,0,0.2)", cursor: "pointer" }}
+                >
+                  {seleccionado ? <Check size={16} /> : <span style={{ width: 12, height: 12, border: "1px solid currentColor", borderRadius: 3 }} />}
                 </button>
                 <button
                   type="button"
@@ -1033,7 +1157,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                 })()}
               </div>
             </div>
-          ))}
+          ); })}
         </div>
       )}
 
