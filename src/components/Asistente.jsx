@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Sparkles, Loader2, Plus } from "lucide-react";
+import { Send, Sparkles, Loader2, Plus, X } from "lucide-react";
 import { crearAsistenteChat, guardarAsistenteChat, preguntarAsistente, watchAsistenteChat, watchAsistenteChats, watchPresupuestosHistoricos } from "../lib/db";
 import { construirResumenFinanciero } from "../lib/resumenFinanciero";
 
@@ -11,7 +11,7 @@ const SUGERENCIAS = [
   "¿Me estoy pasando del presupuesto en algo?",
 ];
 
-export default function Asistente({ movimientos, presupuesto, presupuestoYear, prestamos, tarjetas, cuentas, fuentesIngreso, puntos, diasCobro, categoriasGasto, checklistTodos, membresias, contratos, activos, metasAhorro, seguros, ingresosPuntuales, eventos }) {
+export default function Asistente({ movimientos, presupuesto, presupuestoYear, prestamos, tarjetas, cuentas, fuentesIngreso, puntos, diasCobro, categoriasGasto, checklistTodos, membresias, contratos, activos, metasAhorro, seguros, ingresosPuntuales, eventos, onClose }) {
   const [mensajes, setMensajes] = useState([]);
   const [chats, setChats] = useState([]);
   const [chatId, setChatId] = useState(null);
@@ -164,10 +164,21 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
             }
           }}
           disabled={enviando}
-          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, border: "1px solid var(--line)", borderRadius: 9, background: "var(--card)", color: "var(--ink-soft)", padding: "6px 9px", cursor: "pointer", fontSize: 12 }}
+          style={{ marginLeft: onClose ? 0 : "auto", display: "flex", alignItems: "center", gap: 5, border: "1px solid var(--line)", borderRadius: 9, background: "var(--card)", color: "var(--ink-soft)", padding: "6px 9px", cursor: "pointer", fontSize: 12 }}
         >
           <Plus size={14} /> Nuevo chat
         </button>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar asistente"
+            title="Cerrar"
+            style={{ marginLeft: "auto", display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
+          >
+            <X size={15} />
+          </button>
+        )}
       </div>
 
       {chats.length > 0 && (

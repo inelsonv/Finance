@@ -18,7 +18,7 @@ import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
 import MobileMenu from "./components/MobileMenu.jsx";
 import PullToRefresh from "./components/PullToRefresh.jsx";
-import { Menu, Trophy } from "lucide-react";
+import { Menu, Trophy, Sparkles, X } from "lucide-react";
 import Catalogo from "./components/Catalogo.jsx";
 import Compras from "./components/Compras.jsx";
 import Finanzas from "./components/Finanzas.jsx";
@@ -202,6 +202,7 @@ export default function App() {
   const [theme, setTheme] = useState(getInitialTheme);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialCollapsed);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showAsistenteFlotante, setShowAsistenteFlotante] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
@@ -222,6 +223,15 @@ export default function App() {
   }, [sidebarCollapsed]);
 
   const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+
+  useEffect(() => {
+    if (!showAsistenteFlotante) return undefined;
+    const cerrarConEscape = (event) => {
+      if (event.key === "Escape") setShowAsistenteFlotante(false);
+    };
+    window.addEventListener("keydown", cerrarConEscape);
+    return () => window.removeEventListener("keydown", cerrarConEscape);
+  }, [showAsistenteFlotante]);
 
   useEffect(() => {
     if (!highlightId) return;
@@ -636,6 +646,27 @@ export default function App() {
     );
   }
 
+  const asistenteProps = {
+    movimientos,
+    presupuesto: presupuestoAnual,
+    presupuestoYear,
+    prestamos,
+    tarjetas,
+    cuentas,
+    fuentesIngreso,
+    puntos,
+    diasCobro,
+    categoriasGasto,
+    checklistTodos,
+    membresias,
+    contratos,
+    activos,
+    metasAhorro,
+    seguros,
+    ingresosPuntuales,
+    eventos,
+  };
+
   return (
     <div className="despensa-shell">
       <Sidebar
@@ -825,26 +856,7 @@ export default function App() {
           />
         )}
         {tab === "asistente" && (
-          <Asistente
-            movimientos={movimientos}
-            presupuesto={presupuestoAnual}
-            presupuestoYear={presupuestoYear}
-            prestamos={prestamos}
-            tarjetas={tarjetas}
-            cuentas={cuentas}
-            fuentesIngreso={fuentesIngreso}
-            puntos={puntos}
-            diasCobro={diasCobro}
-            categoriasGasto={categoriasGasto}
-            checklistTodos={checklistTodos}
-            membresias={membresias}
-            contratos={contratos}
-            activos={activos}
-            metasAhorro={metasAhorro}
-            seguros={seguros}
-            ingresosPuntuales={ingresosPuntuales}
-            eventos={eventos}
-          />
+          <Asistente {...asistenteProps} />
         )}
         {tab === "mapa-progreso" && (
           <MapaProgreso
@@ -1013,6 +1025,25 @@ export default function App() {
         )}
         {tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
       </main>
+      {tab !== "asistente" && (
+        <div className="despensa-asistente-flotante">
+          {showAsistenteFlotante && (
+            <section className="despensa-asistente-ventana" aria-label="Asistente financiero">
+              <Asistente {...asistenteProps} onClose={() => setShowAsistenteFlotante(false)} />
+            </section>
+          )}
+          <button
+            type="button"
+            className="despensa-asistente-boton"
+            onClick={() => setShowAsistenteFlotante((abierto) => !abierto)}
+            aria-label={showAsistenteFlotante ? "Cerrar asistente" : "Abrir asistente financiero"}
+            aria-expanded={showAsistenteFlotante}
+            title="Asistente financiero"
+          >
+            {showAsistenteFlotante ? <X size={21} /> : <Sparkles size={22} />}
+          </button>
+        </div>
+      )}
       <ConfirmDialogHost />
       {showMobileMenu && <MobileMenu tab={tab} setTab={seleccionarTab} onClose={() => setShowMobileMenu(false)} onSignOut={() => signOut(auth)} />}
       {showVersiculoModal && versiculoHoy && (

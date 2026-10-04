@@ -238,7 +238,60 @@ button:hover {
   max-height: none !important;
 }
 
+.despensa-asistente-flotante {
+  position: fixed;
+  z-index: 180;
+  right: max(20px, calc((100vw - 960px) / 2 + 20px));
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.despensa-asistente-boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--sage);
+  border-radius: 50%;
+  background: var(--sage);
+  color: #fff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.despensa-asistente-boton:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 11px 32px rgba(0, 0, 0, 0.3);
+}
+
+.despensa-asistente-ventana {
+  width: min(390px, calc(100vw - 32px));
+  height: min(620px, calc(100dvh - 112px));
+  min-height: 300px;
+  padding: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.32);
+}
+
+.despensa-asistente-ventana .despensa-asistente {
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0;
+}
+
 @media (max-width: 640px) {
+  .despensa-asistente-flotante {
+    display: none;
+  }
   .despensa-shell {
     flex-direction: column;
   }
