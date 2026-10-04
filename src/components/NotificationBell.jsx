@@ -671,7 +671,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
               height: 16,
               padding: "0 3px",
               borderRadius: 10,
-              background: "var(--stamp)",
+              background: "#e53935",
               color: "#fff",
               fontSize: 9.5,
               fontWeight: 700,
