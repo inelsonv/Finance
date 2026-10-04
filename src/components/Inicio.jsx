@@ -151,6 +151,8 @@ function SelectorAnio({ year, setYear, anioActual }) {
 
 function GastosPorMesChart({ movimientos, year, setYear }) {
   const [hoveredMonth, setHoveredMonth] = useState(null);
+  const hoverTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(hoverTimerRef.current), []);
   const anioActual = new Date().getFullYear();
   const esAnioActual = year === anioActual;
   const currentMonth = esAnioActual ? new Date().getMonth() + 1 : 12; // 1-12
@@ -208,9 +210,26 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
       .sort((a, b) => b.amount - a.amount);
   const totalMesHover = gastosPorMes.reduce((sum, item) => sum + item.amount, 0);
 
+  const cancelarTooltipMes = () => {
+    clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = null;
+  };
+  const programarTooltipMes = (monthIndex) => {
+    cancelarTooltipMes();
+    setHoveredMonth(null);
+    hoverTimerRef.current = setTimeout(() => {
+      setHoveredMonth(monthIndex);
+      hoverTimerRef.current = null;
+    }, 1000);
+  };
+  const limpiarTooltipMes = () => {
+    cancelarTooltipMes();
+    setHoveredMonth(null);
+  };
+
 
   return (
-    <div onMouseLeave={() => setHoveredMonth(null)}>
+    <div onMouseLeave={limpiarTooltipMes}>
       <div style={{ overflowX: "auto" }}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
@@ -304,7 +323,8 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
               fill="transparent"
               pointerEvents="all"
               style={{ cursor: "crosshair" }}
-              onMouseEnter={() => setHoveredMonth(monthIndex)}
+              onMouseEnter={() => programarTooltipMes(monthIndex)}
+              onMouseLeave={cancelarTooltipMes}
             />
           );
         })}
