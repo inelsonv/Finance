@@ -150,7 +150,8 @@ function SelectorAnio({ year, setYear, anioActual }) {
 }
 
 function GastosPorMesChart({ movimientos, year, setYear }) {
-  const [hoveredMonth, setHoveredMonth] = useState(null);
+  const [activeMonth, setActiveMonth] = useState(null);
+  const [tooltipMonth, setTooltipMonth] = useState(null);
   const hoverTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(hoverTimerRef.current), []);
   const anioActual = new Date().getFullYear();
@@ -202,10 +203,10 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
       .slice(0, 3)
       .map((point) => `${point.category}:${point.monthIndex}`),
   );
-  const gastosPorMes = hoveredMonth == null
+  const gastosPorMes = tooltipMonth == null
     ? []
     : series
-      .map((s, si) => ({ category: s.category, amount: s.values[hoveredMonth] || 0, color: LINE_COLORS[si % LINE_COLORS.length] }))
+      .map((s, si) => ({ category: s.category, amount: s.values[tooltipMonth] || 0, color: LINE_COLORS[si % LINE_COLORS.length] }))
       .filter((item) => item.amount > 0)
       .sort((a, b) => b.amount - a.amount);
   const totalMesHover = gastosPorMes.reduce((sum, item) => sum + item.amount, 0);
@@ -216,20 +217,22 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
   };
   const programarTooltipMes = (monthIndex) => {
     cancelarTooltipMes();
-    setHoveredMonth(null);
+    setActiveMonth(monthIndex);
+    setTooltipMonth(null);
     hoverTimerRef.current = setTimeout(() => {
-      setHoveredMonth(monthIndex);
+      setTooltipMonth(monthIndex);
       hoverTimerRef.current = null;
-    }, 1000);
+    }, 1200);
   };
   const limpiarTooltipMes = () => {
     cancelarTooltipMes();
-    setHoveredMonth(null);
+    setActiveMonth(null);
+    setTooltipMonth(null);
   };
 
 
   return (
-    <div onMouseLeave={limpiarTooltipMes}>
+    <div className="despensa-chart-hover-area" onMouseLeave={limpiarTooltipMes}>
       <div style={{ overflowX: "auto" }}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
@@ -297,10 +300,10 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
             </g>
           );
         })}
-        {hoveredMonth != null && (
+        {activeMonth != null && (
           <line
-            x1={xFor(hoveredMonth)}
-            x2={xFor(hoveredMonth)}
+            x1={xFor(activeMonth)}
+            x2={xFor(activeMonth)}
             y1={padT}
             y2={padT + plotH}
             stroke="var(--amber)"
@@ -330,13 +333,13 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
         })}
       </svg>
       </div>
-      {hoveredMonth != null && (
+      {tooltipMonth != null && (
         <div
           className="despensa-chart-tooltip"
           role="tooltip"
         >
           <div className="despensa-chart-tooltip__header">
-            <span>{MESES[hoveredMonth]} {year}</span>
+            <span>{MESES[tooltipMonth]} {year}</span>
             <strong className="despensa-mono">{formatMoney(totalMesHover)}</strong>
           </div>
           <div className="despensa-chart-tooltip__list">
