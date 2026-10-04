@@ -578,6 +578,21 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
   const firma = (n) => `${n.id}:${n.dias}`;
   const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));
 
+  useEffect(() => {
+    // La insignia del sistema está disponible principalmente cuando la PWA
+    // está instalada (por ejemplo, como app de escritorio en Chrome o Edge).
+    if (typeof navigator === "undefined") return;
+    try {
+      if (noLeidas.length > 0 && typeof navigator.setAppBadge === "function") {
+        Promise.resolve(navigator.setAppBadge(noLeidas.length)).catch(() => {});
+      } else if (noLeidas.length === 0 && typeof navigator.clearAppBadge === "function") {
+        Promise.resolve(navigator.clearAppBadge()).catch(() => {});
+      }
+    } catch (e) {
+      // El navegador puede no tener soporte para insignias de aplicaciones.
+    }
+  }, [noLeidas.length]);
+
   const marcarLeida = (n) => {
     setLeidas((prev) => {
       const nuevo = new Set(prev);
