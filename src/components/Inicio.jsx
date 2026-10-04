@@ -2,12 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { fetchInflacionRD } from "../lib/inflacionRD";
 import { confirm } from "../lib/confirm";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
+import { iconoParaCategoria } from "../lib/categoriaIconos";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -105,6 +106,13 @@ const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "O
 const LINE_COLORS = [
   "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a", "#4a8a8a",
 ];
+const ICONOS_CATEGORIA_GASTO = {
+  fuel: Fuel, parking: SquareParking, utensils: UtensilsCrossed, coffee: Coffee, dumbbell: Dumbbell,
+  church: Church, wrench: Wrench, car: Car, landmark: Banknote, scissors: Scissors, heartpulse: HeartPulse,
+  stethoscope: Stethoscope, pill: Pill, repeat: Repeat, creditcard: CreditCard, wifi: Wifi, home: Home,
+  shoppingbag: ShoppingBag, shirt: Shirt, graduationcap: GraduationCap, baby: Baby, dog: Dog, gift: Gift,
+  plane: Plane, bus: Bus, music: Music, film: Film, gamepad: Gamepad2, book: BookOpen, receipt: Receipt,
+};
 
 function SelectorAnio({ year, setYear, anioActual }) {
   const esAnioActual = year === anioActual;
@@ -142,6 +150,9 @@ function SelectorAnio({ year, setYear, anioActual }) {
 }
 
 function GastosPorMesChart({ movimientos, year, setYear }) {
+  const chartRef = useRef(null);
+  const [hoveredMonth, setHoveredMonth] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ left: 12, top: 12 });
   const anioActual = new Date().getFullYear();
   const esAnioActual = year === anioActual;
   const currentMonth = esAnioActual ? new Date().getMonth() + 1 : 12; // 1-12
@@ -191,10 +202,35 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
       .slice(0, 3)
       .map((point) => `${point.category}:${point.monthIndex}`),
   );
+  const gastosPorMes = hoveredMonth == null
+    ? []
+    : series
+      .map((s, si) => ({ category: s.category, amount: s.values[hoveredMonth] || 0, color: LINE_COLORS[si % LINE_COLORS.length] }))
+      .filter((item) => item.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+  const totalMesHover = gastosPorMes.reduce((sum, item) => sum + item.amount, 0);
+
+  const actualizarTooltipMes = (event, monthIndex) => {
+    setHoveredMonth(monthIndex);
+    const bounds = chartRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const widthTooltip = Math.min(280, bounds.width - 16);
+    const heightTooltip = Math.min(220, bounds.height - 16);
+    const left = Math.max(8, Math.min(event.clientX - bounds.left + 14, bounds.width - widthTooltip - 8));
+    const pointerY = event.clientY - bounds.top;
+    const wantedTop = pointerY > bounds.height / 2 ? pointerY - heightTooltip - 10 : pointerY + 12;
+    const top = Math.max(8, Math.min(wantedTop, bounds.height - heightTooltip - 8));
+    setTooltipPosition({ left, top });
+  };
 
   return (
-    <div style={{ overflowX: "auto" }}>
-      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", minWidth: 300, display: "block" }}>
+    <div ref={chartRef} style={{ position: "relative" }}>
+      <div style={{ overflowX: "auto" }}>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        style={{ width: "100%", minWidth: 300, display: "block" }}
+        onMouseLeave={() => setHoveredMonth(null)}
+      >
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
           <line
             key={f}
@@ -257,14 +293,22 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
             </g>
           );
         })}
+        {hoveredMonth != null && (
+          <line
+            x1={xFor(hoveredMonth)}
+            x2={xFor(hoveredMonth)}
+            y1={padT}
+            y2={padT + plotH}
+            stroke="var(--amber)"
+            strokeWidth={1.5}
+            strokeDasharray="4 3"
+            opacity={0.9}
+            pointerEvents="none"
+          />
+        )}
         {Array.from({ length: currentMonth }).map((_, monthIndex) => {
           const left = monthIndex === 0 ? padL : (xFor(monthIndex - 1) + xFor(monthIndex)) / 2;
           const right = monthIndex === currentMonth - 1 ? width - padR : (xFor(monthIndex) + xFor(monthIndex + 1)) / 2;
-          const detalle = series
-            .map((s) => ({ category: s.category, amount: s.values[monthIndex] || 0 }))
-            .filter((item) => item.amount > 0)
-            .sort((a, b) => b.amount - a.amount)
-            .map((item) => `${item.category}: ${formatMoney(item.amount)}`);
           return (
             <rect
               key={`detalle-${monthIndex}`}
@@ -274,12 +318,40 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
               height={plotH}
               fill="transparent"
               pointerEvents="all"
-            >
-              <title>{`${MESES[monthIndex]} · ${detalle.length ? detalle.join(" · ") : "Sin gastos registrados"}`}</title>
-            </rect>
+              style={{ cursor: "crosshair" }}
+              onMouseEnter={(event) => actualizarTooltipMes(event, monthIndex)}
+              onMouseMove={(event) => actualizarTooltipMes(event, monthIndex)}
+            />
           );
         })}
       </svg>
+      </div>
+      {hoveredMonth != null && (
+        <div
+          className="despensa-chart-tooltip"
+          role="tooltip"
+          style={{ left: tooltipPosition.left, top: tooltipPosition.top }}
+        >
+          <div className="despensa-chart-tooltip__header">
+            <span>{MESES[hoveredMonth]} {year}</span>
+            <strong className="despensa-mono">{formatMoney(totalMesHover)}</strong>
+          </div>
+          <div className="despensa-chart-tooltip__list">
+            {gastosPorMes.length ? gastosPorMes.map((item) => {
+              const IconoCategoria = ICONOS_CATEGORIA_GASTO[iconoParaCategoria(item.category)] || Receipt;
+              return (
+                <div className="despensa-chart-tooltip__row" key={item.category}>
+                  <IconoCategoria size={14} style={{ color: item.color, flexShrink: 0 }} />
+                  <span className="despensa-chart-tooltip__category">{item.category}</span>
+                  <strong className="despensa-mono">{formatMoney(item.amount)}</strong>
+                </div>
+              );
+            }) : (
+              <div className="despensa-chart-tooltip__empty">Sin gastos registrados este mes.</div>
+            )}
+          </div>
+        </div>
+      )}
       <div className="despensa-scroll-x" style={{ display: "flex", flexWrap: "nowrap", gap: "6px 14px", marginTop: 10, justifyContent: "flex-start", overflowX: "auto", overflowY: "hidden", paddingBottom: 7, whiteSpace: "nowrap" }}>
         {series.map((s, si) => (
           <span key={s.category} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--ink-soft)", flex: "0 0 auto" }}>

@@ -494,6 +494,68 @@ button:hover {
   animation: despensa-gasto-punto-latido 1.8s ease-in-out infinite;
 }
 
+.despensa-chart-tooltip {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  width: min(280px, calc(100% - 16px));
+  max-height: 220px;
+  padding: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+}
+
+.despensa-chart-tooltip__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.despensa-chart-tooltip__list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 8px;
+  overflow-y: auto;
+}
+
+.despensa-chart-tooltip__row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+}
+
+.despensa-chart-tooltip__category {
+  overflow: hidden;
+  color: var(--ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.despensa-chart-tooltip__row strong {
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.despensa-chart-tooltip__empty {
+  padding-top: 8px;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
 @keyframes despensa-gasto-punto-latido {
   0%,
   100% {
