@@ -150,9 +150,7 @@ function SelectorAnio({ year, setYear, anioActual }) {
 }
 
 function GastosPorMesChart({ movimientos, year, setYear }) {
-  const chartRef = useRef(null);
   const [hoveredMonth, setHoveredMonth] = useState(null);
-  const [tooltipPosition, setTooltipPosition] = useState({ left: 12, top: 12 });
   const anioActual = new Date().getFullYear();
   const esAnioActual = year === anioActual;
   const currentMonth = esAnioActual ? new Date().getMonth() + 1 : 12; // 1-12
@@ -210,26 +208,13 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
       .sort((a, b) => b.amount - a.amount);
   const totalMesHover = gastosPorMes.reduce((sum, item) => sum + item.amount, 0);
 
-  const actualizarTooltipMes = (event, monthIndex) => {
-    setHoveredMonth(monthIndex);
-    const bounds = chartRef.current?.getBoundingClientRect();
-    if (!bounds) return;
-    const widthTooltip = Math.min(280, bounds.width - 16);
-    const heightTooltip = Math.min(220, bounds.height - 16);
-    const left = Math.max(8, Math.min(event.clientX - bounds.left + 14, bounds.width - widthTooltip - 8));
-    const pointerY = event.clientY - bounds.top;
-    const wantedTop = pointerY > bounds.height / 2 ? pointerY - heightTooltip - 10 : pointerY + 12;
-    const top = Math.max(8, Math.min(wantedTop, bounds.height - heightTooltip - 8));
-    setTooltipPosition({ left, top });
-  };
 
   return (
-    <div ref={chartRef} style={{ position: "relative" }}>
+    <div onMouseLeave={() => setHoveredMonth(null)}>
       <div style={{ overflowX: "auto" }}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         style={{ width: "100%", minWidth: 300, display: "block" }}
-        onMouseLeave={() => setHoveredMonth(null)}
       >
         {[0, 0.25, 0.5, 0.75, 1].map((f) => (
           <line
@@ -319,8 +304,7 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
               fill="transparent"
               pointerEvents="all"
               style={{ cursor: "crosshair" }}
-              onMouseEnter={(event) => actualizarTooltipMes(event, monthIndex)}
-              onMouseMove={(event) => actualizarTooltipMes(event, monthIndex)}
+              onMouseEnter={() => setHoveredMonth(monthIndex)}
             />
           );
         })}
@@ -330,7 +314,6 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
         <div
           className="despensa-chart-tooltip"
           role="tooltip"
-          style={{ left: tooltipPosition.left, top: tooltipPosition.top }}
         >
           <div className="despensa-chart-tooltip__header">
             <span>{MESES[hoveredMonth]} {year}</span>
