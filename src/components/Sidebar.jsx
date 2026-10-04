@@ -81,6 +81,7 @@ const NAV_ITEMS = [
     icon: ShoppingCart,
     children: [
       { id: "catalogo", label: "Catálogo" },
+      { id: "recetas", label: "Sugeridor de platos" },
       { id: "ordenes-compra", label: "Órdenes de compra" },
     ],
   },

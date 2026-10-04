@@ -1,0 +1,6 @@
+{
+  "name": "Smart Finance",
+  "description": "Gestión de finanzas personales: presupuesto, movimientos, préstamos, tarjetas y más.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,10 +1,10 @@
 {
-  "id": "/Finance/",
+  "id": "/",
   "name": "Smart Finance",
   "short_name": "Smart Finance",
   "description": "Gestión de finanzas personales: presupuesto, movimientos, préstamos, tarjetas y más.",
-  "start_url": "/Finance/",
-  "scope": "/Finance/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#f6f1e4",
@@ -14,19 +14,19 @@
   "categories": ["finance", "productivity"],
   "icons": [
     {
-      "src": "/Finance/icon-192.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/Finance/icon-512.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/Finance/icon-maskable-512.png",
+      "src": "/icon-maskable-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
@@ -37,7 +37,7 @@
       "name": "Movimientos",
       "short_name": "Movimientos",
       "description": "Registrar un ingreso o gasto",
-      "url": "/Finance/"
+      "url": "/"
     }
   ]
 }

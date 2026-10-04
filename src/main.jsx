@@ -11,7 +11,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/Finance/sw.js").catch(() => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
       // si falla el registro, la app sigue funcionando normal, solo sin caché offline
     });
   });

@@ -19,6 +19,7 @@ import GlobalSearch from "./components/GlobalSearch.jsx";
 import MobileMenu from "./components/MobileMenu.jsx";
 import PullToRefresh from "./components/PullToRefresh.jsx";
 import { Menu, Trophy, Sparkles, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import SugeridorRecetas from "./components/SugeridorRecetas.jsx";
 import Catalogo from "./components/Catalogo.jsx";
 import Compras from "./components/Compras.jsx";
 import Finanzas from "./components/Finanzas.jsx";
@@ -96,6 +97,7 @@ const TITLES = {
   asistente: "Asistente",
   "mapa-progreso": "Mapa de progreso",
   "ordenes-compra": "Órdenes de compra",
+  recetas: "Sugeridor de platos",
   configuracion: "Configuración",
   "escanear-factura": "Registrar compra (factura)",
 };
@@ -958,6 +960,13 @@ export default function App() {
             onNavigate={setTab}
             categoriasGasto={categoriasGasto}
             comprasProrateadas={comprasProrateadas}
+          />
+        )}
+        {tab === "recetas" && (
+          <SugeridorRecetas
+            products={products}
+            ordenesCompra={ordenesCompra}
+            onNavigate={setTab}
           />
         )}
         {tab === "entidades" && <Entidades entidades={entidades} tiposPersonalizados={tiposEntidad} />}

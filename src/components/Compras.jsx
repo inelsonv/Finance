@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Package, ClipboardList, Sparkles, ArrowRight, ShoppingCart, ChevronDown, ChevronUp } from "lucide-react";
+import { Package, ClipboardList, Sparkles, ArrowRight, ShoppingCart, ChevronDown, ChevronUp, UtensilsCrossed } from "lucide-react";
 import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
 import Catalogo from "./Catalogo.jsx";
 
@@ -63,6 +63,12 @@ export default function Compras({ products, ordenesCompra, historialCompras, onN
           style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 12.5, fontWeight: 500, background: "var(--card)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
         >
           <ClipboardList size={14} /> Ir a Órdenes de compra <ArrowRight size={12} />
+        </button>
+        <button
+          onClick={() => onNavigate("recetas")}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 12.5, fontWeight: 500, background: "var(--card)", color: "var(--sage)", border: "1px solid var(--sage)", borderRadius: 8, cursor: "pointer" }}
+        >
+          <UtensilsCrossed size={14} /> Sugerir platos con IA <ArrowRight size={12} />
         </button>
       </div>
 

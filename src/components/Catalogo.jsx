@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine, Link as LinkIcon } from "lucide-react";
+import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine, Link as LinkIcon, UtensilsCrossed } from "lucide-react";
 import {
   addProduct,
   deleteProduct,
@@ -521,27 +521,48 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
       )}
 
       {onNavigate && (
-        <button
-          onClick={() => onNavigate("escanear-factura")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            width: "100%",
-            padding: "11px 14px",
-            fontSize: 13.5,
-            fontWeight: 500,
-            background: "var(--ink)",
-            color: "var(--paper)",
-            border: "none",
-            borderRadius: 10,
-            cursor: "pointer",
-            marginBottom: 16,
-          }}
-        >
-          <Camera size={15} /> Registrar compra (escanear factura)
-        </button>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginBottom: 16 }}>
+          <button
+            onClick={() => onNavigate("escanear-factura")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              width: "100%",
+              padding: "11px 14px",
+              fontSize: 13,
+              fontWeight: 500,
+              background: "var(--ink)",
+              color: "var(--paper)",
+              border: "none",
+              borderRadius: 10,
+              cursor: "pointer",
+            }}
+          >
+            <Camera size={15} /> Registrar compra (escanear factura)
+          </button>
+          <button
+            onClick={() => onNavigate("recetas")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              width: "100%",
+              padding: "11px 14px",
+              fontSize: 13,
+              fontWeight: 600,
+              background: "var(--sage-bg)",
+              color: "var(--sage)",
+              border: "1px solid var(--sage)",
+              borderRadius: 10,
+              cursor: "pointer",
+            }}
+          >
+            <UtensilsCrossed size={15} /> Sugerir platos con mi despensa (IA)
+          </button>
+        </div>
       )}
 
       {sugerencias.length > 0 && (

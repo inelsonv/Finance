@@ -1,11 +1,12 @@
 import React from "react";
-import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Sparkles, Library, Map as MapIcon } from "lucide-react";
+import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Sparkles, Library, Map as MapIcon, UtensilsCrossed } from "lucide-react";
 import { confirm } from "../lib/confirm";
 
 const OPCIONES = [
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "dinero-cuentas", label: "Finanzas", icon: Coins },
   { id: "presupuesto-mensual", label: "Presupuesto", icon: Wallet },
+  { id: "recetas", label: "Sugeridor de platos", icon: UtensilsCrossed },
   { id: "deudas-pagos", label: "Pagos fijos", icon: Banknote },
   { id: "activos", label: "Activos", icon: Car },
   { id: "entidades", label: "Entidades", icon: Landmark },

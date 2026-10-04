@@ -1,5 +1,5 @@
 const CACHE_NAME = "smart-finance-v2";
-const APP_SHELL = ["/Finance/", "/Finance/index.html", "/Finance/icon.svg", "/Finance/manifest.json"];
+const APP_SHELL = ["/", "/index.html", "/icon.svg", "/manifest.json"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -29,6 +29,6 @@ self.addEventListener("fetch", (event) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone)).catch(() => {});
         return res;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/Finance/index.html")))
+      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/index.html")))
   );
 });
