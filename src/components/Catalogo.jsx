@@ -5,6 +5,7 @@ import {
   deleteProduct,
   updateProductPrice,
   updateProducto,
+  addOrdenCompra,
   agregarItemABorrador,
   agregarItemsABorrador,
   uploadProductImage,
@@ -126,6 +127,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const [productosSeleccionados, setProductosSeleccionados] = useState(() => new Set());
   const [ordenSeleccionadaId, setOrdenSeleccionadaId] = useState("");
   const [agregandoSeleccionados, setAgregandoSeleccionados] = useState(false);
+  const [creandoOrdenSeleccion, setCreandoOrdenSeleccion] = useState(false);
   const [errorSeleccion, setErrorSeleccion] = useState(null);
   const formFileRef = useRef(null);
   const rowFileRefs = useRef({});
@@ -154,6 +156,10 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
     }
   }, [ordenesAbiertas, ordenSeleccionadaId]);
 
+  useEffect(() => {
+    if (!ordenesAbiertas.length) setProductosSeleccionados(new Set());
+  }, [ordenesAbiertas.length]);
+
   const sugerencias = useMemo(() => {
     const productIds = new Set(products.map((p) => p.id));
     return calcularSugerenciasRecompra(historialCompras || [])
@@ -168,6 +174,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   };
 
   const alternarSeleccionProducto = (productId) => {
+    if (!ordenesAbiertas.length) return;
     setErrorSeleccion(null);
     setProductosSeleccionados((prev) => {
       const siguiente = new Set(prev);
@@ -179,6 +186,10 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
 
   const agregarSeleccionAOrden = async () => {
     if (!productosMarcados.length || agregandoSeleccionados) return;
+    if (!ordenesAbiertas.length) {
+      setErrorSeleccion("Abre o crea una orden de compra antes de seleccionar productos.");
+      return;
+    }
     const ordenDestino = ordenesAbiertas.find((orden) => orden.id === ordenSeleccionadaId) || null;
     if (ordenesAbiertas.length > 0 && !ordenDestino) {
       setErrorSeleccion("Selecciona una orden abierta para continuar.");
@@ -200,6 +211,20 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
       setErrorSeleccion(err.message || "No se pudieron agregar los productos a la orden.");
     } finally {
       setAgregandoSeleccionados(false);
+    }
+  };
+
+  const crearOrdenParaSeleccion = async () => {
+    if (ordenesAbiertas.length || creandoOrdenSeleccion) return;
+    setCreandoOrdenSeleccion(true);
+    setErrorSeleccion(null);
+    try {
+      const orden = await addOrdenCompra({ items: [] });
+      setScanMsg({ tipo: "ok", texto: `Se creó la orden ${orden.folio}. Ya puedes seleccionar productos del catálogo.` });
+    } catch (err) {
+      setErrorSeleccion(err.message || "No se pudo crear la orden de compra.");
+    } finally {
+      setCreandoOrdenSeleccion(false);
     }
   };
 
@@ -413,6 +438,24 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         </div>
       )}
 
+      {ordenesAbiertas.length === 0 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "11px 13px", marginBottom: 14, border: "1px solid var(--line)", borderRadius: 10, background: "var(--card)", flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 3 }}>La selección está desactivada</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Crea una orden de compra para poder marcar productos del catálogo.</div>
+            {errorSeleccion && <div role="alert" style={{ marginTop: 5, fontSize: 11.5, color: "var(--stamp)" }}>{errorSeleccion}</div>}
+          </div>
+          <button
+            type="button"
+            onClick={crearOrdenParaSeleccion}
+            disabled={creandoOrdenSeleccion}
+            style={{ display: "flex", alignItems: "center", gap: 7, padding: "8px 12px", border: "none", borderRadius: 8, background: "var(--sage)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: creandoOrdenSeleccion ? "wait" : "pointer", whiteSpace: "nowrap" }}
+          >
+            <ShoppingCart size={14} /> {creandoOrdenSeleccion ? "Creando…" : "Crear orden de compra"}
+          </button>
+        </div>
+      )}
+
       {productosMarcados.length > 0 && (
         <div className="despensa-catalogo-seleccion-barra">
           <div style={{ minWidth: 0, flex: 1 }}>
@@ -423,7 +466,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
               Total estimado: ${productosMarcados.reduce((total, product) => total + (Number(product.price) || 0), 0).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
-          {ordenesAbiertas.length > 0 && ordenesAbiertas.length > 1 && (
+            {ordenesAbiertas.length > 1 && (
             <select
               aria-label="Orden de compra abierta"
               value={ordenSeleccionadaId}
@@ -446,9 +489,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
             <ShoppingCart size={14} />
             {agregandoSeleccionados
               ? "Agregando…"
-              : ordenesAbiertas.length > 0
-                ? `Agregar a ${ordenesAbiertas.find((orden) => orden.id === ordenSeleccionadaId)?.folio || "la orden"}`
-                : "Crear orden de compra"}
+              : `Agregar a ${ordenesAbiertas.find((orden) => orden.id === ordenSeleccionadaId)?.folio || "la orden"}`}
           </button>
           <button
             type="button"
@@ -871,10 +912,11 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
               key={p.id}
               data-record-id={p.id}
               onClick={(event) => {
-                if (urlPickerId === p.id || event.target.closest("button, input, select, textarea, a")) return;
+                if (!ordenesAbiertas.length || urlPickerId === p.id || event.target.closest("button, input, select, textarea, a")) return;
                 alternarSeleccionProducto(p.id);
               }}
-              title="Haz clic para seleccionar este producto"
+              aria-disabled={!ordenesAbiertas.length}
+              title={ordenesAbiertas.length ? "Haz clic para seleccionar este producto" : "Crea una orden de compra para habilitar la selección"}
               style={{
                 background: seleccionado ? "var(--sage-bg)" : "var(--card)",
                 border: seleccionado ? "2px solid var(--sage)" : "1px solid var(--line)",
@@ -882,7 +924,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                 overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
-                cursor: "pointer",
+                cursor: ordenesAbiertas.length ? "pointer" : "default",
                 boxShadow: seleccionado ? "0 0 0 2px var(--sage-bg)" : "none",
               }}
             >
@@ -896,8 +938,12 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                 />
                 <button
                   type="button"
-                  onClick={() => rowFileRefs.current[p.id]?.click()}
-                  title={p.imageUrl ? "Cambiar foto" : "Agregar foto"}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (p.imageUrl) alternarSeleccionProducto(p.id);
+                    else rowFileRefs.current[p.id]?.click();
+                  }}
+                  title={p.imageUrl ? (ordenesAbiertas.length ? "Seleccionar producto" : "La selección requiere una orden abierta") : "Agregar foto"}
                   style={{
                     width: "100%",
                     aspectRatio: "1 / 1",
@@ -924,10 +970,22 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                   aria-label={seleccionado ? `Quitar ${p.name} de la selección` : `Seleccionar ${p.name}`}
                   aria-pressed={seleccionado}
                   onClick={(event) => { event.stopPropagation(); alternarSeleccionProducto(p.id); }}
-                  style={{ position: "absolute", top: 6, left: 6, zIndex: 2, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", border: seleccionado ? "1px solid var(--sage)" : "1px solid var(--line)", borderRadius: 8, background: seleccionado ? "var(--sage)" : "var(--paper)", color: seleccionado ? "#fff" : "var(--ink-soft)", boxShadow: "0 1px 6px rgba(0,0,0,0.2)", cursor: "pointer" }}
+                  disabled={!ordenesAbiertas.length}
+                  style={{ position: "absolute", top: 6, left: 6, zIndex: 2, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", border: seleccionado ? "1px solid var(--sage)" : "1px solid var(--line)", borderRadius: 8, background: seleccionado ? "var(--sage)" : "var(--paper)", color: seleccionado ? "#fff" : "var(--ink-soft)", boxShadow: "0 1px 6px rgba(0,0,0,0.2)", cursor: ordenesAbiertas.length ? "pointer" : "not-allowed", opacity: ordenesAbiertas.length ? 1 : 0.55 }}
                 >
                   {seleccionado ? <Check size={16} /> : <span style={{ width: 12, height: 12, border: "1px solid currentColor", borderRadius: 3 }} />}
                 </button>
+                {p.imageUrl && (
+                  <button
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); rowFileRefs.current[p.id]?.click(); }}
+                    title="Cambiar foto"
+                    aria-label={`Cambiar foto de ${p.name}`}
+                    style={{ position: "absolute", bottom: 6, left: 6, zIndex: 2, width: 24, height: 24, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.58)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                  >
+                    <Camera size={12} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={(e) => {
