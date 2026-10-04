@@ -62,7 +62,7 @@ function GaugeChart({ value, maxValue, zones, marks }) {
   const r = 88;
   const toPct = (v) => Math.max(0, Math.min((v / maxValue) * 100, 100));
   const needleAngle = -90 + toPct(value) * 1.8;
-  const needleTip = polarToCartesian(cx, cy, r - 22, needleAngle);
+  const needleTargetRotation = needleAngle - 90;
 
   return (
     <svg viewBox="0 0 220 128" style={{ width: "100%", maxWidth: 280, display: "block", margin: "0 auto" }}>
@@ -85,10 +85,12 @@ function GaugeChart({ value, maxValue, zones, marks }) {
         );
       })}
       <line
+        className="despensa-gauge-needle"
         x1={cx}
         y1={cy}
-        x2={needleTip.x}
-        y2={needleTip.y}
+        x2={cx + r - 22}
+        y2={cy}
+        style={{ "--despensa-gauge-needle-target": `${needleTargetRotation}deg` }}
         stroke="var(--ink)"
         strokeWidth={3.5}
         strokeLinecap="round"

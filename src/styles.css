@@ -473,6 +473,21 @@ button:hover {
   border-radius: 10px;
 }
 
+.despensa-gauge-needle {
+  transform-box: view-box;
+  transform-origin: 110px 108px;
+  animation: despensa-gauge-start 1.35s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+@keyframes despensa-gauge-start {
+  from {
+    transform: rotate(-180deg);
+  }
+  to {
+    transform: rotate(var(--despensa-gauge-needle-target));
+  }
+}
+
 .despensa-gasto-punto-pico {
   transform-box: fill-box;
   transform-origin: center;
@@ -492,7 +507,8 @@ button:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .despensa-gasto-punto-pico {
+  .despensa-gasto-punto-pico,
+  .despensa-gauge-needle {
     animation: none;
   }
 }
