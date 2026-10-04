@@ -111,6 +111,7 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const indiceFragmentoVozRef = useRef(0);
   const sesionVozRef = useRef(0);
   const leerDesdeClickRef = useRef(null);
+  const leerSeleccionRef = useRef(null);
   const elementoResaltadoRef = useRef(null);
   const avanzandoAutomaticamenteRef = useRef(false);
   const dragStartRef = useRef(null);
@@ -252,18 +253,25 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
         // Cuando el usuario selecciona texto en el libro, lo resalta y lo
         // guarda como marcador importante.
         rendition.on("selected", (cfiRange, contents) => {
-          if (cancelado || !libroId) return;
-          const texto = contents.window.getSelection()?.toString()?.trim();
+          if (cancelado) return;
+          const seleccion = contents.window.getSelection();
+          const texto = seleccion?.toString()?.trim();
           if (!texto) return;
-          const nuevoMarcador = { cfi: cfiRange, texto: texto.slice(0, 500), fecha: new Date().toISOString() };
-          rendition.annotations.add("highlight", cfiRange, {}, null, "epub-marcador", {
-            fill: "#f5c518",
-            "fill-opacity": "0.35",
-            "mix-blend-mode": "multiply",
-          });
-          agregarMarcadorLibro(libroId, nuevoMarcador).catch(() => {});
-          setMarcadoresLocal((prev) => [...prev, nuevoMarcador]);
-          contents.window.getSelection()?.removeAllRanges();
+          const elementoSeleccionado = seleccion?.anchorNode?.parentElement;
+          if (libroId) {
+            const nuevoMarcador = { cfi: cfiRange, texto: texto.slice(0, 500), fecha: new Date().toISOString() };
+            try {
+              rendition.annotations.add("highlight", cfiRange, {}, null, "epub-marcador", {
+                fill: "#f5c518",
+                "fill-opacity": "0.35",
+                "mix-blend-mode": "multiply",
+              });
+            } catch {}
+            agregarMarcadorLibro(libroId, nuevoMarcador).catch(() => {});
+            setMarcadoresLocal((prev) => [...prev, nuevoMarcador]);
+          }
+          leerSeleccionRef.current?.(texto, elementoSeleccionado);
+          seleccion?.removeAllRanges();
         });
 
         // "Toca para leer desde aquí": un clic simple (sin arrastrar, eso
@@ -639,6 +647,13 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
   const iniciarLecturaDeFragmentos = (fragmentos) => {
     if (!fragmentos || fragmentos.length === 0) return;
+    // Activar el contexto durante el gesto del usuario permite reproducir el
+    // audio IA aunque la descarga y la síntesis terminen unos segundos después.
+    if (motorVoz === "ia" && typeof window !== "undefined") {
+      const ContextoAudio = window.AudioContext || window.webkitAudioContext;
+      if (ContextoAudio && !contextoAudioIARef.current) contextoAudioIARef.current = new ContextoAudio();
+      if (contextoAudioIARef.current?.state === "suspended") contextoAudioIARef.current.resume().catch(() => {});
+    }
     sesionVozRef.current += 1;
     const sesionActual = sesionVozRef.current;
     window.speechSynthesis.cancel();
@@ -710,8 +725,15 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     iniciarLecturaDeFragmentos(fragmentos.slice(indiceInicio > 0 ? indiceInicio : 0));
   };
 
+  const leerTextoSeleccionado = (texto, targetEl) => {
+    const elemento = targetEl?.closest?.(SELECTOR_PARRAFO) || targetEl;
+    const oraciones = (texto.match(/[^.!?\n]+[.!?\n]*/g) || [texto]).map((parte) => parte.trim()).filter(Boolean);
+    iniciarLecturaDeFragmentos(oraciones.map((parte) => ({ texto: parte, elemento })));
+  };
+
   useEffect(() => {
     leerDesdeClickRef.current = leerDesdeClick;
+    leerSeleccionRef.current = leerTextoSeleccionado;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   });
 
