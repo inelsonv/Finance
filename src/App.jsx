@@ -869,7 +869,19 @@ export default function App() {
           </div>
         </div>
 
-        {tab === "inicio" && <Inicio prestamos={prestamos} tarjetas={tarjetas} fuentesIngreso={fuentesIngreso} movimientos={movimientos} cuentas={cuentas} presupuesto={presupuestoAnual} diasCobro={diasCobro} />}
+        {tab === "inicio" && (
+          <Inicio
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            fuentesIngreso={fuentesIngreso}
+            movimientos={movimientos}
+            cuentas={cuentas}
+            presupuesto={presupuestoAnual}
+            diasCobro={diasCobro}
+            products={products}
+            onNavigate={setTab}
+          />
+        )}
         {tab === "notificaciones" && (
           <NotificacionesPage
             prestamos={prestamos}

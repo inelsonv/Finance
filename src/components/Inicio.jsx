@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { fetchInflacionRD } from "../lib/inflacionRD";
@@ -552,53 +552,51 @@ function InflacionCard() {
   }, []);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
-            <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Inflación en RD</span>
-          </div>
-          <button
-            onClick={fetchInflacion}
-            title="Actualizar"
-            disabled={status === "loading"}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 26,
-              height: 26,
-              border: "1px solid var(--line)",
-              borderRadius: 6,
-              background: "var(--paper)",
-              color: "var(--ink-soft)",
-              cursor: status === "loading" ? "default" : "pointer",
-            }}
-          >
-            <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
-          </button>
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Inflación en RD</span>
         </div>
-
-        {status === "error" ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
-            <AlertTriangle size={15} />
-            No se pudo obtener la inflación ahora.
-          </div>
-        ) : (
-          <>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-              <span className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--sage)" }}>
-                {inflacion?.valor != null ? inflacion.valor.toFixed(2) : "—"}%
-              </span>
-              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{inflacion ? `Año ${inflacion.anio}` : "Cargando…"}</span>
-            </div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 6 }}>
-              Variación anual del IPC · Fuente: Banco Mundial
-            </div>
-          </>
-        )}
+        <button
+          onClick={fetchInflacion}
+          title="Actualizar"
+          disabled={status === "loading"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 26,
+            height: 26,
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            background: "var(--paper)",
+            color: "var(--ink-soft)",
+            cursor: status === "loading" ? "default" : "pointer",
+          }}
+        >
+          <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
+        </button>
       </div>
+
+      {status === "error" ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
+          <AlertTriangle size={15} />
+          No se pudo obtener la inflación ahora.
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+            <span className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--sage)" }}>
+              {inflacion?.valor != null ? inflacion.valor.toFixed(2) : "—"}%
+            </span>
+            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{inflacion ? `Año ${inflacion.anio}` : "Cargando…"}</span>
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 6 }}>
+            Variación anual del IPC · Fuente: Banco Mundial
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1300,6 +1298,564 @@ function StocksCard() {
 
 const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar", "clima", "inflacion", "combustible"];
 
+const RECETAS_DESTACADAS = [
+  {
+    id: "tortilla-patatas",
+    titulo: "Tortilla de Patatas Tradicional",
+    descripcion: "Esponjosa y dorada. Un clásico súper económico que aprovecha ingredientes básicos de tu despensa.",
+    tiempo: "25 min",
+    dificultad: "Fácil",
+    tipoComida: "Almuerzo o Cena",
+    terminoBusqueda: "Tortilla de patatas",
+    fallbackImg: "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?w=600&auto=format&fit=crop&q=80",
+    ingredientes: ["Huevos", "Papas", "Cebolla", "Aceite"],
+    pasos: [
+      "Pela las papas y córtalas en rodajas finas.",
+      "Sofríe las papas y la cebolla en sartén con aceite a fuego medio hasta que estén tiernas.",
+      "Bate los huevos con un toque de sal e integra las papas escurridas.",
+      "Cuaja en la sartén durante 3-4 minutos por cada lado.",
+    ],
+  },
+  {
+    id: "arroz-salteado",
+    titulo: "Arroz Salteado con Huevos y Vegetales",
+    descripcion: "Salteado express estilo wok, ideal para aprovechar arroz cocido y vegetales frescos.",
+    tiempo: "15 min",
+    dificultad: "Muy fácil",
+    tipoComida: "Almuerzo",
+    terminoBusqueda: "Arroz frito",
+    fallbackImg: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&auto=format&fit=crop&q=80",
+    ingredientes: ["Arroz", "Huevos", "Ajo", "Aceite", "Vegetales"],
+    pasos: [
+      "Calienta aceite en una sartén o wok a fuego vivo.",
+      "Saltea ajo y vegetales picados durante 3 minutos.",
+      "Agrega el arroz cocido y remueve enérgicamente.",
+      "Haz espacio en el centro, casca los huevos, revuelve hasta que cuajen e integra todo.",
+    ],
+  },
+  {
+    id: "pasta-ajillo",
+    titulo: "Pasta al Ajillo con Aceite de Oliva",
+    descripcion: "Auténtica delicia de pocos ingredientes: ajo dorado, aceite de oliva virgen y pasta al dente.",
+    tiempo: "15 min",
+    dificultad: "Fácil",
+    tipoComida: "Cena",
+    terminoBusqueda: "Spaghetti aglio e olio",
+    fallbackImg: "https://images.unsplash.com/photo-1621996346565-e3d5d62816da?w=600&auto=format&fit=crop&q=80",
+    ingredientes: ["Pasta", "Ajo", "Aceite", "Sal"],
+    pasos: [
+      "Hierve la pasta en agua con sal hasta que quede al dente.",
+      "En una sartén dora láminas de ajo en abundante aceite a fuego bajo.",
+      "Añade un par de cucharadas de agua de cocción de la pasta para ligar la salsa.",
+      "Integra la pasta escurrida en el aceite aromatizado y sirve de inmediato.",
+    ],
+  },
+  {
+    id: "shakshuka-tomate",
+    titulo: "Shakshuka de Tomate y Huevos Pochados",
+    descripcion: "Salsa espesa y aromática de tomates maduros con huevos tiernos listos para mojar pan.",
+    tiempo: "20 min",
+    dificultad: "Fácil",
+    tipoComida: "Desayuno o Cena",
+    terminoBusqueda: "Shakshuka",
+    fallbackImg: "https://images.unsplash.com/photo-1590301157890-4810ed352733?w=600&auto=format&fit=crop&q=80",
+    ingredientes: ["Huevos", "Tomates", "Cebolla", "Aceite", "Ajo"],
+    pasos: [
+      "Sofríe cebolla y ajo picado en aceite.",
+      "Agrega tomates picados con una pizca de sal y cocina hasta lograr una salsa espesa.",
+      "Haz huecos en la salsa y rompe los huevos dentro.",
+      "Tapa la sartén a fuego bajo por 4 minutos hasta que la clara cuaje y la yema quede cremosa.",
+    ],
+  },
+  {
+    id: "mangu-dominicano",
+    titulo: "Mangú con Cebollitas Salteadas",
+    descripcion: "Clásico dominicano: plátano verde majado suave con mantequilla y cebollitas al vinagre.",
+    tiempo: "20 min",
+    dificultad: "Fácil",
+    tipoComida: "Desayuno o Cena",
+    terminoBusqueda: "Mangu",
+    fallbackImg: "https://images.unsplash.com/photo-1525351484163-7529414344d8?w=600&auto=format&fit=crop&q=80",
+    ingredientes: ["Plátanos", "Mantequilla", "Cebolla", "Huevos", "Aceite"],
+    pasos: [
+      "Pela los plátanos y hiérvelos en agua con sal hasta que estén tiernos.",
+      "Maja los plátanos calientes con mantequilla y agua tibia de la cocción hasta que queden suaves.",
+      "Saltea rodajas de cebolla en aceite con un chorrito de vinagre.",
+      "Sirve el mangú cubierto con las cebollitas y acompáñalo con huevos o queso.",
+    ],
+  },
+  {
+    id: "pollo-salteado-verduras",
+    titulo: "Pechuga de Pollo Salteada con Vegetales",
+    descripcion: "Nutritivo y alto en proteínas. Trozos jugosos de pollo dorados con vegetales crujientes.",
+    tiempo: "20 min",
+    dificultad: "Media",
+    tipoComida: "Almuerzo",
+    terminoBusqueda: "Chicken stir fry",
+    fallbackImg: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=600&auto=format&fit=crop&q=80",
+    ingredientes: ["Pollo", "Cebolla", "Vegetales", "Ajo", "Aceite"],
+    pasos: [
+      "Corta la pechuga en tiras medianas y salpimienta.",
+      "Sella el pollo a fuego vivo en sartén con aceite hasta que dore.",
+      "Agrega cebolla y vegetales y saltea durante 4 minutos para mantener textura crocante.",
+      "Ajusta sal y pimienta y sirve caliente.",
+    ],
+  },
+];
+
+async function obtenerFotoWikipedia(termino) {
+  try {
+    const url = `https://es.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(termino)}&gsrlimit=1&prop=pageimages&pithumbsize=600&format=json&origin=*`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const pages = data?.query?.pages;
+    if (pages) {
+      const first = Object.values(pages)[0];
+      if (first?.thumbnail?.source) return first.thumbnail.source;
+    }
+  } catch {}
+  return null;
+}
+
+function PlatoSugeridoCard({ products = [], onNavigate }) {
+  const [indice, setIndice] = useState(0);
+  const [imagenUrl, setImagenUrl] = useState(null);
+  const [cargandoImagen, setCargandoImagen] = useState(false);
+  const [modalAbierto, setModalAbierto] = useState(false);
+
+  const listaDespensaNombres = useMemo(() => {
+    return (products || []).map((p) => (p.name || p.nombre || "").toLowerCase());
+  }, [products]);
+
+  const recetasOrdenadas = useMemo(() => {
+    return RECETAS_DESTACADAS.map((receta) => {
+      const matchCount = receta.ingredientes.filter((ing) =>
+        listaDespensaNombres.some((pName) => pName.includes(ing.toLowerCase()) || ing.toLowerCase().includes(pName))
+      ).length;
+      return { ...receta, matchCount, total: receta.ingredientes.length };
+    }).sort((a, b) => b.matchCount - a.matchCount);
+  }, [listaDespensaNombres]);
+
+  const recetaActual = recetasOrdenadas[indice % recetasOrdenadas.length] || RECETAS_DESTACADAS[0];
+
+  useEffect(() => {
+    let cancelado = false;
+    setCargandoImagen(true);
+    setImagenUrl(null);
+
+    obtenerFotoWikipedia(recetaActual.terminoBusqueda || recetaActual.titulo).then((url) => {
+      if (!cancelado) {
+        setImagenUrl(url || recetaActual.fallbackImg);
+        setCargandoImagen(false);
+      }
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [recetaActual]);
+
+  const handleSiguiente = (e) => {
+    e.stopPropagation();
+    setIndice((prev) => (prev + 1) % recetasOrdenadas.length);
+  };
+
+  const tieneTodos = recetaActual.matchCount === recetaActual.total;
+
+  return (
+    <>
+      <div
+        onClick={() => setModalAbierto(true)}
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "1.25rem",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          cursor: "pointer",
+          transition: "transform 0.15s ease, border-color 0.15s ease",
+          height: "100%",
+          minHeight: 250,
+          position: "relative",
+          overflow: "hidden",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = "var(--sage)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.borderColor = "var(--line)";
+        }}
+      >
+        {/* Cabecera */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <UtensilsCrossed size={16} style={{ color: "var(--sage)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Plato sugerido</span>
+          </div>
+          <button
+            onClick={handleSiguiente}
+            title="Sugerir otro plato"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 26,
+              height: 26,
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: "pointer",
+            }}
+          >
+            <RefreshCw size={13} />
+          </button>
+        </div>
+
+        {/* Imagen del plato adaptada al diseño */}
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            height: 125,
+            borderRadius: 8,
+            overflow: "hidden",
+            background: "var(--paper)",
+            border: "1px solid var(--line-soft)",
+            marginBottom: 10,
+          }}
+        >
+          {cargandoImagen && !imagenUrl ? (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "var(--paper)",
+                color: "var(--ink-soft)",
+              }}
+            >
+              <RefreshCw size={18} style={{ animation: "spin 0.9s linear infinite" }} />
+            </div>
+          ) : (
+            <img
+              src={imagenUrl || recetaActual.fallbackImg}
+              alt={recetaActual.titulo}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+              onError={(e) => {
+                e.target.src = recetaActual.fallbackImg;
+              }}
+            />
+          )}
+
+          {/* Gradiente sutil y etiquetas sobre la foto */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.1) 60%, transparent 100%)",
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "space-between",
+              padding: "6px 8px",
+            }}
+          >
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 600,
+                color: "#fff",
+                background: "rgba(0,0,0,0.55)",
+                backdropFilter: "blur(4px)",
+                padding: "2px 6px",
+                borderRadius: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Clock size={10} /> {recetaActual.tiempo}
+            </span>
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 600,
+                color: "#fff",
+                background: "rgba(0,0,0,0.55)",
+                backdropFilter: "blur(4px)",
+                padding: "2px 6px",
+                borderRadius: 4,
+              }}
+            >
+              {recetaActual.dificultad}
+            </span>
+          </div>
+        </div>
+
+        {/* Título y descripción */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", lineHeight: 1.25, marginBottom: 4 }}>
+              {recetaActual.titulo}
+            </div>
+            <p
+              style={{
+                fontSize: 11.5,
+                color: "var(--ink-soft)",
+                lineHeight: 1.4,
+                margin: 0,
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {recetaActual.descripcion}
+            </p>
+          </div>
+
+          {/* Estado de ingredientes de despensa y botón */}
+          <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, flexWrap: "wrap" }}>
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 600,
+                color: tieneTodos ? "var(--sage)" : "var(--amber)",
+                background: tieneTodos ? "var(--sage-bg)" : "var(--amber-bg)",
+                border: tieneTodos ? "1px solid rgba(86,171,95,0.25)" : "1px solid rgba(201,154,63,0.25)",
+                padding: "3px 7px",
+                borderRadius: 5,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              {tieneTodos ? <CheckCircle2 size={11} /> : <Sparkles size={11} />}
+              {tieneTodos ? "Ingredientes listos en despensa" : `${recetaActual.matchCount}/${recetaActual.total} en despensa`}
+            </span>
+
+            <span
+              style={{
+                fontSize: 11,
+                color: "var(--ink-soft)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 2,
+                fontWeight: 500,
+              }}
+            >
+              Ver receta →
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Modal interactivo con receta completa */}
+      {modalAbierto && (
+        <div
+          onClick={() => setModalAbierto(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.65)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 14,
+              width: "100%",
+              maxWidth: 500,
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Cabecera del modal con foto */}
+            <div style={{ position: "relative", height: 180, width: "100%", background: "var(--paper)" }}>
+              <img
+                src={imagenUrl || recetaActual.fallbackImg}
+                alt={recetaActual.titulo}
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+              <button
+                onClick={() => setModalAbierto(false)}
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  right: 10,
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  background: "rgba(0,0,0,0.65)",
+                  color: "#fff",
+                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={16} />
+              </button>
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  insetInline: 0,
+                  padding: "10px 14px",
+                  background: "linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)",
+                }}
+              >
+                <div style={{ color: "#fff", fontSize: 18, fontWeight: 700 }}>{recetaActual.titulo}</div>
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: "#fff", opacity: 0.9 }}>⏱ {recetaActual.tiempo}</span>
+                  <span style={{ fontSize: 11, color: "#fff", opacity: 0.9 }}>· {recetaActual.dificultad}</span>
+                  <span style={{ fontSize: 11, color: "#fff", opacity: 0.9 }}>· {recetaActual.tipoComida}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Contenido del modal */}
+            <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
+              <p style={{ margin: 0, fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+                {recetaActual.descripcion}
+              </p>
+
+              {/* Ingredientes */}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <ChefHat size={15} style={{ color: "var(--sage)" }} /> Ingredientes necesarios
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  {recetaActual.ingredientes.map((ing) => {
+                    const enDespensa = listaDespensaNombres.some((pName) => pName.includes(ing.toLowerCase()) || ing.toLowerCase().includes(pName));
+                    return (
+                      <div
+                        key={ing}
+                        style={{
+                          fontSize: 12,
+                          padding: "6px 8px",
+                          borderRadius: 6,
+                          background: enDespensa ? "var(--sage-bg)" : "var(--paper)",
+                          border: enDespensa ? "1px solid rgba(86,171,95,0.25)" : "1px solid var(--line)",
+                          color: enDespensa ? "var(--sage)" : "var(--ink)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span>{ing}</span>
+                        {enDespensa && <span style={{ fontSize: 10, fontWeight: 600 }}>En despensa ✓</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Pasos de preparación */}
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", marginBottom: 8 }}>
+                  Pasos de preparación
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {recetaActual.pasos.map((paso, idx) => (
+                    <div key={idx} style={{ display: "flex", gap: 8, fontSize: 12.5, lineHeight: 1.4, color: "var(--ink)" }}>
+                      <span
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          background: "var(--paper)",
+                          border: "1px solid var(--line)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          color: "var(--sage)",
+                          flexShrink: 0,
+                          marginTop: 1,
+                        }}
+                      >
+                        {idx + 1}
+                      </span>
+                      <span>{paso}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Botón de acción */}
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                {onNavigate && (
+                  <button
+                    onClick={() => {
+                      setModalAbierto(false);
+                      onNavigate("compras");
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "9px 12px",
+                      borderRadius: 8,
+                      background: "var(--sage)",
+                      color: "#fff",
+                      border: "none",
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <UtensilsCrossed size={14} /> Ver en Despensa y Recetas
+                  </button>
+                )}
+                <button
+                  onClick={() => setModalAbierto(false)}
+                  style={{
+                    padding: "9px 16px",
+                    borderRadius: 8,
+                    background: "var(--paper)",
+                    color: "var(--ink-soft)",
+                    border: "1px solid var(--line)",
+                    fontSize: 12.5,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function SortableSection({ id, isFirst, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = {
@@ -1333,7 +1889,7 @@ function SortableSection({ id, isFirst, children }) {
   );
 }
 
-export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas, presupuesto, diasCobro }) {
+export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas, presupuesto, diasCobro, products = [], onNavigate }) {
   const [orden, setOrden] = useState(SECTION_IDS_DEFAULT);
   const [gastosPorMesYear, setGastosPorMesYear] = useState(new Date().getFullYear());
 
@@ -1544,14 +2100,45 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const climaContent = <ClimaCard />;
   const inflacionContent = <InflacionCard />;
   const combustibleContent = <CombustibleCard presupuesto={presupuesto} diasCobro={diasCobro} />;
+  const platoSugeridoContent = <PlatoSugeridoCard products={products} onNavigate={onNavigate} />;
 
-  const SECTION_CONTENT = { kpis: kpisContent, acciones: accionesContent, gastos: gastosContent, dolar: dolarContent, clima: climaContent, inflacion: inflacionContent, combustible: combustibleContent };
+  // En el espacio al lado de Inflación y Combustible se presenta el plato sugerido adaptado al diseño
+  const inflacionCombustibleContent = (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", gap: 16, alignItems: "stretch" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <InflacionCard />
+        <CombustibleCard presupuesto={presupuesto} diasCobro={diasCobro} />
+      </div>
+      <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <PlatoSugeridoCard products={products} onNavigate={onNavigate} />
+      </div>
+    </div>
+  );
+
+  const SECTION_CONTENT = {
+    kpis: kpisContent,
+    acciones: accionesContent,
+    gastos: gastosContent,
+    dolar: dolarContent,
+    clima: climaContent,
+    inflacion: inflacionCombustibleContent,
+    combustible: combustibleContent,
+    platoSugerido: platoSugeridoContent,
+  };
+
+  const seccionesActivas = useMemo(() => {
+    // Si 'inflacion' está en el orden, 'combustible' y 'platoSugerido' se muestran integrados a su lado
+    if (orden.includes("inflacion")) {
+      return orden.filter((id) => id !== "combustible" && id !== "platoSugerido");
+    }
+    return orden;
+  }, [orden]);
 
   return (
     <div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={orden} strategy={verticalListSortingStrategy}>
-          {orden.map((id, i) => (
+        <SortableContext items={seccionesActivas} strategy={verticalListSortingStrategy}>
+          {seccionesActivas.map((id, i) => (
             <SortableSection key={id} id={id} isFirst={i === 0}>
               {SECTION_CONTENT[id]}
             </SortableSection>
