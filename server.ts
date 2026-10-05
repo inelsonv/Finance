@@ -302,22 +302,41 @@ app.post('/api/tts', async (req, res) => {
     const validVoices = ['Aoede', 'Charon', 'Kore', 'Fenrir', 'Puck'];
     const vozFinal = validVoices.includes(voice) ? voice : 'Aoede';
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash-lite-tts',
-      contents: textoLimpio,
-      config: {
-        responseModalities: ['AUDIO'],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: {
-              voiceName: vozFinal,
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash-lite-tts',
+        contents: textoLimpio,
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: vozFinal,
+              },
             },
           },
         },
-      },
-    });
+      });
+    } catch (errLite: any) {
+      console.warn('gemini-3.8-flash-lite-tts ocupado, reintentando con gemini-3.8-flash-tts:', errLite.message);
+      response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash-tts',
+        contents: textoLimpio,
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: vozFinal,
+              },
+            },
+          },
+        },
+      });
+    }
 
-    const part = response.candidates?.[0]?.content?.parts?.[0];
+    const part = response?.candidates?.[0]?.content?.parts?.[0];
     const inlineData = part?.inlineData;
 
     if (!inlineData?.data) {

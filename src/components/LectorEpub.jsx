@@ -559,11 +559,33 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
       // Si no hay backend (ej. en despliegue estático de GitHub Pages sin servidor),
       // se utiliza la mejor voz natural de español del navegador para garantizar lectura fluida
       if (!audioBlob) {
-        const vozNatural = vocesDisponibles.find(esVozNaturalEspanol) || elegirVozEspanol(vocesDisponibles);
+        const esFemenina = ["Aoede", "Kore"].includes(vozIA) || vozIA.startsWith("F");
+        let vozCandidata = null;
+
+        if (esFemenina) {
+          vozCandidata = vocesDisponibles.find(
+            (v) =>
+              v.lang?.toLowerCase().startsWith("es") &&
+              /(dalia|elvira|monica|paulina|helena|sabina|lucia|female|mujer|femenin|zira|eva|rosa|camila|sofia|laura|ana)/i.test(v.name)
+          );
+        } else {
+          vozCandidata = vocesDisponibles.find(
+            (v) =>
+              v.lang?.toLowerCase().startsWith("es") &&
+              /(jorge|alvaro|alonso|male|hombre|masculin|david|pablo|diego|carlos|miguel|manuel|raul)/i.test(v.name)
+          );
+        }
+
+        if (!vozCandidata) {
+          vozCandidata = vocesDisponibles.find(esVozNaturalEspanol) || elegirVozEspanol(vocesDisponibles);
+        }
+
         const utterance = new SpeechSynthesisUtterance(frag.texto);
-        utterance.lang = vozNatural?.lang || "es-MX";
-        utterance.rate = Math.max(0.85, Math.min(1.25, velocidadVoz));
-        if (vozNatural) utterance.voice = vozNatural;
+        utterance.lang = vozCandidata?.lang || "es-MX";
+        // Diferenciación acústica clara de género: tono agudo y melodioso para femenina, grave para masculina
+        utterance.pitch = esFemenina ? 1.18 : 0.86;
+        utterance.rate = Math.max(0.85, Math.min(1.25, velocidadVoz * (esFemenina ? 1.02 : 0.98)));
+        if (vozCandidata) utterance.voice = vozCandidata;
 
         utterance.onboundary = (event) => {
           if (event.name && event.name !== "word") return;
@@ -757,21 +779,39 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
 
   const handleCambiarVoz = (voiceURI) => {
-    if (leyendoEnVoz || pausadoRef.current) detenerVoz();
+    const estabaLeyendo = leyendoEnVoz;
+    detenerVoz();
     setVozSeleccionada(voiceURI);
     localStorage.setItem(VOZ_KEY, voiceURI);
+    if (estabaLeyendo) {
+      setTimeout(() => {
+        alternarVoz();
+      }, 150);
+    }
   };
 
   const handleCambiarMotorVoz = (motor) => {
-    if (leyendoEnVoz || pausadoRef.current) detenerVoz();
+    const estabaLeyendo = leyendoEnVoz;
+    detenerVoz();
     setMotorVoz(motor);
     localStorage.setItem(MOTOR_VOZ_KEY, motor);
+    if (estabaLeyendo) {
+      setTimeout(() => {
+        alternarVoz();
+      }, 150);
+    }
   };
 
   const handleCambiarVozIA = (id) => {
-    if (leyendoEnVoz || pausadoRef.current) detenerVoz();
+    const estabaLeyendo = leyendoEnVoz;
+    detenerVoz();
     setVozIA(id);
     localStorage.setItem(VOZ_IA_KEY, id);
+    if (estabaLeyendo) {
+      setTimeout(() => {
+        alternarVoz();
+      }, 150);
+    }
   };
 
   const handleCambiarVelocidadVoz = (valor) => {

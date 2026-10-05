@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Car, Home, Laptop, Package2, Wrench, Calendar, DollarSign, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
+import { Plus, Trash2, X, Pencil, Check, Car, Home, Laptop, Package2, Wrench, Calendar, DollarSign, ChevronDown, ChevronUp, ShieldCheck, RotateCw } from "lucide-react";
 import { addActivo, deleteActivo, updateActivoEstado, updateActivo, addMantenimiento, deleteMantenimiento } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import Vehiculo3DViewer from "./Vehiculo3DViewer";
 
 const TIPOS = ["Vehículo", "Propiedad", "Electrodoméstico", "Equipo electrónico", "Otro"];
 const ESTADOS = ["Activo", "Vendido", "Dado de baja"];
@@ -139,6 +140,16 @@ export default function Activos({ activos, mantenimientos, seguros }) {
   const [mantForm, setMantForm] = useState(emptyMantForm);
   const [mantSaving, setMantSaving] = useState(false);
   const [mantError, setMantError] = useState(null);
+  const [activo3DId, setActivo3DId] = useState(null);
+  const [mostrar3DDestacado, setMostrar3DDestacado] = useState(false);
+
+  const vehiculoCRV = useMemo(() => {
+    return (activos || []).find(
+      (a) =>
+        /cr-?v|honda/i.test(a.nombre || a.modelo || "") ||
+        a.tipo === "Vehículo"
+    );
+  }, [activos]);
 
   const mantenimientosPorActivo = useMemo(() => {
     const map = {};
@@ -265,7 +276,28 @@ export default function Activos({ activos, mantenimientos, seguros }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <button
+          onClick={() => setMostrar3DDestacado((s) => !s)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            padding: "8px 14px",
+            fontSize: 13,
+            fontWeight: 600,
+            background: mostrar3DDestacado ? "var(--sage)" : "var(--card)",
+            color: mostrar3DDestacado ? "#fff" : "var(--ink)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          <Car size={15} style={{ color: mostrar3DDestacado ? "#fff" : "var(--sage)" }} />
+          {mostrar3DDestacado ? "Ocultar modelo 3D" : "🚗 Ver modelo 3D (Honda CR-V 2014 Blanca)"}
+        </button>
+
         <button
           onClick={() => setShowForm((s) => !s)}
           style={{
@@ -286,6 +318,32 @@ export default function Activos({ activos, mantenimientos, seguros }) {
           {showForm ? "Cancelar" : "Agregar activo"}
         </button>
       </div>
+
+      {mostrar3DDestacado && (
+        <div style={{ marginBottom: 16, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Car size={18} style={{ color: "var(--sage)" }} />
+              <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 700 }}>
+                Modelo 3D interactivo · Honda CR-V 2014 Blanca
+              </span>
+            </div>
+            <button
+              onClick={() => setMostrar3DDestacado(false)}
+              style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              <X size={16} />
+            </button>
+          </div>
+          <Vehiculo3DViewer
+            nombreVehiculo={vehiculoCRV?.nombre || "Honda CR-V 2014"}
+            colorInicial="blanco"
+            matricula={vehiculoCRV?.identificador || ""}
+            anio={vehiculoCRV?.anio || "2014"}
+            onClose={() => setMostrar3DDestacado(false)}
+          />
+        </div>
+      )}
 
       {showForm && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
@@ -585,25 +643,72 @@ export default function Activos({ activos, mantenimientos, seguros }) {
 
                 {a.notas && <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 8 }}>{a.notas}</div>}
 
-                <button
-                  onClick={() => abrirMantenimiento(a.id)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    marginTop: 10,
-                    fontSize: 12,
-                    color: "var(--sage)",
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                >
-                  <Wrench size={12} />
-                  Mantenimiento ({historial.length})
-                  {expandido ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => abrirMantenimiento(a.id)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 12,
+                      color: "var(--sage)",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  >
+                    <Wrench size={12} />
+                    Mantenimiento ({historial.length})
+                    {expandido ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                  </button>
+
+                  {(a.tipo === "Vehículo" || /(crv|cr-v|honda|carro|auto|camioneta|vehiculo)/i.test(a.nombre || a.modelo || "")) && (
+                    <button
+                      onClick={() => setActivo3DId(activo3DId === a.id ? null : a.id)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        color: activo3DId === a.id ? "var(--sage)" : "var(--ink)",
+                        background: activo3DId === a.id ? "var(--sage-bg)" : "var(--paper)",
+                        border: activo3DId === a.id ? "1px solid rgba(86,171,95,0.4)" : "1px solid var(--line)",
+                        borderRadius: 6,
+                        cursor: "pointer",
+                        padding: "3px 8px",
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      <Car size={12} style={{ color: "var(--sage)" }} />
+                      {activo3DId === a.id ? "Ocultar 3D" : "🚗 Rotar en 3D"}
+                    </button>
+                  )}
+                </div>
+
+                {activo3DId === a.id && (
+                  <div style={{ marginTop: 12, borderTop: "1px solid var(--line-soft)", paddingTop: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
+                        Vista 3D interactiva · {a.nombre}
+                      </span>
+                      <button
+                        onClick={() => setActivo3DId(null)}
+                        style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer" }}
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+                    <Vehiculo3DViewer
+                      nombreVehiculo={a.nombre}
+                      colorInicial="blanco"
+                      matricula={a.identificador || ""}
+                      anio={a.anio || "2014"}
+                      onClose={() => setActivo3DId(null)}
+                    />
+                  </div>
+                )}
 
                 {expandido && (
                   <div style={{ marginTop: 12, borderTop: "1px solid var(--line-soft)", paddingTop: 12 }}>
