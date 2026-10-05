@@ -1,8 +1,61 @@
 import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { RotateCw, ZoomIn, ZoomOut, Sun, Moon, Maximize2, Minimize2, Eye, Sparkles, X, Palette } from "lucide-react";
+import { RotateCw, Sun, Eye, Sparkles, X, Camera, Box, Info, Image, ZoomIn, ZoomOut, Check, ChevronLeft, ChevronRight } from "lucide-react";
 
-// Colores disponibles para la carrocería del vehículo
+// Fotografías reales en alta definición de la Honda CR-V 2014 Blanca (Taffeta White / Diamond White Pearl)
+// Tomadas desde múltiples ángulos para el recorrido fotográfico 360° interactivo
+export const FOTOS_REALES_CRV = [
+  {
+    id: "frontal-tres-cuartos",
+    titulo: "Frontal 3/4",
+    subtitulo: "Ángulo icónico de la Honda CR-V 2014",
+    descripcion: "Parrilla frontal aerodinámica, faros proyectores halógenos y rines de aleación 17\"",
+    url: "https://upload.wikimedia.org/wikipedia/commons/f/f1/2014_Honda_CR-V_2.4L_i-VTEC_%28with_opt._Modulo_Alpha_Package_bodykit%29_in_Cyberjaya%2C_Malaysia_%2801%29.jpg",
+    anguloGrados: 45,
+  },
+  {
+    id: "frontal-directo",
+    titulo: "Frontal",
+    subtitulo: "Frente y parrilla cromada",
+    descripcion: "Parrilla de 3 barras cromadas con emblema Honda y faros antiniebla integrados",
+    url: "https://upload.wikimedia.org/wikipedia/commons/7/7f/2014_Honda_CR-V_2.4L_i-VTEC_%28with_opt._Modulo_Alpha_Package_bodykit%29_in_Cyberjaya%2C_Malaysia_%2803%29.jpg",
+    anguloGrados: 0,
+  },
+  {
+    id: "lateral-perfil",
+    titulo: "Perfil Lateral",
+    subtitulo: "Silueta SUV aerodinámica",
+    descripcion: "Molduras plásticas protectoras inferiores, barras de techo y cristales tintados de fábrica",
+    url: "https://upload.wikimedia.org/wikipedia/commons/b/b2/Honda_CRV_2.4_SX_2013_%282%29.jpg",
+    anguloGrados: 90,
+  },
+  {
+    id: "trasero-tres-cuartos",
+    titulo: "Trasero 3/4",
+    subtitulo: "Diseño trasero de 4ta generación",
+    descripcion: "Las inconfundibles luces verticales que envuelven el pilar D y spoiler superior",
+    url: "https://upload.wikimedia.org/wikipedia/commons/b/b8/2014_Honda_CR-V_2.4L_i-VTEC_%28with_opt._Modulo_Alpha_Package_bodykit%29_in_Cyberjaya%2C_Malaysia_%2802%29.jpg",
+    anguloGrados: 135,
+  },
+  {
+    id: "trasero-directo",
+    titulo: "Trasero",
+    subtitulo: "Portón y baúl espacioso",
+    descripcion: "Moldura cromada con emblema CR-V y amplia apertura de carga de 1,053 litros",
+    url: "https://upload.wikimedia.org/wikipedia/commons/2/23/Honda_CRV_2.4_SX_2013_%283%29.jpg",
+    anguloGrados: 180,
+  },
+  {
+    id: "interior-cabina",
+    titulo: "Interior / Cabina",
+    subtitulo: "Puesto de conducción y tablero",
+    descripcion: "Pantalla inteligente i-MID de 5\", volante multifunción y palanca de cambios en consola flotante",
+    url: "https://upload.wikimedia.org/wikipedia/commons/3/36/Honda_CRV_2.4_SX_2013_Interior.jpg",
+    anguloGrados: 270,
+  },
+];
+
+// Colores disponibles para la carrocería en el modelo 3D
 export const COLORES_VEHICULO = [
   { id: "blanco", nombre: "Blanco Perla (CR-V 2014)", hex: "#f4f5f8", metalness: 0.15, roughness: 0.2 },
   { id: "plata", nombre: "Plata Alabaster", hex: "#c7cbd1", metalness: 0.5, roughness: 0.25 },
@@ -12,35 +65,29 @@ export const COLORES_VEHICULO = [
 ];
 
 /**
- * Genera el modelo 3D detallado de una SUV estilo Honda CR-V 2014 (Generación 4).
- * Proporciones aerodinámicas, parrilla frontal de tres barras, faros afilados,
- * molduras plásticas inferiores, barras de techo y las icónicas luces traseras verticales.
+ * Genera el modelo 3D procedural con Three.js para la Honda CR-V 2014
  */
 function construirHondaCRV(colorCarroceriaHex) {
   const carroceriaGroup = new THREE.Group();
 
-  // Material de pintura de auto
   const materialPintura = new THREE.MeshStandardMaterial({
     color: new THREE.Color(colorCarroceriaHex),
     metalness: 0.25,
     roughness: 0.18,
   });
 
-  // Material de plástico negro / molduras inferiores SUV
   const materialPlasticoNegro = new THREE.MeshStandardMaterial({
     color: new THREE.Color("#1f2327"),
     roughness: 0.85,
     metalness: 0.05,
   });
 
-  // Material de cromo (parrilla, molduras de ventanas, manijas)
   const materialCromo = new THREE.MeshStandardMaterial({
     color: new THREE.Color("#e8ecf0"),
     metalness: 0.9,
     roughness: 0.1,
   });
 
-  // Material de cristales tintados
   const materialCristal = new THREE.MeshPhysicalMaterial({
     color: new THREE.Color("#1a222d"),
     metalness: 0.1,
@@ -50,21 +97,18 @@ function construirHondaCRV(colorCarroceriaHex) {
     opacity: 0.85,
   });
 
-  // Material de llantas (goma)
   const materialGoma = new THREE.MeshStandardMaterial({
     color: new THREE.Color("#141517"),
     roughness: 0.9,
     metalness: 0.05,
   });
 
-  // Material rines de aleación 17"
   const materialRines = new THREE.MeshStandardMaterial({
     color: new THREE.Color("#d0d5db"),
     metalness: 0.8,
     roughness: 0.2,
   });
 
-  // Faros delanteros y luces traseras
   const materialFaros = new THREE.MeshStandardMaterial({
     color: new THREE.Color("#f5faff"),
     emissive: new THREE.Color("#d4e9ff"),
@@ -79,8 +123,7 @@ function construirHondaCRV(colorCarroceriaHex) {
     roughness: 0.2,
   });
 
-  // 1. CHASSIS / CUERPO PRINCIPAL INFERIOR DE LA CR-V
-  // Longitud ~4.5m, ancho ~1.8m, altura ~1.65m (escalado en unidades 3D: L=4.4, W=1.9, H=1.6)
+  // Chasis y carrocería
   const cuerpoInfGeo = new THREE.BoxGeometry(1.88, 0.65, 4.3);
   const cuerpoInf = new THREE.Mesh(cuerpoInfGeo, materialPintura);
   cuerpoInf.position.set(0, 0.75, 0);
@@ -88,48 +131,30 @@ function construirHondaCRV(colorCarroceriaHex) {
   cuerpoInf.receiveShadow = true;
   carroceriaGroup.add(cuerpoInf);
 
-  // Moldura protectora inferior negra (Rocker panel clásico de la CR-V 2014)
   const molduraInfGeo = new THREE.BoxGeometry(1.9, 0.28, 4.34);
   const molduraInf = new THREE.Mesh(molduraInfGeo, materialPlasticoNegro);
   molduraInf.position.set(0, 0.48, 0);
   carroceriaGroup.add(molduraInf);
 
-  // 2. CAPÓ INCLINADO DELANTERO
+  // Capó
   const capoGeo = new THREE.BoxGeometry(1.82, 0.2, 1.35);
   const capo = new THREE.Mesh(capoGeo, materialPintura);
   capo.position.set(0, 1.05, 1.45);
   capo.rotation.x = 0.08;
   carroceriaGroup.add(capo);
 
-  // Líneas de carácter en el capó (nervaduras de la CR-V)
-  const nervaduraGeo = new THREE.BoxGeometry(0.12, 0.04, 1.25);
-  const nervaduraIzq = new THREE.Mesh(nervaduraGeo, materialPintura);
-  nervaduraIzq.position.set(-0.55, 1.13, 1.43);
-  nervaduraIzq.rotation.x = 0.08;
-  const nervaduraDer = nervaduraIzq.clone();
-  nervaduraDer.position.x = 0.55;
-  carroceriaGroup.add(nervaduraIzq);
-  carroceriaGroup.add(nervaduraDer);
-
-  // 3. CABINA / TECHO Y VENTANAS (Greenhouse de SUV)
+  // Cabina
   const cabinaGeo = new THREE.BoxGeometry(1.68, 0.68, 2.7);
   const cabina = new THREE.Mesh(cabinaGeo, materialPintura);
   cabina.position.set(0, 1.36, -0.25);
   carroceriaGroup.add(cabina);
 
-  // Techo inclinado trasero (aerodinámico CR-V)
+  // Techo y barras de techo
   const techoGeo = new THREE.BoxGeometry(1.66, 0.08, 2.5);
   const techo = new THREE.Mesh(techoGeo, materialPintura);
   techo.position.set(0, 1.71, -0.28);
   carroceriaGroup.add(techo);
 
-  // Techo solar (Sunroof)
-  const sunroofGeo = new THREE.BoxGeometry(1.0, 0.02, 0.7);
-  const sunroof = new THREE.Mesh(sunroofGeo, materialCristal);
-  sunroof.position.set(0, 1.74, 0.3);
-  carroceriaGroup.add(sunroof);
-
-  // Barras de techo longitudinales (Roof rails características de la CR-V)
   const barraTechoGeo = new THREE.CylinderGeometry(0.025, 0.025, 2.1, 8);
   const barraIzq = new THREE.Mesh(barraTechoGeo, materialCromo);
   barraIzq.rotation.x = Math.PI / 2;
@@ -139,25 +164,13 @@ function construirHondaCRV(colorCarroceriaHex) {
   carroceriaGroup.add(barraIzq);
   carroceriaGroup.add(barraDer);
 
-  // Soportes de las barras
-  [-1.1, -0.25, 0.65].forEach((posZ) => {
-    const soporteGeo = new THREE.BoxGeometry(0.06, 0.1, 0.08);
-    const sopIzq = new THREE.Mesh(soporteGeo, materialPlasticoNegro);
-    sopIzq.position.set(-0.76, 1.73, posZ);
-    const sopDer = sopIzq.clone();
-    sopDer.position.x = 0.76;
-    carroceriaGroup.add(sopIzq);
-    carroceriaGroup.add(sopDer);
-  });
-
-  // Parabrisas delantero inclinado
+  // Cristales
   const parabrisasGeo = new THREE.PlaneGeometry(1.6, 0.85);
   const parabrisas = new THREE.Mesh(parabrisasGeo, materialCristal);
   parabrisas.position.set(0, 1.36, 1.05);
   parabrisas.rotation.x = -Math.PI / 4.4;
   carroceriaGroup.add(parabrisas);
 
-  // Luneta trasera (parabrisas trasero inclinado característico de la CR-V 2014)
   const lunetaGeo = new THREE.PlaneGeometry(1.5, 0.72);
   const luneta = new THREE.Mesh(lunetaGeo, materialCristal);
   luneta.position.set(0, 1.34, -1.61);
@@ -165,7 +178,6 @@ function construirHondaCRV(colorCarroceriaHex) {
   luneta.rotation.y = Math.PI;
   carroceriaGroup.add(luneta);
 
-  // Ventanas laterales
   const ventanaLatGeo = new THREE.PlaneGeometry(2.35, 0.48);
   const ventanaIzq = new THREE.Mesh(ventanaLatGeo, materialCristal);
   ventanaIzq.position.set(-0.85, 1.35, -0.25);
@@ -176,16 +188,7 @@ function construirHondaCRV(colorCarroceriaHex) {
   carroceriaGroup.add(ventanaIzq);
   carroceriaGroup.add(ventanaDer);
 
-  // Marcos de ventanas cromados (Chrome trim)
-  const molduraVentanaGeo = new THREE.BoxGeometry(0.02, 0.03, 2.4);
-  const molduraVentanaIzq = new THREE.Mesh(molduraVentanaGeo, materialCromo);
-  molduraVentanaIzq.position.set(-0.86, 1.11, -0.25);
-  const molduraVentanaDer = molduraVentanaIzq.clone();
-  molduraVentanaDer.position.x = 0.86;
-  carroceriaGroup.add(molduraVentanaIzq);
-  carroceriaGroup.add(molduraVentanaDer);
-
-  // 4. PARRILLA DELANTERA HONDA (3 barras cromadas horizontales)
+  // Parrilla frontal de 3 barras
   const parrillaFondoGeo = new THREE.BoxGeometry(1.2, 0.32, 0.08);
   const parrillaFondo = new THREE.Mesh(parrillaFondoGeo, materialPlasticoNegro);
   parrillaFondo.position.set(0, 0.88, 2.16);
@@ -198,19 +201,12 @@ function construirHondaCRV(colorCarroceriaHex) {
     carroceriaGroup.add(barraParrilla);
   });
 
-  // Emblema frontal (H de Honda estilizada)
   const emblemaGeo = new THREE.BoxGeometry(0.18, 0.16, 0.05);
   const emblema = new THREE.Mesh(emblemaGeo, materialCromo);
   emblema.position.set(0, 0.88, 2.22);
   carroceriaGroup.add(emblema);
 
-  // Paragolpes delantero inferior con skid plate
-  const skidPlateGeo = new THREE.BoxGeometry(1.1, 0.14, 0.1);
-  const skidPlate = new THREE.Mesh(skidPlateGeo, materialCromo);
-  skidPlate.position.set(0, 0.42, 2.16);
-  carroceriaGroup.add(skidPlate);
-
-  // 5. FAROS DELANTEROS (Afilados hacia las aletas, característicos)
+  // Faros delanteros
   const faroGeo = new THREE.BoxGeometry(0.38, 0.18, 0.22);
   const faroIzq = new THREE.Mesh(faroGeo, materialFaros);
   faroIzq.position.set(-0.76, 0.92, 2.1);
@@ -221,17 +217,7 @@ function construirHondaCRV(colorCarroceriaHex) {
   carroceriaGroup.add(faroIzq);
   carroceriaGroup.add(faroDer);
 
-  // Luces antiniebla delanteras en paragolpes
-  const antinieblaGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.06, 12);
-  const antinieblaIzq = new THREE.Mesh(antinieblaGeo, materialFaros);
-  antinieblaIzq.rotation.x = Math.PI / 2;
-  antinieblaIzq.position.set(-0.72, 0.52, 2.14);
-  const antinieblaDer = antinieblaIzq.clone();
-  antinieblaDer.position.x = 0.72;
-  carroceriaGroup.add(antinieblaIzq);
-  carroceriaGroup.add(antinieblaDer);
-
-  // 6. LUCES TRASERAS VERTICALES DE LA CR-V (Envuelven el pilar D hasta el techo)
+  // Luces traseras verticales icónicas de la CR-V
   const luzTraseraVerticalGeo = new THREE.BoxGeometry(0.14, 0.75, 0.16);
   const luzTraseraIzq = new THREE.Mesh(luzTraseraVerticalGeo, materialLucesTraseras);
   luzTraseraIzq.position.set(-0.84, 1.25, -2.05);
@@ -240,68 +226,20 @@ function construirHondaCRV(colorCarroceriaHex) {
   carroceriaGroup.add(luzTraseraIzq);
   carroceriaGroup.add(luzTraseraDer);
 
-  // Barra embellecedora cromada del portón trasero (con el nombre CR-V)
-  const barraTraseraCromadaGeo = new THREE.BoxGeometry(0.95, 0.06, 0.05);
-  const barraTraseraCromada = new THREE.Mesh(barraTraseraCromadaGeo, materialCromo);
-  barraTraseraCromada.position.set(0, 0.98, -2.16);
-  carroceriaGroup.add(barraTraseraCromada);
-
-  // Spoiler trasero superior sobre la luneta
-  const spoilerGeo = new THREE.BoxGeometry(1.68, 0.06, 0.28);
-  const spoiler = new THREE.Mesh(spoilerGeo, materialPintura);
-  spoiler.position.set(0, 1.72, -1.68);
-  carroceriaGroup.add(spoiler);
-
-  // Espejos retrovisores exteriores con direccionales integradas
-  [-1, 1].forEach((lado) => {
-    const espejoGroup = new THREE.Group();
-    const carcasaGeo = new THREE.BoxGeometry(0.24, 0.14, 0.12);
-    const carcasa = new THREE.Mesh(carcasaGeo, materialPintura);
-    espejoGroup.add(carcasa);
-    const soporteEspejoGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.14);
-    const soporte = new THREE.Mesh(soporteEspejoGeo, materialPlasticoNegro);
-    soporte.position.set(-lado * 0.09, -0.06, 0);
-    soporte.rotation.z = lado * 0.4;
-    espejoGroup.add(soporte);
-    espejoGroup.position.set(lado * 1.04, 1.15, 0.85);
-    carroceriaGroup.add(espejoGroup);
-  });
-
-  // Manijas de las puertas cromadas
-  [-0.95, 0.95].forEach((posX) => {
-    [0.25, -0.55].forEach((posZ) => {
-      const manijaGeo = new THREE.BoxGeometry(0.04, 0.035, 0.15);
-      const manija = new THREE.Mesh(manijaGeo, materialCromo);
-      manija.position.set(posX, 1.02, posZ);
-      carroceriaGroup.add(manija);
-    });
-  });
-
-  // Antena estilo aleta de tiburón en el techo trasero
-  const antenaGeo = new THREE.ConeGeometry(0.05, 0.12, 4);
-  const antena = new THREE.Mesh(antenaGeo, materialPintura);
-  antena.position.set(0, 1.81, -1.1);
-  antena.rotation.x = -0.3;
-  carroceriaGroup.add(antena);
-
-  // 7. RUEDAS Y NEUMÁTICOS 17" CON RINES DE 5 RADIOS
+  // Ruedas y rines 17"
   const crearRueda = (x, z) => {
     const ruedaGroup = new THREE.Group();
-
-    // Neumático de caucho
     const neumaticoGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.24, 24);
     const neumatico = new THREE.Mesh(neumaticoGeo, materialGoma);
     neumatico.rotation.z = Math.PI / 2;
     neumatico.castShadow = true;
     ruedaGroup.add(neumatico);
 
-    // Llanta / Rin exterior
     const rinGeo = new THREE.CylinderGeometry(0.26, 0.26, 0.245, 18);
     const rin = new THREE.Mesh(rinGeo, materialRines);
     rin.rotation.z = Math.PI / 2;
     ruedaGroup.add(rin);
 
-    // 5 radios de aleación esculpidos
     for (let i = 0; i < 5; i++) {
       const angulo = (i * Math.PI * 2) / 5;
       const radioGeo = new THREE.BoxGeometry(0.04, 0.22, 0.05);
@@ -311,35 +249,16 @@ function construirHondaCRV(colorCarroceriaHex) {
       ruedaGroup.add(radio);
     }
 
-    // Tapa central con logo
-    const tapaGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.26, 12);
-    const tapa = new THREE.Mesh(tapaGeo, materialCromo);
-    tapa.rotation.z = Math.PI / 2;
-    ruedaGroup.add(tapa);
-
-    // Disco de freno visible detrás
-    const discoGeo = new THREE.CylinderGeometry(0.21, 0.21, 0.04, 16);
-    const disco = new THREE.Mesh(discoGeo, materialCromo);
-    disco.rotation.z = Math.PI / 2;
-    disco.position.x = x > 0 ? -0.04 : 0.04;
-    ruedaGroup.add(disco);
-
     ruedaGroup.position.set(x, 0.38, z);
     return ruedaGroup;
   };
 
-  // Posición de las 4 ruedas (distancia entre ejes ~2.62m, ancho de vía ~1.57m)
-  const ruedaDelIzq = crearRueda(-0.88, 1.35);
-  const ruedaDelDer = crearRueda(0.88, 1.35);
-  const ruedaTrasIzq = crearRueda(-0.88, -1.35);
-  const ruedaTrasDer = crearRueda(0.88, -1.35);
+  carroceriaGroup.add(crearRueda(-0.88, 1.35));
+  carroceriaGroup.add(crearRueda(0.88, 1.35));
+  carroceriaGroup.add(crearRueda(-0.88, -1.35));
+  carroceriaGroup.add(crearRueda(0.88, -1.35));
 
-  carroceriaGroup.add(ruedaDelIzq);
-  carroceriaGroup.add(ruedaDelDer);
-  carroceriaGroup.add(ruedaTrasIzq);
-  carroceriaGroup.add(ruedaTrasDer);
-
-  // 8. SOMBRA REALISTA DEBAJO DEL VEHÍCULO
+  // Sombra de contacto
   const canvasSombra = document.createElement("canvas");
   canvasSombra.width = 128;
   canvasSombra.height = 128;
@@ -381,6 +300,17 @@ export default function Vehiculo3DViewer({
   onClose,
   esModal = false,
 }) {
+  // Pestañas principales: 'real360' (fotografía real 360°), 'modelo3d' (Three.js WebGL), 'ficha' (especificaciones)
+  const [modoVista, setModoVista] = useState("real360");
+
+  // Estado del visor 360° fotográfico real
+  const [indiceFoto, setIndiceFoto] = useState(0);
+  const [zoomFoto, setZoomFoto] = useState(1);
+  const [arrastrandoFoto, setArrastrandoFoto] = useState(false);
+  const fotoDragStartRef = useRef(0);
+  const acumuladorArrastreRef = useRef(0);
+
+  // Estado del modelo 3D Three.js
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
@@ -391,32 +321,28 @@ export default function Vehiculo3DViewer({
   const [colorActual, setColorActual] = useState(colorInicial);
   const [autoRotar, setAutoRotar] = useState(true);
   const [lucesEncendidas, setLucesEncendidas] = useState(false);
-  const [pantallaCompleta, setPantallaCompleta] = useState(false);
 
-  // Parámetros de órbita y control por mouse / touch
-  const isDraggingRef = useRef(false);
-  const prevMousePosRef = useRef({ x: 0, y: 0 });
-  const rotacionRef = useRef({ yaw: 0.6, pitch: 0.28 });
-  const distanciaRef = useRef(6.2);
+  const isDragging3DRef = useRef(false);
+  const prevMousePos3DRef = useRef({ x: 0, y: 0 });
+  const rotacion3DRef = useRef({ yaw: 0.6, pitch: 0.28 });
+  const distancia3DRef = useRef(6.2);
 
-  // Inicialización de Three.js
+  // Inicializar Three.js cuando el modo 'modelo3d' está activo
   useEffect(() => {
+    if (modoVista !== "modelo3d") return;
     const contenedor = mountRef.current;
     if (!contenedor) return;
 
     const width = contenedor.clientWidth || 400;
     const height = contenedor.clientHeight || 300;
 
-    // Escena
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     scene.background = new THREE.Color("#16181b");
 
-    // Cámara con perspectiva realista
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
     cameraRef.current = camera;
 
-    // Renderizador con soporte de sombras y antialiasing
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     rendererRef.current = renderer;
     renderer.setSize(width, height);
@@ -427,77 +353,58 @@ export default function Vehiculo3DViewer({
     renderer.toneMappingExposure = 1.15;
     contenedor.appendChild(renderer.domElement);
 
-    // Iluminación de estudio automotriz
-    const luzAmbiente = new THREE.AmbientLight("#dce3ec", 0.9);
-    scene.add(luzAmbiente);
+    // Luces
+    scene.add(new THREE.AmbientLight("#dce3ec", 0.9));
 
     const luzPrincipal = new THREE.DirectionalLight("#ffffff", 1.8);
     luzPrincipal.position.set(6, 9, 7);
     luzPrincipal.castShadow = true;
-    luzPrincipal.shadow.mapSize.width = 1024;
-    luzPrincipal.shadow.mapSize.height = 1024;
     scene.add(luzPrincipal);
 
     const luzRelleno = new THREE.DirectionalLight("#8fa5bd", 0.9);
     luzRelleno.position.set(-6, 5, -5);
     scene.add(luzRelleno);
 
-    const luzTecho = new THREE.DirectionalLight("#ffffff", 1.0);
-    luzTecho.position.set(0, 10, 0);
-    scene.add(luzTecho);
-
-    // Piso de estudio reflectante sutil
-    const pisoGeo = new THREE.PlaneGeometry(30, 30);
-    const pisoMat = new THREE.MeshStandardMaterial({
-      color: "#1a1c21",
-      roughness: 0.6,
-      metalness: 0.2,
-    });
-    const piso = new THREE.Mesh(pisoGeo, pisoMat);
+    // Piso y grid
+    const piso = new THREE.Mesh(
+      new THREE.PlaneGeometry(30, 30),
+      new THREE.MeshStandardMaterial({ color: "#1a1c21", roughness: 0.6, metalness: 0.2 })
+    );
     piso.rotation.x = -Math.PI / 2;
-    piso.position.y = 0;
     piso.receiveShadow = true;
     scene.add(piso);
 
-    // Rejilla de estudio elegante
     const grid = new THREE.GridHelper(20, 20, "#2c3038", "#22252c");
     grid.position.y = 0.005;
     scene.add(grid);
 
-    // Construir la Honda CR-V 2014
+    // Auto
     const colorObj = COLORES_VEHICULO.find((c) => c.id === colorActual) || COLORES_VEHICULO[0];
     const carData = construirHondaCRV(colorObj.hex);
     carDataRef.current = carData;
     scene.add(carData.group);
 
-    // Actualizar posición de cámara en coordenadas esféricas
     const actualizarCamara = () => {
-      const yaw = rotacionRef.current.yaw;
-      const pitch = Math.max(0.05, Math.min(Math.PI / 2.2, rotacionRef.current.pitch));
-      const dist = distanciaRef.current;
-
+      const yaw = rotacion3DRef.current.yaw;
+      const pitch = Math.max(0.05, Math.min(Math.PI / 2.2, rotacion3DRef.current.pitch));
+      const dist = distancia3DRef.current;
       camera.position.x = dist * Math.sin(yaw) * Math.cos(pitch);
       camera.position.y = dist * Math.sin(pitch) + 0.5;
       camera.position.z = dist * Math.cos(yaw) * Math.cos(pitch);
       camera.lookAt(0, 0.85, 0);
     };
-
     actualizarCamara();
 
-    // Loop de renderizado
     const animate = () => {
       animFrameIdRef.current = requestAnimationFrame(animate);
-
-      if (autoRotar && !isDraggingRef.current) {
-        rotacionRef.current.yaw += 0.006;
+      if (autoRotar && !isDragging3DRef.current) {
+        rotacion3DRef.current.yaw += 0.006;
         actualizarCamara();
       }
-
       renderer.render(scene, camera);
     };
     animate();
 
-    // Eventos de redimensionamiento
     const handleResize = () => {
       if (!contenedor || !rendererRef.current || !cameraRef.current) return;
       const newW = contenedor.clientWidth;
@@ -508,7 +415,6 @@ export default function Vehiculo3DViewer({
     };
     window.addEventListener("resize", handleResize);
 
-    // Limpieza al desmontar
     return () => {
       window.removeEventListener("resize", handleResize);
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
@@ -517,9 +423,9 @@ export default function Vehiculo3DViewer({
       }
       renderer.dispose();
     };
-  }, []);
+  }, [modoVista]);
 
-  // Actualizar color de la pintura
+  // Actualizar color en modo 3D
   useEffect(() => {
     if (!carDataRef.current) return;
     const colorObj = COLORES_VEHICULO.find((c) => c.id === colorActual) || COLORES_VEHICULO[0];
@@ -528,7 +434,7 @@ export default function Vehiculo3DViewer({
     carDataRef.current.materialPintura.roughness = colorObj.roughness;
   }, [colorActual]);
 
-  // Actualizar estado de las luces (encendidas / apagadas)
+  // Actualizar luces en modo 3D
   useEffect(() => {
     if (!carDataRef.current) return;
     if (lucesEncendidas) {
@@ -544,70 +450,82 @@ export default function Vehiculo3DViewer({
     }
   }, [lucesEncendidas]);
 
-  // Manejo de interacción de mouse / touch para rotación 3D
-  const onMouseDown = (e) => {
-    isDraggingRef.current = true;
-    prevMousePosRef.current = { x: e.clientX, y: e.clientY };
+  // Controles de mouse / touch para el modo 360° fotográfico
+  const handlePhotoMouseDown = (e) => {
+    setArrastrandoFoto(true);
+    fotoDragStartRef.current = e.clientX;
+    acumuladorArrastreRef.current = 0;
   };
 
-  const onMouseMove = (e) => {
-    if (!isDraggingRef.current) return;
-    const deltaX = e.clientX - prevMousePosRef.current.x;
-    const deltaY = e.clientY - prevMousePosRef.current.y;
-    prevMousePosRef.current = { x: e.clientX, y: e.clientY };
+  const handlePhotoMouseMove = (e) => {
+    if (!arrastrandoFoto) return;
+    const deltaX = e.clientX - fotoDragStartRef.current;
+    fotoDragStartRef.current = e.clientX;
+    acumuladorArrastreRef.current += deltaX;
 
-    rotacionRef.current.yaw -= deltaX * 0.009;
-    rotacionRef.current.pitch += deltaY * 0.007;
-
-    const pitch = Math.max(0.05, Math.min(Math.PI / 2.2, rotacionRef.current.pitch));
-    const yaw = rotacionRef.current.yaw;
-    const dist = distanciaRef.current;
-    if (cameraRef.current) {
-      cameraRef.current.position.x = dist * Math.sin(yaw) * Math.cos(pitch);
-      cameraRef.current.position.y = dist * Math.sin(pitch) + 0.5;
-      cameraRef.current.position.z = dist * Math.cos(yaw) * Math.cos(pitch);
-      cameraRef.current.lookAt(0, 0.85, 0);
+    // Cada 40px de arrastre cambia al siguiente ángulo
+    const umbral = 40;
+    if (Math.abs(acumuladorArrastreRef.current) >= umbral) {
+      const pasos = Math.floor(acumuladorArrastreRef.current / umbral);
+      setIndiceFoto((idx) => {
+        let nuevo = idx - pasos;
+        const total = FOTOS_REALES_CRV.length;
+        while (nuevo < 0) nuevo += total;
+        return nuevo % total;
+      });
+      acumuladorArrastreRef.current %= umbral;
     }
   };
 
-  const onMouseUp = () => {
-    isDraggingRef.current = false;
+  const handlePhotoMouseUp = () => {
+    setArrastrandoFoto(false);
   };
 
-  const onWheel = (e) => {
-    e.preventDefault();
-    distanciaRef.current = Math.max(3.5, Math.min(10.5, distanciaRef.current + e.deltaY * 0.005));
-    const pitch = Math.max(0.05, Math.min(Math.PI / 2.2, rotacionRef.current.pitch));
-    const yaw = rotacionRef.current.yaw;
-    const dist = distanciaRef.current;
-    if (cameraRef.current) {
-      cameraRef.current.position.x = dist * Math.sin(yaw) * Math.cos(pitch);
-      cameraRef.current.position.y = dist * Math.sin(pitch) + 0.5;
-      cameraRef.current.position.z = dist * Math.cos(yaw) * Math.cos(pitch);
-      cameraRef.current.lookAt(0, 0.85, 0);
-    }
-  };
-
-  // Soporte de touch para móviles
-  const onTouchStart = (e) => {
+  const handlePhotoTouchStart = (e) => {
     if (e.touches.length === 1) {
-      isDraggingRef.current = true;
-      prevMousePosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      setArrastrandoFoto(true);
+      fotoDragStartRef.current = e.touches[0].clientX;
+      acumuladorArrastreRef.current = 0;
     }
   };
 
-  const onTouchMove = (e) => {
-    if (!isDraggingRef.current || e.touches.length !== 1) return;
-    const deltaX = e.touches[0].clientX - prevMousePosRef.current.x;
-    const deltaY = e.touches[0].clientY - prevMousePosRef.current.y;
-    prevMousePosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  const handlePhotoTouchMove = (e) => {
+    if (!arrastrandoFoto || e.touches.length !== 1) return;
+    const deltaX = e.touches[0].clientX - fotoDragStartRef.current;
+    fotoDragStartRef.current = e.touches[0].clientX;
+    acumuladorArrastreRef.current += deltaX;
 
-    rotacionRef.current.yaw -= deltaX * 0.012;
-    rotacionRef.current.pitch += deltaY * 0.009;
+    const umbral = 35;
+    if (Math.abs(acumuladorArrastreRef.current) >= umbral) {
+      const pasos = Math.floor(acumuladorArrastreRef.current / umbral);
+      setIndiceFoto((idx) => {
+        let nuevo = idx - pasos;
+        const total = FOTOS_REALES_CRV.length;
+        while (nuevo < 0) nuevo += total;
+        return nuevo % total;
+      });
+      acumuladorArrastreRef.current %= umbral;
+    }
+  };
 
-    const pitch = Math.max(0.05, Math.min(Math.PI / 2.2, rotacionRef.current.pitch));
-    const yaw = rotacionRef.current.yaw;
-    const dist = distanciaRef.current;
+  // Controles de mouse para Three.js 3D
+  const onMouseDown3D = (e) => {
+    isDragging3DRef.current = true;
+    prevMousePos3DRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const onMouseMove3D = (e) => {
+    if (!isDragging3DRef.current) return;
+    const deltaX = e.clientX - prevMousePos3DRef.current.x;
+    const deltaY = e.clientY - prevMousePos3DRef.current.y;
+    prevMousePos3DRef.current = { x: e.clientX, y: e.clientY };
+
+    rotacion3DRef.current.yaw -= deltaX * 0.009;
+    rotacion3DRef.current.pitch += deltaY * 0.007;
+
+    const pitch = Math.max(0.05, Math.min(Math.PI / 2.2, rotacion3DRef.current.pitch));
+    const yaw = rotacion3DRef.current.yaw;
+    const dist = distancia3DRef.current;
     if (cameraRef.current) {
       cameraRef.current.position.x = dist * Math.sin(yaw) * Math.cos(pitch);
       cameraRef.current.position.y = dist * Math.sin(pitch) + 0.5;
@@ -616,17 +534,16 @@ export default function Vehiculo3DViewer({
     }
   };
 
-  const onTouchEnd = () => {
-    isDraggingRef.current = false;
+  const onMouseUp3D = () => {
+    isDragging3DRef.current = false;
   };
 
-  // Botón para restablecer vista
-  const restablecerVista = () => {
-    rotacionRef.current = { yaw: 0.65, pitch: 0.28 };
-    distanciaRef.current = 6.2;
-    const pitch = 0.28;
-    const yaw = 0.65;
-    const dist = 6.2;
+  const onWheel3D = (e) => {
+    e.preventDefault();
+    distancia3DRef.current = Math.max(3.5, Math.min(10.5, distancia3DRef.current + e.deltaY * 0.005));
+    const pitch = Math.max(0.05, Math.min(Math.PI / 2.2, rotacion3DRef.current.pitch));
+    const yaw = rotacion3DRef.current.yaw;
+    const dist = distancia3DRef.current;
     if (cameraRef.current) {
       cameraRef.current.position.x = dist * Math.sin(yaw) * Math.cos(pitch);
       cameraRef.current.position.y = dist * Math.sin(pitch) + 0.5;
@@ -634,189 +551,117 @@ export default function Vehiculo3DViewer({
       cameraRef.current.lookAt(0, 0.85, 0);
     }
   };
+
+  const fotoActual = FOTOS_REALES_CRV[indiceFoto] || FOTOS_REALES_CRV[0];
 
   return (
     <div
       style={{
         position: "relative",
         width: "100%",
-        height: esModal ? "100%" : 360,
-        minHeight: 280,
         borderRadius: esModal ? 0 : 12,
         overflow: "hidden",
-        background: "linear-gradient(180deg, #15171a 0%, #1a1d22 100%)",
+        background: "linear-gradient(180deg, #121417 0%, #1a1d22 100%)",
         border: esModal ? "none" : "1px solid var(--line)",
         userSelect: "none",
-        boxShadow: "inset 0 0 40px rgba(0,0,0,0.5)",
+        boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+        color: "#fff",
       }}
     >
-      {/* Contenedor del lienzo WebGL de Three.js */}
-      <div
-        ref={mountRef}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
-        onWheel={onWheel}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-        style={{
-          width: "100%",
-          height: "100%",
-          cursor: isDraggingRef.current ? "grabbing" : "grab",
-        }}
-      />
-
-      {/* Insignia y datos del vehículo superior izquierdo */}
+      {/* Barra de pestañas superior: Foto 360° Real vs Modelo 3D WebGL vs Ficha Técnica */}
       <div
         style={{
-          position: "absolute",
-          top: 12,
-          left: 14,
           display: "flex",
-          flexDirection: "column",
-          gap: 4,
-          pointerEvents: "none",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "10px 14px",
+          background: "rgba(10,12,15,0.85)",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          backdropFilter: "blur(8px)",
+          flexWrap: "wrap",
+          gap: 8,
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span
+          <button
+            onClick={() => setModoVista("real360")}
             style={{
-              background: "rgba(0,0,0,0.65)",
-              backdropFilter: "blur(6px)",
-              color: "#fff",
-              border: "1px solid rgba(255,255,255,0.15)",
-              borderRadius: 6,
-              padding: "3px 8px",
-              fontSize: 11.5,
-              fontWeight: 700,
-              letterSpacing: "0.02em",
-              display: "inline-flex",
+              display: "flex",
               alignItems: "center",
-              gap: 5,
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 7,
+              fontSize: 12,
+              fontWeight: 600,
+              background: modoVista === "real360" ? "var(--sage)" : "rgba(255,255,255,0.06)",
+              color: modoVista === "real360" ? "#fff" : "rgba(255,255,255,0.75)",
+              border: modoVista === "real360" ? "1px solid var(--sage)" : "1px solid rgba(255,255,255,0.12)",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
             }}
           >
-            <Sparkles size={12} style={{ color: "var(--sage)" }} />
-            {nombreVehiculo} ({anio})
-          </span>
-          {matricula && (
-            <span
-              style={{
-                background: "rgba(255,255,255,0.9)",
-                color: "#111",
-                borderRadius: 4,
-                padding: "2px 6px",
-                fontSize: 10,
-                fontWeight: 700,
-                fontFamily: "monospace",
-                letterSpacing: "0.05em",
-              }}
-            >
-              {matricula}
-            </span>
-          )}
+            <Camera size={14} />
+            Foto 360° Real (Honda CR-V Blanca)
+          </button>
+
+          <button
+            onClick={() => setModoVista("modelo3d")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 7,
+              fontSize: 12,
+              fontWeight: 600,
+              background: modoVista === "modelo3d" ? "var(--sage)" : "rgba(255,255,255,0.06)",
+              color: modoVista === "modelo3d" ? "#fff" : "rgba(255,255,255,0.75)",
+              border: modoVista === "modelo3d" ? "1px solid var(--sage)" : "1px solid rgba(255,255,255,0.12)",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Box size={14} />
+            Modelo 3D Interactivo
+          </button>
+
+          <button
+            onClick={() => setModoVista("ficha")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              borderRadius: 7,
+              fontSize: 12,
+              fontWeight: 600,
+              background: modoVista === "ficha" ? "var(--sage)" : "rgba(255,255,255,0.06)",
+              color: modoVista === "ficha" ? "#fff" : "rgba(255,255,255,0.75)",
+              border: modoVista === "ficha" ? "1px solid var(--sage)" : "1px solid rgba(255,255,255,0.12)",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Info size={14} />
+            Ficha Técnica Real
+          </button>
         </div>
-        <span
-          style={{
-            fontSize: 10,
-            color: "rgba(255,255,255,0.7)",
-            background: "rgba(0,0,0,0.4)",
-            padding: "2px 6px",
-            borderRadius: 4,
-            width: "fit-content",
-          }}
-        >
-          Arrastra con el mouse para rotar 360° · Rueda para zoom
-        </span>
-      </div>
-
-      {/* Botones de acción superior derecho */}
-      <div
-        style={{
-          position: "absolute",
-          top: 12,
-          right: 14,
-          display: "flex",
-          gap: 6,
-        }}
-      >
-        <button
-          onClick={() => setLucesEncendidas((s) => !s)}
-          title={lucesEncendidas ? "Apagar luces" : "Encender faros LED"}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 32,
-            height: 32,
-            borderRadius: 7,
-            background: lucesEncendidas ? "rgba(255,220,100,0.25)" : "rgba(0,0,0,0.55)",
-            border: lucesEncendidas ? "1px solid rgba(255,220,100,0.6)" : "1px solid rgba(255,255,255,0.15)",
-            color: lucesEncendidas ? "#ffe27a" : "#fff",
-            cursor: "pointer",
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <Sun size={15} />
-        </button>
-
-        <button
-          onClick={() => setAutoRotar((s) => !s)}
-          title={autoRotar ? "Pausar rotación automática" : "Rotación automática 360°"}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 32,
-            height: 32,
-            borderRadius: 7,
-            background: autoRotar ? "rgba(86,171,95,0.25)" : "rgba(0,0,0,0.55)",
-            border: autoRotar ? "1px solid rgba(86,171,95,0.6)" : "1px solid rgba(255,255,255,0.15)",
-            color: autoRotar ? "var(--sage)" : "#fff",
-            cursor: "pointer",
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <RotateCw size={14} style={{ animation: autoRotar ? "spin 4s linear infinite" : "none" }} />
-        </button>
-
-        <button
-          onClick={restablecerVista}
-          title="Vista inicial 3/4"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 32,
-            height: 32,
-            borderRadius: 7,
-            background: "rgba(0,0,0,0.55)",
-            border: "1px solid rgba(255,255,255,0.15)",
-            color: "#fff",
-            cursor: "pointer",
-            backdropFilter: "blur(4px)",
-          }}
-        >
-          <Eye size={14} />
-        </button>
 
         {onClose && (
           <button
             onClick={onClose}
-            title="Cerrar vista 3D"
+            title="Cerrar vista"
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: 32,
-              height: 32,
-              borderRadius: 7,
-              background: "rgba(220,50,50,0.4)",
-              border: "1px solid rgba(255,255,255,0.15)",
+              width: 28,
+              height: 28,
+              borderRadius: 6,
+              background: "rgba(255,255,255,0.1)",
+              border: "none",
               color: "#fff",
               cursor: "pointer",
-              backdropFilter: "blur(4px)",
             }}
           >
             <X size={15} />
@@ -824,75 +669,346 @@ export default function Vehiculo3DViewer({
         )}
       </div>
 
-      {/* Selector de color de pintura inferior */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: 12,
-          left: 14,
-          right: 14,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 8,
-          pointerEvents: "auto",
-        }}
-      >
-        {/* Muestras de color */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            background: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(6px)",
-            padding: "5px 10px",
-            borderRadius: 8,
-            border: "1px solid rgba(255,255,255,0.12)",
-          }}
-        >
-          <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.75)", fontWeight: 500, marginRight: 2 }}>
-            Color:
-          </span>
-          {COLORES_VEHICULO.map((col) => {
-            const activo = col.id === colorActual;
-            return (
-              <button
-                key={col.id}
-                onClick={() => setColorActual(col.id)}
-                title={col.nombre}
-                style={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: "50%",
-                  background: col.hex,
-                  border: activo ? "2px solid #56ab5f" : "1.5px solid rgba(255,255,255,0.3)",
-                  boxShadow: activo ? "0 0 8px rgba(86,171,95,0.8)" : "none",
-                  cursor: "pointer",
-                  transform: activo ? "scale(1.15)" : "scale(1)",
-                  transition: "transform 0.15s ease",
-                }}
-              />
-            );
-          })}
-        </div>
+      {/* VISTA 1: FOTOGRAFÍA REAL 360° INTERACTIVA */}
+      {modoVista === "real360" && (
+        <div style={{ position: "relative", width: "100%", minHeight: 380, height: 420 }}>
+          {/* Imagen principal con rotación por arrastre de mouse */}
+          <div
+            onMouseDown={handlePhotoMouseDown}
+            onMouseMove={handlePhotoMouseMove}
+            onMouseUp={handlePhotoMouseUp}
+            onMouseLeave={handlePhotoMouseUp}
+            onTouchStart={handlePhotoTouchStart}
+            onTouchMove={handlePhotoTouchMove}
+            onTouchEnd={handlePhotoMouseUp}
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: arrastrandoFoto ? "grabbing" : "grab",
+              overflow: "hidden",
+              position: "relative",
+              background: "#0d0f12",
+            }}
+          >
+            <img
+              src={fotoActual.url}
+              alt={fotoActual.titulo}
+              style={{
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain",
+                transform: `scale(${zoomFoto})`,
+                transition: arrastrandoFoto ? "none" : "transform 0.2s ease",
+                pointerEvents: "none",
+              }}
+              draggable={false}
+            />
 
-        {/* Ficha técnica mínima */}
-        <div
-          style={{
-            fontSize: 10,
-            color: "rgba(255,255,255,0.7)",
-            background: "rgba(0,0,0,0.6)",
-            backdropFilter: "blur(6px)",
-            padding: "5px 10px",
-            borderRadius: 8,
-            border: "1px solid rgba(255,255,255,0.12)",
-          }}
-        >
-          2.4L i-VTEC · Tracción Real Time · Rines 17"
+            {/* Flechas de rotación izquierda / derecha */}
+            <button
+              onClick={() => setIndiceFoto((idx) => (idx - 1 + FOTOS_REALES_CRV.length) % FOTOS_REALES_CRV.length)}
+              style={{
+                position: "absolute",
+                left: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: 38,
+                height: 38,
+                borderRadius: "50%",
+                background: "rgba(0,0,0,0.65)",
+                backdropFilter: "blur(6px)",
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.2)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 10,
+              }}
+            >
+              <ChevronLeft size={20} />
+            </button>
+
+            <button
+              onClick={() => setIndiceFoto((idx) => (idx + 1) % FOTOS_REALES_CRV.length)}
+              style={{
+                position: "absolute",
+                right: 12,
+                top: "50%",
+                transform: "translateY(-50%)",
+                width: 38,
+                height: 38,
+                borderRadius: "50%",
+                background: "rgba(0,0,0,0.65)",
+                backdropFilter: "blur(6px)",
+                color: "#fff",
+                border: "1px solid rgba(255,255,255,0.2)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 10,
+              }}
+            >
+              <ChevronRight size={20} />
+            </button>
+
+            {/* Etiqueta superior con ángulo y datos reales */}
+            <div
+              style={{
+                position: "absolute",
+                top: 14,
+                left: 16,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                pointerEvents: "none",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span
+                  style={{
+                    background: "rgba(0,0,0,0.75)",
+                    backdropFilter: "blur(6px)",
+                    color: "#fff",
+                    border: "1px solid rgba(255,255,255,0.2)",
+                    borderRadius: 6,
+                    padding: "4px 9px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  Honda CR-V 2014 Blanca · {fotoActual.titulo}
+                </span>
+                <span
+                  style={{
+                    background: "var(--sage)",
+                    color: "#fff",
+                    borderRadius: 4,
+                    padding: "3px 7px",
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  Fotografía Real HD
+                </span>
+              </div>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.75)", background: "rgba(0,0,0,0.5)", padding: "2px 6px", borderRadius: 4, width: "fit-content" }}>
+                {fotoActual.descripcion}
+              </span>
+            </div>
+
+            {/* Indicador de arrastre con el mouse */}
+            <div
+              style={{
+                position: "absolute",
+                top: 14,
+                right: 16,
+                background: "rgba(0,0,0,0.6)",
+                backdropFilter: "blur(4px)",
+                border: "1px solid rgba(255,255,255,0.15)",
+                borderRadius: 6,
+                padding: "4px 8px",
+                fontSize: 10.5,
+                color: "rgba(255,255,255,0.8)",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                pointerEvents: "none",
+              }}
+            >
+              <RotateCw size={12} style={{ color: "var(--sage)" }} />
+              Arrastra con el mouse para rotar 360°
+            </div>
+          </div>
+
+          {/* Selector de ángulos reales inferior */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 12,
+              left: 14,
+              right: 14,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              flexWrap: "wrap",
+            }}
+          >
+            {FOTOS_REALES_CRV.map((foto, idx) => {
+              const activo = idx === indiceFoto;
+              return (
+                <button
+                  key={foto.id}
+                  onClick={() => setIndiceFoto(idx)}
+                  style={{
+                    padding: "5px 10px",
+                    borderRadius: 6,
+                    fontSize: 11,
+                    fontWeight: activo ? 700 : 500,
+                    background: activo ? "var(--sage)" : "rgba(0,0,0,0.7)",
+                    color: activo ? "#fff" : "rgba(255,255,255,0.8)",
+                    border: activo ? "1px solid var(--sage)" : "1px solid rgba(255,255,255,0.15)",
+                    cursor: "pointer",
+                    backdropFilter: "blur(4px)",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  {foto.titulo}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* VISTA 2: MODELO 3D EN TIEMPO REAL (THREE.JS WEBGL) */}
+      {modoVista === "modelo3d" && (
+        <div style={{ position: "relative", width: "100%", height: 380, minHeight: 300 }}>
+          <div
+            ref={mountRef}
+            onMouseDown={onMouseDown3D}
+            onMouseMove={onMouseMove3D}
+            onMouseUp={onMouseUp3D}
+            onMouseLeave={onMouseUp3D}
+            onWheel={onWheel3D}
+            style={{
+              width: "100%",
+              height: "100%",
+              cursor: isDragging3DRef.current ? "grabbing" : "grab",
+            }}
+          />
+
+          {/* Controles del modelo 3D */}
+          <div style={{ position: "absolute", top: 12, right: 14, display: "flex", gap: 6 }}>
+            <button
+              onClick={() => setLucesEncendidas((s) => !s)}
+              title={lucesEncendidas ? "Apagar faros" : "Encender faros LED"}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: 7,
+                background: lucesEncendidas ? "rgba(255,220,100,0.25)" : "rgba(0,0,0,0.6)",
+                border: lucesEncendidas ? "1px solid rgba(255,220,100,0.6)" : "1px solid rgba(255,255,255,0.15)",
+                color: lucesEncendidas ? "#ffe27a" : "#fff",
+                cursor: "pointer",
+              }}
+            >
+              <Sun size={15} />
+            </button>
+
+            <button
+              onClick={() => setAutoRotar((s) => !s)}
+              title={autoRotar ? "Pausar rotación" : "Rotación automática"}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: 7,
+                background: autoRotar ? "rgba(86,171,95,0.25)" : "rgba(0,0,0,0.6)",
+                border: autoRotar ? "1px solid rgba(86,171,95,0.6)" : "1px solid rgba(255,255,255,0.15)",
+                color: autoRotar ? "var(--sage)" : "#fff",
+                cursor: "pointer",
+              }}
+            >
+              <RotateCw size={14} style={{ animation: autoRotar ? "spin 4s linear infinite" : "none" }} />
+            </button>
+          </div>
+
+          {/* Selector de color */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 12,
+              left: 14,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              background: "rgba(0,0,0,0.65)",
+              backdropFilter: "blur(6px)",
+              padding: "5px 10px",
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
+          >
+            <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>Color:</span>
+            {COLORES_VEHICULO.map((col) => {
+              const activo = col.id === colorActual;
+              return (
+                <button
+                  key={col.id}
+                  onClick={() => setColorActual(col.id)}
+                  title={col.nombre}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: "50%",
+                    background: col.hex,
+                    border: activo ? "2px solid #56ab5f" : "1.5px solid rgba(255,255,255,0.3)",
+                    boxShadow: activo ? "0 0 8px rgba(86,171,95,0.8)" : "none",
+                    cursor: "pointer",
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* VISTA 3: FICHA TÉCNICA OFICIAL HONDA CR-V 2014 */}
+      {modoVista === "ficha" && (
+        <div style={{ padding: 18, background: "#13161a", minHeight: 380 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--sage-bg)", color: "var(--sage)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Honda CR-V 2014 (Generación 4)</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>Color original: Taffeta White / White Diamond Pearl</div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 16 }}>
+            <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase" }}>Motorización</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>2.4L i-VTEC DOHC</div>
+              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>185 HP @ 7,000 rpm · 163 lb-ft torque</div>
+            </div>
+
+            <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase" }}>Transmisión y Tracción</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>Automática 5 Velocidades</div>
+              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>Real Time AWD con sistema de control inteligente</div>
+            </div>
+
+            <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase" }}>Consumo Estimado</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>23 Ciudad / 31 Carretera MPG</div>
+              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>Modo ECON para ahorro de combustible</div>
+            </div>
+
+            <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", textTransform: "uppercase" }}>Capacidad de Carga</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>1,053 a 2,007 Litros</div>
+              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>Asientos traseros abatibles 60/40 en 1 toque</div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.6)", lineHeight: 1.5, borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12 }}>
+            💡 Este modelo corresponde a tu Honda CR-V 2014 registrada en la sección <b>Activos</b>. Puedes alternar en cualquier momento entre la <b>Foto 360° Real</b> y el <b>Modelo 3D Interactivo</b> para rotar con el mouse.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
