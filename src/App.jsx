@@ -88,6 +88,7 @@ const TITLES = {
   "estrategia-deudas": "Estrategia de deudas",
   "checklist-pagos": "Checklist de pagos",
   vacaciones: "Vacaciones",
+  vuelos: "Consultar Vuelos",
   calendario: "Calendario",
   activos: "Activos",
   ahorro: "Ahorro",
@@ -1079,8 +1080,13 @@ export default function App() {
             onOpenPrestamo={(prestamoId) => handleSearchNavigate("prestamos", prestamoId)}
           />
         )}
-        {tab === "vacaciones" && (
-          <Vacaciones vacaciones={vacaciones} fuentesIngreso={fuentesIngreso} categoriasGasto={categoriasGasto} />
+        {(tab === "vacaciones" || tab === "vuelos") && (
+          <Vacaciones
+            vacaciones={vacaciones}
+            fuentesIngreso={fuentesIngreso}
+            categoriasGasto={categoriasGasto}
+            tabInicial={tab === "vuelos" ? "vuelos" : "vacaciones"}
+          />
         )}
         {tab === "calendario" && (
           <Calendario eventos={eventos} entidades={entidades} categoriasGasto={categoriasGasto} vacaciones={vacaciones} tarjetas={tarjetas} habitos={habitos} habitosRegistro={habitosRegistro} />

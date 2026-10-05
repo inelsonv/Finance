@@ -40,6 +40,7 @@ const NAV_ITEMS = [
       { id: "estrategia-deudas", label: "Estrategia de deudas" },
       { id: "checklist-pagos", label: "Checklist de pagos" },
       { id: "vacaciones", label: "Vacaciones" },
+      { id: "vuelos", label: "Consultar Vuelos" },
     ],
   },
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
