@@ -340,6 +340,18 @@ export default function Activos({ activos, mantenimientos, seguros }) {
             colorInicial="blanco"
             matricula={vehiculoCRV?.identificador || ""}
             anio={vehiculoCRV?.anio || "2014"}
+            activo={vehiculoCRV}
+            mantenimientos={vehiculoCRV ? (mantenimientosPorActivo[vehiculoCRV.id] || []) : []}
+            seguro={vehiculoCRV ? (seguroPorActivo[vehiculoCRV.id] || null) : null}
+            onRegistrarMantenimiento={async (datos) => {
+              if (vehiculoCRV) {
+                await addMantenimiento({
+                  activoId: vehiculoCRV.id,
+                  activoNombre: vehiculoCRV.nombre,
+                  ...datos,
+                });
+              }
+            }}
             onClose={() => setMostrar3DDestacado(false)}
           />
         </div>
@@ -705,6 +717,16 @@ export default function Activos({ activos, mantenimientos, seguros }) {
                       colorInicial="blanco"
                       matricula={a.identificador || ""}
                       anio={a.anio || "2014"}
+                      activo={a}
+                      mantenimientos={mantenimientosPorActivo[a.id] || []}
+                      seguro={seguroPorActivo[a.id] || null}
+                      onRegistrarMantenimiento={async (datos) => {
+                        await addMantenimiento({
+                          activoId: a.id,
+                          activoNombre: a.nombre,
+                          ...datos,
+                        });
+                      }}
                       onClose={() => setActivo3DId(null)}
                     />
                   </div>
