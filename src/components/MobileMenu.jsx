@@ -23,7 +23,7 @@ function activoEnGrupo(tab, grupoId) {
   const prefijosPorGrupo = {
     "dinero-cuentas": ["cuentas", "ahorro", "inversion", "ingresos"],
     "deudas-pagos": ["prestamos", "tarjetas", "membresias", "contratos"],
-    activos: ["activos", "activos-rutas", "seguros"],
+    activos: ["activos", "seguros"],
     presupuesto: ["presupuesto-categoria-gasto", "presupuesto-mensual", "presupuesto-flujo", "estrategia-deudas", "checklist-pagos", "vacaciones", "vuelos"],
   };
   return (prefijosPorGrupo[grupoId] || []).includes(tab);

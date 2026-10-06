@@ -72,7 +72,6 @@ const NAV_ITEMS = [
     label: "Activos",
     icon: Car,
     children: [
-      { id: "activos-rutas", label: "Rutas y Kilómetros" },
       { id: "seguros", label: "Seguros" },
       { id: "renovaciones", label: "Renovaciones y Trámites" },
     ],
