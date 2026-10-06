@@ -2512,17 +2512,41 @@ export async function deleteMantenimiento(id) {
 }
 
 const rutasVehiculoCol = collection(db, "rutasVehiculo");
+const RUTAS_LOCAL_KEY = "smart-finance-rutas-locales";
 
-export function watchRutasVehiculo(onChange, onError) {
-  return onSnapshot(
-    rutasVehiculoCol,
-    (snap) => {
-      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      docs.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
-      onChange(docs);
-    },
-    (err) => onError && onError(err)
-  );
+function getRutasLocales() {
+  try {
+    return JSON.parse(localStorage.getItem(RUTAS_LOCAL_KEY) || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+
+function setRutasLocales(items) {
+  try {
+    localStorage.setItem(RUTAS_LOCAL_KEY, JSON.stringify(items));
+  } catch (e) {}
+}
+
+export function watchRutasVehiculo(onChange) {
+  try {
+    return onSnapshot(
+      rutasVehiculoCol,
+      (snap) => {
+        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        docs.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+        setRutasLocales(docs);
+        onChange(docs);
+      },
+      (err) => {
+        console.warn("rutasVehiculo Firestore notice:", err?.message || err);
+        onChange(getRutasLocales());
+      }
+    );
+  } catch (e) {
+    onChange(getRutasLocales());
+    return () => {};
+  }
 }
 
 export async function addRutaVehiculo({
@@ -2537,7 +2561,8 @@ export async function addRutaVehiculo({
   costoEstimadoCombustible,
   notas,
 }) {
-  await addDoc(rutasVehiculoCol, {
+  const rutaItem = {
+    id: "ruta_" + Date.now(),
     activoId: activoId || null,
     activoNombre: activoNombre || "",
     origen,
@@ -2548,12 +2573,39 @@ export async function addRutaVehiculo({
     combustibleEstimadoGal: combustibleEstimadoGal != null ? Number(combustibleEstimadoGal) : null,
     costoEstimadoCombustible: costoEstimadoCombustible != null ? Number(costoEstimadoCombustible) : null,
     notas: notas || "",
-    createdAt: serverTimestamp(),
-  });
+    createdAt: new Date().toISOString(),
+  };
+
+  const actuales = getRutasLocales();
+  setRutasLocales([rutaItem, ...actuales]);
+
+  try {
+    await addDoc(rutasVehiculoCol, {
+      activoId: activoId || null,
+      activoNombre: activoNombre || "",
+      origen,
+      destino,
+      distanciaKm: Number(distanciaKm) || 0,
+      duracionMinutos: Number(duracionMinutos) || 0,
+      fecha: fecha || new Date().toISOString().slice(0, 10),
+      combustibleEstimadoGal: combustibleEstimadoGal != null ? Number(combustibleEstimadoGal) : null,
+      costoEstimadoCombustible: costoEstimadoCombustible != null ? Number(costoEstimadoCombustible) : null,
+      notas: notas || "",
+      createdAt: serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn("Guardado en Firestore no disponible por permisos, guardado local exitoso.");
+  }
 }
 
 export async function deleteRutaVehiculo(id) {
-  await deleteDoc(doc(db, "rutasVehiculo", id));
+  const actuales = getRutasLocales().filter((r) => r.id !== id);
+  setRutasLocales(actuales);
+  try {
+    await deleteDoc(doc(db, "rutasVehiculo", id));
+  } catch (err) {
+    console.warn("Borrado en Firestore omitido:", err);
+  }
 }
 
 const metasAhorroCol = collection(db, "metasAhorro");

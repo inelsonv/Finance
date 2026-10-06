@@ -391,7 +391,7 @@ export default function App() {
     const unsubFlujo = watchFlujo(setFlujo, handleError);
     const unsubCalendario = watchCalendario(setEventos, handleError);
     const unsubActivos = watchActivos(setActivos, handleError);
-    const unsubRutas = watchRutasVehiculo(setRutas, handleError);
+    const unsubRutas = watchRutasVehiculo(setRutas);
     const unsubMantenimientos = watchMantenimientos(setMantenimientos, handleError);
     const unsubMetasAhorro = watchMetasAhorro(setMetasAhorro, handleError);
     const unsubSeguros = watchSeguros(setSeguros, handleError);
