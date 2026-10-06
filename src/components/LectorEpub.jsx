@@ -94,6 +94,8 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const [tamanoFuente, setTamanoFuente] = useState(cargarFuenteGuardada);
   const [transicion, setTransicion] = useState(null);
   const [leyendoEnVoz, setLeyendoEnVoz] = useState(false);
+  const [textoFragmentoActual, setTextoFragmentoActual] = useState("");
+  const [palabraActualIndex, setPalabraActualIndex] = useState(0);
   const [pantallaCompleta, setPantallaCompleta] = useState(false);
   const [vocesDisponibles, setVocesDisponibles] = useState([]);
   const [vozSeleccionada, setVozSeleccionada] = useState(() => localStorage.getItem(VOZ_KEY) || "");
@@ -116,8 +118,15 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const leerSeleccionRef = useRef(null);
   const elementoResaltadoRef = useRef(null);
   const avanzandoAutomaticamenteRef = useRef(false);
+  const cambiandoPaginaConAudioRef = useRef(false);
+  const leyendoEnVozRef = useRef(false);
+  const palabraTimerRef = useRef(null);
   const dragStartRef = useRef(null);
   const dragEnCursoRef = useRef(false);
+
+  useEffect(() => {
+    leyendoEnVozRef.current = leyendoEnVoz;
+  }, [leyendoEnVoz]);
 
   const handleCambiarFuente = (valor) => {
     const clamped = Math.max(70, Math.min(200, valor));
@@ -290,12 +299,15 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
         rendition.on("relocated", (location) => {
           if (cancelado) return;
-          if (!avanzandoAutomaticamenteRef.current) {
+          // Si el audio está activo o pasando de página automáticamente, NO cancelamos el audio
+          if (!cambiandoPaginaConAudioRef.current && !avanzandoAutomaticamenteRef.current && !leyendoEnVozRef.current) {
             sesionVozRef.current += 1;
             window.speechSynthesis.cancel();
             fragmentosVozRef.current = [];
             indiceFragmentoVozRef.current = 0;
             elementoResaltadoRef.current = null;
+            setTextoFragmentoActual("");
+            setPalabraActualIndex(0);
             setLeyendoEnVoz(false);
           }
           let pct = null;
@@ -347,14 +359,59 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     }
   };
 
+  const asegurarVisibilidadElemento = (el) => {
+    if (!el || !renditionRef.current) return;
+    try {
+      const doc = el.ownerDocument;
+      const win = doc?.defaultView;
+      if (!win) return;
+      const rect = el.getBoundingClientRect();
+      const winW = win.innerWidth || doc.documentElement.clientWidth;
+      const winH = win.innerHeight || doc.documentElement.clientHeight;
+
+      // Si el elemento está fuera del viewport (ej. en la siguiente columna/página del epub)
+      const fueraDeVista =
+        rect.left >= winW - 30 ||
+        rect.right <= 10 ||
+        rect.top >= winH - 20 ||
+        rect.bottom <= 10;
+
+      if (fueraDeVista) {
+        const contents = renditionRef.current?.getContents();
+        const content = contents?.[contents.length - 1];
+        if (content && typeof content.cfiFromNode === "function") {
+          const cfi = content.cfiFromNode(el);
+          if (cfi) {
+            cambiandoPaginaConAudioRef.current = true;
+            renditionRef.current.display(cfi).then(() => {
+              setTimeout(() => {
+                cambiandoPaginaConAudioRef.current = false;
+              }, 200);
+            }).catch(() => {
+              cambiandoPaginaConAudioRef.current = false;
+            });
+            return;
+          }
+        }
+      }
+      el.scrollIntoView?.({ block: "center", inline: "center", behavior: "smooth" });
+    } catch (e) {
+      el.scrollIntoView?.({ block: "center", inline: "center", behavior: "smooth" });
+    }
+  };
+
   const resaltarElemento = (el) => {
     if (elementoResaltadoRef.current && elementoResaltadoRef.current !== el) {
       elementoResaltadoRef.current.style.backgroundColor = "";
+      elementoResaltadoRef.current.style.boxShadow = "";
+      elementoResaltadoRef.current.style.borderRadius = "";
     }
     if (el) {
-      el.style.transition = "background-color 0.15s";
-      el.style.backgroundColor = "rgba(245, 197, 24, 0.35)";
-      el.scrollIntoView?.({ block: "center", behavior: "smooth" });
+      el.style.transition = "all 0.25s ease";
+      el.style.backgroundColor = "rgba(245, 197, 24, 0.3)";
+      el.style.boxShadow = "0 0 0 3px rgba(245, 197, 24, 0.2)";
+      el.style.borderRadius = "4px";
+      asegurarVisibilidadElemento(el);
     }
     elementoResaltadoRef.current = el;
   };
@@ -468,19 +525,22 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
   const detenerVoz = () => {
     sesionVozRef.current += 1;
     avanzandoAutomaticamenteRef.current = false;
+    cambiandoPaginaConAudioRef.current = false;
     pausadoRef.current = false;
+    if (palabraTimerRef.current) clearInterval(palabraTimerRef.current);
     window.speechSynthesis.cancel();
     limpiarAudioIA();
     fragmentosVozRef.current = [];
     indiceFragmentoVozRef.current = 0;
+    setTextoFragmentoActual("");
+    setPalabraActualIndex(0);
     quitarResaltado();
     setLeyendoEnVoz(false);
     setEstadoVozIA("");
   };
 
   // Cuando se termina de leer toda la página, avanza automáticamente a la
-  // siguiente y sigue leyendo desde su inicio — hasta que el usuario
-  // detenga la voz manualmente.
+  // siguiente y sigue leyendo sin interrupciones.
   const avanzarPaginaYSeguirLeyendo = (sesion) => {
     if (sesion !== sesionVozRef.current || !renditionRef.current) {
       setLeyendoEnVoz(false);
@@ -488,26 +548,42 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     }
     quitarResaltado();
     avanzandoAutomaticamenteRef.current = true;
+    cambiandoPaginaConAudioRef.current = true;
     renditionRef.current
       .next()
       .then(() => {
         setTimeout(() => {
           avanzandoAutomaticamenteRef.current = false;
+          cambiandoPaginaConAudioRef.current = false;
           if (sesion !== sesionVozRef.current) return;
           const contents = renditionRef.current?.getContents();
           const contentActual = contents?.[contents.length - 1];
           const nuevosFragmentos = contentActual?.document ? obtenerFragmentosDePagina(contentActual.document) : [];
           if (nuevosFragmentos.length === 0) {
-            setLeyendoEnVoz(false);
+            // Reintento rápido por si el DOM tardó en poblarse
+            setTimeout(() => {
+              if (sesion !== sesionVozRef.current) return;
+              const contents2 = renditionRef.current?.getContents();
+              const content2 = contents2?.[contents2.length - 1];
+              const frags2 = content2?.document ? obtenerFragmentosDePagina(content2.document) : [];
+              if (frags2.length > 0) {
+                fragmentosVozRef.current = frags2;
+                indiceFragmentoVozRef.current = 0;
+                hablarSiguienteFragmento(sesion);
+              } else {
+                setLeyendoEnVoz(false);
+              }
+            }, 300);
             return;
           }
           fragmentosVozRef.current = nuevosFragmentos;
           indiceFragmentoVozRef.current = 0;
           hablarSiguienteFragmento(sesion);
-        }, 300);
+        }, 220);
       })
       .catch(() => {
         avanzandoAutomaticamenteRef.current = false;
+        cambiandoPaginaConAudioRef.current = false;
         setLeyendoEnVoz(false);
       });
   };
@@ -589,9 +665,22 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
 
         utterance.onboundary = (event) => {
           if (event.name && event.name !== "word") return;
+          const charIndex = event.charIndex;
+          const palabrasList = (frag.texto || "").split(/\s+/);
+          let acum = 0;
+          let wIdx = 0;
+          for (let w = 0; w < palabrasList.length; w++) {
+            if (acum + palabrasList[w].length >= charIndex) {
+              wIdx = w;
+              break;
+            }
+            acum += palabrasList[w].length + 1;
+          }
+          setPalabraActualIndex(wIdx);
           resaltarPalabraEnElemento(frag.elemento, event.charIndex, event.charLength);
         };
         utterance.onend = () => {
+          if (palabraTimerRef.current) clearInterval(palabraTimerRef.current);
           if (sesion !== sesionVozRef.current) return;
           quitarResaltadoPalabra(frag.elemento);
           indiceFragmentoVozRef.current += 1;
@@ -656,7 +745,26 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     }
     const frag = fragmentos[i];
     resaltarElemento(frag.elemento);
+    setTextoFragmentoActual(frag.texto);
+    setPalabraActualIndex(0);
     guardarFragmentoVoz(frag.texto);
+
+    // Iniciar temporizador progresivo de palabras para sincronización visual en tiempo real
+    if (palabraTimerRef.current) clearInterval(palabraTimerRef.current);
+    const listaPalabras = (frag.texto || "").split(/\s+/).filter(Boolean);
+    if (listaPalabras.length > 0) {
+      const duracionEstimadaMs = Math.max(1200, (frag.texto.length * 60) / velocidadVoz);
+      const msPorPalabra = Math.max(120, duracionEstimadaMs / listaPalabras.length);
+      palabraTimerRef.current = setInterval(() => {
+        setPalabraActualIndex((prev) => {
+          if (prev + 1 >= listaPalabras.length) {
+            clearInterval(palabraTimerRef.current);
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, msPorPalabra);
+    }
     if (motorVoz === "ia") {
       hablarFragmentoIA(frag, sesion);
       return;
@@ -668,9 +776,22 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     if (vozElegida) utterance.voice = vozElegida;
     utterance.onboundary = (event) => {
       if (event.name && event.name !== "word") return;
+      const charIndex = event.charIndex;
+      const palabrasList = (frag.texto || "").split(/\s+/);
+      let acum = 0;
+      let wIdx = 0;
+      for (let w = 0; w < palabrasList.length; w++) {
+        if (acum + palabrasList[w].length >= charIndex) {
+          wIdx = w;
+          break;
+        }
+        acum += palabrasList[w].length + 1;
+      }
+      setPalabraActualIndex(wIdx);
       resaltarPalabraEnElemento(frag.elemento, event.charIndex, event.charLength);
     };
     utterance.onend = () => {
+      if (palabraTimerRef.current) clearInterval(palabraTimerRef.current);
       if (sesion !== sesionVozRef.current) return;
       quitarResaltadoPalabra(frag.elemento);
       indiceFragmentoVozRef.current += 1;
@@ -836,11 +957,62 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
     setMostrarIndice(false);
   };
 
+  const saltarSiguienteFragmento = () => {
+    if (palabraTimerRef.current) clearInterval(palabraTimerRef.current);
+    window.speechSynthesis.cancel();
+    limpiarAudioIA();
+    indiceFragmentoVozRef.current += 1;
+    hablarSiguienteFragmento(sesionVozRef.current);
+  };
+
+  const reproducirFragmentoAnterior = () => {
+    if (palabraTimerRef.current) clearInterval(palabraTimerRef.current);
+    window.speechSynthesis.cancel();
+    limpiarAudioIA();
+    indiceFragmentoVozRef.current = Math.max(0, indiceFragmentoVozRef.current - 1);
+    hablarSiguienteFragmento(sesionVozRef.current);
+  };
+
   const cambiarPagina = (direccion) => {
     if (!renditionRef.current) return;
-    detenerVoz();
-    // "adelante" = pasar a la siguiente página (el contenido nuevo entra
-    // desde la derecha, como pasar una hoja); "atras" = página anterior.
+
+    // Si el usuario está leyendo con audio, NO se detiene la lectura:
+    // Pasamos a la siguiente página y continuamos narrando fluidamente!
+    if (leyendoEnVoz) {
+      cambiandoPaginaConAudioRef.current = true;
+      setTransicion(direccion);
+      if (palabraTimerRef.current) clearInterval(palabraTimerRef.current);
+      window.speechSynthesis.cancel();
+      limpiarAudioIA();
+      const accion = direccion === "adelante" ? renditionRef.current.next() : renditionRef.current.prev();
+      accion
+        .then(() => {
+          setTimeout(() => {
+            setTransicion(null);
+            cambiandoPaginaConAudioRef.current = false;
+            sesionVozRef.current += 1;
+            const sesionActual = sesionVozRef.current;
+            const contents = renditionRef.current?.getContents();
+            const contentActual = contents?.[contents.length - 1];
+            if (contentActual?.document) {
+              const nuevosFragmentos = obtenerFragmentosDePagina(contentActual.document);
+              if (nuevosFragmentos.length > 0) {
+                fragmentosVozRef.current = nuevosFragmentos;
+                indiceFragmentoVozRef.current = 0;
+                setLeyendoEnVoz(true);
+                hablarSiguienteFragmento(sesionActual);
+                return;
+              }
+            }
+          }, 240);
+        })
+        .catch(() => {
+          setTransicion(null);
+          cambiandoPaginaConAudioRef.current = false;
+        });
+      return;
+    }
+
     setTransicion(direccion);
     setTimeout(() => {
       if (direccion === "adelante") renditionRef.current?.next();
@@ -936,8 +1108,12 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
             <ChevronLeft size={14} />
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{titulo}</div>
-            <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>{leyendoEnVoz ? "Leyendo en voz alta…" : "En pausa"} · {progreso}%</div>
+            <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {textoFragmentoActual || titulo}
+            </div>
+            <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+              {leyendoEnVoz ? "🔊 Narrando texto…" : "En pausa"} · {progreso}%
+            </div>
           </div>
           <button
             onClick={() => cambiarPagina("adelante")}
@@ -1076,6 +1252,171 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
             pointerEvents: "none",
           }}
         />
+
+        {/* BARRA FLOTANTE DE LECTURA SINCRONIZADA Y SUBTÍTULOS (KARAOKE TELEPROMPTER) */}
+        {leyendoEnVoz && textoFragmentoActual && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: 14,
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "min(660px, calc(100% - 24px))",
+              background: "rgba(15, 23, 42, 0.94)",
+              backdropFilter: "blur(12px)",
+              color: "#ffffff",
+              padding: "12px 16px",
+              borderRadius: 14,
+              boxShadow: "0 12px 32px rgba(0,0,0,0.4)",
+              border: "1px solid rgba(255,255,255,0.18)",
+              zIndex: 30,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              transition: "all 0.2s ease",
+            }}
+          >
+            {/* Cabecera */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.65)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "#10b981" }} />
+                <span>Audio en sincronía</span>
+                <span>·</span>
+                <span className="despensa-mono">
+                  Frase {indiceFragmentoVozRef.current + 1} de {fragmentosVozRef.current.length || 1}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="despensa-mono">{velocidadVoz}x</span>
+                <button
+                  onClick={detenerVoz}
+                  title="Detener audio"
+                  style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontSize: 13, padding: 0 }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Texto en tiempo real con efecto Karaoke / Teleprompter */}
+            <div
+              style={{
+                fontSize: 14,
+                lineHeight: 1.55,
+                fontWeight: 500,
+                maxHeight: 70,
+                overflowY: "auto",
+                textAlign: "left",
+                color: "#e2e8f0",
+              }}
+            >
+              {textoFragmentoActual.split(/\s+/).filter(Boolean).map((palabra, idx) => {
+                const esActual = idx === palabraActualIndex;
+                const yaLeida = idx < palabraActualIndex;
+                return (
+                  <span
+                    key={idx}
+                    style={{
+                      display: "inline-block",
+                      marginRight: 4,
+                      padding: "1px 3px",
+                      borderRadius: 4,
+                      transition: "all 0.12s ease",
+                      color: esActual ? "#ffffff" : yaLeida ? "#94a3b8" : "#cbd5e1",
+                      backgroundColor: esActual ? "#059669" : "transparent",
+                      fontWeight: esActual ? 700 : yaLeida ? 400 : 500,
+                      transform: esActual ? "scale(1.04)" : "scale(1)",
+                    }}
+                  >
+                    {palabra}
+                  </span>
+                );
+              })}
+            </div>
+
+            {/* Controles de avance rápido */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 4, borderTop: "1px solid rgba(255,255,255,0.1)", flexWrap: "wrap", gap: 6 }}>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  onClick={reproducirFragmentoAnterior}
+                  title="Frase anterior"
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,0.12)",
+                    color: "#fff",
+                    border: "none",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  ⏮ Frase anterior
+                </button>
+                <button
+                  onClick={alternarVoz}
+                  title={leyendoEnVoz ? "Pausar" : "Reanudar"}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    background: "#10b981",
+                    color: "#fff",
+                    border: "none",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  {leyendoEnVoz ? <Pause size={12} /> : <Volume2 size={12} />}
+                  {leyendoEnVoz ? "Pausar" : "Seguir"}
+                </button>
+                <button
+                  onClick={saltarSiguienteFragmento}
+                  title="Siguiente frase"
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,0.12)",
+                    color: "#fff",
+                    border: "none",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 3,
+                  }}
+                >
+                  Siguiente frase ⏭
+                </button>
+              </div>
+
+              <button
+                onClick={() => cambiarPagina("adelante")}
+                title="Pasar a la siguiente página sin pausar el audio"
+                style={{
+                  padding: "4px 9px",
+                  borderRadius: 6,
+                  background: "rgba(255,255,255,0.15)",
+                  color: "#38bdf8",
+                  border: "none",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                Página siguiente ➔
+              </button>
+            </div>
+          </div>
+        )}
 
         {mostrarIndice && (
           <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: 260, maxWidth: "80%", background: "var(--card)", borderRight: "1px solid var(--line)", overflowY: "auto", padding: 12 }}>
