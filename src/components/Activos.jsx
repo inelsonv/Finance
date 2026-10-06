@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Car, Home, Laptop, Package2, Wrench, Calendar, DollarSign, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
+import React, { useMemo, useState, useEffect } from "react";
+import { Plus, Trash2, X, Pencil, Check, Car, Home, Laptop, Package2, Wrench, Calendar, DollarSign, ChevronDown, ChevronUp, ShieldCheck, Navigation } from "lucide-react";
 import { addActivo, deleteActivo, updateActivoEstado, updateActivo, addMantenimiento, deleteMantenimiento } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import RutasGoogleMaps from "./RutasGoogleMaps.jsx";
 
 const TIPOS = ["Vehículo", "Propiedad", "Electrodoméstico", "Equipo electrónico", "Otro"];
 const ESTADOS = ["Activo", "Vendido", "Dado de baja"];
@@ -126,7 +127,13 @@ const emptyMantForm = () => ({
   notas: "",
 });
 
-export default function Activos({ activos, mantenimientos, seguros }) {
+export default function Activos({ activos, mantenimientos, seguros, rutas = [], tabInicial = "activos" }) {
+  const [seccionActiva, setSeccionActiva] = useState(tabInicial);
+
+  useEffect(() => {
+    if (tabInicial) setSeccionActiva(tabInicial);
+  }, [tabInicial]);
+
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -265,27 +272,85 @@ export default function Activos({ activos, mantenimientos, seguros }) {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 12 }}>
+      {/* Selector de sub-sección: Activos / Rutas */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 16,
+          borderBottom: "1px solid var(--line)",
+          paddingBottom: 10,
+          flexWrap: "wrap",
+        }}
+      >
         <button
-          onClick={() => setShowForm((s) => !s)}
+          onClick={() => setSeccionActiva("activos")}
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 6,
+            gap: 7,
             padding: "8px 14px",
-            fontSize: 13,
-            fontWeight: 500,
-            background: "var(--ink)",
-            color: "var(--paper)",
-            border: "none",
             borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            background: seccionActiva === "activos" ? "var(--ink)" : "var(--card)",
+            color: seccionActiva === "activos" ? "var(--paper)" : "var(--ink)",
+            border: "1px solid var(--line)",
             cursor: "pointer",
+            transition: "all 0.15s ease",
           }}
         >
-          {showForm ? <X size={14} /> : <Plus size={14} />}
-          {showForm ? "Cancelar" : "Agregar activo"}
+          <Car size={15} style={{ color: seccionActiva === "activos" ? "#7bc9a6" : "var(--sage)" }} />
+          Mis Activos & Vehículos ({activos.length})
+        </button>
+
+        <button
+          onClick={() => setSeccionActiva("rutas")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 7,
+            padding: "8px 14px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            background: seccionActiva === "rutas" ? "var(--ink)" : "var(--card)",
+            color: seccionActiva === "rutas" ? "var(--paper)" : "var(--ink)",
+            border: "1px solid var(--line)",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+        >
+          <Navigation size={15} style={{ color: seccionActiva === "rutas" ? "#38bdf8" : "var(--sage)" }} />
+          🗺️ Rutas & Kilómetros (Google Maps)
         </button>
       </div>
+
+      {seccionActiva === "rutas" ? (
+        <RutasGoogleMaps activos={activos} rutas={rutas} />
+      ) : (
+        <>
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 12 }}>
+            <button
+              onClick={() => setShowForm((s) => !s)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 14px",
+                fontSize: 13,
+                fontWeight: 500,
+                background: "var(--ink)",
+                color: "var(--paper)",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              {showForm ? <X size={14} /> : <Plus size={14} />}
+              {showForm ? "Cancelar" : "Agregar activo"}
+            </button>
+          </div>
 
       {showForm && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
@@ -692,6 +757,8 @@ export default function Activos({ activos, mantenimientos, seguros }) {
             );
           })}
         </div>
+      )}
+        </>
       )}
     </div>
   );

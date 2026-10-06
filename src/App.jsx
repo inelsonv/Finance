@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
 import { auth, ALLOWED_EMAIL } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy, watchRutasVehiculo } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
@@ -91,6 +91,7 @@ const TITLES = {
   vuelos: "Consultar Vuelos",
   calendario: "Calendario",
   activos: "Activos",
+  "activos-rutas": "Rutas y Kilómetros",
   ahorro: "Ahorro",
   seguros: "Seguros",
   renovaciones: "Renovaciones y Trámites",
@@ -178,6 +179,7 @@ export default function App() {
   const [tiposEntidad, setTiposEntidad] = useState([]);
   const [eventos, setEventos] = useState([]);
   const [activos, setActivos] = useState([]);
+  const [rutas, setRutas] = useState([]);
   const [mantenimientos, setMantenimientos] = useState([]);
   const [metasAhorro, setMetasAhorro] = useState([]);
   const [seguros, setSeguros] = useState([]);
@@ -389,6 +391,7 @@ export default function App() {
     const unsubFlujo = watchFlujo(setFlujo, handleError);
     const unsubCalendario = watchCalendario(setEventos, handleError);
     const unsubActivos = watchActivos(setActivos, handleError);
+    const unsubRutas = watchRutasVehiculo(setRutas, handleError);
     const unsubMantenimientos = watchMantenimientos(setMantenimientos, handleError);
     const unsubMetasAhorro = watchMetasAhorro(setMetasAhorro, handleError);
     const unsubSeguros = watchSeguros(setSeguros, handleError);
@@ -446,6 +449,7 @@ export default function App() {
       unsubFlujo();
       unsubCalendario();
       unsubActivos();
+      unsubRutas();
       unsubMantenimientos();
       unsubMetasAhorro();
       unsubSeguros();
@@ -1091,7 +1095,15 @@ export default function App() {
         {tab === "calendario" && (
           <Calendario eventos={eventos} entidades={entidades} categoriasGasto={categoriasGasto} vacaciones={vacaciones} tarjetas={tarjetas} habitos={habitos} habitosRegistro={habitosRegistro} />
         )}
-        {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} seguros={seguros} />}
+        {(tab === "activos" || tab === "activos-rutas") && (
+          <Activos
+            activos={activos}
+            mantenimientos={mantenimientos}
+            seguros={seguros}
+            rutas={rutas}
+            tabInicial={tab === "activos-rutas" ? "rutas" : "activos"}
+          />
+        )}
         {tab === "ahorro" && (
           <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} onNavigate={setTab} />
         )}

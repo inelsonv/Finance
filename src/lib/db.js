@@ -2511,6 +2511,51 @@ export async function deleteMantenimiento(id) {
   await deleteDoc(doc(db, "mantenimientos", id));
 }
 
+const rutasVehiculoCol = collection(db, "rutasVehiculo");
+
+export function watchRutasVehiculo(onChange, onError) {
+  return onSnapshot(
+    rutasVehiculoCol,
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addRutaVehiculo({
+  activoId,
+  activoNombre,
+  origen,
+  destino,
+  distanciaKm,
+  duracionMinutos,
+  fecha,
+  combustibleEstimadoGal,
+  costoEstimadoCombustible,
+  notas,
+}) {
+  await addDoc(rutasVehiculoCol, {
+    activoId: activoId || null,
+    activoNombre: activoNombre || "",
+    origen,
+    destino,
+    distanciaKm: Number(distanciaKm) || 0,
+    duracionMinutos: Number(duracionMinutos) || 0,
+    fecha: fecha || new Date().toISOString().slice(0, 10),
+    combustibleEstimadoGal: combustibleEstimadoGal != null ? Number(combustibleEstimadoGal) : null,
+    costoEstimadoCombustible: costoEstimadoCombustible != null ? Number(costoEstimadoCombustible) : null,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteRutaVehiculo(id) {
+  await deleteDoc(doc(db, "rutasVehiculo", id));
+}
+
 const metasAhorroCol = collection(db, "metasAhorro");
 
 export function watchMetasAhorro(onChange, onError) {
