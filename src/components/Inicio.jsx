@@ -36,6 +36,21 @@ function clasificarFondoEmergencia(meses) {
   return { label: "Saludable", color: "var(--sage)", bg: "var(--sage-bg)" };
 }
 
+const ZONES_AHORRO = [
+  { from: 0, to: 10, color: "#8a2a1d" },
+  { from: 10, to: 20, color: "#c99a3f" },
+  { from: 20, to: 35, color: "var(--sage)" },
+  { from: 35, to: 100, color: "#2e7d32" },
+];
+
+function clasificarCapacidadAhorro(pct) {
+  if (pct < 0) return { label: "Déficit", color: "#8a2a1d", bg: "var(--stamp-bg)" };
+  if (pct < 10) return { label: "Baja", color: "var(--stamp)", bg: "var(--stamp-bg)" };
+  if (pct < 20) return { label: "Moderada", color: "var(--amber)", bg: "var(--amber-bg)" };
+  if (pct < 35) return { label: "Saludable", color: "var(--sage)", bg: "var(--sage-bg)" };
+  return { label: "Excelente", color: "#2e7d32", bg: "var(--sage-bg)" };
+}
+
 function polarToCartesian(cx, cy, r, angleDeg) {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
@@ -1993,6 +2008,10 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const mesesCobertura = gastoMensualPromedio > 0 ? ahorroTotal / gastoMensualPromedio : null;
   const clasificacionFondo = mesesCobertura != null ? clasificarFondoEmergencia(mesesCobertura) : null;
 
+  const ahorroPotencialMensual = ingresoMensual > 0 && gastoMensualPromedio > 0 ? ingresoMensual - gastoMensualPromedio : null;
+  const pctCapacidadAhorro = ingresoMensual > 0 && gastoMensualPromedio > 0 ? ((ingresoMensual - gastoMensualPromedio) / ingresoMensual) * 100 : null;
+  const clasificacionAhorro = pctCapacidadAhorro != null ? clasificarCapacidadAhorro(pctCapacidadAhorro) : null;
+
   const kpisContent = (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 16 }}>
@@ -2064,6 +2083,48 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
                 <MiniStat icon={PiggyBank} label="En cuentas de ahorro" value={formatMoney(ahorroTotal)} color="var(--sage)" compact />
                 <MiniStat icon={Banknote} label="Gasto mensual prom." value={formatMoney(gastoMensualPromedio)} color="var(--stamp)" compact />
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative" }}>
+          <InfoTooltip>
+            (Ingreso mensual estimado - Gasto mensual promedio) ÷ ingreso mensual estimado. Representa el
+            porcentaje de tus ingresos disponible para ahorrar o invertir después de cubrir tus gastos reales. Los expertos
+            recomiendan ahorrar al menos un 20%.
+          </InfoTooltip>
+          <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Capacidad de ahorro</div>
+
+          {ingresoMensual === 0 ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0" }}>
+              <AlertTriangle size={15} />
+              Configura al menos una fuente de ingreso activa (sección Ingresos) para calcular este KPI.
+            </div>
+          ) : gastoMensualPromedio === 0 ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0", textAlign: "left" }}>
+              <AlertTriangle size={15} />
+              Registra gastos en Movimientos para calcular tu gasto mensual promedio y activar este KPI.
+            </div>
+          ) : (
+            <>
+              <GaugeChart value={Math.max(0, Math.min(pctCapacidadAhorro, 100))} maxValue={100} zones={ZONES_AHORRO} marks={[0, 10, 20, 35, 50, 100]} />
+              <div style={{ marginTop: -18, marginBottom: 6 }}>
+                <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacionAhorro.color }}>
+                  {pctCapacidadAhorro.toFixed(1)}%
+                </span>
+              </div>
+              <span
+                className="despensa-tab-font"
+                style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacionAhorro.bg, color: clasificacionAhorro.color }}
+              >
+                {clasificacionAhorro.label}
+              </span>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
+                <MiniStat icon={PiggyBank} label="Remanente mensual" value={formatMoney(ahorroPotencialMensual)} color={ahorroPotencialMensual >= 0 ? "var(--sage)" : "var(--stamp)"} compact />
+                <MiniStat icon={Briefcase} label="Ingreso mensual" value={formatMoney(ingresoMensual)} color="var(--sage)" compact />
+                <MiniStat icon={TrendingUp} label="Meta rec. (20%)" value={formatMoney(ingresoMensual * 0.2)} color="var(--ink-soft)" compact />
               </div>
             </>
           )}
