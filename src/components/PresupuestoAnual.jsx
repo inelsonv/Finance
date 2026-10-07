@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText, Fuel, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Receipt } from "lucide-react";
-import { setPresupuestoCelda, watchPagoRapido } from "../lib/db";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText, Fuel, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Receipt, Sliders, PieChart, Sparkles } from "lucide-react";
+import { setPresupuestoCelda, watchPagoRapido, watchMetodologiaPresupuestoConfig } from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { contratoActivoEnMes, calcularQuincenaEfectivaContrato } from "./Contratos.jsx";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -8,6 +8,8 @@ import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { formatearOrdenPrioridad } from "../lib/flujoPrioridad";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuincenaConfigurado } from "../lib/quincenaConfig";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
+import { METODOLOGIAS } from "../lib/metodologiaPresupuesto";
+import MetodologiaPresupuestoModal from "./MetodologiaPresupuestoModal.jsx";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
@@ -119,7 +121,45 @@ function totalItemsOrden(orden) {
   return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
 }
 
-export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas, year, prestamos, metasAhorro, fuentesIngreso, cuentas, movimientos, eventos, ordenesCompra, vacaciones, diezmoConfig, tarjetas, ahorroConfig, onChangeYear, renovaciones, flujo, diasCobro, puntosHistorial, entidades = [], contratos = [] }) {
+export default function PresupuestoAnual({
+  presupuesto,
+  categoriasPersonalizadas,
+  year,
+  prestamos,
+  metasAhorro,
+  fuentesIngreso,
+  cuentas,
+  movimientos,
+  eventos,
+  ordenesCompra,
+  vacaciones,
+  diezmoConfig,
+  tarjetas,
+  ahorroConfig,
+  onChangeYear,
+  renovaciones,
+  flujo,
+  diasCobro,
+  puntosHistorial,
+  entidades = [],
+  contratos = [],
+  abrirModalMetodologia = false,
+  onCloseModalMetodologia,
+}) {
+  const [configMetodologia, setConfigMetodologia] = useState({ metodologia: "50-30-20", pilares: {}, customPct: { necesidad: 50, deseo: 30, ahorro: 20 } });
+  const [modalMetodologiaAbierto, setModalMetodologiaAbierto] = useState(false);
+
+  useEffect(() => {
+    const unsub = watchMetodologiaPresupuestoConfig(setConfigMetodologia, () => {});
+    return () => unsub && unsub();
+  }, []);
+
+  useEffect(() => {
+    if (abrirModalMetodologia) {
+      setModalMetodologiaAbierto(true);
+    }
+  }, [abrirModalMetodologia]);
+
   // Puramente informativo: el orden de prioridad definido en el Editor de
   // flujo, mostrado como referencia visual. No depende de ningún otro cálculo
   // de este componente ni los modifica.
@@ -802,6 +842,84 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
           </span>
         </div>
       )}
+
+      {/* Banner / Selector de Metodología de Presupuesto */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%)",
+          border: "1px solid var(--sage)",
+          borderRadius: 12,
+          padding: "10px 16px",
+          marginBottom: 14,
+          flexWrap: "wrap",
+          gap: 10,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              background: "var(--sage-bg)",
+              color: "var(--sage)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <PieChart size={18} />
+          </div>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                Modelo Activo: {METODOLOGIAS[configMetodologia.metodologia]?.nombre || "Regla 50 / 30 / 20"}
+              </span>
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 600,
+                  padding: "1px 7px",
+                  borderRadius: 10,
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  color: "var(--ink-soft)",
+                }}
+              >
+                {METODOLOGIAS[configMetodologia.metodologia]?.badge || "50% Necesidades · 30% Deseos · 20% Ahorro"}
+              </span>
+            </div>
+            <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: 0 }}>
+              Aplica configuraciones automáticas (50/30/20, Base Cero, 70/20/10, etc.) o ajusta los pilares de tus categorías
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => setModalMetodologiaAbierto(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 14px",
+            borderRadius: 8,
+            background: "var(--sage)",
+            color: "#ffffff",
+            border: "none",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "0 2px 8px rgba(16, 185, 129, 0.25)",
+          }}
+        >
+          <Sliders size={14} />
+          Configurar / Aplicar Tipo de Presupuesto
+        </button>
+      </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 14 }}>
         <button
@@ -1785,6 +1903,26 @@ export default function PresupuestoAnual({ presupuesto, categoriasPersonalizadas
           </tfoot>
         </table>
       </div>
+
+      <MetodologiaPresupuestoModal
+        isOpen={modalMetodologiaAbierto}
+        onClose={() => {
+          setModalMetodologiaAbierto(false);
+          if (onCloseModalMetodologia) onCloseModalMetodologia();
+        }}
+        configActual={configMetodologia}
+        categorias={categorias}
+        presupuesto={presupuesto}
+        year={year}
+        ingresoMensual={ingresoMensual}
+        prestamosActivos={prestamosActivos}
+        contratosActivos={contratosActivos}
+        metasActivas={metasActivas}
+        movimientos={movimientos}
+        diezmoMensual={diezmoMensual}
+        ahorroMensual={ahorroMensual}
+        mesSeleccionado={mesActivo || (new Date().getMonth() + 1)}
+      />
     </div>
   );
 }

@@ -2047,6 +2047,57 @@ export async function setPresupuestoCelda(year, category, month, quincena, amoun
   );
 }
 
+export async function setPresupuestoBatch(year, dataByCat) {
+  if (!year || !dataByCat || Object.keys(dataByCat).length === 0) return;
+  await setDoc(
+    doc(db, "presupuestos", String(year)),
+    dataByCat,
+    { merge: true }
+  );
+}
+
+const CONFIG_METODOLOGIA_KEY = "smart-finance-metodologia-config";
+
+export function watchMetodologiaPresupuestoConfig(onChange, onError) {
+  const getLocal = () => {
+    try {
+      const saved = localStorage.getItem(CONFIG_METODOLOGIA_KEY);
+      return saved ? JSON.parse(saved) : { metodologia: "50-30-20", pilares: {}, customPct: { necesidad: 50, deseo: 30, ahorro: 20 } };
+    } catch {
+      return { metodologia: "50-30-20", pilares: {}, customPct: { necesidad: 50, deseo: 30, ahorro: 20 } };
+    }
+  };
+
+  return onSnapshot(
+    doc(db, "config", "metodologiaPresupuesto"),
+    (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        try { localStorage.setItem(CONFIG_METODOLOGIA_KEY, JSON.stringify(d)); } catch {}
+        onChange(d);
+      } else {
+        onChange(getLocal());
+      }
+    },
+    (err) => {
+      console.warn("Metodología config Firestore fallback a local:", err);
+      onChange(getLocal());
+      if (onError) onError(err);
+    }
+  );
+}
+
+export async function saveMetodologiaPresupuestoConfig(config) {
+  try {
+    localStorage.setItem(CONFIG_METODOLOGIA_KEY, JSON.stringify(config));
+  } catch {}
+  try {
+    await setDoc(doc(db, "config", "metodologiaPresupuesto"), config, { merge: true });
+  } catch (err) {
+    console.warn("No se pudo sincronizar configuración de metodología con Firestore:", err);
+  }
+}
+
 export function watchContratos(onChange, onError) {
   return onSnapshot(
     contratosCol,

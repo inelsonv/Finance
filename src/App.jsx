@@ -82,6 +82,7 @@ const TITLES = {
   contratos: "Contratos",
   ingresos: "Ingresos",
   "presupuesto-categoria-gasto": "Categoría de gasto",
+  "presupuesto-metodologia": "Tipos y Metodología de Presupuesto",
   "presupuesto-mensual": "Presupuesto",
   "presupuesto-flujo": "Editor de flujo",
   inversion: "Inversión",
@@ -307,6 +308,11 @@ export default function App() {
     if (tabId === "presupuesto" || tabId === "presupuesto-mensual") {
       setPresupuestoYear(new Date().getFullYear());
       setTab("presupuesto-mensual");
+      return;
+    }
+    if (tabId === "presupuesto-metodologia") {
+      setPresupuestoYear(new Date().getFullYear());
+      setTab("presupuesto-metodologia");
       return;
     }
     setTab(tabId);
@@ -1008,7 +1014,7 @@ export default function App() {
           <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} ingresosPuntuales={ingresosPuntuales} />
         )}
         {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} categoriasPersonalizadas={categoriasGasto} />}
-        {tab === "presupuesto-mensual" && (
+        {(tab === "presupuesto-mensual" || tab === "presupuesto-metodologia") && (
           <PresupuestoAnual
             presupuesto={presupuestoAnual}
             categoriasPersonalizadas={categoriasGasto}
@@ -1031,6 +1037,10 @@ export default function App() {
             puntosHistorial={puntosHistorial}
             entidades={entidades}
             contratos={contratos}
+            abrirModalMetodologia={tab === "presupuesto-metodologia"}
+            onCloseModalMetodologia={() => {
+              if (tab === "presupuesto-metodologia") setTab("presupuesto-mensual");
+            }}
           />
         )}
         {tab === "presupuesto-flujo" && (

@@ -35,6 +35,7 @@ const NAV_ITEMS = [
     label: "Presupuesto",
     icon: Wallet,
     children: [
+      { id: "presupuesto-metodologia", label: "Tipos de Presupuesto" },
       { id: "presupuesto-categoria-gasto", label: "Categoría de gasto" },
       { id: "presupuesto-flujo", label: "Editor de flujo" },
       { id: "estrategia-deudas", label: "Estrategia de deudas" },
