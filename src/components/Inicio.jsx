@@ -76,8 +76,9 @@ function GaugeChart({ value, maxValue, zones, marks }) {
   const cx = 110;
   const cy = 108;
   const r = 88;
+  const numValue = Number.isFinite(value) ? value : 0;
   const toPct = (v) => Math.max(0, Math.min((v / maxValue) * 100, 100));
-  const needleAngle = -90 + toPct(value) * 1.8;
+  const needleAngle = -90 + toPct(numValue) * 1.8;
   const needleTargetRotation = needleAngle - 90;
 
   return (
@@ -101,6 +102,7 @@ function GaugeChart({ value, maxValue, zones, marks }) {
         );
       })}
       <line
+        key={`needle-${Math.round(needleTargetRotation)}`}
         className="despensa-gauge-needle"
         x1={cx}
         y1={cy}
@@ -2008,9 +2010,25 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const mesesCobertura = gastoMensualPromedio > 0 ? ahorroTotal / gastoMensualPromedio : null;
   const clasificacionFondo = mesesCobertura != null ? clasificarFondoEmergencia(mesesCobertura) : null;
 
-  const ahorroPotencialMensual = ingresoMensual > 0 && gastoMensualPromedio > 0 ? ingresoMensual - gastoMensualPromedio : null;
-  const pctCapacidadAhorro = ingresoMensual > 0 && gastoMensualPromedio > 0 ? ((ingresoMensual - gastoMensualPromedio) / ingresoMensual) * 100 : null;
-  const clasificacionAhorro = pctCapacidadAhorro != null ? clasificarCapacidadAhorro(pctCapacidadAhorro) : null;
+  const gastoPresupuestadoMesActual = useMemo(() => {
+    if (!presupuesto) return 0;
+    const now = new Date();
+    const currentMonth = String(now.getMonth() + 1);
+    let total = 0;
+    for (const catData of Object.values(presupuesto)) {
+      if (!catData || typeof catData !== "object") continue;
+      const mData = catData[currentMonth];
+      if (mData) {
+        total += (Number(mData.Q1) || 0) + (Number(mData.Q2) || 0);
+      }
+    }
+    return total;
+  }, [presupuesto]);
+
+  const gastoMensualReferencia = gastoMensualPromedio > 0 ? gastoMensualPromedio : gastoPresupuestadoMesActual;
+  const ahorroPotencialMensual = ingresoMensual > 0 ? ingresoMensual - gastoMensualReferencia : 0;
+  const pctCapacidadAhorro = ingresoMensual > 0 ? (ahorroPotencialMensual / ingresoMensual) * 100 : 0;
+  const clasificacionAhorro = clasificarCapacidadAhorro(pctCapacidadAhorro);
 
   const kpisContent = (
     <div>
@@ -2100,11 +2118,6 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0" }}>
               <AlertTriangle size={15} />
               Configura al menos una fuente de ingreso activa (sección Ingresos) para calcular este KPI.
-            </div>
-          ) : gastoMensualPromedio === 0 ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0", textAlign: "left" }}>
-              <AlertTriangle size={15} />
-              Registra gastos en Movimientos para calcular tu gasto mensual promedio y activar este KPI.
             </div>
           ) : (
             <>
