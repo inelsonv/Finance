@@ -1071,6 +1071,8 @@ export default function App() {
             presupuesto={presupuestoAnual}
             presupuestoYear={presupuestoYear}
             diasCobro={diasCobro}
+            cuentas={cuentas}
+            entidades={entidades}
           />
         )}
         {tab === "checklist-pagos" && (
