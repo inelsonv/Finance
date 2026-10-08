@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle, Pencil, History, Download } from "lucide-react";
 import { addMovimiento, deleteMovimiento, updateMovimientoFecha, updateMovimientoMonto, marcarConsumosComoPagados } from "../lib/db";
+import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import SwipeableRow from "./SwipeableRow.jsx";
 import Pagination from "./Pagination.jsx";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
@@ -482,6 +483,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         contratoId: form.tipo === "Pago de servicio" ? form.contratoId : null,
         contratoNombre: form.tipo === "Pago de servicio" ? contrato?.nombre || "" : "",
       });
+
+      if (form.tipo === "Pago de préstamo" || form.tipo === "Pago de tarjeta") {
+        lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round((Number(amount) || 0) * 0.05) });
+      }
 
       if (form.tipo === "Pago de tarjeta" && consumosSeleccionados.length > 0) {
         await marcarConsumosComoPagados(consumosSeleccionados, nuevoMovRef.id);

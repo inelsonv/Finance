@@ -28,6 +28,7 @@ import {
   updateTarjeta,
   marcarConsumosComoPagados,
 } from "../lib/db";
+import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
@@ -234,7 +235,7 @@ export default function EstrategiaDeudas({
     }
   };
 
-  const handleConfirmarPago = async () => {
+  const handleConfirmarPago = async (e) => {
     setErrorPago(null);
     const d = deudas.find((item) => item.id === deudaSeleccionadaId);
     if (!d) {
@@ -250,6 +251,17 @@ export default function EstrategiaDeudas({
 
     const saldoMaximo = d.esUSD ? d.saldoOriginalUSD : d.saldo;
     const esCompleto = tipoPagoModo === "completo" || montoNum >= saldoMaximo;
+
+    // Disparar animación del cohete hacia la sección de puntos generados
+    let clickX = window.innerWidth / 2;
+    let clickY = window.innerHeight * 0.7;
+    if (e?.currentTarget) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      clickX = rect.left + rect.width / 2;
+      clickY = rect.top + rect.height / 2;
+    }
+    const puntosEstimados = Math.round(montoNum * 0.05) + (esCompleto ? Math.round(montoNum * 0.08) : 0);
+    lanzarCoheteHaciaPuntos(clickX, clickY, { puntos: puntosEstimados, forzar: true });
 
     setProcesandoPago(true);
     try {

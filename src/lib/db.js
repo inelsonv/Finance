@@ -583,6 +583,18 @@ export async function otorgarPuntos(motivo, puntos, tipo, movimientoId = null) {
     createdAt: serverTimestamp(),
   });
   await setDoc(doc(db, "config", "puntos"), { total: increment(puntosFinales) }, { merge: true });
+
+  // Si los puntos corresponden al pago o cancelación de una deuda (préstamo o tarjeta),
+  // dispara la animación de cohete hacia la sección de puntos generados.
+  if (["prestamo", "tarjeta", "prestamoCancelado", "prestamoAdelanto"].includes(tipo) && puntosFinales > 0) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("lanzarCoheteDeuda", {
+          detail: { puntos: puntosFinales, mensaje: motivo },
+        })
+      );
+    }
+  }
 }
 
 const PREMIOS_COFRE = ["puntosExtra", "multiplicador", "protectorRacha", "insignia"];

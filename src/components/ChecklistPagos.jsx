@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda } from "../lib/db";
+import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
@@ -489,6 +490,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     await setChecklistItem(periodoKey, it.key, { ...actual, pagado: true, metodoPago });
 
     if (it.esPrestamo) {
+      lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round((Number(it.monto) || 0) * 0.05) });
       await addMovimiento({
         type: "Pago de préstamo",
         category: "Pago de préstamo",
@@ -503,6 +505,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         origenChecklist: { periodoKey, itemKey: it.key },
       });
     } else if (it.esTarjeta) {
+      lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round((Number(it.monto) || 0) * 0.05) });
       await addMovimiento({
         type: "Pago de tarjeta",
         category: "Pago de tarjeta",
