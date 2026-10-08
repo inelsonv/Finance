@@ -76,14 +76,11 @@ function celdaMeta(meta, year, mes, { ingresoMensual, aportadoPorCuenta }) {
 }
 
 // Calcula, para un evento del calendario vinculado a una categoría de gasto, en
-// qué mes/quincena cae (una sola vez, según la fecha exacta del evento).
-function celdaEvento(evento, year, mes) {
+// qué mes/quincena cae según su fecha exacta y la configuración de días de cobro.
+function celdaEvento(evento, year, mes, diasCobro) {
   if (!evento.fecha) return { activo: false, quincena: null };
-  const [ey, em, ed] = evento.fecha.split("-").map(Number);
-  if (!ey || !em) return { activo: false, quincena: null };
-  const activo = ey === year && em === mes;
-  const quincena = ed && ed >= 15 ? "Q2" : "Q1";
-  return { activo, quincena };
+  const info = clasificarFecha(evento.fecha, diasCobro);
+  return { activo: info.year === year && info.month === mes, quincena: info.quincena };
 }
 
 // Igual que celdaEvento, pero para una orden de compra usando su fecha planeada
@@ -445,8 +442,8 @@ export default function PresupuestoAnual({
   const getCeldaAhorroAuto = () => (ahorroMensual > 0 ? ahorroMensual / 2 : 0);
 
   const getCeldaEvento = (evento, mes, quincena) => {
-    const { activo, quincena: q } = celdaEvento(evento, year, mes);
-    return activo && q === quincena ? evento.montoEstimado : 0;
+    const { activo, quincena: q } = celdaEvento(evento, year, mes, diasCobro);
+    return activo && q === quincena ? Number(evento.montoEstimado) || 0 : 0;
   };
 
   const totalMesEvento = (evento, mes) => getCeldaEvento(evento, mes, "Q1") + getCeldaEvento(evento, mes, "Q2");
@@ -604,7 +601,9 @@ export default function PresupuestoAnual({
 
   const totalPorCategoria = (categoria) => {
     let total = 0;
-    for (let m = 1; m <= 12; m++) total += totalMesCategoria(categoria, m);
+    for (let m = 1; m <= 12; m++) {
+      total += totalMesCategoria(categoria, m) + totalMesEventoCategoria(categoria, m);
+    }
     return total;
   };
 
@@ -1160,13 +1159,19 @@ export default function PresupuestoAnual({
                   return QUINCENAS.map((q) => {
                     const key = `${cat.nombre}-${mes}-${q}`;
                     const val = getCelda(cat.nombre, mes, q);
+                    const montoEvento = getCeldaEventoCategoria(cat.nombre, mes, q);
                     const nota = notasPorCelda[key];
                     const bloqueada = cat.soloAsignablePorPuntos;
+                    const tooltipTexto = bloqueada
+                      ? "Esta categoría solo se puede asignar canjeando puntos, en el módulo de Puntos"
+                      : montoEvento > 0
+                      ? `Presupuesto base: ${val != null ? formatMoney(val) : "—"} · Agendado en Calendario: ${formatMoney(montoEvento)} (Total quincena: ${formatMoney((val || 0) + montoEvento)})`
+                      : nota || undefined;
                     return (
                       <td
                         key={key}
-                        style={{ borderBottom: "1px solid var(--line-soft)", borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none", padding: 0 }}
-                        title={bloqueada ? "Esta categoría solo se puede asignar canjeando puntos, en el módulo de Puntos" : nota || undefined}
+                        style={{ borderBottom: "1px solid var(--line-soft)", borderLeft: q === "Q1" ? "1px solid var(--line-soft)" : "none", padding: 0, position: "relative" }}
+                        title={tooltipTexto}
                       >
                         <input
                           type="number"
@@ -1174,9 +1179,9 @@ export default function PresupuestoAnual({
                           defaultValue={val ?? ""}
                           key={val}
                           onBlur={(e) => handleBlur(cat.nombre, mes, q, e.target.value)}
-                          placeholder="—"
+                          placeholder={montoEvento > 0 ? `+${montoEvento}` : "—"}
                           readOnly={bloqueada}
-                          title={bloqueada ? "Solo asignable canjeando puntos" : nota || undefined}
+                          title={tooltipTexto}
                           style={{
                             ...cellStyle,
                             opacity: savingKey === key ? 0.5 : 1,
@@ -1184,6 +1189,26 @@ export default function PresupuestoAnual({
                             cursor: bloqueada ? "not-allowed" : "text",
                           }}
                         />
+                        {montoEvento > 0 && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              bottom: 1,
+                              right: 2,
+                              fontSize: 8.5,
+                              fontWeight: 700,
+                              color: "var(--amber)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                              pointerEvents: "none",
+                              lineHeight: 1,
+                            }}
+                            title={`Agendado en Calendario: +${formatMoney(montoEvento)}`}
+                          >
+                            <CalendarIcon size={8} />+{Math.round(montoEvento).toLocaleString()}
+                          </div>
+                        )}
                       </td>
                     );
                   });

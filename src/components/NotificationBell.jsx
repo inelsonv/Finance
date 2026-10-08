@@ -30,6 +30,12 @@ function diasHastaFecha(fecha) {
   return Math.round((target - hoy) / 86400000);
 }
 
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
 function formatMoneyNotif(n) {
   const v = Number.isFinite(n) ? n : 0;
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -274,18 +280,47 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     }
 
     for (const m of membresias) {
-      if (m.estado !== "Activa" || !m.diaPago) continue;
-      if (yaPagadoEsteMes(movimientos, "Pago de membresía", "membresiaId", m.id, today)) continue;
-      const dias = diasHasta(m.diaPago, today);
-      if (dias <= UMBRAL_DIAS) {
-        list.push({
-          id: `m-${m.id}`,
-          icon: Ticket,
-          titulo: `Renovación de ${m.nombre}`,
-          subtitulo: m.tipo || "Membresía",
-          dias,
-          tab: "membresias",
-        });
+      if (m.estado !== "Activa") continue;
+
+      // 1. Alerta de expiración / fin del plan (ej. Google Gemini activo hasta enero, avisar 5 días antes)
+      if (m.fechaExpiracion && m.alertarExpiracion !== false) {
+        const diasExp = diasHastaFecha(m.fechaExpiracion);
+        const umbralExp = m.diasAvisoExpiracion != null ? Number(m.diasAvisoExpiracion) : 5;
+        if (diasExp != null && diasExp <= umbralExp) {
+          list.push({
+            id: `m-exp-${m.id}`,
+            icon: Ticket,
+            titulo:
+              diasExp < 0
+                ? `Plan de ${m.nombre} expirado`
+                : diasExp === 0
+                ? `Plan de ${m.nombre} expira hoy`
+                : `Plan de ${m.nombre} expira en ${diasExp} día${diasExp === 1 ? "" : "s"}`,
+            subtitulo:
+              diasExp < 0
+                ? `Venció el ${formatDateDisplay(m.fechaExpiracion)} (${m.tipo || "Suscripción"})`
+                : `Vence el ${formatDateDisplay(m.fechaExpiracion)} · Alerta configurada a ${umbralExp} días`,
+            dias: Math.max(0, diasExp),
+            urgente: diasExp <= 2,
+            tab: "membresias",
+          });
+        }
+      }
+
+      // 2. Alerta de día de pago periódico recurrente
+      if (m.diaPago && !yaPagadoEsteMes(movimientos, "Pago de membresía", "membresiaId", m.id, today)) {
+        const umbralPago = m.diasAvisoPago != null ? Number(m.diasAvisoPago) : UMBRAL_DIAS;
+        const dias = diasHasta(m.diaPago, today);
+        if (dias <= umbralPago) {
+          list.push({
+            id: `m-${m.id}`,
+            icon: Ticket,
+            titulo: `Renovación de ${m.nombre}`,
+            subtitulo: m.tipo || "Membresía",
+            dias,
+            tab: "membresias",
+          });
+        }
       }
     }
 

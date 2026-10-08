@@ -1,16 +1,40 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight, CreditCard, Flag, Heart, ListTodo } from "lucide-react";
-import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento, toggleHabitoRegistro, addHabito, updateHabito, deleteHabito } from "../lib/db";
+import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight, CreditCard, Flag, Heart, ListTodo, Wrench, Car, Sparkles } from "lucide-react";
+import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento, toggleHabitoRegistro, addHabito, updateHabito, deleteHabito, addMantenimiento } from "../lib/db";
 import { calcularRachaHabito, periodoDeFecha } from "../lib/rachaHabito";
+import { clasificarFecha } from "../lib/quincenaConfig";
 import { confirm } from "../lib/confirm";
 
-const TIPOS = ["Cita médica", "Vacaciones", "Cumpleaños", "Trabajo", "Personal", "Feriado", "Día especial", "Tarea", "Otro"];
+const TIPOS = [
+  "Cita médica",
+  "Mantenimiento de vehículo",
+  "Vacaciones",
+  "Cumpleaños",
+  "Trabajo",
+  "Personal",
+  "Feriado",
+  "Día especial",
+  "Tarea",
+  "Otro",
+];
+const TIPOS_MANTENIMIENTO_VEHICULO = [
+  "Cambio de aceite y filtro",
+  "Frenos (pastillas / discos)",
+  "Llantas / Alineación y balanceo",
+  "Batería",
+  "Revisión general / Afinamiento",
+  "Líquidos (freno / refrigerante / transmisión)",
+  "Reparación mecánica",
+  "Lavado y detailing",
+  "Otro mantenimiento",
+];
 const ESTADOS = ["Pendiente", "Completado", "Cancelado"];
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 const TIPO_ICONS = {
   "Cita médica": Stethoscope,
+  "Mantenimiento de vehículo": Wrench,
   Vacaciones: Plane,
   Tarjeta: CreditCard,
   Cumpleaños: Cake,
@@ -80,7 +104,7 @@ function construirGrilla(viewDate) {
   return cells;
 }
 
-const emptyForm = (fecha) => ({
+const emptyForm = (fecha, categoriaMantenimientoDefecto = "") => ({
   titulo: "",
   tipo: TIPOS[0],
   fecha: fecha || todayStr(),
@@ -89,8 +113,11 @@ const emptyForm = (fecha) => ({
   diasAviso: "1",
   estado: "Pendiente",
   notas: "",
-  categoriaGasto: "",
+  categoriaGasto: categoriaMantenimientoDefecto || "",
   montoEstimado: "",
+  tipoMantenimiento: TIPOS_MANTENIMIENTO_VEHICULO[0],
+  activoId: "",
+  kilometraje: "",
 });
 
 function toEditForm(e) {
@@ -105,6 +132,9 @@ function toEditForm(e) {
     notas: e.notas || "",
     categoriaGasto: e.categoriaGasto || "",
     montoEstimado: e.montoEstimado != null ? String(e.montoEstimado) : "",
+    tipoMantenimiento: e.tipoMantenimiento || TIPOS_MANTENIMIENTO_VEHICULO[0],
+    activoId: e.activoId || "",
+    kilometraje: e.kilometraje != null ? String(e.kilometraje) : "",
   };
 }
 
@@ -141,9 +171,45 @@ const FERIADOS_RD = [
   { fecha: "2027-12-25", titulo: "Navidad", tipo: "Feriado" },
 ];
 
-export default function Calendario({ eventos, entidades, categoriasGasto, vacaciones, tarjetas, habitos, habitosRegistro }) {
+export default function Calendario({
+  eventos,
+  entidades,
+  categoriasGasto,
+  vacaciones,
+  tarjetas,
+  habitos,
+  habitosRegistro,
+  activos = [],
+  membresias = [],
+  diasCobro = [15, 30],
+}) {
   const [cargandoFeriados, setCargandoFeriados] = useState(false);
   const [mensajeFeriados, setMensajeFeriados] = useState(null);
+
+  // Lista de vehículos registrados en Activos para seleccionar al agendar
+  const vehiculosActivos = useMemo(() => {
+    return (activos || []).filter(
+      (a) => a.tipo === "Vehículo" && (a.estado === "Activo" || !a.estado)
+    );
+  }, [activos]);
+
+  // Encuentra la categoría de gasto que mejor coincide con "mantenimiento" o "vehículo"
+  const categoriaMantenimientoSugerida = useMemo(() => {
+    if (!categoriasGasto || categoriasGasto.length === 0) return "";
+    const exacta = categoriasGasto.find((c) =>
+      /mantenimiento.*veh[ií]culo|veh[ií]culo.*mantenimiento/i.test(c.nombre)
+    );
+    if (exacta) return exacta.nombre;
+    const porMantenimiento = categoriasGasto.find((c) =>
+      /mantenimiento/i.test(c.nombre)
+    );
+    if (porMantenimiento) return porMantenimiento.nombre;
+    const porVehiculo = categoriasGasto.find((c) =>
+      /veh[ií]culo|carro|auto|transporte/i.test(c.nombre)
+    );
+    if (porVehiculo) return porVehiculo.nombre;
+    return "";
+  }, [categoriasGasto]);
 
   const feriadosPendientes = useMemo(() => {
     const existentes = new Set((eventos || []).map((e) => `${e.fecha}|${e.titulo}`));
@@ -348,15 +414,35 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
     return sinteticos;
   }, [tarjetas]);
 
+  // Convierte las fechas de expiración de planes y membresías activas en eventos del calendario
+  const eventosMembresias = useMemo(() => {
+    const sinteticos = [];
+    for (const m of membresias || []) {
+      if (m.estado !== "Activa") continue;
+      if (m.fechaExpiracion) {
+        sinteticos.push({
+          id: `membresia-exp-${m.id}`,
+          titulo: `Vence plan ${m.nombre}`,
+          tipo: "Otro",
+          fecha: m.fechaExpiracion,
+          estado: "Pendiente",
+          notas: `Fecha de fin del plan (${m.tipo || "Suscripción"}) — gestiónalo en Membresías y suscripciones`,
+          esMembresiaSintetica: true,
+        });
+      }
+    }
+    return sinteticos;
+  }, [membresias]);
+
   const eventosPorFecha = useMemo(() => {
     const map = {};
-    for (const e of [...eventos, ...eventosVacaciones, ...eventosTarjetas]) {
+    for (const e of [...eventos, ...eventosVacaciones, ...eventosTarjetas, ...eventosMembresias]) {
       if (!e.fecha) continue;
       if (!map[e.fecha]) map[e.fecha] = [];
       map[e.fecha].push(e);
     }
     return map;
-  }, [eventos, eventosVacaciones, eventosTarjetas]);
+  }, [eventos, eventosVacaciones, eventosTarjetas, eventosMembresias]);
 
   const grilla = useMemo(() => construirGrilla(viewDate), [viewDate]);
 
@@ -407,7 +493,7 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
     await updateEventoEstado(e.id, "Completado");
     if (e.categoriaGasto && e.montoEstimado) {
       const registrar = await confirm(
-        `¿Deseas registrar un gasto de ${formatMoney(e.montoEstimado)} en "${e.categoriaGasto}" por esta cita completada?`,
+        `¿Deseas registrar un gasto de ${formatMoney(e.montoEstimado)} en "${e.categoriaGasto}" por este evento completado?`,
         { confirmLabel: "Registrar gasto", cancelLabel: "No, gracias", danger: false }
       );
       if (registrar) {
@@ -419,6 +505,23 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
           date: todayStr(),
           clasificacion: "Variable",
           metodoPago: "Efectivo",
+        });
+      }
+    }
+    if (e.tipo === "Mantenimiento de vehículo" && (e.activoId || e.tipoMantenimiento)) {
+      const guardarActivos = await confirm(
+        `¿Deseas registrar este mantenimiento en la ficha de tu vehículo en Activos?`,
+        { confirmLabel: "Guardar en Activos", cancelLabel: "No, gracias", danger: false }
+      );
+      if (guardarActivos) {
+        await addMantenimiento({
+          activoId: e.activoId || "",
+          activoNombre: e.activoNombre || "Vehículo",
+          fecha: e.fecha || todayStr(),
+          tipo: e.tipoMantenimiento || "Mantenimiento general",
+          costo: e.montoEstimado || 0,
+          kilometraje: e.kilometraje ? Number(e.kilometraje) : null,
+          notas: e.notas || e.titulo || "",
         });
       }
     }
@@ -434,6 +537,7 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
     setFormError(null);
     try {
       const entidad = entidades.find((e) => e.docId === form.entidadId);
+      const vehiculo = vehiculosActivos.find((v) => v.id === form.activoId);
       await addEvento({
         titulo,
         tipo: form.tipo,
@@ -446,6 +550,10 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
         notas: form.notas.trim(),
         categoriaGasto: form.categoriaGasto || null,
         montoEstimado: parseFloat(form.montoEstimado) || null,
+        tipoMantenimiento: form.tipo === "Mantenimiento de vehículo" ? form.tipoMantenimiento : null,
+        activoId: form.tipo === "Mantenimiento de vehículo" ? form.activoId || null : null,
+        activoNombre: form.tipo === "Mantenimiento de vehículo" && vehiculo ? (vehiculo.nombre || `${vehiculo.marca || ""} ${vehiculo.modelo || ""}`.trim()) : null,
+        kilometraje: form.tipo === "Mantenimiento de vehículo" && form.kilometraje ? Number(form.kilometraje) : null,
       });
       setSelectedDate(form.fecha);
       setShowForm(false);
@@ -466,6 +574,7 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
     setEditError(null);
     try {
       const entidad = entidades.find((e) => e.docId === editForm.entidadId);
+      const vehiculo = vehiculosActivos.find((v) => v.id === editForm.activoId);
       await updateEvento(editingId, {
         titulo,
         tipo: editForm.tipo,
@@ -478,6 +587,10 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
         notas: editForm.notas.trim(),
         categoriaGasto: editForm.categoriaGasto || null,
         montoEstimado: parseFloat(editForm.montoEstimado) || null,
+        tipoMantenimiento: editForm.tipo === "Mantenimiento de vehículo" ? editForm.tipoMantenimiento : null,
+        activoId: editForm.tipo === "Mantenimiento de vehículo" ? editForm.activoId || null : null,
+        activoNombre: editForm.tipo === "Mantenimiento de vehículo" && vehiculo ? (vehiculo.nombre || `${vehiculo.marca || ""} ${vehiculo.modelo || ""}`.trim()) : null,
+        kilometraje: editForm.tipo === "Mantenimiento de vehículo" && editForm.kilometraje ? Number(editForm.kilometraje) : null,
       });
       setSelectedDate(editForm.fecha);
       cancelEdit();
@@ -500,7 +613,19 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
         />
         <select
           value={f.tipo}
-          onChange={(e) => setF({ ...f, tipo: e.target.value })}
+          onChange={(e) => {
+            const nextTipo = e.target.value;
+            const updates = { tipo: nextTipo };
+            if (nextTipo === "Mantenimiento de vehículo") {
+              if (!f.titulo || f.titulo.startsWith("Mantenimiento")) {
+                updates.titulo = `Mantenimiento: ${f.tipoMantenimiento || TIPOS_MANTENIMIENTO_VEHICULO[0]}`;
+              }
+              if (!f.categoriaGasto && categoriaMantenimientoSugerida) {
+                updates.categoriaGasto = categoriaMantenimientoSugerida;
+              }
+            }
+            setF({ ...f, ...updates });
+          }}
           style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
         >
           {TIPOS.map((t) => (
@@ -508,6 +633,61 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
           ))}
         </select>
       </div>
+
+      {f.tipo === "Mantenimiento de vehículo" && (
+        <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: "var(--sage)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 6, display: "flex", alignItems: "center", gap: 5 }}>
+            <Wrench size={12} /> Detalle del mantenimiento vehicular
+          </div>
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
+            <div>
+              <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 2 }}>Tipo de mantenimiento</label>
+              <select
+                value={f.tipoMantenimiento}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const updates = { tipoMantenimiento: val };
+                  if (!f.titulo || f.titulo.startsWith("Mantenimiento")) {
+                    updates.titulo = `Mantenimiento: ${val}`;
+                  }
+                  if (!f.categoriaGasto && categoriaMantenimientoSugerida) {
+                    updates.categoriaGasto = categoriaMantenimientoSugerida;
+                  }
+                  setF({ ...f, ...updates });
+                }}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+              >
+                {TIPOS_MANTENIMIENTO_VEHICULO.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 2 }}>Vehículo (opcional)</label>
+              <select
+                value={f.activoId}
+                onChange={(e) => setF({ ...f, activoId: e.target.value })}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+              >
+                <option value="">Seleccionar vehículo…</option>
+                {vehiculosActivos.map((v) => (
+                  <option key={v.id} value={v.id}>{v.nombre || `${v.marca || ""} ${v.modelo || ""}`.trim() || "Vehículo"}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+            <input
+              className="despensa-mono"
+              type="number"
+              placeholder="Kilometraje actual / estimado (opcional)"
+              value={f.kilometraje}
+              onChange={(e) => setF({ ...f, kilometraje: e.target.value })}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
         <input
@@ -530,7 +710,7 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
           onChange={(e) => setF({ ...f, entidadId: e.target.value })}
           style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
         >
-          <option value="">Lugar / entidad (opcional)</option>
+          <option value="">Lugar / entidad / taller (opcional)</option>
           {entidades.map((e) => (
             <option key={e.docId} value={e.docId}>{e.name}</option>
           ))}
@@ -568,6 +748,17 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
           style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
         />
       </div>
+
+      {f.fecha && (() => {
+        const info = clasificarFecha(f.fecha, diasCobro);
+        return (
+          <div style={{ fontSize: 11.5, background: "var(--sage-bg)", color: "var(--sage)", padding: "6px 10px", borderRadius: 8, marginTop: -2, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <Calendar size={13} />
+            <span>Asignado a: <strong>Quincena {info.quincena} de {MESES[info.month - 1]} {info.year}</strong> del Presupuesto</span>
+          </div>
+        );
+      })()}
+
       {f.categoriaGasto && (
         <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: -4, marginBottom: 8 }}>
           Este monto se sumará automáticamente al Presupuesto mensual, en la quincena que corresponda a la fecha.
@@ -650,6 +841,31 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
       );
     }
 
+    if (e.esMembresiaSintetica) {
+      return (
+        <div
+          key={e.id}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 12px",
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+          }}
+        >
+          <div style={{ width: 30, height: 30, borderRadius: "50%", background: "var(--amber-bg)", color: "var(--amber)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Sparkles size={14} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 500 }}>{e.titulo}</div>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>{e.notas}</div>
+          </div>
+        </div>
+      );
+    }
+
     let etiqueta = null;
     if (e.estado === "Pendiente" && dias != null) {
       if (dias < 0) etiqueta = { text: "Pasado", color: "var(--ink-soft)", bg: "var(--line-soft)" };
@@ -720,6 +936,36 @@ export default function Calendario({ eventos, entidades, categoriasGasto, vacaci
                   </span>
                 </div>
               )}
+              {(e.tipo === "Mantenimiento de vehículo" || e.tipoMantenimiento) && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                  <span
+                    className="despensa-mono"
+                    style={{ fontSize: 10.5, fontWeight: 600, padding: "1px 7px", borderRadius: 12, background: "var(--amber-bg)", color: "var(--amber)", display: "inline-flex", alignItems: "center", gap: 4 }}
+                  >
+                    <Wrench size={10} /> {e.tipoMantenimiento || "Mantenimiento general"}
+                  </span>
+                  {e.activoNombre && (
+                    <span
+                      style={{ fontSize: 10.5, fontWeight: 500, padding: "1px 7px", borderRadius: 12, background: "var(--paper)", border: "1px solid var(--line)", color: "var(--ink)", display: "inline-flex", alignItems: "center", gap: 4 }}
+                    >
+                      <Car size={10} /> {e.activoNombre}
+                    </span>
+                  )}
+                  {e.kilometraje && (
+                    <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+                      {Number(e.kilometraje).toLocaleString()} km
+                    </span>
+                  )}
+                </div>
+              )}
+              {e.fecha && e.montoEstimado && (() => {
+                const info = clasificarFecha(e.fecha, diasCobro);
+                return (
+                  <div style={{ fontSize: 10.5, color: "var(--sage)", marginTop: 3 }}>
+                    Presupuesto: <strong>Quincena {info.quincena} · {MESES[info.month - 1]} {info.year}</strong>
+                  </div>
+                );
+              })()}
               {e.notas && <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 4 }}>{e.notas}</div>}
             </div>
           </div>

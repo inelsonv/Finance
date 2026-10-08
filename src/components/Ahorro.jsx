@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Pencil, Check, PiggyBank, Landmark, Calendar } from "lucide-react";
 import { addMetaAhorro, deleteMetaAhorro, updateMetaAhorroEstado, updateMetaAhorro } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import { CATEGORIAS_META, obtenerIconoYDetalleMeta } from "../lib/metaIconos";
 
 const TIPOS_META = ["Meta específica", "Porcentaje de ingreso"];
 const ESTADOS = ["Activa", "Completada", "Pausada"];
@@ -32,6 +33,8 @@ const emptyForm = () => ({
   fechaInicio: "",
   fechaObjetivo: "",
   estado: "Activa",
+  categoria: "auto",
+  activoId: "",
   notas: "",
 });
 
@@ -45,16 +48,18 @@ function toEditForm(m) {
     fechaInicio: m.fechaInicio || "",
     fechaObjetivo: m.fechaObjetivo || "",
     estado: m.estado || "Activa",
+    categoria: m.categoria || "auto",
+    activoId: m.activoId || "",
     notas: m.notas || "",
   };
 }
 
-function PiggyProgress({ pct, size = 52 }) {
+function PiggyProgress({ pct, Icon = PiggyBank, customColor = null, size = 52 }) {
   const clamped = Math.max(0, Math.min(100, Number.isFinite(pct) ? pct : 0));
   const radius = 24;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - clamped / 100);
-  const color = clamped >= 100 ? "var(--sage)" : clamped >= 40 ? "var(--sage)" : "var(--amber)";
+  const color = customColor || (clamped >= 100 ? "var(--sage)" : clamped >= 40 ? "var(--sage)" : "var(--amber)");
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <svg viewBox="0 0 60 60" width={size} height={size} style={{ transform: "rotate(-90deg)", display: "block" }}>
@@ -73,13 +78,13 @@ function PiggyProgress({ pct, size = 52 }) {
         />
       </svg>
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <PiggyBank size={size * 0.38} style={{ color }} />
+        <Icon size={size * 0.38} style={{ color }} />
       </div>
     </div>
   );
 }
 
-export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, onNavigate }) {
+export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, activos = [], onNavigate }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -185,6 +190,8 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
         fechaInicio: form.fechaInicio || null,
         fechaObjetivo: form.fechaObjetivo || null,
         estado: form.estado,
+        categoria: form.categoria || "auto",
+        activoId: form.activoId || null,
         notas: form.notas.trim(),
       });
       setForm(emptyForm());
@@ -216,6 +223,8 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
         fechaInicio: editForm.fechaInicio || null,
         fechaObjetivo: editForm.fechaObjetivo || null,
         estado: editForm.estado,
+        categoria: editForm.categoria || "auto",
+        activoId: editForm.activoId || null,
         notas: editForm.notas.trim(),
       });
       cancelEdit();
@@ -231,7 +240,7 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
       <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
         <input
           autoFocus
-          placeholder="Nombre, ej. Fondo de emergencia"
+          placeholder="Nombre, ej. Fondo de emergencia, Motor Suzuki, Viaje…"
           value={f.nombre}
           onChange={(e) => setF({ ...f, nombre: e.target.value })}
           style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
@@ -245,6 +254,39 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+      </div>
+
+      <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <div>
+          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Categoría / Ícono</div>
+          <select
+            value={f.categoria || "auto"}
+            onChange={(e) => setF({ ...f, categoria: e.target.value })}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+          >
+            {CATEGORIAS_META.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.emoji} {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Vincular activo (opcional)</div>
+          <select
+            value={f.activoId || ""}
+            onChange={(e) => setF({ ...f, activoId: e.target.value })}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+          >
+            <option value="">Ningún activo vinculado…</option>
+            {(activos || []).map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nombre} · {a.tipo}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div style={{ marginBottom: 8 }}>
@@ -503,14 +545,31 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, on
               );
             }
 
+            const metaIconInfo = obtenerIconoYDetalleMeta(m, activos);
+
             return (
               <div key={m.id} data-record-id={m.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
-                    <PiggyProgress pct={pctAlcanzado} />
+                    <PiggyProgress pct={pctAlcanzado} Icon={metaIconInfo.Icon} customColor={metaIconInfo.color} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 14, fontWeight: 500 }}>{m.nombre}</span>
+                        <span
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: 600,
+                            padding: "2px 7px",
+                            borderRadius: 10,
+                            background: metaIconInfo.bg,
+                            color: metaIconInfo.color,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                        >
+                          {metaIconInfo.emoji} {metaIconInfo.label}
+                        </span>
                         <EstadoBadge estado={m.estado} onChange={(estado) => updateMetaAhorroEstado(m.id, estado)} />
                       </div>
                       {cuenta && (

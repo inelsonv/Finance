@@ -1861,6 +1861,10 @@ export async function addMembresia({
   frecuencia,
   diaPago,
   fechaInicio,
+  fechaExpiracion,
+  alertarExpiracion,
+  diasAvisoExpiracion,
+  diasAvisoPago,
   estado,
   notas,
   color,
@@ -1875,6 +1879,10 @@ export async function addMembresia({
     frecuencia,
     diaPago: diaPago ?? null,
     fechaInicio: fechaInicio || null,
+    fechaExpiracion: fechaExpiracion || null,
+    alertarExpiracion: alertarExpiracion !== false,
+    diasAvisoExpiracion: diasAvisoExpiracion ? Number(diasAvisoExpiracion) : 5,
+    diasAvisoPago: diasAvisoPago ? Number(diasAvisoPago) : null,
     color: color || "azul",
     nivel: nivel || "",
     estado,
@@ -2447,7 +2455,7 @@ export function watchCalendario(onChange, onError) {
   );
 }
 
-export async function addEvento({ titulo, tipo, fecha, hora, entidadId, entidadName, diasAviso, estado, notas, categoriaGasto, montoEstimado }) {
+export async function addEvento({ titulo, tipo, fecha, hora, entidadId, entidadName, diasAviso, estado, notas, categoriaGasto, montoEstimado, tipoMantenimiento, activoId, activoNombre, kilometraje }) {
   await addDoc(calendarioCol, {
     titulo,
     tipo,
@@ -2460,6 +2468,10 @@ export async function addEvento({ titulo, tipo, fecha, hora, entidadId, entidadN
     notas: notas || "",
     categoriaGasto: categoriaGasto || null,
     montoEstimado: montoEstimado ?? null,
+    tipoMantenimiento: tipoMantenimiento || null,
+    activoId: activoId || null,
+    activoNombre: activoNombre || null,
+    kilometraje: kilometraje ?? null,
     createdAt: serverTimestamp(),
   });
 }
@@ -2583,9 +2595,13 @@ export async function addMetaAhorro({
   cuentaNombre,
   montoObjetivo,
   porcentaje,
+  fechaInicio,
   fechaObjetivo,
   estado,
   notas,
+  categoria,
+  icono,
+  activoId,
 }) {
   await addDoc(metasAhorroCol, {
     nombre,
@@ -2594,9 +2610,13 @@ export async function addMetaAhorro({
     cuentaNombre: cuentaNombre || "",
     montoObjetivo: montoObjetivo ?? null,
     porcentaje: porcentaje ?? null,
+    fechaInicio: fechaInicio || null,
     fechaObjetivo: fechaObjetivo || null,
     estado: estado || "Activa",
     notas: notas || "",
+    categoria: categoria || null,
+    icono: icono || null,
+    activoId: activoId || null,
     createdAt: serverTimestamp(),
   });
 }

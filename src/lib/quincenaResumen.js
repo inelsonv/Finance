@@ -7,13 +7,19 @@ export function rangoFechasQuincena(year, month, quincena, diasCobro) {
   return rangoFechasQuincenaConfigurado(year, month, quincena, diasCobro);
 }
 
-export function calcularResumenQuincena({ year, month, quincena, presupuesto, categoriasGasto, prestamos, movimientos, diasCobro }) {
+export function calcularResumenQuincena({ year, month, quincena, presupuesto, categoriasGasto, prestamos, movimientos, diasCobro, eventos }) {
   const { fechaInicio, fechaFin } = rangoFechasQuincena(year, month, quincena, diasCobro);
 
   let presupuestado = 0;
   for (const c of categoriasGasto || []) {
     const val = presupuesto?.[c.nombre]?.[String(month)]?.[quincena];
     if (typeof val === "number") presupuestado += val;
+  }
+  for (const e of eventos || []) {
+    if (e.estado === "Cancelado" || !e.montoEstimado || !e.fecha) continue;
+    if (e.fecha >= fechaInicio && e.fecha <= fechaFin) {
+      presupuestado += Number(e.montoEstimado) || 0;
+    }
   }
   for (const p of prestamos || []) {
     if (p.estado !== "Activo") continue;

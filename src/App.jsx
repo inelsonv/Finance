@@ -507,6 +507,7 @@ export default function App() {
       prestamos,
       movimientos,
       diasCobro,
+      eventos,
     });
     evaluarCumplimientoQuincena(periodoKey(periodoCerrado), resumen.presupuestado, resumen.gastado).catch((err) =>
       console.error("No se pudo evaluar el cumplimiento de la quincena:", err)
@@ -886,6 +887,8 @@ export default function App() {
             presupuesto={presupuestoAnual}
             diasCobro={diasCobro}
             products={products}
+            metasAhorro={metasAhorro}
+            activos={activos}
             onNavigate={setTab}
           />
         )}
@@ -1101,11 +1104,24 @@ export default function App() {
           />
         )}
         {tab === "calendario" && (
-          <Calendario eventos={eventos} entidades={entidades} categoriasGasto={categoriasGasto} vacaciones={vacaciones} tarjetas={tarjetas} habitos={habitos} habitosRegistro={habitosRegistro} />
+          <Calendario
+            eventos={eventos}
+            entidades={entidades}
+            categoriasGasto={categoriasGasto}
+            vacaciones={vacaciones}
+            tarjetas={tarjetas}
+            membresias={membresias}
+            habitos={habitos}
+            habitosRegistro={habitosRegistro}
+            activos={activos}
+            diasCobro={diasCobro}
+            presupuestoAnual={presupuestoAnual}
+            presupuestoYear={presupuestoYear}
+          />
         )}
         {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} seguros={seguros} />}
         {tab === "ahorro" && (
-          <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} onNavigate={setTab} />
+          <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} activos={activos} onNavigate={setTab} />
         )}
         {tab === "seguros" && <Seguros seguros={seguros} entidades={entidades} activos={activos} />}
         {tab === "renovaciones" && (

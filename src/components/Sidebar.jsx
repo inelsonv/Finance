@@ -64,7 +64,7 @@ const NAV_ITEMS = [
     children: [
       { id: "prestamos", label: "Préstamos" },
       { id: "tarjetas", label: "Tarjetas" },
-      { id: "membresias", label: "Membresías" },
+      { id: "membresias", label: "Membresías y suscripciones" },
       { id: "contratos", label: "Contratos" },
     ],
   },

@@ -1,14 +1,29 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Calendar, Target, SlidersHorizontal, Eye, EyeOff, LayoutGrid, Check, Shield } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { fetchInflacionRD } from "../lib/inflacionRD";
 import { confirm } from "../lib/confirm";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
+import { obtenerIconoYDetalleMeta } from "../lib/metaIconos";
+
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function diasHastaFecha(fecha) {
+  if (!fecha) return null;
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const target = new Date(fecha + "T00:00:00");
+  return Math.round((target - hoy) / 86400000);
+}
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -569,8 +584,20 @@ function InflacionCard() {
   }, []);
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+    <div
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--line)",
+        borderRadius: 12,
+        padding: "1.25rem",
+        height: "100%",
+        minHeight: 165,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
           <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Inflación en RD</span>
@@ -597,23 +624,27 @@ function InflacionCard() {
       </div>
 
       {status === "error" ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "10px 0" }}>
           <AlertTriangle size={15} />
           No se pudo obtener la inflación ahora.
         </div>
       ) : (
-        <>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-            <span className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--sage)" }}>
+        <div style={{ background: "var(--paper)", borderRadius: 8, padding: "8px 12px", border: "1px solid var(--line-soft)" }}>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 2 }}>
+            {inflacion ? `Tasa interanual · Año ${inflacion.anio}` : "Variación anual"}
+          </div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+            <span className="despensa-mono" style={{ fontSize: 22, fontWeight: 700, color: "var(--sage)" }}>
               {inflacion?.valor != null ? inflacion.valor.toFixed(2) : "—"}%
             </span>
-            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{inflacion ? `Año ${inflacion.anio}` : "Cargando…"}</span>
+            <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>anual</span>
           </div>
-          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 6 }}>
-            Variación anual del IPC · Fuente: Banco Mundial
-          </div>
-        </>
+        </div>
       )}
+
+      <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
+        Variación anual del IPC · Fuente: Banco Mundial / BCRD
+      </div>
     </div>
   );
 }
@@ -668,7 +699,19 @@ function CombustibleCard({ presupuesto, diasCobro }) {
   const precioRegular = combustibleConfig?.precios?.regular;
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+    <div
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--line)",
+        borderRadius: 12,
+        padding: "1.25rem",
+        height: "100%",
+        minHeight: 165,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Fuel size={16} style={{ color: "var(--ink-soft)" }} />
@@ -795,7 +838,7 @@ function CombustibleCard({ presupuesto, diasCobro }) {
   );
 }
 
-function ClimaCard() {
+function ClimaCardInner() {
   const [clima, setClima] = useState(null);
   const [status, setStatus] = useState("loading"); // loading | ok | error
 
@@ -829,54 +872,577 @@ function ClimaCard() {
   const Icon = info?.icon || Cloud;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Icon size={16} style={{ color: "var(--ink-soft)" }} />
-            <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Clima en Santiago</span>
+    <div
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--line)",
+        borderRadius: 12,
+        padding: "1.25rem",
+        textAlign: "center",
+        position: "relative",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
+      <div style={{ position: "absolute", top: 12, right: 12 }}>
+        <button
+          onClick={fetchClima}
+          title="Actualizar pronóstico"
+          disabled={status === "loading"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 26,
+            height: 26,
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            background: "var(--paper)",
+            color: "var(--ink-soft)",
+            cursor: status === "loading" ? "default" : "pointer",
+          }}
+        >
+          <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
+        </button>
+      </div>
+
+      <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>
+        Clima en Santiago
+      </div>
+      <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 10 }}>
+        Pronóstico en tiempo real · República Dominicana
+      </div>
+
+      {status === "error" ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "40px 0" }}>
+          <AlertTriangle size={15} />
+          No se pudo obtener el clima ahora.
+        </div>
+      ) : (
+        <>
+          <div style={{ position: "relative", width: 175, height: 175, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width={175} height={175} viewBox="0 0 180 180" style={{ position: "absolute", inset: 0 }}>
+              <circle cx="90" cy="90" r="74" fill="none" stroke="var(--line-soft)" strokeWidth="14" />
+              <circle
+                cx="90"
+                cy="90"
+                r="74"
+                fill="none"
+                stroke="var(--sage)"
+                strokeWidth="14"
+                strokeDasharray="465"
+                strokeDashoffset="120"
+                strokeLinecap="round"
+                style={{ transform: "rotate(-90deg)", transformOrigin: "90px 90px" }}
+              />
+            </svg>
+            <div
+              style={{
+                width: 86,
+                height: 86,
+                borderRadius: "50%",
+                background: "var(--sage-bg)",
+                border: "1.5px solid var(--line-soft)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--sage)",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+              }}
+            >
+              <Icon size={42} />
+            </div>
           </div>
+
+          <div style={{ marginTop: 8, marginBottom: 6 }}>
+            <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: "var(--sage)" }}>
+              {clima?.temp != null ? Math.round(clima.temp) : "—"}°
+            </span>
+          </div>
+
+          <span
+            className="despensa-tab-font"
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              padding: "3px 10px",
+              borderRadius: 20,
+              background: "var(--sage-bg)",
+              color: "var(--sage)",
+            }}
+          >
+            {info?.texto || "Cargando…"}
+          </span>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 6,
+              borderTop: "1px solid var(--line-soft)",
+              marginTop: 20,
+              paddingTop: 16,
+              textAlign: "left",
+            }}
+          >
+            <MiniStat icon={Sun} label="Máxima" value={clima?.max != null ? `${Math.round(clima.max)}°` : "—"} color="var(--sage)" compact />
+            <MiniStat icon={CloudRain} label="Mínima" value={clima?.min != null ? `${Math.round(clima.min)}°` : "—"} color="var(--stamp)" compact />
+            <MiniStat icon={Cloud} label="Humedad" value={clima?.humedad != null ? `${Math.round(clima.humedad)}%` : "—"} color="var(--ink-soft)" compact />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ClimaCard() {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+      <ClimaCardInner />
+    </div>
+  );
+}
+
+function CircularMetaProgress({ pct, Icon, color, bg, size = 175 }) {
+  const numVal = Number.isFinite(pct) ? Math.max(0, Math.min(pct, 100)) : 0;
+  const cx = 90;
+  const cy = 90;
+  const r = 74;
+  const strokeWidth = 14;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - numVal / 100);
+
+  return (
+    <div style={{ position: "relative", width: size, height: size, margin: "0 auto" }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 180 180"
+        style={{ transform: "rotate(-90deg)", display: "block" }}
+      >
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke="var(--line-soft)"
+          strokeWidth={strokeWidth}
+        />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)" }}
+        />
+      </svg>
+      {/* Ícono temático en el centro rodeado por el gráfico circular */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          style={{
+            width: 86,
+            height: 86,
+            borderRadius: "50%",
+            background: bg || "var(--paper)",
+            border: "1.5px solid var(--line-soft)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: color || "var(--ink)",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+          }}
+        >
+          <Icon size={42} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function clasificarProgresoMeta(pct) {
+  if (pct >= 100) return { label: "Completada 🎉", color: "#10b981", bg: "rgba(16, 185, 129, 0.14)" };
+  if (pct >= 75) return { label: "Casi alcanzada", color: "var(--sage)", bg: "var(--sage-bg)" };
+  if (pct >= 40) return { label: "En buen camino", color: "var(--sage)", bg: "var(--sage-bg)" };
+  if (pct >= 15) return { label: "En progreso", color: "var(--amber)", bg: "var(--amber-bg)" };
+  return { label: "Iniciando", color: "var(--amber)", bg: "var(--amber-bg)" };
+}
+
+function MetasSlideCard({
+  metasAhorro = [],
+  activos = [],
+  cuentas = [],
+  movimientos = [],
+  fuentesIngreso = [],
+  onNavigate,
+}) {
+  const [slideIndex, setSlideIndex] = useState(0);
+
+  const metasActivas = useMemo(
+    () => (metasAhorro || []).filter((m) => m.estado === "Activa"),
+    [metasAhorro]
+  );
+
+  const safeIndex = metasActivas.length > 0 ? Math.min(slideIndex, metasActivas.length - 1) : 0;
+  const currentMeta = metasActivas[safeIndex];
+
+  const aportadoPorCuenta = useMemo(() => {
+    const map = {};
+    for (const c of cuentas || []) {
+      let total = c.saldoInicial || 0;
+      for (const mv of movimientos || []) {
+        if (mv.cuentaId === c.id && mv.category === c.tipo) total += Number(mv.amount) || 0;
+      }
+      map[c.id] = total;
+    }
+    return map;
+  }, [cuentas, movimientos]);
+
+  const aportadoEsteMesPorCuenta = useMemo(() => {
+    const now = new Date();
+    const prefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const map = {};
+    for (const c of cuentas || []) {
+      let total = 0;
+      for (const mv of movimientos || []) {
+        if (mv.cuentaId === c.id && mv.category === c.tipo && (mv.date || "").startsWith(prefix)) {
+          total += Number(mv.amount) || 0;
+        }
+      }
+      map[c.id] = total;
+    }
+    return map;
+  }, [cuentas, movimientos]);
+
+  const ingresoMensual = useMemo(() => ingresoMensualNeto(fuentesIngreso), [fuentesIngreso]);
+
+  const prevSlide = () => {
+    if (metasActivas.length <= 1) return;
+    setSlideIndex((prev) => (prev > 0 ? prev - 1 : metasActivas.length - 1));
+  };
+
+  const nextSlide = () => {
+    if (metasActivas.length <= 1) return;
+    setSlideIndex((prev) => (prev < metasActivas.length - 1 ? prev + 1 : 0));
+  };
+
+  if (metasActivas.length === 0) {
+    return (
+      <div
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "1.25rem",
+          textAlign: "center",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          minHeight: 330,
+        }}
+      >
+        <div>
+          <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Metas activas</div>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 16 }}>
+            Ahorro y objetivos personales
+          </div>
+          <div
+            style={{
+              width: 86,
+              height: 86,
+              borderRadius: "50%",
+              background: "var(--sage-bg)",
+              border: "1.5px solid var(--line-soft)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--sage)",
+              margin: "16px auto",
+            }}
+          >
+            <PiggyBank size={42} />
+          </div>
+          <div style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5, maxWidth: 280, margin: "0 auto" }}>
+            No tienes metas de ahorro activas. Define una meta para un motor, vehículo, viaje o tu fondo de reserva.
+          </div>
+        </div>
+        <div style={{ marginTop: 20 }}>
           <button
-            onClick={fetchClima}
-            title="Actualizar"
-            disabled={status === "loading"}
+            onClick={() => onNavigate && onNavigate("ahorro")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 16px",
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: "var(--ink)",
+              color: "var(--paper)",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+            }}
+          >
+            <Plus size={14} />
+            Crear meta de ahorro
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const cuenta = (cuentas || []).find((c) => c.id === currentMeta.cuentaId);
+  const detalleIcono = obtenerIconoYDetalleMeta(currentMeta, activos);
+  const MetaIcon = detalleIcono.Icon;
+  const esPorcentaje = currentMeta.tipoMeta === "Porcentaje de ingreso";
+
+  let aportado = 0;
+  let objetivo = 0;
+  let pct = 0;
+  let faltan = 0;
+
+  if (esPorcentaje) {
+    const sugerido = ingresoMensual * ((currentMeta.porcentaje || 0) / 100);
+    const aportadoEsteMes = cuenta ? aportadoEsteMesPorCuenta[cuenta.id] || 0 : 0;
+    pct = sugerido > 0 ? (aportadoEsteMes / sugerido) * 100 : 0;
+    aportado = aportadoEsteMes;
+    objetivo = sugerido;
+    faltan = Math.max(0, sugerido - aportadoEsteMes);
+  } else {
+    objetivo = Number(currentMeta.montoObjetivo) || 0;
+    aportado = cuenta ? aportadoPorCuenta[cuenta.id] || 0 : 0;
+    pct = objetivo > 0 ? (aportado / objetivo) * 100 : 0;
+    faltan = Math.max(0, objetivo - aportado);
+  }
+
+  const clasificacion = clasificarProgresoMeta(pct);
+
+  let badgeFecha = null;
+  if (currentMeta.fechaObjetivo) {
+    const d = diasHastaFecha(currentMeta.fechaObjetivo);
+    if (d != null) {
+      if (d < 0) badgeFecha = { texto: `Venció hace ${Math.abs(d)} d`, color: "var(--stamp)" };
+      else if (d === 0) badgeFecha = { texto: "Vence hoy", color: "var(--amber)" };
+      else if (d === 1) badgeFecha = { texto: "Vence mañana", color: "var(--amber)" };
+      else badgeFecha = { texto: `${d} días restantes`, color: "var(--sage)" };
+    }
+  }
+
+  return (
+    <div
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--line)",
+        borderRadius: 12,
+        padding: "1.25rem",
+        textAlign: "center",
+        position: "relative",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
+      {/* Botones de navegación de slide (arriba a la izquierda) */}
+      {metasActivas.length > 1 && (
+        <div style={{ position: "absolute", top: 12, left: 12, display: "flex", alignItems: "center", gap: 3 }}>
+          <button
+            onClick={prevSlide}
+            title="Meta anterior"
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              width: 26,
-              height: 26,
+              width: 22,
+              height: 22,
               border: "1px solid var(--line)",
               borderRadius: 6,
               background: "var(--paper)",
               color: "var(--ink-soft)",
-              cursor: status === "loading" ? "default" : "pointer",
+              cursor: "pointer",
             }}
           >
-            <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
+            <ChevronLeftIcon size={12} />
+          </button>
+          <span className="despensa-mono" style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-soft)", minWidth: 26, textAlign: "center" }}>
+            {safeIndex + 1}/{metasActivas.length}
+          </span>
+          <button
+            onClick={nextSlide}
+            title="Siguiente meta"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 22,
+              height: 22,
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: "pointer",
+            }}
+          >
+            <ChevronRightIcon size={12} />
           </button>
         </div>
+      )}
 
-        {status === "error" ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
-            <AlertTriangle size={15} />
-            No se pudo obtener el clima ahora.
-          </div>
-        ) : (
-          <>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-              <span className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--sage)" }}>
-                {clima?.temp != null ? Math.round(clima.temp) : "—"}°
-              </span>
-              <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{info?.texto || "Cargando…"}</span>
-            </div>
-            {clima?.max != null && clima?.min != null && (
-              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 6 }}>
-                Máx. {Math.round(clima.max)}° · Mín. {Math.round(clima.min)}°
-                {clima.humedad != null && ` · Humedad ${Math.round(clima.humedad)}%`}
-              </div>
-            )}
-          </>
+      {/* Botón "Ver todas" (arriba a la derecha) */}
+      <div style={{ position: "absolute", top: 12, right: 12 }}>
+        <button
+          onClick={() => onNavigate && onNavigate("ahorro")}
+          title="Gestionar metas en Ahorro"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "3px 8px",
+            fontSize: 11,
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            background: "var(--paper)",
+            color: "var(--ink-soft)",
+            cursor: "pointer",
+          }}
+        >
+          Ver todas
+        </button>
+      </div>
+
+      {/* Título de la tarjeta, nombre de la meta y categoría */}
+      <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>
+        {currentMeta.nombre}
+      </div>
+      <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
+        <span
+          style={{
+            padding: "1px 6px",
+            borderRadius: 10,
+            background: detalleIcono.bg,
+            color: detalleIcono.color,
+            fontWeight: 600,
+            fontSize: 10.5,
+          }}
+        >
+          {detalleIcono.emoji} {detalleIcono.label}
+        </span>
+        {cuenta && <span>· {cuenta.nombre}</span>}
+        {esPorcentaje && <span>· {currentMeta.porcentaje}% ingreso</span>}
+      </div>
+
+      {/* Gráfico circular con el ícono temático en el centro */}
+      <CircularMetaProgress
+        pct={pct}
+        Icon={MetaIcon}
+        color={clasificacion.color}
+        bg={detalleIcono.bg}
+        size={175}
+      />
+
+      {/* Porcentaje en tamaño grande idéntico a Nivel de endeudamiento */}
+      <div style={{ marginTop: 8, marginBottom: 6 }}>
+        <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacion.color }}>
+          {pct.toFixed(1)}%
+        </span>
+      </div>
+
+      {/* Badge de estado del progreso */}
+      <span
+        className="despensa-tab-font"
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          padding: "3px 10px",
+          borderRadius: 20,
+          background: clasificacion.bg,
+          color: clasificacion.color,
+        }}
+      >
+        {clasificacion.label}
+      </span>
+
+      {/* Paginación de puntos si hay más de 1 meta */}
+      {metasActivas.length > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10 }}>
+          {metasActivas.map((m, idx) => (
+            <button
+              key={m.id || idx}
+              onClick={() => setSlideIndex(idx)}
+              title={`Ir a ${m.nombre}`}
+              style={{
+                width: idx === safeIndex ? 18 : 6,
+                height: 6,
+                borderRadius: 3,
+                background: idx === safeIndex ? "var(--ink)" : "var(--line)",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                transition: "all 0.25s ease",
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Fila de MiniStats en cuadrícula inferior idéntica a Nivel de endeudamiento */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: currentMeta.fechaObjetivo ? "repeat(4, 1fr)" : "repeat(3, 1fr)",
+          gap: 6,
+          borderTop: "1px solid var(--line-soft)",
+          marginTop: 20,
+          paddingTop: 16,
+          textAlign: "left",
+        }}
+      >
+        <MiniStat
+          icon={PiggyBank}
+          label="Aportado"
+          value={formatMoney(aportado)}
+          color="var(--sage)"
+          compact
+        />
+        <MiniStat
+          icon={Target}
+          label="Objetivo"
+          value={formatMoney(objetivo)}
+          color="var(--ink)"
+          compact
+        />
+        <MiniStat
+          icon={TrendingUp}
+          label={pct >= 100 ? "Completado" : "Faltante"}
+          value={pct >= 100 ? "$0.00" : formatMoney(faltan)}
+          color={pct >= 100 ? "var(--sage)" : "var(--stamp)"}
+          compact
+        />
+        {currentMeta.fechaObjetivo && (
+          <MiniStat
+            icon={Calendar}
+            label="Meta fecha"
+            value={badgeFecha ? badgeFecha.texto : formatDateDisplay(currentMeta.fechaObjetivo)}
+            color={badgeFecha?.color || "var(--ink-soft)"}
+            compact
+          />
         )}
       </div>
     </div>
@@ -936,103 +1502,75 @@ function DolarCard() {
   }, [cache]);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <DollarSign size={16} style={{ color: "var(--ink-soft)" }} />
-            <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Dólar (USD)</span>
-          </div>
-          <button
-            onClick={fetchRates}
-            title="Actualizar"
-            disabled={status === "loading"}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 26,
-              height: 26,
-              border: "1px solid var(--line)",
-              borderRadius: 6,
-              background: "var(--paper)",
-              color: "var(--ink-soft)",
-              cursor: status === "loading" ? "default" : "pointer",
-            }}
-          >
-            <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
-          </button>
+    <div
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--line)",
+        borderRadius: 12,
+        padding: "1.25rem",
+        height: "100%",
+        minHeight: 165,
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <DollarSign size={16} style={{ color: "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Dólar y Euro (RD$)</span>
         </div>
-
-        {status === "error" ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
-            <AlertTriangle size={15} />
-            No se pudo obtener el tipo de cambio ahora.
-          </div>
-        ) : (
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>1 USD =</span>
-            <span className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--sage)" }}>
-              {rates.USD != null ? rates.USD.toFixed(2) : "—"}
-            </span>
-            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>DOP</span>
-          </div>
-        )}
-
-        {updatedAt && (
-          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
-            Actualizado {updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
-          </div>
-        )}
+        <button
+          onClick={fetchRates}
+          title="Actualizar tipo de cambio"
+          disabled={status === "loading"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 26,
+            height: 26,
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            background: "var(--paper)",
+            color: "var(--ink-soft)",
+            cursor: status === "loading" ? "default" : "pointer",
+          }}
+        >
+          <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
+        </button>
       </div>
 
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <DollarSign size={16} style={{ color: "var(--ink-soft)" }} />
-            <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Euro (EUR)</span>
-          </div>
-          <button
-            onClick={fetchRates}
-            title="Actualizar"
-            disabled={status === "loading"}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 26,
-              height: 26,
-              border: "1px solid var(--line)",
-              borderRadius: 6,
-              background: "var(--paper)",
-              color: "var(--ink-soft)",
-              cursor: status === "loading" ? "default" : "pointer",
-            }}
-          >
-            <RefreshCw size={13} style={{ animation: status === "loading" ? "spin 0.9s linear infinite" : "none" }} />
-          </button>
+      {status === "error" ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "10px 0" }}>
+          <AlertTriangle size={15} />
+          No se pudo obtener el tipo de cambio ahora.
         </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "center" }}>
+          <div style={{ background: "var(--paper)", borderRadius: 8, padding: "8px 10px", border: "1px solid var(--line-soft)" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 2 }}>Dólar (USD)</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+              <span className="despensa-mono" style={{ fontSize: 22, fontWeight: 700, color: "var(--sage)" }}>
+                {rates.USD != null ? rates.USD.toFixed(2) : "—"}
+              </span>
+              <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>DOP</span>
+            </div>
+          </div>
+          <div style={{ background: "var(--paper)", borderRadius: 8, padding: "8px 10px", border: "1px solid var(--line-soft)" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 2 }}>Euro (EUR)</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+              <span className="despensa-mono" style={{ fontSize: 22, fontWeight: 700, color: "var(--sage)" }}>
+                {rates.EUR != null ? rates.EUR.toFixed(2) : "—"}
+              </span>
+              <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>DOP</span>
+            </div>
+          </div>
+        </div>
+      )}
 
-        {status === "error" ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)" }}>
-            <AlertTriangle size={15} />
-            No se pudo obtener el tipo de cambio ahora.
-          </div>
-        ) : (
-          <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>1 EUR =</span>
-            <span className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--sage)" }}>
-              {rates.EUR != null ? rates.EUR.toFixed(2) : "—"}
-            </span>
-            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>DOP</span>
-          </div>
-        )}
-
-        {updatedAt && (
-          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
-            Actualizado {updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}
-          </div>
-        )}
+      <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
+        {updatedAt ? `Actualizado ${updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })} · Mercado de divisas` : "Cargando tasas de cambio…"}
       </div>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
@@ -1313,7 +1851,121 @@ function StocksCard() {
   );
 }
 
-const SECTION_IDS_DEFAULT = ["kpis", "acciones", "gastos", "dolar", "clima", "inflacion", "combustible"];
+const SECTION_IDS_DEFAULT = [
+  "endeudamiento",
+  "fondoEmergencia",
+  "capacidadAhorro",
+  "metas",
+  "clima",
+  "dolar",
+  "gastoMes",
+  "gastoCategoria",
+  "inflacion",
+  "combustible",
+  "platoSugerido",
+  "acciones",
+];
+
+export const MODULOS_INFO = {
+  endeudamiento: {
+    nombre: "Nivel de endeudamiento",
+    descripcion: "Cuotas de préstamos y tarjetas frente a tus ingresos.",
+    icon: AlertTriangle,
+    categoria: "KPIs",
+  },
+  fondoEmergencia: {
+    nombre: "Fondo de emergencia",
+    descripcion: "Meses de cobertura de gastos cubiertos por ahorro.",
+    icon: Shield,
+    categoria: "KPIs",
+  },
+  capacidadAhorro: {
+    nombre: "Capacidad de ahorro",
+    descripcion: "Porcentaje y remanente mensual disponible para ahorrar.",
+    icon: PiggyBank,
+    categoria: "KPIs",
+  },
+  metas: {
+    nombre: "Metas activas",
+    descripcion: "Carrusel de metas con progreso circular e ícono temático.",
+    icon: Target,
+    categoria: "Ahorro",
+  },
+  clima: {
+    nombre: "Clima en Santiago",
+    descripcion: "Pronóstico y temperatura en tiempo real en RD.",
+    icon: Cloud,
+    categoria: "Servicios",
+  },
+  dolar: {
+    nombre: "Dólar y Euro (RD$)",
+    descripcion: "Tasas oficiales de cambio actualizadas frente al DOP.",
+    icon: DollarSign,
+    categoria: "Mercado",
+  },
+  gastoMes: {
+    nombre: "Gasto por Mes",
+    descripcion: "Histórico y evolución mensual con selector de año.",
+    icon: TrendingUp,
+    categoria: "Gráficos",
+  },
+  gastoCategoria: {
+    nombre: "Gastos por categoría",
+    descripcion: "Distribución de gastos del mes actual por categoría.",
+    icon: PieChartIcon,
+    categoria: "Gráficos",
+  },
+  inflacion: {
+    nombre: "Inflación en RD",
+    descripcion: "Variación interanual del IPC (Banco Mundial / BCRD).",
+    icon: TrendingUp,
+    categoria: "Mercado",
+  },
+  combustible: {
+    nombre: "Combustible (RD)",
+    descripcion: "Precios oficiales semanales de gasolina MICM y galones.",
+    icon: Fuel,
+    categoria: "Mercado",
+  },
+  platoSugerido: {
+    nombre: "Plato sugerido según despensa",
+    descripcion: "Receta recomendada según los ingredientes que tienes.",
+    icon: UtensilsCrossed,
+    categoria: "Cocina",
+  },
+  acciones: {
+    nombre: "Acciones e Inversiones",
+    descripcion: "Panel horizontal a lo largo con cotizaciones bursátiles.",
+    icon: LineChart,
+    categoria: "Mercado",
+  },
+};
+
+function normalizarOrden(savedOrder) {
+  if (!Array.isArray(savedOrder) || savedOrder.length === 0) {
+    return SECTION_IDS_DEFAULT;
+  }
+  if (savedOrder.includes("kpis") || savedOrder.includes("gastos")) {
+    const result = [];
+    for (const id of savedOrder) {
+      if (id === "kpis") {
+        if (!result.includes("endeudamiento")) result.push("endeudamiento");
+        if (!result.includes("fondoEmergencia")) result.push("fondoEmergencia");
+        if (!result.includes("capacidadAhorro")) result.push("capacidadAhorro");
+      } else if (id === "gastos") {
+        if (!result.includes("gastoMes")) result.push("gastoMes");
+        if (!result.includes("gastoCategoria")) result.push("gastoCategoria");
+      } else if (SECTION_IDS_DEFAULT.includes(id)) {
+        if (!result.includes(id)) result.push(id);
+      }
+    }
+    for (const id of SECTION_IDS_DEFAULT) {
+      if (!result.includes(id)) result.push(id);
+    }
+    return result;
+  }
+  return savedOrder.filter((id) => SECTION_IDS_DEFAULT.includes(id));
+}
 
 const RECETAS_DESTACADAS = [
   {
@@ -1873,49 +2525,123 @@ function PlatoSugeridoCard({ products = [], onNavigate }) {
   );
 }
 
-function SortableSection({ id, isFirst, children }) {
+function SortableCard({ id, onRemove, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const isFullWidth = id === "acciones";
+  const isTwoCols = id === "gastoMes";
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
-    marginTop: isFirst ? 0 : 16,
+    opacity: isDragging ? 0.45 : 1,
     position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    zIndex: isDragging ? 99 : 1,
+    minWidth: 0,
+    height: "100%",
+    gridColumn: isFullWidth ? "1 / -1" : "auto",
   };
+
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} className={isTwoCols ? "inicio-col-span-2" : ""}>
       <div
-        {...attributes}
-        {...listeners}
-        title="Arrastrar para reordenar esta sección"
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "center",
-          width: "100%",
-          height: 16,
-          cursor: isDragging ? "grabbing" : "grab",
+          justifyContent: "space-between",
+          padding: "2px 2px",
+          marginBottom: 4,
           color: "var(--ink-soft)",
-          touchAction: "none",
+          userSelect: "none",
         }}
       >
-        <GripVertical size={13} style={{ transform: "rotate(90deg)" }} />
+        <div style={{ width: 22 }} />
+        <div
+          {...attributes}
+          {...listeners}
+          title="Arrastrar para mover este componente"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "4px 14px",
+            cursor: isDragging ? "grabbing" : "grab",
+            touchAction: "none",
+            borderRadius: 6,
+            opacity: 0.65,
+            transition: "opacity 0.2s ease, background 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.background = "var(--line-soft)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "0.65";
+            e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <div
+            style={{
+              width: 38,
+              height: 4,
+              borderRadius: 2,
+              background: "var(--line)",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+            }}
+          />
+        </div>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove && onRemove(id);
+          }}
+          title={`Quitar ${MODULOS_INFO[id]?.nombre || "este módulo"} del inicio`}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 22,
+            height: 22,
+            borderRadius: 5,
+            border: "none",
+            background: "transparent",
+            color: "var(--ink-soft)",
+            cursor: "pointer",
+            opacity: 0.45,
+            transition: "all 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.background = "var(--stamp-bg)";
+            e.currentTarget.style.color = "var(--stamp)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "0.45";
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "var(--ink-soft)";
+          }}
+        >
+          <X size={13} />
+        </button>
       </div>
-      {children}
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100%" }}>
+        {children}
+      </div>
     </div>
   );
 }
 
-export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas, presupuesto, diasCobro, products = [], onNavigate }) {
+export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas, presupuesto, diasCobro, products = [], metasAhorro = [], activos = [], onNavigate }) {
   const [orden, setOrden] = useState(SECTION_IDS_DEFAULT);
   const [gastosPorMesYear, setGastosPorMesYear] = useState(new Date().getFullYear());
+  const [modalModulosAbierto, setModalModulosAbierto] = useState(false);
 
   useEffect(() => {
     const unsub = watchInicioOrden((o) => {
-      if (o && Array.isArray(o) && o.length > 0) {
-        const completo = [...o.filter((id) => SECTION_IDS_DEFAULT.includes(id)), ...SECTION_IDS_DEFAULT.filter((id) => !o.includes(id))];
-        setOrden(completo);
-      }
+      setOrden(normalizarOrden(o));
     }, () => {});
     return () => unsub();
   }, []);
@@ -1932,6 +2658,28 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
       saveInicioOrden(nuevo);
       return nuevo;
     });
+  };
+
+  const handleQuitarModulo = (id) => {
+    const nuevo = orden.filter((item) => item !== id);
+    setOrden(nuevo);
+    saveInicioOrden(nuevo);
+  };
+
+  const handleToggleModulo = (id) => {
+    let nuevo;
+    if (orden.includes(id)) {
+      nuevo = orden.filter((item) => item !== id);
+    } else {
+      nuevo = [...orden, id];
+    }
+    setOrden(nuevo);
+    saveInicioOrden(nuevo);
+  };
+
+  const handleMostrarTodos = () => {
+    setOrden(SECTION_IDS_DEFAULT);
+    saveInicioOrden(SECTION_IDS_DEFAULT);
   };
 
   const cuotaPrestamos = useMemo(
@@ -2030,195 +2778,582 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const pctCapacidadAhorro = ingresoMensual > 0 ? (ahorroPotencialMensual / ingresoMensual) * 100 : 0;
   const clasificacionAhorro = clasificarCapacidadAhorro(pctCapacidadAhorro);
 
-  const kpisContent = (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 16 }}>
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative" }}>
-          <InfoTooltip>
-            (Cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso mensual estimado.
-            Saludable por debajo del 35-40%. No incluye membresías ni gastos variables.
-          </InfoTooltip>
-          <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Nivel de endeudamiento</div>
+  const endeudamientoContent = (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      <div>
+        <InfoTooltip>
+          (Cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso mensual estimado.
+          Saludable por debajo del 35-40%. No incluye membresías ni gastos variables.
+        </InfoTooltip>
+        <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Nivel de endeudamiento</div>
 
-          {ingresoMensual === 0 ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0" }}>
-              <AlertTriangle size={15} />
-              Configura al menos una fuente de ingreso activa (sección Ingresos) para calcular este KPI.
-            </div>
-          ) : (
-            <>
-              <GaugeChart value={pct} maxValue={100} zones={ZONES_DEUDA} marks={[0, 20, 35, 50, 100]} />
-              <div style={{ marginTop: -18, marginBottom: 6 }}>
-                <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacion.color }}>
-                  {pct.toFixed(1)}%
-                </span>
-              </div>
-              <span
-                className="despensa-tab-font"
-                style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacion.bg, color: clasificacion.color }}
-              >
-                {clasificacion.label}
+        {ingresoMensual === 0 ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0" }}>
+            <AlertTriangle size={15} />
+            Configura al menos una fuente de ingreso activa (sección Ingresos) para calcular este KPI.
+          </div>
+        ) : (
+          <>
+            <GaugeChart value={pct} maxValue={100} zones={ZONES_DEUDA} marks={[0, 20, 35, 50, 100]} />
+            <div style={{ marginTop: -18, marginBottom: 6 }}>
+              <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacion.color }}>
+                {pct.toFixed(1)}%
               </span>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
-                <MiniStat icon={Briefcase} label="Ingreso mensual" value={formatMoney(ingresoMensual)} color="var(--sage)" compact />
-                <MiniStat icon={Banknote} label="Cuotas préstamos" value={formatMoney(cuotaPrestamos)} color="var(--stamp)" compact />
-                <MiniStat icon={CreditCard} label="Pago mín. tarjetas" value={formatMoney(pagoTarjetas)} color="var(--stamp)" compact />
-                <MiniStat icon={CreditCard} label="Deuda total tarjetas" value={formatMoney(deudaTotalTarjetas)} color="var(--stamp)" compact />
-              </div>
-            </>
-          )}
-        </div>
-
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative" }}>
-          <InfoTooltip>
-            Saldo en cuentas de Ahorro ÷ gasto mensual promedio de este año. Los expertos recomiendan tener
-            entre 3 y 6 meses de gastos cubiertos.
-          </InfoTooltip>
-          <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Fondo de emergencia</div>
-
-          {mesesCobertura == null ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0", textAlign: "left" }}>
-              <AlertTriangle size={15} />
-              Registra gastos en Movimientos para calcular tu gasto mensual promedio y activar este KPI.
             </div>
-          ) : (
-            <>
-              <GaugeChart value={mesesCobertura} maxValue={12} zones={ZONES_FONDO} marks={[0, 3, 6, 9, 12]} />
-              <div style={{ marginTop: -18, marginBottom: 6 }}>
-                <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacionFondo.color }}>
-                  {mesesCobertura.toFixed(1)}
-                </span>
-                <span style={{ fontSize: 13, color: "var(--ink-soft)" }}> meses</span>
-              </div>
-              <span
-                className="despensa-tab-font"
-                style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacionFondo.bg, color: clasificacionFondo.color }}
-              >
-                {clasificacionFondo.label}
-              </span>
+            <span
+              className="despensa-tab-font"
+              style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacion.bg, color: clasificacion.color }}
+            >
+              {clasificacion.label}
+            </span>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
-                <MiniStat icon={PiggyBank} label="En cuentas de ahorro" value={formatMoney(ahorroTotal)} color="var(--sage)" compact />
-                <MiniStat icon={Banknote} label="Gasto mensual prom." value={formatMoney(gastoMensualPromedio)} color="var(--stamp)" compact />
-              </div>
-            </>
-          )}
-        </div>
-
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative" }}>
-          <InfoTooltip>
-            (Ingreso mensual estimado - Gasto mensual promedio) ÷ ingreso mensual estimado. Representa el
-            porcentaje de tus ingresos disponible para ahorrar o invertir después de cubrir tus gastos reales. Los expertos
-            recomiendan ahorrar al menos un 20%.
-          </InfoTooltip>
-          <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Capacidad de ahorro</div>
-
-          {ingresoMensual === 0 ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0" }}>
-              <AlertTriangle size={15} />
-              Configura al menos una fuente de ingreso activa (sección Ingresos) para calcular este KPI.
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
+              <MiniStat icon={Briefcase} label="Ingreso" value={formatMoney(ingresoMensual)} color="var(--sage)" compact />
+              <MiniStat icon={Banknote} label="Cuotas" value={formatMoney(cuotaPrestamos)} color="var(--stamp)" compact />
+              <MiniStat icon={CreditCard} label="Pago mín." value={formatMoney(pagoTarjetas)} color="var(--stamp)" compact />
+              <MiniStat icon={CreditCard} label="Deuda total" value={formatMoney(deudaTotalTarjetas)} color="var(--stamp)" compact />
             </div>
-          ) : (
-            <>
-              <GaugeChart value={Math.max(0, Math.min(pctCapacidadAhorro, 100))} maxValue={100} zones={ZONES_AHORRO} marks={[0, 10, 20, 35, 50, 100]} />
-              <div style={{ marginTop: -18, marginBottom: 6 }}>
-                <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacionAhorro.color }}>
-                  {pctCapacidadAhorro.toFixed(1)}%
-                </span>
-              </div>
-              <span
-                className="despensa-tab-font"
-                style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacionAhorro.bg, color: clasificacionAhorro.color }}
-              >
-                {clasificacionAhorro.label}
-              </span>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
-                <MiniStat icon={PiggyBank} label="Remanente mensual" value={formatMoney(ahorroPotencialMensual)} color={ahorroPotencialMensual >= 0 ? "var(--sage)" : "var(--stamp)"} compact />
-                <MiniStat icon={Briefcase} label="Ingreso mensual" value={formatMoney(ingresoMensual)} color="var(--sage)" compact />
-                <MiniStat icon={TrendingUp} label="Meta rec. (20%)" value={formatMoney(ingresoMensual * 0.2)} color="var(--ink-soft)" compact />
-              </div>
-            </>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </div>
   );
 
-  const accionesContent = <StocksCard />;
+  const fondoEmergenciaContent = (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      <div>
+        <InfoTooltip>
+          Saldo en cuentas de Ahorro ÷ gasto mensual promedio de este año. Los expertos recomiendan tener
+          entre 3 y 6 meses de gastos cubiertos.
+        </InfoTooltip>
+        <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Fondo de emergencia</div>
 
-  const gastosContent = (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-      <div style={{ flex: "2 1 340px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
-            <span className="despensa-tab-font" style={{ fontSize: 12.5, fontWeight: 600 }}>Gasto x Mes</span>
+        {mesesCobertura == null ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0", textAlign: "left" }}>
+            <AlertTriangle size={15} />
+            Registra gastos en Movimientos para calcular tu gasto mensual promedio y activar este KPI.
           </div>
-          <SelectorAnio year={gastosPorMesYear} setYear={setGastosPorMesYear} anioActual={new Date().getFullYear()} />
+        ) : (
+          <>
+            <GaugeChart value={mesesCobertura} maxValue={12} zones={ZONES_FONDO} marks={[0, 3, 6, 9, 12]} />
+            <div style={{ marginTop: -18, marginBottom: 6 }}>
+              <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacionFondo.color }}>
+                {mesesCobertura.toFixed(1)}
+              </span>
+              <span style={{ fontSize: 13, color: "var(--ink-soft)" }}> meses</span>
+            </div>
+            <span
+              className="despensa-tab-font"
+              style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacionFondo.bg, color: clasificacionFondo.color }}
+            >
+              {clasificacionFondo.label}
+            </span>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
+              <MiniStat icon={PiggyBank} label="En ahorro" value={formatMoney(ahorroTotal)} color="var(--sage)" compact />
+              <MiniStat icon={Banknote} label="Gasto mensual" value={formatMoney(gastoMensualPromedio)} color="var(--stamp)" compact />
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  const capacidadAhorroContent = (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      <div>
+        <InfoTooltip>
+          (Ingreso mensual estimado - Gasto mensual promedio) ÷ ingreso mensual estimado. Representa el
+          porcentaje de tus ingresos disponible para ahorrar o invertir después de cubrir tus gastos reales. Los expertos
+          recomiendan ahorrar al menos un 20%.
+        </InfoTooltip>
+        <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Capacidad de ahorro</div>
+
+        {ingresoMensual === 0 ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "24px 0" }}>
+            <AlertTriangle size={15} />
+            Configura al menos una fuente de ingreso activa (sección Ingresos) para calcular este KPI.
+          </div>
+        ) : (
+          <>
+            <GaugeChart value={Math.max(0, Math.min(pctCapacidadAhorro, 100))} maxValue={100} zones={ZONES_AHORRO} marks={[0, 10, 20, 35, 50, 100]} />
+            <div style={{ marginTop: -18, marginBottom: 6 }}>
+              <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacionAhorro.color }}>
+                {pctCapacidadAhorro.toFixed(1)}%
+              </span>
+            </div>
+            <span
+              className="despensa-tab-font"
+              style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacionAhorro.bg, color: clasificacionAhorro.color }}
+            >
+              {clasificacionAhorro.label}
+            </span>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
+              <MiniStat icon={PiggyBank} label="Remanente" value={formatMoney(ahorroPotencialMensual)} color={ahorroPotencialMensual >= 0 ? "var(--sage)" : "var(--stamp)"} compact />
+              <MiniStat icon={Briefcase} label="Ingreso" value={formatMoney(ingresoMensual)} color="var(--sage)" compact />
+              <MiniStat icon={TrendingUp} label="Meta (20%)" value={formatMoney(ingresoMensual * 0.2)} color="var(--ink-soft)" compact />
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  const metasContent = (
+    <MetasSlideCard
+      metasAhorro={metasAhorro}
+      activos={activos}
+      cuentas={cuentas}
+      movimientos={movimientos}
+      fuentesIngreso={fuentesIngreso}
+      onNavigate={onNavigate}
+    />
+  );
+
+  const climaContent = <ClimaCardInner />;
+
+  const dolarContent = <DolarCard />;
+
+  const gastoMesContent = (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", minWidth: 0, height: "100%", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 13.5, fontWeight: 600 }}>Gasto x Mes</span>
         </div>
+        <SelectorAnio year={gastosPorMesYear} setYear={setGastosPorMesYear} anioActual={new Date().getFullYear()} />
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
         <GastosPorMesChart movimientos={movimientos} year={gastosPorMesYear} setYear={setGastosPorMesYear} />
       </div>
-      <div style={{ flex: "1 1 200px", background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <PieChartIcon size={16} style={{ color: "var(--ink-soft)" }} />
-          <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>Gastos por categoría</span>
-        </div>
+    </div>
+  );
+
+  const gastoCategoriaContent = (
+    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", minWidth: 0, height: "100%", display: "flex", flexDirection: "column" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+        <PieChartIcon size={16} style={{ color: "var(--ink-soft)" }} />
+        <span className="despensa-tab-font" style={{ fontSize: 13.5, fontWeight: 600 }}>Gastos por categoría</span>
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
         <GastosPorCategoriaMesActual movimientos={movimientos} compact />
       </div>
     </div>
   );
 
-  const dolarContent = <DolarCard />;
-  const climaContent = <ClimaCard />;
   const inflacionContent = <InflacionCard />;
   const combustibleContent = <CombustibleCard presupuesto={presupuesto} diasCobro={diasCobro} />;
   const platoSugeridoContent = <PlatoSugeridoCard products={products} onNavigate={onNavigate} />;
-
-  // En el espacio al lado de Inflación y Combustible se presenta el plato sugerido adaptado al diseño
-  const inflacionCombustibleContent = (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", gap: 16, alignItems: "stretch" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <InflacionCard />
-        <CombustibleCard presupuesto={presupuesto} diasCobro={diasCobro} />
-      </div>
-      <div style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
-        <PlatoSugeridoCard products={products} onNavigate={onNavigate} />
-      </div>
-    </div>
-  );
+  const accionesContent = <StocksCard />;
 
   const SECTION_CONTENT = {
-    kpis: kpisContent,
-    acciones: accionesContent,
-    gastos: gastosContent,
-    dolar: dolarContent,
+    endeudamiento: endeudamientoContent,
+    fondoEmergencia: fondoEmergenciaContent,
+    capacidadAhorro: capacidadAhorroContent,
+    metas: metasContent,
     clima: climaContent,
-    inflacion: inflacionCombustibleContent,
+    dolar: dolarContent,
+    gastoMes: gastoMesContent,
+    gastoCategoria: gastoCategoriaContent,
+    inflacion: inflacionContent,
     combustible: combustibleContent,
     platoSugerido: platoSugeridoContent,
+    acciones: accionesContent,
   };
 
-  const seccionesActivas = useMemo(() => {
-    // Si 'inflacion' está en el orden, 'combustible' y 'platoSugerido' se muestran integrados a su lado
-    if (orden.includes("inflacion")) {
-      return orden.filter((id) => id !== "combustible" && id !== "platoSugerido");
-    }
-    return orden;
+  const hayCambiosOrden = useMemo(() => {
+    return JSON.stringify(orden) !== JSON.stringify(SECTION_IDS_DEFAULT);
   }, [orden]);
+
+  const restablecerOrden = () => {
+    setOrden(SECTION_IDS_DEFAULT);
+    saveInicioOrden(SECTION_IDS_DEFAULT);
+  };
+
+  const modulosOcultosCount = SECTION_IDS_DEFAULT.length - orden.length;
 
   return (
     <div>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={seccionesActivas} strategy={verticalListSortingStrategy}>
-          {seccionesActivas.map((id, i) => (
-            <SortableSection key={id} id={id} isFirst={i === 0}>
-              {SECTION_CONTENT[id]}
-            </SortableSection>
-          ))}
-        </SortableContext>
-      </DndContext>
+      <style>{`
+        @media (min-width: 900px) {
+          .inicio-col-span-2 {
+            grid-column: span 2 !important;
+          }
+        }
+      `}</style>
+
+      {/* Barra superior de personalización y control de módulos */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 14,
+          flexWrap: "wrap",
+          gap: 10,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-soft)" }}>
+          <LayoutGrid size={15} style={{ color: "var(--sage)" }} />
+          <span style={{ fontWeight: 600, color: "var(--ink)" }}>{orden.length} de {SECTION_IDS_DEFAULT.length} módulos</span>
+          <span>· Arrastra para ordenar o personaliza tu panel</span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={() => setModalModulosAbierto(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+              borderRadius: 8,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              color: "var(--ink)",
+              cursor: "pointer",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+            }}
+            title="Agregar o quitar módulos de la pantalla principal"
+          >
+            <SlidersHorizontal size={13} style={{ color: "var(--sage)" }} />
+            Gestionar módulos
+            {modulosOcultosCount > 0 && (
+              <span
+                style={{
+                  padding: "1px 6px",
+                  borderRadius: 10,
+                  fontSize: 10.5,
+                  background: "var(--amber-bg)",
+                  color: "var(--amber)",
+                  fontWeight: 700,
+                }}
+              >
+                +{modulosOcultosCount} ocultos
+              </span>
+            )}
+          </button>
+
+          {hayCambiosOrden && (
+            <button
+              onClick={restablecerOrden}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                fontSize: 12,
+                padding: "6px 12px",
+                borderRadius: 8,
+                background: "var(--paper)",
+                border: "1px solid var(--line)",
+                color: "var(--ink-soft)",
+                cursor: "pointer",
+              }}
+              title="Restablecer el orden y visibilidad predeterminados"
+            >
+              <RefreshCw size={11} /> Restablecer
+            </button>
+          )}
+        </div>
+      </div>
+
+      {orden.length === 0 ? (
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px dashed var(--line)",
+            borderRadius: 12,
+            padding: "3rem 1.5rem",
+            textAlign: "center",
+            maxWidth: 480,
+            margin: "2rem auto",
+          }}
+        >
+          <SlidersHorizontal size={36} style={{ color: "var(--ink-soft)", margin: "0 auto 12px" }} />
+          <div className="despensa-tab-font" style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
+            No hay módulos visibles en Inicio
+          </div>
+          <div style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5, marginBottom: 18 }}>
+            Has ocultado todos los módulos de tu pantalla principal. Puedes elegir cuáles activar desde el panel de gestión.
+          </div>
+          <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
+            <button
+              onClick={() => setModalModulosAbierto(true)}
+              style={{
+                padding: "8px 16px",
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <SlidersHorizontal size={14} /> Seleccionar módulos
+            </button>
+            <button
+              onClick={handleMostrarTodos}
+              style={{
+                padding: "8px 16px",
+                background: "var(--paper)",
+                border: "1px solid var(--line)",
+                color: "var(--ink)",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: "pointer",
+              }}
+            >
+              Mostrar todos
+            </button>
+          </div>
+        </div>
+      ) : (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={orden} strategy={rectSortingStrategy}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(min(320px, 100%), 1fr))",
+                gap: 16,
+                alignItems: "stretch",
+              }}
+            >
+              {orden.map((id) => (
+                <SortableCard key={id} id={id} onRemove={handleQuitarModulo}>
+                  {SECTION_CONTENT[id]}
+                </SortableCard>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      {/* Modal para agregar y quitar módulos */}
+      {modalModulosAbierto && (
+        <div
+          onClick={() => setModalModulosAbierto(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.6)",
+            backdropFilter: "blur(3px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 14,
+              width: "100%",
+              maxWidth: 580,
+              maxHeight: "88vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
+              overflow: "hidden",
+            }}
+          >
+            {/* Cabecera */}
+            <div
+              style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid var(--line)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <SlidersHorizontal size={17} style={{ color: "var(--sage)" }} />
+                <div>
+                  <div className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>
+                    Gestionar módulos de Inicio
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                    Elige qué tarjetas mostrar u ocultar en tu pantalla principal
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalModulosAbierto(false)}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
+                  border: "1px solid var(--line)",
+                  background: "var(--paper)",
+                  color: "var(--ink-soft)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Lista de módulos con toggles */}
+            <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+              {SECTION_IDS_DEFAULT.map((modId) => {
+                const info = MODULOS_INFO[modId] || { nombre: modId, descripcion: "", icon: Target };
+                const Icon = info.icon;
+                const estaActivo = orden.includes(modId);
+
+                return (
+                  <div
+                    key={modId}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      padding: "10px 14px",
+                      borderRadius: 10,
+                      background: estaActivo ? "var(--paper)" : "rgba(0,0,0,0.02)",
+                      border: estaActivo ? "1px solid var(--line)" : "1px dashed var(--line-soft)",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 8,
+                          background: estaActivo ? "var(--sage-bg)" : "var(--paper)",
+                          color: estaActivo ? "var(--sage)" : "var(--ink-soft)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                          border: "1px solid var(--line-soft)",
+                        }}
+                      >
+                        <Icon size={18} />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: estaActivo ? "var(--ink)" : "var(--ink-soft)", lineHeight: 1.3 }}>
+                          {info.nombre}
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--ink-soft)", lineHeight: 1.3, marginTop: 1 }}>
+                          {info.descripcion}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handleToggleModulo(modId)}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                        padding: "5px 12px",
+                        borderRadius: 20,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        border: "none",
+                        cursor: "pointer",
+                        background: estaActivo ? "var(--sage)" : "var(--paper)",
+                        color: estaActivo ? "#fff" : "var(--ink-soft)",
+                        boxShadow: estaActivo ? "0 2px 6px rgba(86, 171, 95, 0.25)" : "none",
+                        transition: "all 0.2s ease",
+                      }}
+                    >
+                      {estaActivo ? (
+                        <>
+                          <Check size={12} /> Visible
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={12} /> Agregar
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div
+              style={{
+                padding: "12px 20px",
+                borderTop: "1px solid var(--line)",
+                background: "var(--paper)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={handleMostrarTodos}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 7,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    background: "var(--card)",
+                    border: "1px solid var(--line)",
+                    color: "var(--ink)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Mostrar todos
+                </button>
+                <button
+                  onClick={restablecerOrden}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 7,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    background: "var(--card)",
+                    border: "1px solid var(--line)",
+                    color: "var(--ink-soft)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Restablecer
+                </button>
+              </div>
+
+              <button
+                onClick={() => setModalModulosAbierto(false)}
+                style={{
+                  padding: "7px 18px",
+                  borderRadius: 7,
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  background: "var(--ink)",
+                  color: "var(--paper)",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Listo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
