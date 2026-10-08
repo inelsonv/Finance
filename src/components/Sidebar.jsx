@@ -26,10 +26,12 @@ import {
   HeartPulse,
   Library,
   Map as MapIcon,
+  Sparkles,
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { id: "inicio", label: "Inicio", icon: Home },
+  { id: "asistente", label: "Asistente IA", icon: Sparkles },
   {
     id: "presupuesto",
     label: "Presupuesto",

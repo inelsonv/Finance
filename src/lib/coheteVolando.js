@@ -22,6 +22,31 @@ export function lanzarCoheteHaciaPuntos(origenX, origenY, opciones = {}) {
   const puntos = Number(opciones.puntos) || 0;
   const trofeo = document.getElementById("despensa-trofeo-header");
 
+  // Notifica al agente de la aplicación para que celebre el hito y esté listo para asesorar
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(
+        new CustomEvent("agenteCelebrarPagoDeuda", {
+          detail: {
+            puntos,
+            mensaje: opciones.mensaje || "Pago de deuda",
+            origenX,
+            origenY,
+            timestamp: ahora,
+          },
+        })
+      );
+      sessionStorage.setItem(
+        "ultimoPagoDeudaAgente",
+        JSON.stringify({
+          puntos,
+          mensaje: opciones.mensaje || "Pago de deuda",
+          timestamp: ahora,
+        })
+      );
+    } catch (_) {}
+  }
+
   let destinoX = window.innerWidth - 80;
   let destinoY = 30;
 

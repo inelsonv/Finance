@@ -4,14 +4,36 @@ import { crearAsistenteChat, guardarAsistenteChat, preguntarAsistente, watchAsis
 import { construirResumenFinanciero } from "../lib/resumenFinanciero";
 
 const SUGERENCIAS = [
-  "¿Cuánto he gastado este mes?",
-  "¿En qué categoría gasté más?",
-  "¿Cuánto presupuesto me queda esta quincena?",
-  "¿Qué pagos debería priorizar?",
-  "¿Me estoy pasando del presupuesto en algo?",
+  "¿Cómo voy con el pago de mis deudas y puntos? 🚀",
+  "¿Cuál es mi siguiente deuda según mi estrategia?",
+  "¿Qué pagos debería priorizar esta quincena?",
+  "¿Cuánto he gastado este mes y en qué categoría?",
+  "¿Cuánto presupuesto me queda disponible?",
 ];
 
-export default function Asistente({ movimientos, presupuesto, presupuestoYear, prestamos, tarjetas, cuentas, fuentesIngreso, puntos, diasCobro, categoriasGasto, checklistTodos, membresias, contratos, activos, metasAhorro, seguros, ingresosPuntuales, eventos, onClose }) {
+export default function Asistente({
+  movimientos,
+  presupuesto,
+  presupuestoYear,
+  prestamos,
+  tarjetas,
+  cuentas,
+  fuentesIngreso,
+  puntos,
+  diasCobro,
+  categoriasGasto,
+  checklistTodos,
+  membresias,
+  contratos,
+  activos,
+  metasAhorro,
+  seguros,
+  ingresosPuntuales,
+  eventos,
+  onClose,
+  onNavigate,
+  ultimoPagoDeuda,
+}) {
   const [mensajes, setMensajes] = useState([]);
   const [chats, setChats] = useState([]);
   const [chatId, setChatId] = useState(null);
@@ -21,8 +43,32 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState(null);
   const [presupuestosHistoricos, setPresupuestosHistoricos] = useState({});
+  const [pagoDeudaDetectado, setPagoDeudaDetectado] = useState(() => {
+    if (ultimoPagoDeuda) return ultimoPagoDeuda;
+    try {
+      const stored = sessionStorage.getItem("ultimoPagoDeudaAgente");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Date.now() - (parsed.timestamp || 0) < 1000 * 60 * 30) return parsed;
+      }
+    } catch (_) {}
+    return null;
+  });
   const scrollRef = useRef(null);
   const chatCreadoPendiente = useRef(null);
+
+  useEffect(() => {
+    if (ultimoPagoDeuda) setPagoDeudaDetectado(ultimoPagoDeuda);
+  }, [ultimoPagoDeuda]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const { puntos, mensaje } = e.detail || {};
+      setPagoDeudaDetectado({ puntos, mensaje, timestamp: Date.now() });
+    };
+    window.addEventListener("agenteCelebrarPagoDeuda", handler);
+    return () => window.removeEventListener("agenteCelebrarPagoDeuda", handler);
+  }, []);
 
   useEffect(() => {
     return watchPresupuestosHistoricos(setPresupuestosHistoricos, (err) => {
@@ -194,6 +240,67 @@ export default function Asistente({ movimientos, presupuesto, presupuestoYear, p
       )}
 
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 4 }}>
+        {pagoDeudaDetectado && (
+          <div
+            style={{
+              padding: "11px 13px",
+              borderRadius: 13,
+              background: "linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(16, 185, 129, 0.12))",
+              border: "1px solid rgba(245, 158, 11, 0.4)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 7,
+              boxShadow: "0 4px 14px rgba(245, 158, 11, 0.1)",
+              marginBottom: 4,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                <span>🚀 Hito Financiero Detectado</span>
+                <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 999, background: "#f59e0b", color: "#fff", fontWeight: 800 }}>
+                  +{pagoDeudaDetectado.puntos || 0} pts
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPagoDeudaDetectado(null);
+                  try { sessionStorage.removeItem("ultimoPagoDeudaAgente"); } catch (_) {}
+                }}
+                style={{ background: "none", border: "none", color: "var(--ink-soft)", cursor: "pointer", padding: 2 }}
+                title="Descartar aviso"
+              >
+                <X size={13} />
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.4 }}>
+              ¡Excelente trabajo amortizando a tu deuda! Como tu agente financiero, puedo ayudarte a analizar tu próximo objetivo y calcular tu ahorro de intereses.
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+              <button
+                type="button"
+                onClick={() => enviarPregunta("¿Cómo impactó mi último pago en mi deuda y qué me recomiendas hacer ahora según mi estrategia?")}
+                style={{ fontSize: 11.5, padding: "5px 10px", borderRadius: 8, background: "var(--card)", border: "1px solid var(--line)", cursor: "pointer", color: "var(--ink)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+              >
+                <Sparkles size={13} style={{ color: "var(--sage)" }} />
+                Analizar impacto con el agente
+              </button>
+              {onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onNavigate("estrategia-deudas");
+                    onClose?.();
+                  }}
+                  style={{ fontSize: 11.5, padding: "5px 10px", borderRadius: 8, background: "var(--sage)", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600 }}
+                >
+                  🎯 Ver Estrategia de deudas
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {cargandoMensajes && (
           <div style={{ alignSelf: "center", padding: "1rem", color: "var(--ink-soft)", fontSize: 12.5 }}>Cargando conversación…</div>
         )}

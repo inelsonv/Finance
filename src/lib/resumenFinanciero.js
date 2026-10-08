@@ -114,6 +114,64 @@ export function construirResumenFinanciero({
       cuotaMensual: formatMoney(p.cuotaMensual),
     }));
 
+  // Pagos recientes de deuda para que el agente reconozca amortizaciones y puntos
+  const ultimosPagosDeuda = (movimientos || [])
+    .filter((m) => {
+      const cat = (m.category || "").toLowerCase();
+      const desc = (m.description || "").toLowerCase();
+      return (
+        cat.includes("pago de préstamo") ||
+        cat.includes("pago de tarjeta") ||
+        cat.includes("prestamo") ||
+        cat.includes("tarjeta") ||
+        desc.includes("pago de préstamo") ||
+        desc.includes("abono")
+      );
+    })
+    .slice(-6)
+    .reverse()
+    .map((m) => ({
+      fecha: m.date,
+      categoria: m.category,
+      descripcion: m.description,
+      monto: formatMoney(m.amount),
+    }));
+
+  const todasDeudasActivas = [
+    ...(prestamos || []).filter((p) => p.estado !== "Pagado").map((p) => ({
+      tipo: "Préstamo",
+      nombre: p.entidadName || p.numero || "Préstamo",
+      saldo: Number(p.saldoActual ?? p.montoAprobado) || 0,
+      tasaInteres: Number(p.tasaInteres) || 0,
+      cuota: Number(p.cuotaMensual) || 0,
+    })),
+    ...(tarjetas || []).filter((t) => t.estado === "Activa" && Number(t.saldoActual) > 0).map((t) => ({
+      tipo: "Tarjeta de crédito",
+      nombre: t.nombre,
+      saldo: Number(t.saldoActual) || 0,
+      tasaInteres: Number(t.tasaInteres) || 28,
+      cuota: Number(t.pagoMinimo) || 0,
+    })),
+  ];
+
+  const totalDeudaPendiente = todasDeudasActivas.reduce((acc, d) => acc + d.saldo, 0);
+  const totalCuotasMensuales = todasDeudasActivas.reduce((acc, d) => acc + d.cuota, 0);
+  const prioridadesBolaDeNieve = [...todasDeudasActivas].sort((a, b) => a.saldo - b.saldo);
+  const prioridadesAvalancha = [...todasDeudasActivas].sort((a, b) => b.tasaInteres - a.tasaInteres);
+
+  const estrategiaDeudasResumen = {
+    totalDeudaPendiente: formatMoney(totalDeudaPendiente),
+    totalCuotasMensuales: formatMoney(totalCuotasMensuales),
+    cantidadDeudasActivas: todasDeudasActivas.length,
+    siguienteBolaDeNieve: prioridadesBolaDeNieve[0]
+      ? { nombre: prioridadesBolaDeNieve[0].nombre, saldo: formatMoney(prioridadesBolaDeNieve[0].saldo) }
+      : null,
+    siguienteAvalancha: prioridadesAvalancha[0]
+      ? { nombre: prioridadesAvalancha[0].nombre, saldo: formatMoney(prioridadesAvalancha[0].saldo), tasa: prioridadesAvalancha[0].tasaInteres }
+      : null,
+    ultimosPagosRealizados: ultimosPagosDeuda,
+  };
+
   const tarjetasResumen = (tarjetas || [])
     .filter((t) => t.estado === "Activa")
     .map((t) => ({
@@ -204,6 +262,8 @@ export function construirResumenFinanciero({
     tarjetasCredito: tarjetasResumen,
     cuentasBancarias: cuentasResumen,
     puntosAcumulados: typeof puntos === "number" ? puntos : puntos?.total || 0,
+    estrategiaDeudas: estrategiaDeudasResumen,
+    ultimosPagosDeuda,
     otrosDatosFinancieros: {
       membresiasActivas: (membresias || []).filter((x) => x.estado === "Activa" || x.estado === "Activo").map((x) => ({ nombre: x.nombre, costo: formatMoney(x.costo), frecuencia: x.frecuencia, diaPago: x.diaPago })),
       contratosActivos: (contratos || []).filter((x) => x.estado === "Activo" || x.estado === "Activa").map((x) => ({ nombre: x.nombre, montoEstimado: formatMoney(x.montoEstimado), fechaFin: x.fechaFin, diaPago: x.diaPago })),

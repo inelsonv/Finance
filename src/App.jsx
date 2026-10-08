@@ -228,7 +228,26 @@ export default function App() {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showAsistenteFlotante, setShowAsistenteFlotante] = useState(false);
   const [asistenteFlotanteActivo, setAsistenteFlotanteActivo] = useState(getInitialAsistenteFlotante);
+  const [notificacionAgentePago, setNotificacionAgentePago] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    let timer = null;
+    const handlePagoDeuda = (e) => {
+      const { puntos, mensaje } = e.detail || {};
+      setNotificacionAgentePago({ puntos, mensaje, timestamp: Date.now() });
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        setNotificacionAgentePago(null);
+      }, 9500);
+    };
+
+    window.addEventListener("agenteCelebrarPagoDeuda", handlePagoDeuda);
+    return () => {
+      window.removeEventListener("agenteCelebrarPagoDeuda", handlePagoDeuda);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -719,6 +738,8 @@ export default function App() {
     seguros,
     ingresosPuntuales,
     eventos,
+    onNavigate: seleccionarTab,
+    ultimoPagoDeuda: notificacionAgentePago,
   };
 
   return (
@@ -1141,6 +1162,65 @@ export default function App() {
               <Asistente {...asistenteProps} onClose={() => setShowAsistenteFlotante(false)} />
             </section>
           )}
+          {notificacionAgentePago && !showAsistenteFlotante && (
+            <div
+              style={{
+                background: "var(--card)",
+                border: "1.5px solid rgba(245, 158, 11, 0.4)",
+                borderRadius: 14,
+                padding: "10px 12px",
+                boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
+                maxWidth: 270,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                animation: "fadeUp 0.3s ease-out",
+                pointerEvents: "auto",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: 5 }}>
+                  <Sparkles size={13} style={{ color: "var(--sage)" }} />
+                  Agente Financiero
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setNotificacionAgentePago(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-soft)", padding: 2 }}
+                  aria-label="Cerrar notificación"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.35 }}>
+                🚀 ¡Pago registrado con éxito! Ganaste <strong>+{notificacionAgentePago.puntos || 0} pts</strong>. ¿Quieres ver cómo acelerar tu siguiente deuda?
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAsistenteFlotante(true);
+                  setNotificacionAgentePago(null);
+                }}
+                style={{
+                  alignSelf: "flex-start",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "4px 9px",
+                  borderRadius: 7,
+                  background: "var(--sage)",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginTop: 2,
+                }}
+              >
+                Preguntar al agente 💬
+              </button>
+            </div>
+          )}
           <button
             type="button"
             className="despensa-asistente-boton"
@@ -1148,6 +1228,9 @@ export default function App() {
             aria-label={showAsistenteFlotante ? "Cerrar asistente" : "Abrir asistente financiero"}
             aria-expanded={showAsistenteFlotante}
             title="Asistente financiero"
+            style={notificacionAgentePago && !showAsistenteFlotante ? {
+              boxShadow: "0 0 0 3px rgba(245, 158, 11, 0.4), 0 8px 24px rgba(245, 158, 11, 0.35)",
+            } : undefined}
           >
             {showAsistenteFlotante ? <X size={21} /> : <Sparkles size={22} />}
           </button>
