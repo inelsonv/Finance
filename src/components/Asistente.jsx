@@ -1,15 +1,221 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Sparkles, Loader2, Plus, X } from "lucide-react";
+import { Send, Sparkles, Loader2, Plus, X, Camera, Receipt, Check, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import { crearAsistenteChat, guardarAsistenteChat, preguntarAsistente, watchAsistenteChat, watchAsistenteChats, watchPresupuestosHistoricos } from "../lib/db";
 import { construirResumenFinanciero } from "../lib/resumenFinanciero";
+import { procesarFacturaConCatalogo, aplicarFacturaACatalogoYMovimientos } from "../lib/facturaOcr";
 
 const SUGERENCIAS = [
+  "📷 ¿Cómo escaneo una factura para registrar gastos y catálogo?",
   "¿Cómo voy con el pago de mis deudas y puntos? 🚀",
   "¿Cuál es mi siguiente deuda según mi estrategia?",
   "¿Qué pagos debería priorizar esta quincena?",
   "¿Cuánto he gastado este mes y en qué categoría?",
-  "¿Cuánto presupuesto me queda disponible?",
 ];
+
+function TarjetaFacturaChat({
+  data,
+  onGuardar,
+  onAbrirModulo,
+  guardado,
+  guardando,
+}) {
+  const [expandido, setExpandido] = useState(false);
+  const [metodoPago, setMetodoPago] = useState("Tarjeta");
+  const [categoriaGasto, setCategoriaGasto] = useState("Alimentos");
+  const [agregarNuevos, setAgregarNuevos] = useState(true);
+
+  if (!data) return null;
+
+  const items = data.items || [];
+  const itemsAMostrar = expandido ? items : items.slice(0, 5);
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: "12px 14px",
+        borderRadius: 14,
+        background: "var(--card)",
+        border: "1.5px solid var(--line)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        maxWidth: "100%",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--line-soft)", paddingBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <Receipt size={17} style={{ color: "var(--sage)" }} />
+          <span style={{ fontWeight: 700, fontSize: 13.5, color: "var(--ink)" }}>{data.tienda || "Supermercado"}</span>
+        </div>
+        <span style={{ fontWeight: 800, fontSize: 14, color: "var(--sage)", fontFamily: "monospace" }}>
+          RD$ {(data.total || 0).toLocaleString("es", { minimumFractionDigits: 2 })}
+        </span>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontSize: 11.5 }}>
+        <span style={{ padding: "3px 8px", borderRadius: 999, background: "rgba(16, 185, 129, 0.12)", color: "#059669", fontWeight: 600 }}>
+          ✓ {data.coincidencias?.length || 0} en catálogo
+        </span>
+        <span style={{ padding: "3px 8px", borderRadius: 999, background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", fontWeight: 600 }}>
+          + {data.nuevos?.length || 0} nuevos
+        </span>
+        <span style={{ padding: "3px 8px", borderRadius: 999, background: "var(--card-soft, #f3f4f6)", color: "var(--ink-soft)" }}>
+          📅 {data.fecha}
+        </span>
+      </div>
+
+      {/* Lista de artículos */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: expandido ? 260 : 180, overflowY: "auto", paddingRight: 4 }}>
+        {itemsAMostrar.map((it, idx) => {
+          const precioActual = it.nuevoPrecio || it.precioUnitario;
+          const precioAnt = it.precioAnterior;
+          const diferencia = it.diferenciaPrecio;
+
+          return (
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "6px 8px",
+                borderRadius: 8,
+                background: it.esNuevo ? "rgba(59, 130, 246, 0.04)" : "rgba(16, 185, 129, 0.04)",
+                border: "1px solid var(--line-soft)",
+                fontSize: 12,
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                <div style={{ fontWeight: 600, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {it.nombre}
+                </div>
+                <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+                  Cant: {it.cantidad} {it.esNuevo ? "• Nuevo producto" : "• En catálogo"}
+                </div>
+              </div>
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div style={{ fontWeight: 700, fontFamily: "monospace", color: "var(--ink)" }}>
+                  ${precioActual?.toLocaleString("es", { minimumFractionDigits: 2 })}
+                </div>
+                {precioAnt !== null && precioAnt !== undefined && (
+                  <div style={{ fontSize: 10, color: diferencia > 0 ? "#dc2626" : diferencia < 0 ? "#16a34a" : "var(--ink-soft)" }}>
+                    Antes: ${precioAnt.toFixed(0)} {diferencia !== 0 ? `(${diferencia > 0 ? "+" : ""}${diferencia?.toFixed(0)})` : ""}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {items.length > 5 && (
+        <button
+          type="button"
+          onClick={() => setExpandido(!expandido)}
+          style={{ background: "none", border: "none", color: "var(--sage)", fontSize: 11.5, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, padding: "2px 0" }}
+        >
+          {expandido ? <>Menos detalles <ChevronUp size={13} /></> : <>Ver todos ({items.length}) <ChevronDown size={13} /></>}
+        </button>
+      )}
+
+      {/* Opciones y confirmación */}
+      {!guardado ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            <div>
+              <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 2 }}>Método de pago</label>
+              <select
+                value={metodoPago}
+                onChange={(e) => setMetodoPago(e.target.value)}
+                style={{ width: "100%", padding: "5px 6px", fontSize: 11.5, borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)" }}
+              >
+                <option value="Tarjeta">Tarjeta</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Transferencia">Transferencia</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 2 }}>Categoría</label>
+              <select
+                value={categoriaGasto}
+                onChange={(e) => setCategoriaGasto(e.target.value)}
+                style={{ width: "100%", padding: "5px 6px", fontSize: 11.5, borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)" }}
+              >
+                <option value="Alimentos">Alimentos</option>
+                <option value="Supermercado">Supermercado</option>
+                <option value="Higiene personal">Higiene</option>
+                <option value="Limpieza">Limpieza</option>
+                <option value="Otros">Otros</option>
+              </select>
+            </div>
+          </div>
+
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--ink-soft)", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={agregarNuevos}
+              onChange={(e) => setAgregarNuevos(e.target.checked)}
+            />
+            Añadir artículos no existentes al catálogo
+          </label>
+
+          <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
+            <button
+              type="button"
+              disabled={guardando}
+              onClick={() => onGuardar({ metodoPago, categoriaGasto, agregarNuevos })}
+              style={{
+                flex: 1,
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                fontWeight: 600,
+                fontSize: 12,
+                cursor: guardando ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 5,
+              }}
+            >
+              {guardando ? <Loader2 size={13} className="despensa-spin" /> : <Check size={14} />}
+              {guardando ? "Guardando…" : "Registrar Gasto y Precios"}
+            </button>
+
+            {onAbrirModulo && (
+              <button
+                type="button"
+                onClick={onAbrirModulo}
+                title="Editar en Escanear Factura completo"
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: 8,
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  color: "var(--ink-soft)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ExternalLink size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ borderTop: "1px solid var(--line-soft)", paddingTop: 8, display: "flex", alignItems: "center", gap: 6, color: "#16a34a", fontSize: 12, fontWeight: 600 }}>
+          <Check size={16} /> Gasto guardado y precios actualizados en el Catálogo
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Asistente({
   movimientos,
@@ -33,6 +239,8 @@ export default function Asistente({
   onClose,
   onNavigate,
   ultimoPagoDeuda,
+  products = [],
+  ordenesCompra = [],
 }) {
   const [mensajes, setMensajes] = useState([]);
   const [chats, setChats] = useState([]);
@@ -41,8 +249,11 @@ export default function Asistente({
   const [cargandoMensajes, setCargandoMensajes] = useState(false);
   const [input, setInput] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [procesandoFactura, setProcesandoFactura] = useState(false);
+  const [guardandoFacturaIndex, setGuardandoFacturaIndex] = useState(null);
   const [error, setError] = useState(null);
   const [presupuestosHistoricos, setPresupuestosHistoricos] = useState({});
+  const fileInputRef = useRef(null);
   const [pagoDeudaDetectado, setPagoDeudaDetectado] = useState(() => {
     if (ultimoPagoDeuda) return ultimoPagoDeuda;
     try {
@@ -191,6 +402,127 @@ export default function Asistente({
     }
   };
 
+  const procesarFacturaSubida = async (file) => {
+    if (!file || procesandoFactura) return;
+    setProcesandoFactura(true);
+    setError(null);
+
+    let previewUrl = null;
+    try {
+      previewUrl = URL.createObjectURL(file);
+    } catch (_) {}
+
+    const mensajeUsuario = {
+      role: "user",
+      content: "📷 Foto de factura de supermercado adjuntada para registrar gastos y catálogo.",
+      imagenPreview: previewUrl,
+    };
+
+    const nuevosMensajes = [...mensajes, mensajeUsuario];
+    setMensajes(nuevosMensajes);
+
+    try {
+      let idConversacion = chatId;
+      if (!idConversacion) {
+        try {
+          idConversacion = await crearAsistenteChat("Factura de supermercado", nuevosMensajes);
+          chatCreadoPendiente.current = idConversacion;
+          setChatId(idConversacion);
+        } catch (_) {}
+      }
+
+      const resultado = await procesarFacturaConCatalogo(file, products);
+
+      const mensajeAsistente = {
+        role: "assistant",
+        content: `🧾 **Factura de ${resultado.tienda} detectada**\nTotal: **RD$ ${resultado.total.toLocaleString("es", { minimumFractionDigits: 2 })}** (${resultado.fecha})\n\nIdentifiqué **${resultado.totalArticulos} artículos**:\n• **${resultado.coincidencias.length} artículos** coinciden con tu Catálogo para actualizar precios.\n• **${resultado.nuevos.length} artículos nuevos** listos para añadir.\n\nPuedes revisar los renglones y confirmar el registro con un clic abajo:`,
+        facturaData: resultado,
+      };
+
+      const mensajesCompletos = [...nuevosMensajes, mensajeAsistente];
+      setMensajes(mensajesCompletos);
+
+      if (idConversacion) {
+        try {
+          await guardarAsistenteChat(idConversacion, `Factura ${resultado.tienda}`, mensajesCompletos);
+        } catch (_) {}
+      }
+    } catch (err) {
+      console.error("Error al procesar factura en el asistente:", err);
+      const mensajeFallo = {
+        role: "assistant",
+        content: `⚠️ No se pudo interpretar la factura automáticamente (${err.message || String(err)}).\n\nAsegúrate de que la foto tenga buena luz y no esté inclinada o cortada. También puedes utilizar el módulo completo **Escanear Factura** en el menú.`,
+      };
+      setMensajes([...nuevosMensajes, mensajeFallo]);
+    } finally {
+      setProcesandoFactura(false);
+    }
+  };
+
+  const handleGuardarFactura = async (indiceMensaje, opciones) => {
+    const msg = mensajes[indiceMensaje];
+    if (!msg?.facturaData) return;
+    setGuardandoFacturaIndex(indiceMensaje);
+
+    try {
+      const res = await aplicarFacturaACatalogoYMovimientos({
+        facturaData: msg.facturaData,
+        metodoPago: opciones.metodoPago,
+        categoriaGasto: opciones.categoriaGasto,
+        agregarNuevosAlCatalogo: opciones.agregarNuevos,
+      });
+
+      // Dispara la animación de cohete hacia los puntos
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("lanzarCoheteDeuda", {
+            detail: {
+              puntos: 20,
+              mensaje: `Factura ${res.tienda} registrada`,
+              forzar: true,
+            },
+          })
+        );
+      }
+
+      const copia = [...mensajes];
+      copia[indiceMensaje] = {
+        ...copia[indiceMensaje],
+        facturaData: { ...copia[indiceMensaje].facturaData, guardado: true },
+      };
+      copia.push({
+        role: "assistant",
+        content: `🎉 ¡Listo! Registré el gasto de **RD$ ${res.total.toLocaleString("es", { minimumFractionDigits: 2 })}** en tus movimientos y actualicé ${res.preciosActualizados} precios en tu Catálogo (${res.productosCreados} productos nuevos incorporados). ¡Puntos ganados! 🚀`,
+      });
+      setMensajes(copia);
+
+      if (chatId) {
+        try {
+          await guardarAsistenteChat(chatId, `Factura ${res.tienda}`, copia);
+        } catch (_) {}
+      }
+    } catch (err) {
+      setError("No se pudo guardar la factura: " + (err.message || String(err)));
+    } finally {
+      setGuardandoFacturaIndex(null);
+    }
+  };
+
+  const handlePaste = (e) => {
+    const clipboardItems = e.clipboardData?.items;
+    if (!clipboardItems) return;
+    for (let i = 0; i < clipboardItems.length; i++) {
+      if (clipboardItems[i].type.indexOf("image") !== -1) {
+        const file = clipboardItems[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          procesarFacturaSubida(file);
+          break;
+        }
+      }
+    }
+  };
+
   return (
       <div className="despensa-asistente" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)", maxHeight: 640 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
@@ -209,7 +541,7 @@ export default function Asistente({
               setError(err.message || "No se pudo crear una conversación.");
             }
           }}
-          disabled={enviando}
+          disabled={enviando || procesandoFactura}
           style={{ marginLeft: onClose ? 0 : "auto", display: "flex", alignItems: "center", gap: 5, border: "1px solid var(--line)", borderRadius: 9, background: "var(--card)", color: "var(--ink-soft)", padding: "6px 9px", cursor: "pointer", fontSize: 12 }}
         >
           <Plus size={14} /> Nuevo chat
@@ -232,7 +564,7 @@ export default function Asistente({
           aria-label="Conversaciones guardadas"
           value={chatId || ""}
           onChange={(e) => { setError(null); setChatId(e.target.value); }}
-          disabled={enviando || cargandoChats || cargandoMensajes}
+          disabled={enviando || cargandoChats || cargandoMensajes || procesandoFactura}
           style={{ width: "100%", marginBottom: 10, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 9, background: "var(--card)", color: "var(--ink)", fontSize: 12.5 }}
         >
           {chats.map((chat) => <option key={chat.id} value={chat.id}>{chat.titulo || "Conversación"}</option>)}
@@ -308,13 +640,19 @@ export default function Asistente({
         {mensajes.length === 0 && !cargandoMensajes && (
           <div style={{ textAlign: "center", padding: "1.5rem 1rem" }}>
             <div style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 14 }}>
-              Pregúntame por tus gastos, la quincena actual, el presupuesto o qué pagos priorizar.
+              Pregúntame por tus gastos, la quincena actual, o sube una foto de tu factura de supermercado 📷 para registrar gastos y catálogo.
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
               {SUGERENCIAS.map((s) => (
                 <button
                   key={s}
-                  onClick={() => enviarPregunta(s)}
+                  onClick={() => {
+                    if (s.includes("factura")) {
+                      fileInputRef.current?.click();
+                    } else {
+                      enviarPregunta(s);
+                    }
+                  }}
                   style={{ padding: "7px 14px", fontSize: 12.5, borderRadius: 20, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
                 >
                   {s}
@@ -329,7 +667,7 @@ export default function Asistente({
             key={i}
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              maxWidth: "82%",
+              maxWidth: m.facturaData ? "96%" : "82%",
               padding: "9px 13px",
               borderRadius: 14,
               fontSize: 13.5,
@@ -340,9 +678,46 @@ export default function Asistente({
               border: m.role === "user" ? "none" : "1px solid var(--line)",
             }}
           >
-            {m.content}
+            {m.imagenPreview && (
+              <img
+                src={m.imagenPreview}
+                alt="Factura"
+                style={{
+                  maxWidth: 180,
+                  maxHeight: 180,
+                  borderRadius: 10,
+                  marginBottom: 8,
+                  objectFit: "cover",
+                  display: "block",
+                  border: "1px solid rgba(255,255,255,0.3)",
+                }}
+              />
+            )}
+            <div>{m.content}</div>
+
+            {m.facturaData && (
+              <TarjetaFacturaChat
+                data={m.facturaData}
+                guardado={Boolean(m.facturaData.guardado)}
+                guardando={guardandoFacturaIndex === i}
+                onGuardar={(opciones) => handleGuardarFactura(i, opciones)}
+                onAbrirModulo={() => {
+                  onNavigate?.("escanear-factura");
+                  onClose?.();
+                }}
+              />
+            )}
           </div>
         ))}
+
+        {procesandoFactura && (
+          <div style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 14, background: "var(--card)", border: "1px solid var(--line)" }}>
+            <Loader2 size={16} className="despensa-spin" style={{ color: "var(--sage)" }} />
+            <div style={{ fontSize: 12.5, color: "var(--ink)" }}>
+              <strong>Analizando factura con IA…</strong> Identificando tienda, artículos y cruzando con tu catálogo.
+            </div>
+          </div>
+        )}
 
         {enviando && (
           <div style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", borderRadius: 14, background: "var(--card)", border: "1px solid var(--line)" }}>
@@ -353,24 +728,58 @@ export default function Asistente({
 
         {error && (
           <div style={{ alignSelf: "flex-start", fontSize: 12, color: "var(--stamp)", padding: "6px 10px" }}>
-          Aviso: {error}
+            Aviso: {error}
           </div>
         )}
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) procesarFacturaSubida(f);
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
+          title="Subir o tomar foto de factura de supermercado"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 10,
+            border: "1px solid var(--line)",
+            background: "var(--card)",
+            color: "var(--sage)",
+            cursor: procesandoFactura || enviando ? "not-allowed" : "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <Camera size={18} />
+        </button>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && enviarPregunta()}
-          placeholder="Escribe tu pregunta…"
+          onPaste={handlePaste}
+          placeholder={procesandoFactura ? "Escaneando factura con IA…" : "Escribe o adjunta una factura 📷…"}
           maxLength={2000}
-          disabled={enviando || cargandoChats || cargandoMensajes}
+          disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
           style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 13.5 }}
         />
         <button
           onClick={() => enviarPregunta()}
-          disabled={enviando || cargandoChats || cargandoMensajes || !input.trim()}
+          disabled={enviando || procesandoFactura || cargandoChats || cargandoMensajes || !input.trim()}
           style={{
             display: "flex",
             alignItems: "center",
@@ -379,9 +788,9 @@ export default function Asistente({
             height: 40,
             borderRadius: 10,
             border: "none",
-            background: enviando || cargandoChats || cargandoMensajes || !input.trim() ? "var(--line)" : "var(--sage)",
+            background: enviando || procesandoFactura || cargandoChats || cargandoMensajes || !input.trim() ? "var(--line)" : "var(--sage)",
             color: "#fff",
-            cursor: enviando || cargandoChats || cargandoMensajes || !input.trim() ? "not-allowed" : "pointer",
+            cursor: enviando || procesandoFactura || cargandoChats || cargandoMensajes || !input.trim() ? "not-allowed" : "pointer",
             flexShrink: 0,
           }}
         >

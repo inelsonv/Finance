@@ -145,8 +145,26 @@ export async function preguntarAsistente(pregunta, resumen, historial) {
   return res.data;
 }
 
-// Lee una factura de supermercado mediante la Cloud Function de visión.
-export async function escanearFactura(imageBase64, mediaType) {
+// Lee una factura de supermercado mediante IA (Gemini / Anthropic / Cloud Functions).
+export async function escanearFactura(imageBase64, mediaType = "image/jpeg") {
+  // 1. Intenta vía proxy de servidor (Gemini 3.8 Flash con visión directa)
+  try {
+    const resServer = await fetch("/api/escanear-factura", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageBase64, mediaType }),
+    });
+    if (resServer.ok) {
+      const data = await resServer.json();
+      if (data && (Array.isArray(data.items) || data.total)) {
+        return data;
+      }
+    }
+  } catch (_) {
+    // Si la llamada local no responde, procede a la Cloud Function
+  }
+
+  // 2. Fallback a la Cloud Function de Firebase
   const fn = httpsCallable(functions, "escanearFactura");
   const res = await fn({ imageBase64, mediaType });
   return res.data;

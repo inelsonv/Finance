@@ -740,6 +740,8 @@ export default function App() {
     eventos,
     onNavigate: seleccionarTab,
     ultimoPagoDeuda: notificacionAgentePago,
+    products,
+    ordenesCompra,
   };
 
   return (

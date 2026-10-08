@@ -290,6 +290,82 @@ INSTRUCCIONES CLAVES:
   }
 });
 
+// Endpoint para procesar facturas y recibos con visión de Gemini
+app.post('/api/escanear-factura', async (req, res) => {
+  try {
+    const { imageBase64, mediaType = 'image/jpeg' } = req.body;
+    if (!imageBase64 || typeof imageBase64 !== 'string') {
+      return res.status(400).json({ error: 'Falta la imagen de la factura' });
+    }
+
+    const cleanBase64 = imageBase64.replace(/^data:image\/[a-zA-Z+]+;base64,/, '');
+
+    const prompt = `Analiza con máxima precisión esta fotografía de una factura o recibo físico de supermercado o tienda (ej. Bravo, La Sirena, Nacional, etc.).
+Extrae los datos estructurados en formato JSON ÚNICAMENTE con esta estructura:
+{
+  "tienda": "Nombre del supermercado o comercio",
+  "fecha": "YYYY-MM-DD",
+  "total": 1991.00,
+  "moneda": "DOP",
+  "items": [
+    {
+      "nombre": "Nombre del artículo",
+      "cantidad": 1,
+      "precioUnitario": 79.00,
+      "totalLinea": 158.00
+    }
+  ]
+}
+
+Instrucciones específicas:
+1. Identifica todos los renglones de productos (comestibles, higiene, carnes, vegetales, panadería, etc.).
+2. Si un renglón tiene cantidad (ej. '2 x 79.00' o '2.71 x 129.00'), extrae la cantidad, el precio unitario y el valor total de la línea.
+3. El total de la factura debe ser el monto que figura como 'TOTAL A PAGAR' o 'TOTAL' de la compra.
+4. Ignora comprobantes bancarios, números de tarjeta, autorizaciones, NCF, RNC, e impuestos como ITBIS.
+5. Devuelve JSON válido sin bloques markdown ni texto adicional.`;
+
+    const modelCandidates = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-pro-preview'];
+    let response;
+    let lastErr;
+
+    for (const model of modelCandidates) {
+      try {
+        response = await ai.models.generateContent({
+          model,
+          contents: [
+            {
+              inlineData: {
+                mimeType: mediaType,
+                data: cleanBase64,
+              },
+            },
+            prompt,
+          ],
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+        if (response?.text) break;
+      } catch (err: any) {
+        lastErr = err;
+        console.warn(`Reintento de visión con ${model}:`, err?.message || err);
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+
+    if (!response || !response.text) {
+      throw lastErr || new Error('No se pudo procesar la factura con IA');
+    }
+
+    const cleanJson = response.text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    return res.json(parsed);
+  } catch (error: any) {
+    console.error('Error en /api/escanear-factura:', error);
+    return res.status(500).json({ error: error.message || 'Error al procesar la factura con IA' });
+  }
+});
+
 // Endpoint TTS con voz de IA casi real y gratuita (Gemini Flash Lite TTS)
 app.post('/api/tts', async (req, res) => {
   try {
