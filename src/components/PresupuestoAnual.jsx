@@ -32,9 +32,10 @@ function formatMoney(n) {
 // Calcula, para un préstamo dado, qué monto (cuota) le corresponde a un mes/quincena
 // específico del año mostrado, basándose en su fecha de inicio y plazo.
 function celdaPrestamo(prestamo, year, mes) {
-  if (!prestamo.fechaInicio || !prestamo.cuota) return { activo: false, quincena: null };
-  const [sy, sm, sd] = prestamo.fechaInicio.split("-").map(Number);
-  if (!sy || !sm) return { activo: false, quincena: null };
+  if (!prestamo || !prestamo.fechaInicio || typeof prestamo.fechaInicio !== "string" || !prestamo.cuota) return { activo: false, quincena: null };
+  const parts = prestamo.fechaInicio.split("-").map(Number);
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return { activo: false, quincena: null };
+  const [sy, sm, sd] = parts;
   const mesesTotales = prestamo.plazoUnidad === "años" ? (prestamo.plazo || 0) * 12 : prestamo.plazo || 0;
   if (!mesesTotales) return { activo: false, quincena: null };
   const offset = (year - sy) * 12 + (mes - sm);
@@ -48,16 +49,17 @@ function celdaPrestamo(prestamo, year, mes) {
 // meses. Si es una meta con monto y fecha objetivo, reparte lo que falta entre los
 // meses que quedan desde hoy hasta esa fecha.
 function celdaMeta(meta, year, mes, { ingresoMensual, aportadoPorCuenta }) {
-  if (meta.estado !== "Activa") return { activo: false, monto: 0 };
+  if (!meta || meta.estado !== "Activa") return { activo: false, monto: 0 };
 
   if (meta.tipoMeta === "Porcentaje de ingreso") {
     if (!meta.porcentaje || !ingresoMensual) return { activo: false, monto: 0 };
     return { activo: true, monto: ingresoMensual * (meta.porcentaje / 100) };
   }
 
-  if (!meta.montoObjetivo || !meta.fechaObjetivo) return { activo: false, monto: 0 };
-  const [ey, em] = meta.fechaObjetivo.split("-").map(Number);
-  if (!ey || !em) return { activo: false, monto: 0 };
+  if (!meta.montoObjetivo || !meta.fechaObjetivo || typeof meta.fechaObjetivo !== "string") return { activo: false, monto: 0 };
+  const parts = meta.fechaObjetivo.split("-").map(Number);
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return { activo: false, monto: 0 };
+  const [ey, em] = parts;
 
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -65,7 +67,7 @@ function celdaMeta(meta, year, mes, { ingresoMensual, aportadoPorCuenta }) {
   const mesesRestantes = (ey - currentYear) * 12 + (em - currentMonth);
   if (mesesRestantes < 0) return { activo: false, monto: 0 };
 
-  const aportado = meta.cuentaId ? aportadoPorCuenta[meta.cuentaId] || 0 : 0;
+  const aportado = meta.cuentaId ? aportadoPorCuenta?.[meta.cuentaId] || 0 : 0;
   const faltante = Math.max(meta.montoObjetivo - aportado, 0);
   const montoMensual = faltante / Math.max(mesesRestantes + 1, 1);
 
@@ -91,9 +93,10 @@ function celdaEvento(evento, year, mes, diasCobro) {
 // Igual que celdaEvento, pero para una orden de compra usando su fecha planeada
 // de compra (no la fecha en que se creó la orden).
 function celdaOrdenCompra(orden, year, mes) {
-  if (!orden.fechaPlaneada) return { activo: false, quincena: null };
-  const [oy, om, od] = orden.fechaPlaneada.split("-").map(Number);
-  if (!oy || !om) return { activo: false, quincena: null };
+  if (!orden || !orden.fechaPlaneada || typeof orden.fechaPlaneada !== "string") return { activo: false, quincena: null };
+  const parts = orden.fechaPlaneada.split("-").map(Number);
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return { activo: false, quincena: null };
+  const [oy, om, od] = parts;
   const activo = oy === year && om === mes;
   const quincena = od && od >= 15 ? "Q2" : "Q1";
   return { activo, quincena };
@@ -102,25 +105,28 @@ function celdaOrdenCompra(orden, year, mes) {
 // Igual que las anteriores, pero para un periodo de vacaciones, usando su
 // fecha de inicio como referencia.
 function celdaVacacion(vacacion, year, mes) {
-  if (!vacacion.fechaInicio) return { activo: false, quincena: null };
-  const [vy, vm, vd] = vacacion.fechaInicio.split("-").map(Number);
-  if (!vy || !vm) return { activo: false, quincena: null };
+  if (!vacacion || !vacacion.fechaInicio || typeof vacacion.fechaInicio !== "string") return { activo: false, quincena: null };
+  const parts = vacacion.fechaInicio.split("-").map(Number);
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return { activo: false, quincena: null };
+  const [vy, vm, vd] = parts;
   const activo = vy === year && vm === mes;
   const quincena = vd && vd >= 15 ? "Q2" : "Q1";
   return { activo, quincena };
 }
 
 function celdaRenovacion(renovacion, year, mes) {
-  if (!renovacion.fechaInicio) return { activo: false, quincena: null };
-  const [ry, rm, rd] = renovacion.fechaInicio.split("-").map(Number);
-  if (!ry || !rm) return { activo: false, quincena: null };
+  if (!renovacion || !renovacion.fechaInicio || typeof renovacion.fechaInicio !== "string") return { activo: false, quincena: null };
+  const parts = renovacion.fechaInicio.split("-").map(Number);
+  if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) return { activo: false, quincena: null };
+  const [ry, rm, rd] = parts;
   const activo = ry === year && rm === mes;
   const quincena = rd && rd >= 15 ? "Q2" : "Q1";
   return { activo, quincena };
 }
 
 function totalItemsOrden(orden) {
-  return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
+  if (!orden || !Array.isArray(orden.items)) return 0;
+  return orden.items.reduce((s, it) => s + (Number(it?.precioUnitario) || 0) * (Number(it?.cantidad) || 0), 0);
 }
 
 export default function PresupuestoAnual({
@@ -348,8 +354,10 @@ export default function PresupuestoAnual({
     if (prestamo.frecuenciaCuota === "Personalizado") {
       let total = 0;
       for (const c of prestamo.cuotasPersonalizadas || []) {
-        if (!c.fecha) continue;
-        const [cy, cm, cd] = c.fecha.split("-").map(Number);
+        if (!c || !c.fecha || typeof c.fecha !== "string") continue;
+        const parts = c.fecha.split("-").map(Number);
+        if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) continue;
+        const [cy, cm, cd] = parts;
         if (cy !== year || cm !== mes) continue;
         const q = cd && cd >= 15 ? "Q2" : "Q1";
         if (q === quincena) total += Number(c.monto) || 0;

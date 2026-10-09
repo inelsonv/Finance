@@ -39,9 +39,14 @@ function cortesDelMes(diasCobro, year, month) {
 
 // Clasifica una fecha "YYYY-MM-DD" y devuelve { year, month, quincena }.
 export function clasificarFecha(fechaStr, diasCobroConfig) {
-  const diasCobro = normalizarDiasCobro(diasCobroConfig);
-  const [year, month, day] = fechaStr.split("-").map(Number);
+  if (!fechaStr || typeof fechaStr !== "string") return null;
+  const parts = fechaStr.split("-").map(Number);
+  if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return null;
+  const [year, month, day] = parts;
+  let diasCobro = normalizarDiasCobro(diasCobroConfig);
+  if (!diasCobro || diasCobro.length === 0) diasCobro = DIAS_COBRO_DEFAULT;
   const cortes = cortesDelMes(diasCobro, year, month);
+  if (!cortes || cortes.length === 0) return { year, month, quincena: "Q1" };
 
   // Antes del primer corte del mes → Q1 de ESTE mes (arrancó en el último
   // corte del mes anterior).

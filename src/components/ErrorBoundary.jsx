@@ -81,6 +81,33 @@ export default class ErrorBoundary extends React.Component {
               <RefreshCw size={14} />
               Reintentar
             </button>
+            <button
+              onClick={() => {
+                if ("caches" in window) {
+                  caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).finally(() => {
+                    window.location.reload();
+                  });
+                } else {
+                  window.location.reload();
+                }
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 16px",
+                borderRadius: 8,
+                background: "var(--paper)",
+                color: "var(--ink)",
+                border: "1px solid var(--line)",
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: "pointer",
+              }}
+            >
+              <RefreshCw size={14} />
+              Recargar y limpiar caché
+            </button>
             {this.props.onGoHome && (
               <button
                 onClick={this.props.onGoHome}

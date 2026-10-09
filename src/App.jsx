@@ -1043,7 +1043,7 @@ export default function App() {
           <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} ingresosPuntuales={ingresosPuntuales} />
         )}
         {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} categoriasPersonalizadas={categoriasGasto} />}
-        {(tab === "presupuesto-mensual" || tab === "presupuesto-metodologia") && (
+        {(tab === "presupuesto-mensual" || tab === "presupuesto-metodologia" || tab === "presupuesto") && (
           <PresupuestoAnual
             presupuesto={presupuestoAnual}
             categoriasPersonalizadas={categoriasGasto}

@@ -3,10 +3,14 @@ import { clasificarFecha } from "./quincenaConfig";
 // Determina a qué quincena (Q1/Q2/...) pertenece una fecha "YYYY-MM-DD",
 // según los días de cobro configurados por el usuario.
 export function quincenaDeFecha(fecha, diasCobro) {
-  if (!fecha) return null;
-  const [y, m, d] = fecha.split("-").map(Number);
-  if (!y || !m || !d) return null;
-  return clasificarFecha(fecha, diasCobro);
+  if (!fecha || typeof fecha !== "string") return null;
+  try {
+    const parts = fecha.split("-").map(Number);
+    if (parts.length < 3 || isNaN(parts[0]) || isNaN(parts[1]) || isNaN(parts[2])) return null;
+    return clasificarFecha(fecha, diasCobro);
+  } catch {
+    return null;
+  }
 }
 
 // Calcula cuánto se ha gastado en una categoría durante una quincena específica,

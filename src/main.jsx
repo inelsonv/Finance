@@ -11,8 +11,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // si falla el registro, la app sigue funcionando normal, solo sin caché offline
-    });
+    const swUrl = `${import.meta.env.BASE_URL}sw.js`;
+    navigator.serviceWorker
+      .register(swUrl)
+      .then((reg) => {
+        reg.update().catch(() => {});
+      })
+      .catch(() => {
+        // si falla el registro, la app sigue funcionando normal, solo sin caché offline
+      });
   });
 }

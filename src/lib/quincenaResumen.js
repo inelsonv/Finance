@@ -30,8 +30,10 @@ export function calcularResumenQuincena({ year, month, quincena, presupuesto, ca
       }
       continue;
     }
-    if (!p.fechaInicio || !p.cuota) continue;
-    const [sy, sm, sd] = p.fechaInicio.split("-").map(Number);
+    if (!p.fechaInicio || typeof p.fechaInicio !== "string" || !p.cuota) continue;
+    const parts = p.fechaInicio.split("-").map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) continue;
+    const [sy, sm, sd] = parts;
     if (!sy || !sm) continue;
     const mesesTotales = p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
     const offset = (year - sy) * 12 + (month - sm);
