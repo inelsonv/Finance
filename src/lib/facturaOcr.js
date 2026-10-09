@@ -120,16 +120,101 @@ export function buscarProductoEnCatalogo(nombreItem, products = []) {
   return null;
 }
 
+const PALABRAS_IGNORAR = [
+  "total", "subtotal", "itbis", "iva", "impuesto", "cambio", "efectivo", "tarjeta",
+  "rnc", "ncf", "fecha", "hora", "cajero", "caja", "gracias", "factura", "recibo",
+  "cliente", "direccion", "telefono", "articulos", "cantidad", "descuento", "autoriz", "sequencia",
+];
+
+function parsearLineasFactura(textoCrudo) {
+  const lineas = textoCrudo.split("\n").map((l) => l.trim()).filter(Boolean);
+  const precioRegex = /(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\s*$/;
+  const resultados = [];
+
+  for (const linea of lineas) {
+    const lower = linea.toLowerCase();
+    if (PALABRAS_IGNORAR.some((p) => lower.includes(p))) continue;
+    if (linea.length < 3) continue;
+
+    const match = linea.match(precioRegex);
+    if (!match) continue;
+
+    let precioTexto = match[1].replace(/\./g, "").replace(",", ".");
+    if (match[1].includes(",") && match[1].lastIndexOf(",") > match[1].lastIndexOf(".")) {
+      precioTexto = match[1].replace(/\./g, "").replace(",", ".");
+    } else {
+      precioTexto = match[1].replace(/,/g, "");
+    }
+    const precio = parseFloat(precioTexto);
+    if (!Number.isFinite(precio) || precio <= 0 || precio > 100000) continue;
+
+    let nombre = linea.slice(0, match.index).trim();
+    nombre = nombre.replace(/^\d+\s*[xX]?\s*/, "").replace(/[-·.]+$/, "").trim();
+    if (nombre.length < 2) continue;
+
+    resultados.push({ nombre, precio });
+  }
+  return resultados;
+}
+
 /**
  * Procesa la imagen de la factura con IA y la vincula con los productos del catálogo.
+ * Si el backend falla o la app corre en un host estático, ejecuta un fallback de OCR cliente con Tesseract.
  */
 export async function procesarFacturaConCatalogo(file, products = []) {
   const imagenOptimizada = await redimensionarImagen(file);
   const base64 = await blobABase64(imagenOptimizada);
   const mediaType = imagenOptimizada.type || file.type || "image/jpeg";
 
-  const datosFactura = await escanearFactura(base64, mediaType);
-  if (!datosFactura || (typeof datosFactura !== "object")) {
+  let datosFactura = null;
+  try {
+    datosFactura = await escanearFactura(base64, mediaType);
+  } catch (errIa) {
+    console.warn("Fallo en visión backend, ejecutando OCR local en navegador:", errIa);
+    try {
+      const { createWorker } = await import("tesseract.js");
+      const worker = await createWorker("spa", 1);
+      const { data } = await worker.recognize(imagenOptimizada);
+      await worker.terminate();
+
+      const lineasOcr = parsearLineasFactura(data.text || "");
+      if (lineasOcr.length > 0) {
+        const textoLower = (data.text || "").toLowerCase();
+        let tiendaDetectada = "Supermercado";
+        if (textoLower.includes("bravo")) tiendaDetectada = "Bravo";
+        else if (textoLower.includes("sirena")) tiendaDetectada = "La Sirena";
+        else if (textoLower.includes("nacional")) tiendaDetectada = "Nacional";
+        else if (textoLower.includes("jumbo")) tiendaDetectada = "Jumbo";
+        else if (textoLower.includes("ole")) tiendaDetectada = "Hipermercados Olé";
+
+        let totalDetectado = null;
+        const totalMatch = (data.text || "").match(/(?:total(?:\s+a\s+pagar)?)\s*[:$]?\s*([0-9.,]+)/i);
+        if (totalMatch) {
+          const val = parseFloat(totalMatch[1].replace(/,/g, ""));
+          if (Number.isFinite(val) && val > 0) totalDetectado = val;
+        }
+
+        datosFactura = {
+          tienda: tiendaDetectada,
+          fecha: new Date().toISOString().slice(0, 10),
+          total: totalDetectado || lineasOcr.reduce((s, it) => s + it.precio, 0),
+          moneda: "DOP",
+          items: lineasOcr.map((it) => ({
+            nombre: it.nombre,
+            cantidad: 1,
+            precioUnitario: it.precio,
+            totalLinea: it.precio,
+          })),
+        };
+      } else {
+        throw new Error(errIa?.message || "No se detectaron renglones legibles en la imagen.");
+      }
+    } catch (errOcr) {
+      throw new Error(errIa?.message || errOcr?.message || "No se pudo interpretar el contenido de la factura.");
+    }
+  }
+
+  if (!datosFactura || typeof datosFactura !== "object") {
     throw new Error("No se pudo interpretar el contenido de la factura.");
   }
 

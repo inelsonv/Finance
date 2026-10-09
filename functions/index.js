@@ -478,7 +478,7 @@ exports.avisoDiarioAlertas = onSchedule(
 // Lee una foto de factura/recibo con IA y devuelve los productos y precios
 // encontrados en formato estructurado, para que el usuario los revise antes
 // de guardarlos en Catálogo y Movimientos.
-exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request) => {
+exports.escanearFactura = onCall({ secrets: [groqApiKey] }, async (request) => {
   if (!request.auth || request.auth.token.email !== ALLOWED_EMAIL) {
     throw new HttpsError("permission-denied", "No autorizado");
   }
@@ -492,44 +492,35 @@ exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request)
   }
 
   const prompt =
-    'Lee esta imagen de una factura de supermercado y responde ÚNICAMENTE con JSON válido, sin Markdown, ' +
-    'con esta forma exacta: {"tienda": string|null, "fecha": "YYYY-MM-DD"|null, "total": number|null, ' +
-    '"moneda": string|null, "items": [{"nombre": string, "cantidad": number, "precioUnitario": number|null, "totalLinea": number|null}]}. ' +
-    'La factura puede ser larga, estar inclinada o tener pegado un recibo de pago bancario. Lee los productos SOLO ' +
-    'de la factura principal; ignora el comprobante bancario, datos de tarjeta, autorizaciones, QR, NCF, subtotales, ' +
-    'impuestos y mensajes promocionales. No confundas el total del recibo bancario con el total de la factura ni ' +
-    'dupliques los productos. Usa el monto que aparece como TOTAL A PAGAR/TOTAL de la factura principal. ' +
-    'Devuelve cada producto una sola vez. Cuando aparezca cantidad x precio unitario, conserva ambos y calcula ' +
-    'totalLinea; si solo aparece el importe de la línea, usa cantidad 1 y ese importe como totalLinea. ' +
-    'No incluyas una línea de descuento como producto. Todos los importes deben ser números sin símbolos; ' +
-    'usa la moneda indicada en el documento, normalmente DOP o RD$. Si un dato es ilegible, usa null; no lo inventes.';
-
-  let apiKey = "";
-  try {
-    apiKey = anthropicApiKey.value();
-  } catch (_) {}
-  if (!apiKey) {
-    throw new HttpsError("failed-precondition", "La clave de la API de visión en Cloud Functions no está configurada.");
-  }
+    'Lee esta imagen de una factura o recibo físico de supermercado o tienda y responde ÚNICAMENTE con JSON válido, sin Markdown, ' +
+    'con esta estructura exacta: {"tienda": string|null, "fecha": "YYYY-MM-DD"|null, "total": number|null, ' +
+    '"moneda": "DOP", "items": [{"nombre": string, "cantidad": number, "precioUnitario": number|null, "totalLinea": number|null}]}. ' +
+    'Extrae el nombre de la tienda (ej. Bravo, La Sirena, Nacional), fecha, total a pagar y todos los artículos con cantidad y precio. ' +
+    'Ignora datos bancarios, números de tarjeta, autorizaciones, NCF, RNC, e impuestos.';
 
   let resp;
   try {
-    resp = await fetch("https://api.anthropic.com/v1/messages", {
+    resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        authorization: `Bearer ${groqApiKey.value()}`,
       },
       body: JSON.stringify({
-        model: "claude-3-5-sonnet-20241022",
-        max_tokens: 4000,
+        model: "llama-3.2-11b-vision-preview",
+        max_tokens: 3500,
+        response_format: { type: "json_object" },
         messages: [
           {
             role: "user",
             content: [
-              { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
               { type: "text", text: prompt },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:${mediaType};base64,${imageBase64}`,
+                },
+              },
             ],
           },
         ],
@@ -542,11 +533,10 @@ exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request)
   const data = await resp.json().catch(() => ({}));
 
   if (!resp.ok) {
-    throw new HttpsError("internal", data?.error?.message || `Error de la API de Anthropic (HTTP ${resp.status})`);
+    throw new HttpsError("internal", data?.error?.message || `Error del servicio de visión (HTTP ${resp.status})`);
   }
 
-  const textBlock = (data.content || []).find((c) => c.type === "text");
-  const rawText = textBlock?.text || "";
+  const rawText = data?.choices?.[0]?.message?.content || "";
 
   let parsed;
   try {
