@@ -15,7 +15,6 @@ import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/qui
 import { periodoKey } from "./lib/racha";
 import { calcularResumenQuincena, rangoFechasQuincena } from "./lib/quincenaResumen";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
-import AppLoadingScreen from "./components/AppLoadingScreen.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
@@ -692,7 +691,11 @@ export default function App() {
   }, [authorized, presupuestoYear]);
 
   if (authUser === undefined) {
-    return <AppLoadingScreen mensaje="Verificando sesión…" />;
+    return (
+      <div style={{ padding: "3rem 1rem", textAlign: "center", color: "var(--ink-soft)" }}>
+        Verificando sesión…
+      </div>
+    );
   }
 
   if (authUser === null) {
@@ -704,7 +707,17 @@ export default function App() {
   }
 
   if (loading) {
-    return <AppLoadingScreen mensaje="Preparando tus datos…" />;
+    return (
+      <div className="despensa-loading-screen">
+        <div className="despensa-loading-content">
+          <div className="despensa-tab-font despensa-loading-title">Cargando Smart Finance</div>
+          <div className="despensa-loading-track" role="progressbar" aria-label="Cargando Smart Finance" aria-valuetext="Cargando">
+            <span className="despensa-loading-indicator" />
+          </div>
+          <div className="despensa-loading-caption">Preparando tus datos…</div>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
