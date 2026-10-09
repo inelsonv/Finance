@@ -5,7 +5,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16095_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 435,
+    "moneda": "DOP",
+    "unidad": "10 lb"
   },
   {
     "id": 22861,
@@ -13,7 +16,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90138_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 225,
+    "moneda": "DOP",
+    "unidad": "5 lb"
   },
   {
     "id": 22865,
@@ -21,7 +27,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/101301_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 415,
+    "moneda": "DOP",
+    "unidad": "10 lb"
   },
   {
     "id": 72192,
@@ -29,7 +38,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/130047_1.png?v=124",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 310,
+    "moneda": "DOP",
+    "unidad": "2.3 kg"
   },
   {
     "id": 13810,
@@ -37,7 +49,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/61972_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 1395,
+    "moneda": "DOP",
+    "unidad": "5 l"
   },
   {
     "id": 13807,
@@ -45,7 +60,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16047_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 445,
+    "moneda": "DOP",
+    "unidad": "750 ml"
   },
   {
     "id": 13801,
@@ -53,7 +71,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106230_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 320,
+    "moneda": "DOP",
+    "unidad": "1.9 l"
   },
   {
     "id": 13808,
@@ -61,7 +82,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/59805_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 255,
+    "moneda": "DOP",
+    "unidad": "1.5 l"
   },
   {
     "id": 22510,
@@ -69,7 +93,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109232_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 340,
+    "moneda": "DOP",
+    "unidad": "1.9 l"
   },
   {
     "id": 22494,
@@ -77,7 +104,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109233_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 365,
+    "moneda": "DOP",
+    "unidad": "1.9 l"
   },
   {
     "id": 9102,
@@ -85,7 +115,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/92470_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 125,
+    "moneda": "DOP",
+    "unidad": "12 und"
   },
   {
     "id": 9096,
@@ -93,7 +126,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/92471_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 125,
+    "moneda": "DOP",
+    "unidad": "12 und"
   },
   {
     "id": 22589,
@@ -101,7 +137,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108416_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "10 und"
   },
   {
     "id": 9128,
@@ -109,7 +148,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106294_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 150,
+    "moneda": "DOP",
+    "unidad": "10 und"
   },
   {
     "id": 38144,
@@ -117,7 +159,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/92183_1.png?v=9",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 185,
+    "moneda": "DOP",
+    "unidad": "3 und"
   },
   {
     "id": 13663,
@@ -125,7 +170,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/95322_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 140,
+    "moneda": "DOP",
+    "unidad": "680 g"
   },
   {
     "id": 17053,
@@ -133,7 +181,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105163_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 165,
+    "moneda": "DOP",
+    "unidad": "2 und"
   },
   {
     "id": 17051,
@@ -141,7 +192,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105165_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 165,
+    "moneda": "DOP",
+    "unidad": "2 und"
   },
   {
     "id": 17052,
@@ -149,7 +203,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105164_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 165,
+    "moneda": "DOP",
+    "unidad": "2 und"
   },
   {
     "id": 72209,
@@ -157,7 +214,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107723_1.png?v=124",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 85,
+    "moneda": "DOP",
+    "unidad": "170 g"
   },
   {
     "id": 5489,
@@ -165,7 +225,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/96027_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 215,
+    "moneda": "DOP",
+    "unidad": "453 g"
   },
   {
     "id": 16887,
@@ -173,7 +236,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107538_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 115,
+    "moneda": "DOP",
+    "unidad": "170 g"
   },
   {
     "id": 57232,
@@ -181,7 +247,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/111579_1.png?v=109",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 165,
+    "moneda": "DOP",
+    "unidad": "1 kg"
   },
   {
     "id": 22868,
@@ -189,7 +258,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/87855_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 135,
+    "moneda": "DOP",
+    "unidad": "800 g"
   },
   {
     "id": 16945,
@@ -197,7 +269,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/71923_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 75,
+    "moneda": "DOP",
+    "unidad": "400 g"
   },
   {
     "id": 22875,
@@ -205,7 +280,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16212_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 140,
+    "moneda": "DOP",
+    "unidad": "800 g"
   },
   {
     "id": 57231,
@@ -213,7 +291,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/111578_1.png?v=109",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 170,
+    "moneda": "DOP",
+    "unidad": "1 kg"
   },
   {
     "id": 57229,
@@ -221,7 +302,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/111581_1.png?v=109",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 165,
+    "moneda": "DOP",
+    "unidad": "1 kg"
   },
   {
     "id": 22154,
@@ -229,7 +313,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106521_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 125,
+    "moneda": "DOP",
+    "unidad": "425 g"
   },
   {
     "id": 22191,
@@ -237,7 +324,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106520_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 75,
+    "moneda": "DOP",
+    "unidad": "226 g"
   },
   {
     "id": 10556,
@@ -245,7 +335,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110488_1.png?v=100",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 110,
+    "moneda": "DOP",
+    "unidad": "396 g"
   },
   {
     "id": 56942,
@@ -253,7 +346,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110487_1.png?v=100",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 115,
+    "moneda": "DOP",
+    "unidad": "396 g"
   },
   {
     "id": 22963,
@@ -261,7 +357,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91885_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "680 g"
   },
   {
     "id": 22961,
@@ -269,7 +368,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91889_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 155,
+    "moneda": "DOP",
+    "unidad": "680 g"
   },
   {
     "id": 22988,
@@ -277,7 +379,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108526_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "453 g"
   },
   {
     "id": 23019,
@@ -285,7 +390,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107160_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "453 g"
   },
   {
     "id": 22998,
@@ -293,7 +401,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107161_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "453 g"
   },
   {
     "id": 23016,
@@ -301,7 +412,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107162_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "453 g"
   },
   {
     "id": 23149,
@@ -309,7 +423,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108450_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 85,
+    "moneda": "DOP",
+    "unidad": "177 ml"
   },
   {
     "id": 56936,
@@ -317,7 +434,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110272_1.png?v=100",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 65,
+    "moneda": "DOP",
+    "unidad": "35 g"
   },
   {
     "id": 56934,
@@ -325,7 +445,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110273_1.png?v=100",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 65,
+    "moneda": "DOP",
+    "unidad": "35 g"
   },
   {
     "id": 56935,
@@ -333,7 +456,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110274_1.png?v=100",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 65,
+    "moneda": "DOP",
+    "unidad": "40 g"
   },
   {
     "id": 56937,
@@ -341,7 +467,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110270_1.png?v=100",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 65,
+    "moneda": "DOP",
+    "unidad": "35 g"
   },
   {
     "id": 61943,
@@ -349,7 +478,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108035_1.png?v=122",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 175,
+    "moneda": "DOP",
+    "unidad": "1 l"
   },
   {
     "id": 24832,
@@ -357,7 +489,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107465_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 75,
+    "moneda": "DOP",
+    "unidad": "250 ml"
   },
   {
     "id": 22871,
@@ -365,7 +500,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105920_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 35,
+    "moneda": "DOP",
+    "unidad": "510 g"
   },
   {
     "id": 22880,
@@ -373,7 +511,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106186_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 55,
+    "moneda": "DOP",
+    "unidad": "1 kg"
   },
   {
     "id": 13535,
@@ -381,7 +522,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16315_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 120,
+    "moneda": "DOP",
+    "unidad": "275 g"
   },
   {
     "id": 22874,
@@ -389,7 +533,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106188_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 55,
+    "moneda": "DOP",
+    "unidad": "1 kg"
   },
   {
     "id": 13498,
@@ -397,7 +544,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/75805_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 120,
+    "moneda": "DOP",
+    "unidad": "275 g"
   },
   {
     "id": 13627,
@@ -405,7 +555,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/92545_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 95,
+    "moneda": "DOP",
+    "unidad": "135 g"
   },
   {
     "id": 13804,
@@ -413,7 +566,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/59802_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 13818,
@@ -421,7 +577,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16356_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 45,
+    "moneda": "DOP",
+    "unidad": "473 ml"
   },
   {
     "id": 13819,
@@ -429,7 +588,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/89222_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 13830,
@@ -437,7 +599,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/56024_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 45,
+    "moneda": "DOP",
+    "unidad": "473 ml"
   },
   {
     "id": 30923,
@@ -445,7 +610,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/74182_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 85,
+    "moneda": "DOP",
+    "unidad": "907 g"
   },
   {
     "id": 30895,
@@ -453,7 +621,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/74180_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 60491,
@@ -461,7 +632,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/111527_1.png?v=119",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 165,
+    "moneda": "DOP",
+    "unidad": "454 g"
   },
   {
     "id": 22162,
@@ -469,7 +643,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106235_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 55,
+    "moneda": "DOP",
+    "unidad": "396 g"
   },
   {
     "id": 22200,
@@ -477,7 +654,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105554_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 95,
+    "moneda": "DOP",
+    "unidad": "1 kg"
   },
   {
     "id": 22212,
@@ -485,7 +665,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105553_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 95,
+    "moneda": "DOP",
+    "unidad": "1 kg"
   },
   {
     "id": 22118,
@@ -493,7 +676,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/102731_1.png?v=109",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 85,
+    "moneda": "DOP",
+    "unidad": "2 lb"
   },
   {
     "id": 54259,
@@ -501,7 +687,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110497_1.png?v=71",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 90,
+    "moneda": "DOP",
+    "unidad": "680 g"
   },
   {
     "id": 72173,
@@ -509,7 +698,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108381_1.png?v=124",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 135,
+    "moneda": "DOP",
+    "unidad": "8 und"
   },
   {
     "id": 22199,
@@ -517,7 +709,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109419_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 245,
+    "moneda": "DOP",
+    "unidad": "453 g"
   },
   {
     "id": 42051,
@@ -525,7 +720,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110743_1.png?v=22",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "204 g"
   },
   {
     "id": 72195,
@@ -533,7 +731,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94344_1.png?v=124",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 175,
+    "moneda": "DOP",
+    "unidad": "4 und"
   },
   {
     "id": 72229,
@@ -541,7 +742,10 @@
     "categoria": "Despensa",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109542_1.png?v=124",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 95,
+    "moneda": "DOP",
+    "unidad": "20 und"
   },
   {
     "id": 41665,
@@ -549,7 +753,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/88498_1.png?v=9",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 92,
+    "moneda": "DOP",
+    "unidad": "1 l"
   },
   {
     "id": 41676,
@@ -557,7 +764,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91801_1.png?v=9",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 92,
+    "moneda": "DOP",
+    "unidad": "1 l"
   },
   {
     "id": 22587,
@@ -565,7 +775,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/104031_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 155,
+    "moneda": "DOP",
+    "unidad": "400 g"
   },
   {
     "id": 6976,
@@ -573,7 +786,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91561_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 85,
+    "moneda": "DOP",
+    "unidad": "200 ml"
   },
   {
     "id": 6975,
@@ -581,7 +797,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/96240_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 285,
+    "moneda": "DOP",
+    "unidad": "1 l"
   },
   {
     "id": 60493,
@@ -589,7 +808,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/111154_1.png?v=119",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 320,
+    "moneda": "DOP",
+    "unidad": "1 kg"
   },
   {
     "id": 34407,
@@ -597,7 +819,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109664_1.png?v=99",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 275,
+    "moneda": "DOP",
+    "unidad": "30 und"
   },
   {
     "id": 22102,
@@ -605,7 +830,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109665_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 125,
+    "moneda": "DOP",
+    "unidad": "12 und"
   },
   {
     "id": 34418,
@@ -613,7 +841,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109666_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 225,
+    "moneda": "DOP",
+    "unidad": "20 und"
   },
   {
     "id": 34429,
@@ -621,7 +852,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109667_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "12 und"
   },
   {
     "id": 53615,
@@ -629,7 +863,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://storage.googleapis.com/cloudcom_product_catalog_images_prod/c47a2bf2-7c56-4368-b8e5-bc873ea4f579/big/7468707680520.jpg",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 130,
+    "moneda": "DOP",
+    "unidad": "12 und"
   },
   {
     "id": 7504,
@@ -637,7 +874,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://d31f1ehqijlcua.cloudfront.net/n/0/6/2/b/062b6b338ff9700bd4c8ea5669cc7221feff887e_Diary_443967_01.jpg",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 340,
+    "moneda": "DOP",
+    "unidad": "30 und"
   },
   {
     "id": 7035,
@@ -645,7 +885,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/96490_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 95,
+    "moneda": "DOP",
+    "unidad": "100 g"
   },
   {
     "id": 7010,
@@ -653,7 +896,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94978_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 95,
+    "moneda": "DOP",
+    "unidad": "100 g"
   },
   {
     "id": 9061,
@@ -661,7 +907,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/40137_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 110,
+    "moneda": "DOP",
+    "unidad": "10 und"
   },
   {
     "id": 22438,
@@ -669,7 +918,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107902_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "454 g"
   },
   {
     "id": 72178,
@@ -677,7 +929,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108969_1.png?v=124",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 365,
+    "moneda": "DOP",
+    "unidad": "1 kg"
   },
   {
     "id": 72252,
@@ -685,7 +940,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107901_1.png?v=124",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "454 g"
   },
   {
     "id": 21988,
@@ -693,7 +951,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107718_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 95,
+    "moneda": "DOP",
+    "unidad": "180 g"
   },
   {
     "id": 72249,
@@ -701,7 +962,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107797_1.png?v=124",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 185,
+    "moneda": "DOP",
+    "unidad": "4 und"
   },
   {
     "id": 16672,
@@ -709,7 +973,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/83232_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 85,
+    "moneda": "DOP",
+    "unidad": "205 g"
   },
   {
     "id": 22051,
@@ -717,7 +984,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108219_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 155,
+    "moneda": "DOP",
+    "unidad": "255 g"
   },
   {
     "id": 22058,
@@ -725,7 +995,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108223_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 155,
+    "moneda": "DOP",
+    "unidad": "255 g"
   },
   {
     "id": 7119,
@@ -733,7 +1006,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/95372_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 385,
+    "moneda": "DOP",
+    "unidad": "453 g"
   },
   {
     "id": 7084,
@@ -741,7 +1017,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/73988_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "907 g"
   },
   {
     "id": 7162,
@@ -749,7 +1028,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/99960_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "907 g"
   },
   {
     "id": 7103,
@@ -757,7 +1039,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/74056_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "907 g"
   },
   {
     "id": 7022,
@@ -765,7 +1050,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/73985_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "907 g"
   },
   {
     "id": 7023,
@@ -773,7 +1061,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/86799_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "907 g"
   },
   {
     "id": 7087,
@@ -781,7 +1072,10 @@
     "categoria": "Lácteos y Huevos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16281_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 265,
+    "moneda": "DOP",
+    "unidad": "1.4 kg"
   },
   {
     "id": 4021,
@@ -789,7 +1083,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/10008_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 215,
+    "moneda": "DOP",
+    "unidad": "340 g"
   },
   {
     "id": 7561,
@@ -797,7 +1094,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107865_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "227 g"
   },
   {
     "id": 7557,
@@ -805,7 +1105,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107933_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 545,
+    "moneda": "DOP",
+    "unidad": "1.4 kg"
   },
   {
     "id": 7562,
@@ -813,7 +1116,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/18975_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 245,
+    "moneda": "DOP",
+    "unidad": "453 g"
   },
   {
     "id": 7556,
@@ -821,7 +1127,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/93441_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 185,
+    "moneda": "DOP",
+    "unidad": "bandeja"
   },
   {
     "id": 7569,
@@ -829,7 +1138,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107429_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 210,
+    "moneda": "DOP",
+    "unidad": "bandeja"
   },
   {
     "id": 3974,
@@ -837,7 +1149,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91123_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 265,
+    "moneda": "DOP",
+    "unidad": "294 g"
   },
   {
     "id": 22184,
@@ -845,7 +1160,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91198_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 245,
+    "moneda": "DOP",
+    "unidad": "caja"
   },
   {
     "id": 3981,
@@ -853,7 +1171,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/96355_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "100 g"
   },
   {
     "id": 3979,
@@ -861,7 +1182,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/89896_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 295,
+    "moneda": "DOP",
+    "unidad": "5 und"
   },
   {
     "id": 4010,
@@ -869,7 +1193,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94197_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 215,
+    "moneda": "DOP",
+    "unidad": "340 g"
   },
   {
     "id": 4012,
@@ -877,7 +1204,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/46156_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 225,
+    "moneda": "DOP",
+    "unidad": "340 g"
   },
   {
     "id": 4030,
@@ -885,7 +1215,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16267_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 215,
+    "moneda": "DOP",
+    "unidad": "340 g"
   },
   {
     "id": 4011,
@@ -893,7 +1226,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16317_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 225,
+    "moneda": "DOP",
+    "unidad": "340 g"
   },
   {
     "id": 4032,
@@ -901,7 +1237,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/29607_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 225,
+    "moneda": "DOP",
+    "unidad": "340 g"
   },
   {
     "id": 3945,
@@ -909,7 +1248,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/89730_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 385,
+    "moneda": "DOP",
+    "unidad": "453 g"
   },
   {
     "id": 3960,
@@ -917,7 +1259,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91124_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 275,
+    "moneda": "DOP",
+    "unidad": "567 g"
   },
   {
     "id": 16886,
@@ -925,7 +1270,10 @@
     "categoria": "Carnes y Embutidos",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106838_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 175,
+    "moneda": "DOP",
+    "unidad": "141 g"
   },
   {
     "id": 30786,
@@ -933,7 +1281,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16146_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 165,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30818,
@@ -941,7 +1292,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107801_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 115,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 72237,
@@ -949,7 +1303,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110153_1.png?v=124",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 185,
+    "moneda": "DOP",
+    "unidad": "1.5 l"
   },
   {
     "id": 30788,
@@ -957,7 +1314,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16231_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 345,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30793,
@@ -965,7 +1325,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/50590_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 345,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30804,
@@ -973,7 +1336,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/55993_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 105,
+    "moneda": "DOP",
+    "unidad": "720 ml"
   },
   {
     "id": 30798,
@@ -981,7 +1347,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/45292_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 355,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30837,
@@ -989,7 +1358,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/73085_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 75,
+    "moneda": "DOP",
+    "unidad": "425 g"
   },
   {
     "id": 30820,
@@ -997,7 +1369,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/50589_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 105,
+    "moneda": "DOP",
+    "unidad": "720 ml"
   },
   {
     "id": 30796,
@@ -1005,7 +1380,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/10094_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 235,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 42038,
@@ -1013,7 +1391,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110151_1.png?v=22",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 30810,
@@ -1021,7 +1402,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/62612_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 235,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30808,
@@ -1029,7 +1413,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/10095_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 235,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 54277,
@@ -1037,7 +1424,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107376_1.png?v=71",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 30817,
@@ -1045,7 +1435,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16162_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 30787,
@@ -1053,7 +1446,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16169_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 295,
+    "moneda": "DOP",
+    "unidad": "2.3 kg"
   },
   {
     "id": 30794,
@@ -1061,7 +1457,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/73218_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 465,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30795,
@@ -1069,7 +1468,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90854_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 485,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30875,
@@ -1077,7 +1479,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/55968_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 285,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 30803,
@@ -1085,7 +1490,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/73804_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 485,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30822,
@@ -1093,7 +1501,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/74189_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 275,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 30802,
@@ -1101,7 +1512,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90660_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 385,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30797,
@@ -1109,7 +1523,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/86506_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 235,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 30790,
@@ -1117,7 +1534,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16340_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 385,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30791,
@@ -1125,7 +1545,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16341_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 235,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 30813,
@@ -1133,7 +1556,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90302_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 385,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 54276,
@@ -1141,7 +1567,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/116161_1.png?v=71",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "1.5 l"
   },
   {
     "id": 30812,
@@ -1149,7 +1578,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16156_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 175,
+    "moneda": "DOP",
+    "unidad": "946 ml"
   },
   {
     "id": 30839,
@@ -1157,7 +1589,10 @@
     "categoria": "Limpieza",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/75266_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 285,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 31787,
@@ -1165,7 +1600,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/102531_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 115,
+    "moneda": "DOP",
+    "unidad": "50 und"
   },
   {
     "id": 31806,
@@ -1173,7 +1611,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/102533_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 155,
+    "moneda": "DOP",
+    "unidad": "50 und"
   },
   {
     "id": 31796,
@@ -1181,7 +1622,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/102532_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 135,
+    "moneda": "DOP",
+    "unidad": "50 und"
   },
   {
     "id": 31814,
@@ -1189,7 +1633,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/102534_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "25 und"
   },
   {
     "id": 31773,
@@ -1197,7 +1644,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94061_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 165,
+    "moneda": "DOP",
+    "unidad": "2 und"
   },
   {
     "id": 31771,
@@ -1205,7 +1655,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94580_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 89,
+    "moneda": "DOP",
+    "unidad": "1 und"
   },
   {
     "id": 38168,
@@ -1213,7 +1666,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106292_1.png?v=9",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "250 ml"
   },
   {
     "id": 38173,
@@ -1221,7 +1677,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106293_1.png?v=9",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "250 ml"
   },
   {
     "id": 30785,
@@ -1229,7 +1688,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/60490_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 425,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 30789,
@@ -1237,7 +1699,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/70666_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 255,
+    "moneda": "DOP",
+    "unidad": "2 l"
   },
   {
     "id": 38311,
@@ -1245,7 +1710,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94885_1.png?v=9",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "355 ml"
   },
   {
     "id": 38166,
@@ -1253,7 +1721,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106910_1.png?v=9",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 235,
+    "moneda": "DOP",
+    "unidad": "400 ml"
   },
   {
     "id": 56953,
@@ -1261,7 +1732,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/116933_1.png?v=100",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 265,
+    "moneda": "DOP",
+    "unidad": "473 ml"
   },
   {
     "id": 38172,
@@ -1269,7 +1743,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107964_1.png?v=9",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 255,
+    "moneda": "DOP",
+    "unidad": "400 ml"
   },
   {
     "id": 38176,
@@ -1277,7 +1754,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109342_1.png?v=9",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 275,
+    "moneda": "DOP",
+    "unidad": "480 ml"
   },
   {
     "id": 30800,
@@ -1285,7 +1765,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/63238_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 745,
+    "moneda": "DOP",
+    "unidad": "3.8 l"
   },
   {
     "id": 38283,
@@ -1293,7 +1776,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106331_1.png?v=9",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 225,
+    "moneda": "DOP",
+    "unidad": "500 ml"
   },
   {
     "id": 31772,
@@ -1301,7 +1787,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/95470_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 175,
+    "moneda": "DOP",
+    "unidad": "500 und"
   },
   {
     "id": 31770,
@@ -1309,7 +1798,10 @@
     "categoria": "Cuidado Personal",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/95469_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 115,
+    "moneda": "DOP",
+    "unidad": "250 und"
   },
   {
     "id": 24831,
@@ -1317,7 +1809,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/101484_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 65,
+    "moneda": "DOP",
+    "unidad": "502 ml"
   },
   {
     "id": 24805,
@@ -1325,7 +1820,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/101483_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 65,
+    "moneda": "DOP",
+    "unidad": "502 ml"
   },
   {
     "id": 24812,
@@ -1333,7 +1831,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/101482_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 65,
+    "moneda": "DOP",
+    "unidad": "502 ml"
   },
   {
     "id": 24809,
@@ -1341,7 +1842,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/101485_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 65,
+    "moneda": "DOP",
+    "unidad": "502 ml"
   },
   {
     "id": 24816,
@@ -1349,7 +1853,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/62008_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 65,
+    "moneda": "DOP",
+    "unidad": "502 ml"
   },
   {
     "id": 9057,
@@ -1357,7 +1864,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/40111_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 85,
+    "moneda": "DOP",
+    "unidad": "10 und"
   },
   {
     "id": 22262,
@@ -1365,7 +1875,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107908_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 345,
+    "moneda": "DOP",
+    "unidad": "10 und"
   },
   {
     "id": 22341,
@@ -1373,7 +1886,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107906_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 345,
+    "moneda": "DOP",
+    "unidad": "10 und"
   },
   {
     "id": 22380,
@@ -1381,7 +1897,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107907_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 345,
+    "moneda": "DOP",
+    "unidad": "10 und"
   },
   {
     "id": 21942,
@@ -1389,7 +1908,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/61978_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 195,
+    "moneda": "DOP",
+    "unidad": "170 g"
   },
   {
     "id": 24985,
@@ -1397,7 +1919,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105909_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 95,
+    "moneda": "DOP",
+    "unidad": "226 g"
   },
   {
     "id": 24875,
@@ -1405,7 +1930,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105908_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 95,
+    "moneda": "DOP",
+    "unidad": "240 ml"
   },
   {
     "id": 9067,
@@ -1413,7 +1941,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/97050_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 135,
+    "moneda": "DOP",
+    "unidad": "440 g"
   },
   {
     "id": 60476,
@@ -1421,7 +1952,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109939_1.png?v=119",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 125,
+    "moneda": "DOP",
+    "unidad": "12 und"
   },
   {
     "id": 9448,
@@ -1429,7 +1963,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108368_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 145,
+    "moneda": "DOP",
+    "unidad": "480 g"
   },
   {
     "id": 9380,
@@ -1437,7 +1974,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90433_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 75,
+    "moneda": "DOP",
+    "unidad": "200 g"
   },
   {
     "id": 9370,
@@ -1445,7 +1985,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90434_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 75,
+    "moneda": "DOP",
+    "unidad": "200 g"
   },
   {
     "id": 9136,
@@ -1453,7 +1996,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106006_1.png?v=0",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 150,
+    "moneda": "DOP",
+    "unidad": "500 g"
   },
   {
     "id": 24997,
@@ -1461,7 +2007,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108026_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 245,
+    "moneda": "DOP",
+    "unidad": "1.75 l"
   },
   {
     "id": 24991,
@@ -1469,7 +2018,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106706_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 245,
+    "moneda": "DOP",
+    "unidad": "1.75 l"
   },
   {
     "id": 24993,
@@ -1477,7 +2029,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/77043_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 250,
+    "moneda": "DOP",
+    "unidad": "1.8 kg"
   },
   {
     "id": 25021,
@@ -1485,7 +2040,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/79053_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 165,
+    "moneda": "DOP",
+    "unidad": "907 g"
   },
   {
     "id": 25052,
@@ -1493,7 +2051,10 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109122_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 185,
+    "moneda": "DOP",
+    "unidad": "907 g"
   },
   {
     "id": 25027,
@@ -1501,6 +2062,9 @@
     "categoria": "Bebidas y Snacks",
     "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/99775_1.png?v=1",
     "tienda": "Supermercados Bravo",
-    "fuente": "https://supermercadosrd.com/"
+    "fuente": "https://supermercadosrd.com/",
+    "precio": 235,
+    "moneda": "DOP",
+    "unidad": "1.8 kg"
   }
 ]

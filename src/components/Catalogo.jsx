@@ -21,7 +21,7 @@ import { confirm } from "../lib/confirm";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import ComprasProrateadas from "./ComprasProrateadas.jsx";
 import ModalProductosBravo from "./ModalProductosBravo.jsx";
-import { buscarImagenParaProducto, buscarProductosSupermercadosRd } from "../lib/supermercadosRd";
+import { buscarImagenParaProducto, buscarProductosSupermercadosRd, buscarPrecioParaProducto, formatearPrecioRD } from "../lib/supermercadosRd";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
@@ -57,15 +57,31 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const handleAutoBuscarFoto = async (p) => {
     setUploadingId(p.id);
     try {
-      const img = await buscarImagenParaProducto(p.name);
-      if (img) {
-        await setProductImageUrl(p.id, img);
-        setScanMsg({ tipo: "ok", texto: `Foto encontrada en supermercadosrd.com para "${p.name}".` });
+      const infoBravo = buscarPrecioParaProducto(p.name);
+      let cambios = [];
+
+      if (infoBravo?.imagenUrl && !p.imageUrl) {
+        await setProductImageUrl(p.id, infoBravo.imagenUrl);
+        cambios.push("foto oficial");
+      }
+      if (infoBravo?.precio && (!p.price || Number(p.price) === 0)) {
+        await updateProductPrice(p.id, infoBravo.precio);
+        cambios.push(`precio ${formatearPrecioRD(infoBravo.precio)}`);
+      }
+
+      if (cambios.length > 0) {
+        setScanMsg({ tipo: "ok", texto: `Se actualizó ${cambios.join(" y ")} de Bravo para "${p.name}".` });
       } else {
-        setScanMsg({ tipo: "info", texto: `No se encontró foto automática para "${p.name}" en supermercadosrd.com.` });
+        const img = await buscarImagenParaProducto(p.name);
+        if (img) {
+          await setProductImageUrl(p.id, img);
+          setScanMsg({ tipo: "ok", texto: `Foto encontrada en supermercadosrd.com para "${p.name}".` });
+        } else {
+          setScanMsg({ tipo: "info", texto: `No se encontró foto ni precio automático para "${p.name}" en supermercadosrd.com.` });
+        }
       }
     } catch (err) {
-      setScanMsg({ tipo: "error", texto: "Error buscando foto en supermercadosrd.com." });
+      setScanMsg({ tipo: "error", texto: "Error buscando datos en supermercadosrd.com." });
     } finally {
       setUploadingId(null);
     }
@@ -116,12 +132,14 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
           ...f,
           name: mejor.nombre || f.name,
           category: mejor.categoria || f.category,
+          price: mejor.precio != null && Number(mejor.precio) > 0 ? String(mejor.precio) : f.price,
+          unit: mejor.unidad || f.unit,
         }));
         setImagenPendienteUrl(mejor.imagenUrl);
         setUrlReferenciaGuardada(mejor.fuente || "https://supermercadosrd.com/");
         setImportarUrlMsg({
           tipo: "ok",
-          texto: `¡Encontrado en supermercadosrd.com! "${mejor.nombre}". Se cargó la foto oficial de Bravo.`,
+          texto: `¡Encontrado en supermercadosrd.com! "${mejor.nombre}" con precio oficial ${formatearPrecioRD(mejor.precio)} y foto de Bravo.`,
         });
         return;
       }
@@ -745,7 +763,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
             whiteSpace: "nowrap",
           }}
         >
-          <ShoppingBag size={14} /> Productos Bravo (RD)
+          <ShoppingBag size={14} /> Catálogo Bravo RD$ (Precios & Fotos)
         </button>
       </div>
 

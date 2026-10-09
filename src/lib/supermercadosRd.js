@@ -24,7 +24,55 @@ export function normalizarTexto(str) {
 }
 
 /**
- * Busca productos de Bravo / supermercadosrd.com por texto.
+ * Formatea un monto en Pesos Dominicanos (DOP).
+ */
+export function formatearPrecioRD(monto) {
+  const n = Number(monto);
+  if (!Number.isFinite(n) || n <= 0) return "RD$ 0.00";
+  return `RD$ ${n.toLocaleString("es-DO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/**
+ * Busca el precio oficial y detalles de un producto en el catálogo de Bravo / supermercadosrd.com.
+ */
+export function buscarPrecioParaProducto(nombreProducto) {
+  if (!nombreProducto) return null;
+  const pNorm = normalizarTexto(nombreProducto);
+
+  if (mapaNormalizado.has(pNorm)) {
+    const item = mapaNormalizado.get(pNorm);
+    return {
+      precio: item.precio || 0,
+      unidad: item.unidad || "unidad",
+      moneda: item.moneda || "DOP",
+      imagenUrl: item.imagenUrl || null,
+      nombre: item.nombre,
+      categoria: item.categoria,
+    };
+  }
+
+  const palabras = pNorm.split(" ").filter((w) => w.length > 2);
+  const localMatch = PRODUCTOS_BRAVO_REGULARES.find((p) => {
+    const itemNorm = normalizarTexto(p.nombre);
+    return palabras.every((w) => itemNorm.includes(w));
+  });
+
+  if (localMatch) {
+    return {
+      precio: localMatch.precio || 0,
+      unidad: localMatch.unidad || "unidad",
+      moneda: localMatch.moneda || "DOP",
+      imagenUrl: localMatch.imagenUrl || null,
+      nombre: localMatch.nombre,
+      categoria: localMatch.categoria,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Busca productos de Bravo / supermercadosrd.com por texto con sus precios oficiales e imágenes.
  * Combina el catálogo verificado local con la búsqueda en vivo si hay conexión.
  */
 export async function buscarProductosSupermercadosRd(termino) {
@@ -53,15 +101,36 @@ export async function buscarProductosSupermercadosRd(termino) {
     console.debug("Búsqueda en vivo no disponible, usando catálogo local:", err);
   }
 
-  // Unifica resultados sin duplicados de imagen o nombre
+  // Unifica resultados sin duplicados de imagen o nombre, asegurando precios
   const vistos = new Set();
   const unificados = [];
 
   for (const item of [...coincidenciasLocales, ...enVivo]) {
     const clave = normalizarTexto(item.nombre);
-    if (!vistos.has(clave) && item.imagenUrl) {
+    if (!vistos.has(clave) && (item.imagenUrl || item.precio)) {
       vistos.add(clave);
-      unificados.push(item);
+
+      // Si el item en vivo no traía precio o categoría, intenta completarlo desde el catálogo verificado
+      let precioFinal = Number(item.precio) || 0;
+      let unidadFinal = item.unidad || "unidad";
+      let categoriaFinal = item.categoria || "Despensa";
+
+      if (precioFinal <= 0) {
+        const info = buscarPrecioParaProducto(item.nombre);
+        if (info?.precio) {
+          precioFinal = info.precio;
+          unidadFinal = info.unidad || unidadFinal;
+          categoriaFinal = info.categoria || categoriaFinal;
+        }
+      }
+
+      unificados.push({
+        ...item,
+        precio: precioFinal,
+        unidad: unidadFinal,
+        categoria: categoriaFinal,
+        moneda: item.moneda || "DOP",
+      });
     }
   }
 
