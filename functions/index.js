@@ -504,13 +504,21 @@ exports.escanearFactura = onCall({ secrets: [anthropicApiKey] }, async (request)
     'No incluyas una línea de descuento como producto. Todos los importes deben ser números sin símbolos; ' +
     'usa la moneda indicada en el documento, normalmente DOP o RD$. Si un dato es ilegible, usa null; no lo inventes.';
 
+  let apiKey = "";
+  try {
+    apiKey = anthropicApiKey.value();
+  } catch (_) {}
+  if (!apiKey) {
+    throw new HttpsError("failed-precondition", "La clave de la API de visión en Cloud Functions no está configurada.");
+  }
+
   let resp;
   try {
     resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": anthropicApiKey.value(),
+        "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({

@@ -148,6 +148,7 @@ export async function preguntarAsistente(pregunta, resumen, historial) {
 // Lee una factura de supermercado mediante IA (Gemini / Anthropic / Cloud Functions).
 export async function escanearFactura(imageBase64, mediaType = "image/jpeg") {
   // 1. Intenta vía proxy de servidor (Gemini 3.8 Flash con visión directa)
+  let errorServidor = null;
   try {
     const resServer = await fetch("/api/escanear-factura", {
       method: "POST",
@@ -159,15 +160,27 @@ export async function escanearFactura(imageBase64, mediaType = "image/jpeg") {
       if (data && (Array.isArray(data.items) || data.total)) {
         return data;
       }
+    } else {
+      const errJson = await resServer.json().catch(() => null);
+      errorServidor = errJson?.error || `Error del servidor (${resServer.status})`;
     }
-  } catch (_) {
-    // Si la llamada local no responde, procede a la Cloud Function
+  } catch (err) {
+    errorServidor = err?.message || String(err);
   }
 
   // 2. Fallback a la Cloud Function de Firebase
-  const fn = httpsCallable(functions, "escanearFactura");
-  const res = await fn({ imageBase64, mediaType });
-  return res.data;
+  try {
+    const fn = httpsCallable(functions, "escanearFactura");
+    const res = await fn({ imageBase64, mediaType });
+    if (res?.data) return res.data;
+  } catch (errFirebase) {
+    console.warn("Fallo en escaneo con Firebase:", errFirebase?.message || errFirebase);
+    throw new Error(
+      errorServidor
+        ? `No se pudo procesar la factura: ${errorServidor}`
+        : "No se pudo procesar la imagen de la factura. Intenta con una foto más nítida o centrada."
+    );
+  }
 }
 
 const asistenteChatsCol = collection(db, "asistenteChats");

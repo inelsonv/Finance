@@ -13,7 +13,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -324,7 +325,7 @@ Instrucciones específicas:
 4. Ignora comprobantes bancarios, números de tarjeta, autorizaciones, NCF, RNC, e impuestos como ITBIS.
 5. Devuelve JSON válido sin bloques markdown ni texto adicional.`;
 
-    const modelCandidates = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.1-pro-preview'];
+    const modelCandidates = ['gemini-3.8-flash', 'gemini-flash-latest'];
     let response;
     let lastErr;
 

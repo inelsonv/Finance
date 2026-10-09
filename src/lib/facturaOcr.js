@@ -6,7 +6,7 @@ import { escanearFactura, addMovimiento, updateProductPrice, registrarCompraProd
  * Reduce imágenes de alta resolución tomadas con teléfonos (ej. 12MP+)
  * a un tamaño óptimo para enviarlas al modelo de visión sin pérdida de legibilidad.
  */
-export function redimensionarImagen(file, maxWidth = 1600) {
+export function redimensionarImagen(file, maxDimension = 1400) {
   return new Promise((resolve) => {
     if (!file || !file.type.startsWith("image/")) {
       resolve(file);
@@ -16,21 +16,29 @@ export function redimensionarImagen(file, maxWidth = 1600) {
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      if (img.width <= maxWidth) {
-        resolve(file);
-        return;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
       }
-      const escala = maxWidth / img.width;
+
       const canvas = document.createElement("canvas");
-      canvas.width = maxWidth;
-      canvas.height = Math.round(img.height * escala);
+      canvas.width = width;
+      canvas.height = height;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
         resolve(file);
         return;
       }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob((blob) => resolve(blob || file), "image/jpeg", 0.88);
+      ctx.drawImage(img, 0, 0, width, height);
+      canvas.toBlob((blob) => resolve(blob || file), "image/jpeg", 0.82);
     };
     img.onerror = () => resolve(file);
     img.src = url;
