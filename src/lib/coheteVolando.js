@@ -1,3 +1,5 @@
+import { reproducirSonidoCoheteDespegue, reproducirSonidoCoheteImpacto } from "./sonidos";
+
 // Animación visual de cohete hacia los puntos generados al pagar una deuda.
 // Se ejecuta directamente sobre el DOM sin bloquear React ni depender del estado local.
 
@@ -139,10 +141,11 @@ export function lanzarCoheteHaciaPuntos(origenX, origenY, opciones = {}) {
   const controlX = startX + deltaX * 0.45 - (deltaY > 0 ? 40 : -40);
   const controlY = Math.min(startY, destinoY) - 50;
 
-  // Aparición inicial con pequeña vibración de encendido
+  // Aparición inicial con pequeña vibración de encendido y sonido de propulsión
   requestAnimationFrame(() => {
     cohete.style.opacity = "1";
     cohete.style.transform = "translate(-50%, -50%) scale(1.15)";
+    reproducirSonidoCoheteDespegue(duracionTotal / 1000);
   });
 
   // Emisión periódica de estela
@@ -188,6 +191,9 @@ export function lanzarCoheteHaciaPuntos(origenX, origenY, opciones = {}) {
  * Efecto de impacto cuando el cohete llega al trofeo de puntos
  */
 function impactoEnTrofeo(destinoX, destinoY, trofeo, puntos, contenedor) {
+  // Sonido de explosión suave y fanfarria triunfal de puntos al impactar
+  reproducirSonidoCoheteImpacto();
+
   // 1. Explosión de chispas y estrellas alrededor del trofeo
   const cantidadChispas = 14;
   for (let i = 0; i < cantidadChispas; i++) {

@@ -6,6 +6,7 @@ import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
 import { lanzarCoheteHaciaPuntos } from "./lib/coheteVolando";
+import { reproducirSonidoCofre } from "./lib/sonidos";
 import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas, watchEstrategiaDeudas, watchTipoCambioCache, demoteOtrosLeyendo, updateLibro } from "./lib/db";
 import { periodoDeFecha } from "./lib/rachaHabito";
 import { detectarRachaRota } from "./lib/rachaHabito";
@@ -431,8 +432,8 @@ export default function App() {
       if (puntosAnteriores.current !== null) {
         const delta = val - puntosAnteriores.current;
         if (delta > 0) {
-          const origenX = window.innerWidth / 2;
-          const origenY = window.innerHeight * 0.65;
+          const origenX = window.__ultimoClickPuntosX || (window.innerWidth / 2);
+          const origenY = window.__ultimoClickPuntosY || (window.innerHeight * 0.65);
           lanzarMonedasHaciaTrofeo(origenX, origenY, delta);
         }
       }
@@ -594,13 +595,28 @@ export default function App() {
     );
   }, [authorized]);
 
+  // Registra la posición del último clic/toque para que las monedas salgan desde allí
+  useEffect(() => {
+    const guardarCoordenadas = (e) => {
+      if (Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) {
+        window.__ultimoClickPuntosX = e.clientX;
+        window.__ultimoClickPuntosY = e.clientY;
+      }
+    };
+    window.addEventListener("pointerdown", guardarCoordenadas, { passive: true });
+    return () => window.removeEventListener("pointerdown", guardarCoordenadas);
+  }, []);
+
   // Cuando aparece un cofre nuevo sin ver (premio por cancelar una deuda),
   // muestra la animación de apertura — solo uno a la vez, aunque haya
   // varios pendientes.
   useEffect(() => {
     if (cofreParaMostrar) return;
     const sinVer = (cofresGanados || []).find((c) => !c.visto && !cofresCerradosLocalmente.current.has(c.id));
-    if (sinVer) setCofreParaMostrar(sinVer);
+    if (sinVer) {
+      setCofreParaMostrar(sinVer);
+      reproducirSonidoCofre();
+    }
   }, [cofresGanados, cofreParaMostrar]);
 
   // Referencia usada por la suscripción a puntos (más abajo) para comparar

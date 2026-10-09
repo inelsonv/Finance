@@ -1,3 +1,5 @@
+import { reproducirSonidoMoneda, reproducirSonidoPuntos } from "./sonidos";
+
 // Efecto visual: una monedita que "vuela" desde donde tocaste hasta el
 // trofeo de puntos en el encabezado, cuando ganas puntos por completar un
 // hábito. Es un efecto puramente visual (DOM directo, sin estado de React)
@@ -13,14 +15,17 @@ export function lanzarMonedasHaciaTrofeo(origenX, origenY, puntosGanados = 5) {
     setTimeout(() => {
       const jitterX = origenX + (Math.random() - 0.5) * 40;
       const jitterY = origenY + (Math.random() - 0.5) * 20;
-      lanzarMonedaHaciaTrofeo(jitterX, jitterY);
+      lanzarMonedaHaciaTrofeo(jitterX, jitterY, i, i === cantidad - 1 ? puntosGanados : 0);
     }, i * 70);
   }
 }
 
-export function lanzarMonedaHaciaTrofeo(origenX, origenY) {
+export function lanzarMonedaHaciaTrofeo(origenX, origenY, indice = 0, puntosFinales = 0) {
   const trofeo = document.getElementById("despensa-trofeo-header");
   if (!trofeo) return;
+
+  // Sonido clásico y nítido de moneda generada al salir
+  reproducirSonidoMoneda(indice);
 
   const rectTrofeo = trofeo.getBoundingClientRect();
   const destinoX = rectTrofeo.left + rectTrofeo.width / 2;
@@ -56,6 +61,12 @@ export function lanzarMonedaHaciaTrofeo(origenX, origenY) {
     // Pequeño "rebote" en el trofeo cuando la moneda llega.
     trofeo.style.transition = "transform 0.18s ease-out";
     trofeo.style.transform = "scale(1.15)";
+
+    // Si es la última moneda del lote, hace sonar el chime de puntos acumulados
+    if (puntosFinales > 0) {
+      reproducirSonidoPuntos(puntosFinales);
+    }
+
     setTimeout(() => {
       trofeo.style.transform = "scale(1)";
     }, 180);

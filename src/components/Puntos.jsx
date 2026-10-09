@@ -1,10 +1,20 @@
 import React, { useMemo, useState } from "react";
-import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame, Target, CreditCard, PenLine } from "lucide-react";
+import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame, Target, CreditCard, PenLine, Volume2, VolumeX, Sparkles } from "lucide-react";
 import { canjearPuntos, revertirCanje, ajustarPuntosManual } from "../lib/db";
 import { calcularIngresoQuincenal } from "../lib/quincenaResumen";
 import { confirm } from "../lib/confirm";
 import Pagination from "./Pagination.jsx";
 import { calcularRacha, historialRachaVisual } from "../lib/racha";
+import {
+  estanSonidosHabilitados,
+  setSonidosHabilitados,
+  reproducirSonidoMoneda,
+  reproducirSonidoPuntos,
+  reproducirSonidoCoheteDespegue,
+  reproducirSonidoCoheteImpacto,
+  reproducirSonidoCofre,
+  reproducirSonidoCanje,
+} from "../lib/sonidos";
 
 const NOMBRES_MES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -46,6 +56,7 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
   const [motivoAjuste, setMotivoAjuste] = useState("");
   const [savingAjuste, setSavingAjuste] = useState(false);
   const [errorAjuste, setErrorAjuste] = useState(null);
+  const [sonidosOn, setSonidosOn] = useState(estanSonidosHabilitados());
 
   const handleAjusteManual = async () => {
     const montoNum = parseInt(montoAjuste, 10);
@@ -151,6 +162,7 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
         ingresoQuincenalFijo,
         nota: notaCanje.trim(),
       });
+      reproducirSonidoCanje();
       setExito(`Listo: se agregaron ${formatMoney(montoNum)} a "${categoria}" para esa quincena.`);
       setMonto("");
       setCategoria("");
@@ -267,9 +279,108 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
         }}
       >
         <Trophy size={30} style={{ color: "var(--amber)" }} />
-        <div>
+        <div style={{ flex: 1 }}>
           <div className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--amber)" }}>{formatMoney(puntos)}</div>
           <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>disponibles para canjear (1 punto = $1 peso)</div>
+        </div>
+      </div>
+
+      {/* Control y prueba de Efectos de Sonido */}
+      <div
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "14px 16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {sonidosOn ? (
+              <Volume2 size={18} style={{ color: "var(--sage)" }} />
+            ) : (
+              <VolumeX size={18} style={{ color: "var(--ink-soft)" }} />
+            )}
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+                Efectos de sonido {sonidosOn ? "🔊 (Activados)" : "🔇 (Silenciados)"}
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                Audio dinámico para monedas 🪙, puntos ✨, despegue de cohete 🚀 y cofres 🎁
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const nuevo = !sonidosOn;
+              setSonidosOn(nuevo);
+              setSonidosHabilitados(nuevo);
+              if (nuevo) reproducirSonidoMoneda(0);
+            }}
+            className="despensa-btn-secondary"
+            style={{
+              fontSize: 12,
+              padding: "5px 12px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              borderRadius: 8,
+              fontWeight: 600,
+            }}
+          >
+            {sonidosOn ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            {sonidosOn ? "Silenciar audio" : "Activar audio"}
+          </button>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", paddingTop: 4, borderTop: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 11, color: "var(--ink-soft)", fontWeight: 600, marginRight: 2 }}>
+            Probar sonidos:
+          </span>
+          <button
+            type="button"
+            title="Escuchar sonido de moneda dorada"
+            onClick={() => reproducirSonidoMoneda(Math.floor(Math.random() * 6))}
+            className="despensa-btn-secondary"
+            style={{ fontSize: 11.5, padding: "4px 9px", borderRadius: 6 }}
+          >
+            🪙 Moneda
+          </button>
+          <button
+            type="button"
+            title="Escuchar sonido de acumulación de puntos"
+            onClick={() => reproducirSonidoPuntos(50)}
+            className="despensa-btn-secondary"
+            style={{ fontSize: 11.5, padding: "4px 9px", borderRadius: 6 }}
+          >
+            ✨ Puntos
+          </button>
+          <button
+            type="button"
+            title="Escuchar sonido de despegue e impacto de cohete"
+            onClick={() => {
+              reproducirSonidoCoheteDespegue(0.85);
+              setTimeout(() => reproducirSonidoCoheteImpacto(), 850);
+            }}
+            className="despensa-btn-secondary"
+            style={{ fontSize: 11.5, padding: "4px 9px", borderRadius: 6 }}
+          >
+            🚀 Cohete
+          </button>
+          <button
+            type="button"
+            title="Escuchar sonido de cofre sorpresa"
+            onClick={() => reproducirSonidoCofre()}
+            className="despensa-btn-secondary"
+            style={{ fontSize: 11.5, padding: "4px 9px", borderRadius: 6 }}
+          >
+            🎁 Cofre
+          </button>
         </div>
       </div>
 
