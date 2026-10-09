@@ -1,0 +1,1506 @@
+[
+  {
+    "id": 22855,
+    "nombre": "Bravo Arroz Premium 10 lb",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16095_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22861,
+    "nombre": "Bravo Arroz Premium 5 lb",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90138_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22865,
+    "nombre": "Arroz Selecto 10 lb",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/101301_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 72192,
+    "nombre": "Arroz Integral Bravo 2.3 kg",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/130047_1.png?v=124",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13810,
+    "nombre": "Bravo Blend Mediterraneo Con Aceite De Oliva 5 l",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/61972_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13807,
+    "nombre": "Bravo Aceite Oliva E.v. 750 ml",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16047_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13801,
+    "nombre": "Bravo Aceite Soya 1.9 l",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106230_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13808,
+    "nombre": "Bravo Aceite Soya 1.5 l",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/59805_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22510,
+    "nombre": "Bravo Aceite Canola 1.9 l",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109232_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22494,
+    "nombre": "Bravo Aceite Girasol 1.9 l",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109233_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 9102,
+    "nombre": "Galletas Avena Y Pasas 12 und",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/92470_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 9096,
+    "nombre": "Galletas Avena Linaza 12 und",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/92471_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22589,
+    "nombre": "Sweet Minis Galleta Avena Coco 10 × 40 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108416_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 9128,
+    "nombre": "Sweet Minis Galletas De Avena Y Nueces 10 und",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106294_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 38144,
+    "nombre": "Bravo Jabon Avena Antibacterial 3 × 125 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/92183_1.png?v=9",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13663,
+    "nombre": "Bravo Avena Integral 680.4 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/95322_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 17053,
+    "nombre": "Bravo Crema Tuna Original 2 × 80 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105163_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 17051,
+    "nombre": "Bravo Crema Tuna C/aceitunas 2 × 80 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105165_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 17052,
+    "nombre": "Bravo Crema Tuna Ligero Picante 2 × 80 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105164_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 72209,
+    "nombre": "Atún en Trozos en Salsa de Tomate Bravo 170 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107723_1.png?v=124",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 5489,
+    "nombre": "Bravo Atun Porciones 453.6 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/96027_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 16887,
+    "nombre": "Bravo Atun Aceite Oliva 170 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107538_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 57232,
+    "nombre": "Bravo Habichuela Jose Beta 1 kg",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/111579_1.png?v=109",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22868,
+    "nombre": "Bravo Habichuela Jose Beta 800 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/87855_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 16945,
+    "nombre": "Bravo Habichuelas Blancas 400 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/71923_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22875,
+    "nombre": "Bravo Habichuelas Blancas 800 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16212_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 57231,
+    "nombre": "Bravo Habichuelas Blancas 1 kg",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/111578_1.png?v=109",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 57229,
+    "nombre": "Bravo Habichuelas Negras 1 kg",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/111581_1.png?v=109",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22154,
+    "nombre": "Bravo Ajo Pasta 425.2 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106521_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22191,
+    "nombre": "Bravo Ajo Pasta 226.8 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106520_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 10556,
+    "nombre": "Bravo Salsa Para Pasta Bolognesa 396.9 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110488_1.png?v=100",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 56942,
+    "nombre": "Bravo Salsa Para Pasta Carbonara 396.9 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110487_1.png?v=100",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22963,
+    "nombre": "Bravo Salsa P/pasta Tradicional 680.4 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91885_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22961,
+    "nombre": "Bravo Salsa P/pasta 3 Quesos 680.4 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91889_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22988,
+    "nombre": "Bravo Salsa Bbq Original 453.6 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108526_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 23019,
+    "nombre": "Bravo Salsa Bbq Picante 453.6 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107160_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22998,
+    "nombre": "Bravo Salsa Bbq Miel 453.6 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107161_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 23016,
+    "nombre": "Bravo Salsa Bbq Ahumada 453.6 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107162_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 23149,
+    "nombre": "Bravo Salsa Inglesa 177.4 ml",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108450_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 56936,
+    "nombre": "Bravo Caramelos Sin Azúcar Sabor Menta 35 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110272_1.png?v=100",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 56934,
+    "nombre": "Bravo Caramelos Sin Azúcar Sabor Fresa 35 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110273_1.png?v=100",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 56935,
+    "nombre": "Bravo Caramelos Sin Azúcar Sabor Hierbabuena 40 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110274_1.png?v=100",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 56937,
+    "nombre": "Bravo Caramelos Sin Azúcar Sabor Eucalipto 35 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110270_1.png?v=100",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 61943,
+    "nombre": "Bebida de Almendra Sin Azúcar Bravo 1 l",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108035_1.png?v=122",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24832,
+    "nombre": "Bravo Bebida Energizante Sin Azucar 250 ml",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107465_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22871,
+    "nombre": "Bravo Sal Refinada 510 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105920_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22880,
+    "nombre": "Bravo Sal Marina Gruesa 1 kg",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106186_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13535,
+    "nombre": "Bravo Sal Himalaya Gruesa 275 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16315_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22874,
+    "nombre": "Bravo Sal Marina Fina Yodada 1 kg",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106188_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13498,
+    "nombre": "Bravo Sal Himalaya Fina 275 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/75805_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13627,
+    "nombre": "Bravo Sal Ajo 135 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/92545_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13804,
+    "nombre": "Bravo Vinagre Blanco 3.8 l",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/59802_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13818,
+    "nombre": "Bravo Vinagre Blanco 473.2 ml",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16356_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13819,
+    "nombre": "Bravo Vinagre Dorado 3.8 l",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/89222_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 13830,
+    "nombre": "Bravo Vinagre Dorado 473.2 ml",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/56024_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30923,
+    "nombre": "Bravo Vinagre P/ Limpiar 907.2 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/74182_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30895,
+    "nombre": "Bravo Vinagre P/ Limpiar 2 l",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/74180_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 60491,
+    "nombre": "Bravo Harina de Batata 454 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/111527_1.png?v=119",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22162,
+    "nombre": "Bravo Harina De Maiz 396.9 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106235_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22200,
+    "nombre": "Bravo Harina Maiz Blanca 1 kg",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105554_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22212,
+    "nombre": "Bravo Harina Maiz Amarillo 1 kg",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105553_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22118,
+    "nombre": "Bravo Harina Trigo Multiusos 2 lb",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/102731_1.png?v=109",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 54259,
+    "nombre": "Bravo Harina Negrito 680.4 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110497_1.png?v=71",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 72173,
+    "nombre": "Mini Galletas de Avena con Miel Bravo 8 × 30 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108381_1.png?v=124",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22199,
+    "nombre": "Bravo Miel 453.6 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109419_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 42051,
+    "nombre": "Bravo Miel Picante 204.1 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110743_1.png?v=22",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 72195,
+    "nombre": "Jabón de Miel con Glicerina Bravo 4 × 100 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94344_1.png?v=124",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 72229,
+    "nombre": "Infusión de Manzanilla Sabor Miel con Edulcorante Bravo 20 × 1.3 g",
+    "categoria": "Despensa",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109542_1.png?v=124",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 41665,
+    "nombre": "Bravo Leche Uht Entera S/lactosa 1 l",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/88498_1.png?v=9",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 41676,
+    "nombre": "Bravo Leche Uht Descremada S/lact 1 l",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91801_1.png?v=9",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22587,
+    "nombre": "Bravo Dulce De Leche 400 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/104031_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 6976,
+    "nombre": "Bravo Crema Leche 200 ml",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91561_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 6975,
+    "nombre": "Bravo Crema Leche 1 l",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/96240_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 60493,
+    "nombre": "Bravo Dulce de Leche Repostero 1 kg",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/111154_1.png?v=119",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 34407,
+    "nombre": "Huevos Blancos 30 und",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109664_1.png?v=99",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22102,
+    "nombre": "Huevos Blancos 12 und",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109665_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 34418,
+    "nombre": "Huevos Criollos 20 und",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109666_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 34429,
+    "nombre": "Huevos Criollos 12 und",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109667_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 53615,
+    "nombre": "Huevos Endy Blancos 12 und",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://storage.googleapis.com/cloudcom_product_catalog_images_prod/c47a2bf2-7c56-4368-b8e5-bc873ea4f579/big/7468707680520.jpg",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7504,
+    "nombre": "Huevos de Gallina Libre 30 und",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://d31f1ehqijlcua.cloudfront.net/n/0/6/2/b/062b6b338ff9700bd4c8ea5669cc7221feff887e_Diary_443967_01.jpg",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7035,
+    "nombre": "Bravo Mantequilla S/sal 100 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/96490_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7010,
+    "nombre": "Bravo Mantequilla C/sal 100 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94978_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 9061,
+    "nombre": "Pan D/mantequilla 10 und",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/40137_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22438,
+    "nombre": "Bravo Mantequilla Mani Crunchy 454 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107902_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 72178,
+    "nombre": "Mantequilla de Maní Cremosa Bravo 1 kg",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108969_1.png?v=124",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 72252,
+    "nombre": "Mantequilla de Maní Cremosa Bravo 454 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107901_1.png?v=124",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 21988,
+    "nombre": "Bravo Nacho Queso 180 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107718_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 72249,
+    "nombre": "Flan de Queso Bravo 4 × 100 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107797_1.png?v=124",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 16672,
+    "nombre": "Bravo Macarrones Con Queso 205.5 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/83232_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22051,
+    "nombre": "Bravo Salsa Queso 255 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108219_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22058,
+    "nombre": "Bravo Salsa Queso Picante 255 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108223_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7119,
+    "nombre": "Queso Suizo Lonjeado 453.6 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/95372_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7084,
+    "nombre": "Mubravo Yogurt Natural S/az 907.2 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/73988_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7162,
+    "nombre": "Mubravo Yogurt Mango 907.2 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/99960_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7103,
+    "nombre": "Mubravo Yogurt Piña 907.2 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/74056_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7022,
+    "nombre": "Mubravo Yogurt Fresa 907.2 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/73985_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7023,
+    "nombre": "Mubravo Yogurt Ciruela Mas Fibra 907.2 g",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/86799_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7087,
+    "nombre": "Mubravo Yogurt Pina 1.4 kg",
+    "categoria": "Lácteos y Huevos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16281_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 4021,
+    "nombre": "Bravo Chicken Sausage Chorizo 340.2 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/10008_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7561,
+    "nombre": "Bravo Nuggets De Pollo 227 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107865_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7557,
+    "nombre": "Nuggets De Pollo 1.4 kg",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107933_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7562,
+    "nombre": "Carne Nuggets Pechuga Empanizada 453.6 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/18975_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7556,
+    "nombre": "Albondiga De Pollo ",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/93441_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 7569,
+    "nombre": "Albondiga De Pollo Y Parmesano ",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107429_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 3974,
+    "nombre": "Bravo Artesanal Jamon Pechuga Pavo 294 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91123_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22184,
+    "nombre": "Bravo Pizza Jamon ",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91198_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 3981,
+    "nombre": "Bravo Jamon Serrano Lonchas 100 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/96355_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 3979,
+    "nombre": "Bravo Salchicha Artesanal Pavo Oregano 5 × 90.8 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/89896_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 4010,
+    "nombre": "Bravo Salchichas Pollo Italianas 340.2 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94197_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 4012,
+    "nombre": "Bravo Salchichas De Pollo Espinaca Y Feta 340.2 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/46156_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 4030,
+    "nombre": "Bravo Salchichas De Pollo Picante 340.2 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16267_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 4011,
+    "nombre": "Bravo Salchichas De Pollo Tomates Secos Y Albahacas 340.2 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16317_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 4032,
+    "nombre": "Bravo Salchichas De Pollo Con Syrup De Maple 340.2 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/29607_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 3945,
+    "nombre": "Pastrami De Pavo Lonjeado 453.6 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/89730_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 3960,
+    "nombre": "Salami Artesanal Pavo Mediano 567 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/91124_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 16886,
+    "nombre": "Bravo Pechuga De Pavo 141.8 g",
+    "categoria": "Carnes y Embutidos",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106838_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30786,
+    "nombre": "Bravo Cloro 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16146_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30818,
+    "nombre": "Bravo Cloro Limon 2 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107801_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 72237,
+    "nombre": "Detergente Líquido con Cloro Bravo 1.5 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110153_1.png?v=124",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30788,
+    "nombre": "Bravo Lavaplatos Liq. Limon 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16231_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30793,
+    "nombre": "Bravo Lavaplatos Liq. Aloe 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/50590_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30804,
+    "nombre": "Bravo Lavaplatos Liq. Limon 720 ml",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/55993_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30798,
+    "nombre": "Bravo Lavaplatos Liq. Bicarbonato 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/45292_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30837,
+    "nombre": "Bravo Lavaplatos Pasta Limon 425 g",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/73085_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30820,
+    "nombre": "Bravo Lavaplatos Liq. Aloe 720 ml",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/50589_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30796,
+    "nombre": "Bravo Desinfectante Liq Lavanda 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/10094_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 42038,
+    "nombre": "Bravo Desinfectante Primavera 2 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/110151_1.png?v=22",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30810,
+    "nombre": "Bravo Desinfectante Pino Festivo 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/62612_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30808,
+    "nombre": "Bravo Desinfectante Liq Bebe 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/10095_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 54277,
+    "nombre": "Bravo Desinfectante Sol De Verano 2 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107376_1.png?v=71",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30817,
+    "nombre": "Bravo Desinfectante Liq Lavanda 2 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16162_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30787,
+    "nombre": "Bravo Detergente Polvo 2.3 kg",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16169_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30794,
+    "nombre": "Bravo Detergente Liq Ropa Todo Tipo 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/73218_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30795,
+    "nombre": "Bravo Detergente Liq Ropa Oscura 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90854_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30875,
+    "nombre": "Bravo Detergente Liq Ropa Color 2 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/55968_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30803,
+    "nombre": "Bravo Detergente Liq Ropa Delicada 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/73804_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30822,
+    "nombre": "Bravo Detergente Liq Ropa Todo Tipo 2 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/74189_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30802,
+    "nombre": "Bravo Suavizante Bebe 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90660_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30797,
+    "nombre": "Bravo Suavizante Bebe 2 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/86506_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30790,
+    "nombre": "Bravo Suavizante Frescura Primav. 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16340_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30791,
+    "nombre": "Bravo Suavizante Frescura Primav. 2 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16341_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30813,
+    "nombre": "Bravo Suavizante Algodon 3.8 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90302_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 54276,
+    "nombre": "Bravo Suavizante Sol De Verano 1.5 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/116161_1.png?v=71",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30812,
+    "nombre": "Bravo Desgrasante 946.4 ml",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/16156_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30839,
+    "nombre": "Bravo Desgrasante 2 l",
+    "categoria": "Limpieza",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/75266_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 31787,
+    "nombre": "Bravo Vasos De Papel 4 Oz 50 und",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/102531_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 31806,
+    "nombre": "Bravo Vasos De Papel 8 Oz 50 und",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/102533_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 31796,
+    "nombre": "Bravo Vasos De Papel 6 Oz 50 und",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/102532_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 31814,
+    "nombre": "Bravo Vasos De Papel 12 Oz 25 und",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/102534_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 31773,
+    "nombre": "Bravo Papel Toalla 2 und",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94061_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 31771,
+    "nombre": "Bravo Papel Toalla 1 und",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94580_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 38168,
+    "nombre": "Bravo Jabon Intimo Hidratante 250 ml",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106292_1.png?v=9",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 38173,
+    "nombre": "Bravo Jabon Intimo Sensitive 250 ml",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106293_1.png?v=9",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30785,
+    "nombre": "Bravo Jabon Cuaba Detergente Liq 3.8 l",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/60490_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30789,
+    "nombre": "Bravo Jabon Cuaba Detergente Liq 2 l",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/70666_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 38311,
+    "nombre": "Bravo Jabon Manos Antibact 355.8 ml",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/94885_1.png?v=9",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 38166,
+    "nombre": "Bravo Shampoo Anticaspa Suave 400 ml",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106910_1.png?v=9",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 56953,
+    "nombre": "Bravo Shampoo Para Rizos 473 ml",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/116933_1.png?v=100",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 38172,
+    "nombre": "Bravo Shampoo Argan 400 ml",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107964_1.png?v=9",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 38176,
+    "nombre": "Bravo Shampoo Crecimiento 480 ml",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109342_1.png?v=9",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 30800,
+    "nombre": "Bravo Shampoo Hidratante Capilar 3785.4 ml",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/63238_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 38283,
+    "nombre": "Bravo Baby Shampoo 2n1 500 ml",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106331_1.png?v=9",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 31772,
+    "nombre": "Bravo Servilleta Disp Compactas 500 und",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/95470_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 31770,
+    "nombre": "Bravo Servilleta Cuad Compactas 250 und",
+    "categoria": "Cuidado Personal",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/95469_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24831,
+    "nombre": "Bravo Sparkling Orange 502.8 ml",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/101484_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24805,
+    "nombre": "Bravo Sparkling Cherry Lime 502.8 ml",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/101483_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24812,
+    "nombre": "Bravo Sparkling Black Berry 502.8 ml",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/101482_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24809,
+    "nombre": "Bravo Sparkling Strawberry Kiwi 502.8 ml",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/101485_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24816,
+    "nombre": "Bravo Sparkling Coconut Pineapple 502.8 ml",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/62008_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 9057,
+    "nombre": "Pan De Agua 10 und",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/40111_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22262,
+    "nombre": "Bravo Cafe Capsulas Cappucino 10 und",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107908_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22341,
+    "nombre": "Bravo Cafe Capsulas Cortado 10 und",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107906_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 22380,
+    "nombre": "Bravo Cafe Capsulas Macchiato 10 und",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/107907_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 21942,
+    "nombre": "Bravo Granos Cafe Cubierto Chocolate 170.1 g",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/61978_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24985,
+    "nombre": "Bravo Cafe Frio Cappuccino 226.8 g",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105909_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24875,
+    "nombre": "Bravo Cafe Frio Vainilla 240 ml",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/105908_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 9067,
+    "nombre": "Bravo Galleta Choco Crema 440 g",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/97050_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 60476,
+    "nombre": "Bravo Galletas Sándwich de Vainilla 12 × 32 g",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109939_1.png?v=119",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 9448,
+    "nombre": "Geo Galletas Sandwich Dark Choco 480 g",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108368_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 9380,
+    "nombre": "Cream 4 Fun Galleta Sandwich Vainilla 200 g",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90433_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 9370,
+    "nombre": "Cream 4 Fun Galleta Sandwich Chocolate 200 g",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/90434_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 9136,
+    "nombre": "Bravo Galleta Rellena Chocolate 500 g",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106006_1.png?v=0",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24997,
+    "nombre": "Bravo Jugo Toronja 1750 ml",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/108026_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24991,
+    "nombre": "Bravo Jugo De Naranja 1750 ml",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/106706_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 24993,
+    "nombre": "Jugo Naranja Bravo 1.8 kg",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/77043_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 25021,
+    "nombre": "Jugo Chinola 907.2 g",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/79053_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 25052,
+    "nombre": "Jugo Pitahaya Guanabana 907.2 g",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/109122_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  },
+  {
+    "id": 25027,
+    "nombre": "Jugo Limon 1.8 kg",
+    "categoria": "Bebidas y Snacks",
+    "imagenUrl": "https://bravova-resources.superbravo.com.do/images/catalogo/big/99775_1.png?v=1",
+    "tienda": "Supermercados Bravo",
+    "fuente": "https://supermercadosrd.com/"
+  }
+]

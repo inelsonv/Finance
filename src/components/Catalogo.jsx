@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine, Link as LinkIcon, UtensilsCrossed } from "lucide-react";
+import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine, Link as LinkIcon, UtensilsCrossed, ShoppingBag } from "lucide-react";
 import {
   addProduct,
   deleteProduct,
@@ -13,12 +13,15 @@ import {
   removeProductImage,
   extraerProductoDeUrl,
   buscarYExtraerProducto,
+  setProductImageUrl,
 } from "../lib/db";
 import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
 import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
 import { confirm } from "../lib/confirm";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import ComprasProrateadas from "./ComprasProrateadas.jsx";
+import ModalProductosBravo from "./ModalProductosBravo.jsx";
+import { buscarImagenParaProducto, buscarProductosSupermercadosRd } from "../lib/supermercadosRd";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 const UNITS = ["unidad", "kg", "g", "l", "ml", "paquete", "rollo"];
@@ -49,6 +52,24 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const [urlReferenciaGuardada, setUrlReferenciaGuardada] = useState(null);
   const [nombreBusqueda, setNombreBusqueda] = useState("");
   const [buscandoPorNombre, setBuscandoPorNombre] = useState(false);
+  const [showModalBravo, setShowModalBravo] = useState(false);
+
+  const handleAutoBuscarFoto = async (p) => {
+    setUploadingId(p.id);
+    try {
+      const img = await buscarImagenParaProducto(p.name);
+      if (img) {
+        await setProductImageUrl(p.id, img);
+        setScanMsg({ tipo: "ok", texto: `Foto encontrada en supermercadosrd.com para "${p.name}".` });
+      } else {
+        setScanMsg({ tipo: "info", texto: `No se encontró foto automática para "${p.name}" en supermercadosrd.com.` });
+      }
+    } catch (err) {
+      setScanMsg({ tipo: "error", texto: "Error buscando foto en supermercadosrd.com." });
+    } finally {
+      setUploadingId(null);
+    }
+  };
 
   const handleImportarDesdeUrl = async () => {
     if (!productoUrl.trim()) {
@@ -87,9 +108,28 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
     setBuscandoPorNombre(true);
     setImportarUrlMsg(null);
     try {
+      // 1. Intenta primero en supermercadosrd.com / catálogo de Bravo
+      const resBravo = await buscarProductosSupermercadosRd(nombreBusqueda.trim());
+      if (resBravo.length > 0 && resBravo[0].imagenUrl) {
+        const mejor = resBravo[0];
+        setForm((f) => ({
+          ...f,
+          name: mejor.nombre || f.name,
+          category: mejor.categoria || f.category,
+        }));
+        setImagenPendienteUrl(mejor.imagenUrl);
+        setUrlReferenciaGuardada(mejor.fuente || "https://supermercadosrd.com/");
+        setImportarUrlMsg({
+          tipo: "ok",
+          texto: `¡Encontrado en supermercadosrd.com! "${mejor.nombre}". Se cargó la foto oficial de Bravo.`,
+        });
+        return;
+      }
+
+      // 2. Si no, fallback a buscarYExtraerProducto
       const resultado = await buscarYExtraerProducto(nombreBusqueda.trim());
       if (!resultado.nombre && !resultado.precio) {
-        setImportarUrlMsg({ tipo: "error", texto: "Se encontró la página pero no se pudo extraer el nombre ni el precio — agrégalo manualmente." });
+        setImportarUrlMsg({ tipo: "error", texto: "No se encontró el producto automáticamente — agrégalo manualmente." });
         return;
       }
       setForm((f) => ({
@@ -686,6 +726,27 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
           {showForm ? <X size={14} /> : <Plus size={14} />}
           {showForm ? "Cancelar" : "Agregar producto"}
         </button>
+        <button
+          type="button"
+          onClick={() => setShowModalBravo(true)}
+          title="Ver productos regulares de Supermercados Bravo con fotos de supermercadosrd.com"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 14px",
+            fontSize: 13,
+            fontWeight: 600,
+            background: "var(--amber-bg)",
+            color: "var(--amber)",
+            border: "1px solid var(--amber)",
+            borderRadius: 8,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <ShoppingBag size={14} /> Productos Bravo (RD)
+        </button>
       </div>
 
       {scanBusy && (
@@ -1027,6 +1088,31 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                     <Camera size={12} />
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    await handleAutoBuscarFoto(p);
+                  }}
+                  title="Buscar foto automáticamente en supermercadosrd.com"
+                  style={{
+                    position: "absolute",
+                    bottom: 6,
+                    left: 6,
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: "rgba(0,0,0,0.65)",
+                    color: "#fde047",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Sparkles size={12} />
+                </button>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -1396,6 +1482,13 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
             </button>
           </div>
         </div>
+      )}
+
+      {showModalBravo && (
+        <ModalProductosBravo
+          products={products}
+          onClose={() => setShowModalBravo(false)}
+        />
       )}
     </div>
   );

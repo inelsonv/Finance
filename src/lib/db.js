@@ -62,19 +62,27 @@ export function watchList(onChange, onError) {
   );
 }
 
-export async function addProduct({ name, category, unit, price, codigoBarras, urlReferencia, proteinaPor100g }) {
+export async function addProduct({ name, category, unit, price, codigoBarras, urlReferencia, proteinaPor100g, imageUrl, tienda }) {
   const docRef = await addDoc(productsCol, {
     name,
     category,
-    unit,
-    price,
-    imageUrl: null,
-    updatedAt: null,
+    unit: unit || "unidad",
+    price: price != null ? Number(price) : 0,
+    imageUrl: imageUrl || null,
+    updatedAt: serverTimestamp(),
     codigoBarras: codigoBarras || null,
     urlReferencia: urlReferencia || null,
     proteinaPor100g: proteinaPor100g != null ? Number(proteinaPor100g) : null,
+    tienda: tienda || null,
   });
   return docRef;
+}
+
+export async function setProductImageUrl(id, imageUrl) {
+  await updateDoc(doc(db, "productos", id), {
+    imageUrl: imageUrl || null,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function uploadProductImage(id, file) {

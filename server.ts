@@ -94,6 +94,40 @@ app.get('/api/recetas/imagen', async (req, res) => {
   res.json({ imageUrl });
 });
 
+// Endpoint para buscar productos e imágenes en vivo desde supermercadosrd.com
+app.get('/api/supermercados/buscar', async (req, res) => {
+  try {
+    const query = ((req.query.q as string) || '').trim();
+    if (!query) {
+      return res.json({ productos: [] });
+    }
+    const url = `https://supermercadosrd.com/api/list/search-suggestions?value=${encodeURIComponent(query)}&limit=15`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      return res.json({ productos: [] });
+    }
+    const data = await response.json();
+    const productos = (Array.isArray(data) ? data : [])
+      .filter((d: any) => d.kind === 'product' && d.image)
+      .map((d: any) => ({
+        id: d.productId,
+        nombre: d.phrase,
+        imagenUrl: d.image,
+        tienda: d.image.includes('superbravo') ? 'Supermercados Bravo' : 'Supermercado RD',
+        fuente: 'https://supermercadosrd.com/',
+      }));
+    res.json({ productos });
+  } catch (err: any) {
+    console.error('Error buscando en supermercadosrd.com:', err);
+    res.status(500).json({ error: err.message || 'Error al buscar en supermercadosrd.com' });
+  }
+});
+
 app.post('/api/recetas/sugerir', async (req, res) => {
   try {
     const {
