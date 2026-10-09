@@ -922,26 +922,11 @@ function ClimaCardInner() {
         </div>
       ) : (
         <>
-          <div style={{ position: "relative", width: 175, height: 175, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width={175} height={175} viewBox="0 0 180 180" style={{ position: "absolute", inset: 0 }}>
-              <circle cx="90" cy="90" r="74" fill="none" stroke="var(--line-soft)" strokeWidth="14" />
-              <circle
-                cx="90"
-                cy="90"
-                r="74"
-                fill="none"
-                stroke="var(--sage)"
-                strokeWidth="14"
-                strokeDasharray="465"
-                strokeDashoffset="120"
-                strokeLinecap="round"
-                style={{ transform: "rotate(-90deg)", transformOrigin: "90px 90px" }}
-              />
-            </svg>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", margin: "10px 0 6px" }}>
             <div
               style={{
-                width: 86,
-                height: 86,
+                width: 80,
+                height: 80,
                 borderRadius: "50%",
                 background: "var(--sage-bg)",
                 border: "1.5px solid var(--line-soft)",
@@ -949,32 +934,34 @@ function ClimaCardInner() {
                 alignItems: "center",
                 justifyContent: "center",
                 color: "var(--sage)",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+                marginBottom: 10,
               }}
             >
-              <Icon size={42} />
+              <Icon size={40} />
             </div>
-          </div>
 
-          <div style={{ marginTop: 8, marginBottom: 6 }}>
-            <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: "var(--sage)" }}>
-              {clima?.temp != null ? Math.round(clima.temp) : "—"}°
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 2, marginBottom: 6 }}>
+              <span className="despensa-mono" style={{ fontSize: 36, fontWeight: 700, color: "var(--sage)", lineHeight: 1 }}>
+                {clima?.temp != null ? Math.round(clima.temp) : "—"}°
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)" }}>C</span>
+            </div>
+
+            <span
+              className="despensa-tab-font"
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                padding: "3px 12px",
+                borderRadius: 20,
+                background: "var(--sage-bg)",
+                color: "var(--sage)",
+              }}
+            >
+              {info?.texto || "Cargando…"}
             </span>
           </div>
-
-          <span
-            className="despensa-tab-font"
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              padding: "3px 10px",
-              borderRadius: 20,
-              background: "var(--sage-bg)",
-              color: "var(--sage)",
-            }}
-          >
-            {info?.texto || "Cargando…"}
-          </span>
 
           <div
             style={{

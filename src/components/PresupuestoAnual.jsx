@@ -6,7 +6,7 @@ import { contratoActivoEnMes, calcularQuincenaEfectivaContrato } from "./Contrat
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { formatearOrdenPrioridad } from "../lib/flujoPrioridad";
-import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuincenaConfigurado } from "../lib/quincenaConfig";
+import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuincenaConfigurado, clasificarFecha } from "../lib/quincenaConfig";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import { METODOLOGIAS } from "../lib/metodologiaPresupuesto";
 import MetodologiaPresupuestoModal from "./MetodologiaPresupuestoModal.jsx";
@@ -78,9 +78,14 @@ function celdaMeta(meta, year, mes, { ingresoMensual, aportadoPorCuenta }) {
 // Calcula, para un evento del calendario vinculado a una categoría de gasto, en
 // qué mes/quincena cae según su fecha exacta y la configuración de días de cobro.
 function celdaEvento(evento, year, mes, diasCobro) {
-  if (!evento.fecha) return { activo: false, quincena: null };
-  const info = clasificarFecha(evento.fecha, diasCobro);
-  return { activo: info.year === year && info.month === mes, quincena: info.quincena };
+  if (!evento || !evento.fecha || typeof evento.fecha !== "string") return { activo: false, quincena: null };
+  try {
+    const info = clasificarFecha(evento.fecha, diasCobro);
+    if (!info) return { activo: false, quincena: null };
+    return { activo: info.year === year && info.month === mes, quincena: info.quincena };
+  } catch {
+    return { activo: false, quincena: null };
+  }
 }
 
 // Igual que celdaEvento, pero para una orden de compra usando su fecha planeada
@@ -119,25 +124,25 @@ function totalItemsOrden(orden) {
 }
 
 export default function PresupuestoAnual({
-  presupuesto,
-  categoriasPersonalizadas,
-  year,
-  prestamos,
-  metasAhorro,
-  fuentesIngreso,
-  cuentas,
-  movimientos,
-  eventos,
-  ordenesCompra,
-  vacaciones,
-  diezmoConfig,
-  tarjetas,
-  ahorroConfig,
+  presupuesto = {},
+  categoriasPersonalizadas = [],
+  year = new Date().getFullYear(),
+  prestamos = [],
+  metasAhorro = [],
+  fuentesIngreso = [],
+  cuentas = [],
+  movimientos = [],
+  eventos = [],
+  ordenesCompra = [],
+  vacaciones = [],
+  diezmoConfig = {},
+  tarjetas = [],
+  ahorroConfig = {},
   onChangeYear,
-  renovaciones,
-  flujo,
-  diasCobro,
-  puntosHistorial,
+  renovaciones = [],
+  flujo = {},
+  diasCobro = [15, 30],
+  puntosHistorial = [],
   entidades = [],
   contratos = [],
   abrirModalMetodologia = false,
@@ -242,7 +247,7 @@ export default function PresupuestoAnual({
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
 
   const categorias = useMemo(() => {
-    const list = categoriasPersonalizadas.map((c) => ({
+    const list = (categoriasPersonalizadas || []).map((c) => ({
       nombre: c.nombre,
       clasificacion: c.clasificacion,
       agruparConCompromisos: !!c.agruparConCompromisos,

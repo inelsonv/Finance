@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   PieChart,
   Sliders,
@@ -80,6 +80,18 @@ export default function MetodologiaPresupuestoModal({
   const [guardando, setGuardando] = useState(false);
   const [aplicando, setAplicando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState(null);
+
+  useEffect(() => {
+    if (configActual?.metodologia) setMetodologiaId(configActual.metodologia);
+    if (configActual?.pilares) setPilares(configActual.pilares);
+    if (configActual?.customPct) setCustomPct(configActual.customPct);
+  }, [configActual]);
+
+  useEffect(() => {
+    if (isOpen && mesSeleccionado) {
+      setMesParaAnalisis(mesSeleccionado);
+    }
+  }, [isOpen, mesSeleccionado]);
 
   // Totales de compromisos para el mes
   const fijosMes = useMemo(() => {
@@ -253,9 +265,10 @@ export default function MetodologiaPresupuestoModal({
   };
 
   const categoriasFiltradas = useMemo(() => {
-    if (!filtroCategoria.trim()) return categorias;
+    const list = categorias || [];
+    if (!filtroCategoria.trim()) return list;
     const f = filtroCategoria.toLowerCase();
-    return categorias.filter((c) => (c.nombre || "").toLowerCase().includes(f));
+    return list.filter((c) => (c?.nombre || "").toLowerCase().includes(f));
   }, [categorias, filtroCategoria]);
 
   if (!isOpen) return null;

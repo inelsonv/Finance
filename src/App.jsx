@@ -61,6 +61,7 @@ import LectorEpub from "./components/LectorEpub.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import NotificacionesPage from "./components/NotificacionesPage.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 const THEME_KEY = "smart-finance-theme";
 const SIDEBAR_KEY = "smart-finance-sidebar-collapsed";
@@ -901,6 +902,7 @@ export default function App() {
           </div>
         </div>
 
+        <ErrorBoundary key={tab} onGoHome={() => setTab("inicio")}>
         {tab === "inicio" && (
           <Inicio
             prestamos={prestamos}
@@ -1156,6 +1158,7 @@ export default function App() {
           <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} categoriasGasto={categoriasGasto} asistenteFlotanteActivo={asistenteFlotanteActivo} onToggleAsistenteFlotante={cambiarAsistenteFlotante} />
         )}
         {tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
+        </ErrorBoundary>
       </main>
       {asistenteFlotanteActivo && tab !== "asistente" && (
         <div className="despensa-asistente-flotante">
