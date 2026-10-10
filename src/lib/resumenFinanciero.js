@@ -28,6 +28,8 @@ export function construirResumenFinanciero({
   seguros = [],
   ingresosPuntuales = [],
   eventos = [],
+  ordenesCompra = [],
+  products = [],
 }) {
   const hoy = new Date();
   const mesActual = hoy.getMonth() + 1;
@@ -106,13 +108,53 @@ export function construirResumenFinanciero({
     }
   }
 
-  const deudas = (prestamos || [])
-    .filter((p) => p.estado !== "Pagado")
-    .map((p) => ({
-      entidad: p.entidadName || p.numero || "Préstamo",
-      saldoPendiente: formatMoney(p.saldoActual ?? p.montoAprobado),
-      cuotaMensual: formatMoney(p.cuotaMensual),
-    }));
+  // Pagos realizados por préstamo para saldo pendiente real y amortización
+  const pagadoPorPrestamo = {};
+  for (const m of movimientos || []) {
+    if (m.category === "Pago de préstamo") {
+      const am = Number(m.amount) || 0;
+      if (m.prestamoId) {
+        pagadoPorPrestamo[m.prestamoId] = (pagadoPorPrestamo[m.prestamoId] || 0) + am;
+      }
+      if (m.prestamoNumero) {
+        const numNorm = String(m.prestamoNumero).trim().toUpperCase();
+        pagadoPorPrestamo[numNorm] = (pagadoPorPrestamo[numNorm] || 0) + am;
+      }
+    }
+  }
+
+  // Lista de TODOS los préstamos con balances exactos calculados
+  const todosLosPrestamos = (prestamos || []).map((p) => {
+    const numNorm = String(p.numero || "").trim().toUpperCase();
+    const pagado = (pagadoPorPrestamo[p.id] || 0) + (numNorm ? (pagadoPorPrestamo[numNorm] || 0) : 0);
+    const montoAprobado = Number(p.montoAprobado) || 0;
+    const saldoPendienteReal = p.esRevolvente
+      ? (Number(p.saldoActual) || 0)
+      : Math.max(montoAprobado - pagado, 0);
+    const estaSaldado = p.estado === "Pagado" || (!p.esRevolvente && montoAprobado > 0 && saldoPendienteReal <= 0);
+
+    return {
+      id: p.id,
+      numero: p.numero || "",
+      codigo: p.numero || "",
+      entidad: p.entidadName || "Préstamo",
+      tipo: p.tipo || "Personal",
+      montoAprobado: formatMoney(montoAprobado),
+      montoAprobadoNumero: montoAprobado,
+      totalPagado: formatMoney(pagado),
+      totalPagadoNumero: pagado,
+      saldoPendiente: formatMoney(saldoPendienteReal),
+      saldoPendienteNumero: saldoPendienteReal,
+      cuotaMensual: formatMoney(p.cuota ?? p.cuotaMensual),
+      cuotaMensualNumero: Number(p.cuota ?? p.cuotaMensual) || 0,
+      tasaInteres: p.tasaInteres ? `${p.tasaInteres}%` : null,
+      estado: estaSaldado ? "Pagado" : (p.estado || "Activo"),
+      esRevolvente: !!p.esRevolvente,
+    };
+  });
+
+  const deudas = todosLosPrestamos.filter((p) => p.estado !== "Pagado" && p.saldoPendienteNumero > 0);
+  const prestamosSaldados = todosLosPrestamos.filter((p) => p.estado === "Pagado" || p.saldoPendienteNumero === 0);
 
   // Pagos recientes de deuda para que el agente reconozca amortizaciones y puntos
   const ultimosPagosDeuda = (movimientos || [])
@@ -138,12 +180,14 @@ export function construirResumenFinanciero({
     }));
 
   const todasDeudasActivas = [
-    ...(prestamos || []).filter((p) => p.estado !== "Pagado").map((p) => ({
+    ...deudas.map((p) => ({
       tipo: "Préstamo",
-      nombre: p.entidadName || p.numero || "Préstamo",
-      saldo: Number(p.saldoActual ?? p.montoAprobado) || 0,
-      tasaInteres: Number(p.tasaInteres) || 0,
-      cuota: Number(p.cuotaMensual) || 0,
+      id: p.id,
+      numero: p.numero || "",
+      nombre: p.numero ? `${p.numero} - ${p.entidad}` : p.entidad,
+      saldo: p.saldoPendienteNumero,
+      tasaInteres: Number(parseFloat(p.tasaInteres) || 0),
+      cuota: p.cuotaMensualNumero,
     })),
     ...(tarjetas || []).filter((t) => t.estado === "Activa" && Number(t.saldoActual) > 0).map((t) => ({
       tipo: "Tarjeta de crédito",
@@ -259,6 +303,31 @@ export function construirResumenFinanciero({
     presupuestoMensualPorCategoria: presupuestoDelMes,
     ingresoFijoMensualConfigurado: formatMoney(ingresoFijoMensual),
     deudasPrestamos: deudas,
+    prestamosActivos: deudas,
+    todosLosPrestamos,
+    prestamosSaldados,
+    ordenDeCompraAbierta: (() => {
+      const b = (ordenesCompra || []).find((o) => o.estado === "Borrador");
+      if (!b) return null;
+      return {
+        id: b.id,
+        folio: b.folio || "Borrador",
+        proveedor: b.proveedorNombre || "Sin proveedor",
+        cantidadItems: (b.items || []).length,
+        items: (b.items || []).map((it) => ({
+          nombre: it.productName,
+          cantidad: it.cantidad,
+          precioUnitario: it.precioUnitario,
+        })),
+        totalAproximado: formatMoney(
+          (b.items || []).reduce(
+            (acc, it) => acc + (Number(it.cantidad) || 0) * (Number(it.precioUnitario) || 0),
+            0
+          )
+        ),
+      };
+    })(),
+    totalProductosEnCatalogo: (products || []).length,
     tarjetasCredito: tarjetasResumen,
     cuentasBancarias: cuentasResumen,
     puntosAcumulados: typeof puntos === "number" ? puntos : puntos?.total || 0,

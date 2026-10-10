@@ -759,6 +759,7 @@ export default function App() {
     ultimoPagoDeuda: notificacionAgentePago,
     products,
     ordenesCompra,
+    entidades,
   };
 
   return (

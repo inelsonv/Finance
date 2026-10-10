@@ -160,6 +160,10 @@ export async function preguntarAsistente(pregunta, resumen, historial, opciones 
         historial,
         categorias: opciones.categorias || [],
         tarjetas: opciones.tarjetas || [],
+        prestamos: opciones.prestamos || [],
+        cuentas: opciones.cuentas || [],
+        ordenesCompra: opciones.ordenesCompra || [],
+        products: opciones.products || [],
       }),
     });
     if (resServer.ok) {

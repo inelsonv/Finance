@@ -526,10 +526,26 @@ app.post('/api/tts', async (req, res) => {
   }
 });
 
-// Endpoint del Asistente IA Financiero con detección y registro de gastos (ej. Combustible/Gasolina)
+// Endpoint del Asistente IA Financiero con soporte integral multi-módulo:
+// - Pagos de préstamos (ej: "PT09 paga el total de este prestamo")
+// - Consultas de saldo de deudas (ej: "¿cuánto me falta para saldar PT09?")
+// - Órdenes de compra abiertas (ej: "agrega leche a la orden de compra abierta")
+// - Pagos de tarjetas de crédito
+// - Movimientos de cualquier tipo: servicios, alimentación, combustible, ingresos, etc.
 app.post('/api/asistente/preguntar', async (req, res) => {
   try {
-    const { pregunta, resumen, historial = [], categorias = [], tarjetas = [] } = req.body;
+    const {
+      pregunta,
+      resumen,
+      historial = [],
+      categorias = [],
+      tarjetas = [],
+      prestamos = [],
+      cuentas = [],
+      ordenesCompra = [],
+      products = [],
+    } = req.body;
+
     if (!pregunta || typeof pregunta !== 'string') {
       return res.status(400).json({ error: 'Falta la pregunta o mensaje para el asistente' });
     }
@@ -540,56 +556,125 @@ app.post('/api/asistente/preguntar', async (req, res) => {
       : [
           'Combustible',
           'Alimentación',
+          'Servicios',
           'Transporte',
           'Estacionamiento',
           'Salud',
           'Entretenimiento',
           'Compras',
           'Vivienda',
-          'Servicios',
           'Seguro de vehículo',
+          'Pago de préstamo',
+          'Pago de servicio',
           'Otro variable',
           'Otro fijo',
         ];
 
     const resumenTexto = resumen ? JSON.stringify(resumen) : 'Sin resumen financiero proporcionado';
+
+    const prestamosLista = Array.isArray(prestamos) && prestamos.length > 0
+      ? prestamos
+      : (resumen?.todosLosPrestamos || resumen?.deudasPrestamos || []);
+
+    const prestamosInfo = prestamosLista.length > 0
+      ? prestamosLista.map((p: any) => {
+          const num = p.numero || p.codigo || '';
+          const entidad = p.entidadName || p.entidad || 'Préstamo';
+          const saldo = p.saldoPendienteNumero ?? p.saldoPendiente ?? p.saldoActual ?? p.montoAprobado;
+          const aprobado = p.montoAprobadoNumero ?? p.montoAprobado;
+          const pagado = p.totalPagadoNumero ?? p.totalPagado ?? 0;
+          const cuota = p.cuotaMensualNumero ?? p.cuota ?? p.cuotaMensual ?? 0;
+          const estado = p.estado || 'Activo';
+          return `- Préstamo: Código "${num}", ID: "${p.id}", Entidad: "${entidad}", Estado: "${estado}", Saldo Pendiente: RD$ ${saldo}, Total Pagado: RD$ ${pagado}, Aprobado: RD$ ${aprobado}, Cuota Mensual: RD$ ${cuota}, Tasa: ${p.tasaInteres || 'N/A'}`;
+        }).join('\n')
+      : 'No hay préstamos registrados';
+
     const tarjetasInfo = Array.isArray(tarjetas) && tarjetas.length > 0
-      ? tarjetas.map((t: any) => `- ID: "${t.id}", Nombre: "${t.nombre}", Banco: "${t.banco || ''}", Moneda: "${t.moneda || 'RD$'}"`).join('\n')
+      ? tarjetas.map((t: any) => `- Tarjeta ID: "${t.id}", Nombre: "${t.nombre}", Banco: "${t.banco || ''}", Moneda: "${t.moneda || 'RD$'}"`).join('\n')
       : 'No hay tarjetas de crédito registradas';
 
-    const systemInstruction = `Eres el asistente financiero personal de Smart Finance para una persona en República Dominicana.
+    const ordenesLista = Array.isArray(ordenesCompra) && ordenesCompra.length > 0
+      ? ordenesCompra
+      : (resumen?.ordenDeCompraAbierta ? [resumen.ordenDeCompraAbierta] : []);
+
+    const ordenBorrador = ordenesLista.find((o: any) => o.estado === 'Borrador' || o.folio);
+    const ordenCompraInfo = ordenBorrador
+      ? `Orden Abierta (Borrador): Folio "${ordenBorrador.folio || 'Borrador'}", ID "${ordenBorrador.id || ''}", Proveedor "${ordenBorrador.proveedorNombre || ordenBorrador.proveedor || 'Sin proveedor'}", Items actuales: ${JSON.stringify((ordenBorrador.items || []).map((i: any) => ({ producto: i.productName || i.nombre, cantidad: i.cantidad, precio: i.precioUnitario })))}`
+      : 'No hay ninguna orden de compra abierta en borrador actualmente';
+
+    const productosInfo = Array.isArray(products) && products.length > 0
+      ? products.slice(0, 40).map((p: any) => `- ID: "${p.id}", Nombre: "${p.name}", Precio: RD$ ${p.price || 0}, Cat: "${p.category || ''}"`).join('\n')
+      : 'Catálogo de productos vacío o no enviado';
+
+    const systemInstruction = `Eres el asistente financiero personal e inteligente de Smart Finance para una persona en República Dominicana.
 Fecha de hoy: ${todayStr}.
 Moneda: RD$ (pesos dominicanos).
 
-FUNCIONES PRINCIPALES:
-1. DETECCIÓN Y REGISTRO DE GASTOS DIRECTAMENTE DESDE EL CHAT:
-   Si el usuario pide registrar, anotar o reportar un gasto (por ejemplo: "registra 2000 en gasolina", "gasté 1,500 pesos en combustible con tarjeta", "anota 300 pesos de café", "pon un gasto de 450 en almuerzo", "pagué 2500 de gasolina shell con Banreservas", "gasolina 1200", etc.):
-   - 'intencionGasto' debe ser true.
-   - Extrae el 'monto' numérico exacto en pesos (ej: 2000). Si no especificó monto, pon null.
-   - Selecciona la mejor 'categoria' de esta lista: ${JSON.stringify(listaCategorias)}.
-     * Gasolina, combustible, diesel, gas, gasoil -> SIEMPRE categoría "Combustible".
-     * Comida, restaurante, café, desayuno, almuerzo, cena, colmado -> "Alimentación".
-     * Uber, taxi, pasaje, peaje, concho -> "Transporte".
-     * Parqueo, estacionamiento -> "Estacionamiento" o "Transporte".
-     * Farmacia, medicina, doctor, clínica -> "Salud".
-     * Supermercado -> "Alimentación" o "Compras".
-   - 'clasificacion': "Fijo" o "Variable" ("Combustible" es "Variable").
-   - 'metodoPago': "Efectivo", "Tarjeta de crédito", "Transferencia", "Débito", o "Otro".
-     * Si menciona "tarjeta", "crédito" o el nombre de una tarjeta -> "Tarjeta de crédito".
-     * Por defecto si no dice método -> "Efectivo".
-   - Si es con tarjeta, intenta asociar con estas tarjetas del usuario si coincide:
-${tarjetasInfo}
-   - 'fecha': en formato YYYY-MM-DD (por defecto ${todayStr}; si dice "ayer", calcula el día anterior).
-   - 'descripcion': concepto claro (ej: "Gasolina", "Combustible Puma", "Almuerzo").
-   - 'autoRegistrar': true si dio una orden directa de registrar/anotar ("registra", "anota", "apunta", "gasté", "pagué").
-   - En tu 'respuesta', confirma de manera amable y breve (1-2 oraciones) indicando el monto en RD$, la categoría y el método, invitándole a confirmar con un toque.
+ACCESO A TODOS LOS MÓDULOS DEL SISTEMA:
+Tienes acceso completo a:
+1. Préstamos y Deudas (Códigos PT01, PT02, ..., PT09, balances, cuotas y entidades).
+2. Órdenes de Compra y Catálogo de Productos.
+3. Movimientos (Gastos de todo tipo como combustible, alimentación, servicios [luz, agua, internet], salud, compras, pagos de préstamos, pagos de tarjeta, ingresos y transferencias).
+4. Cuentas bancarias y tarjetas.
+5. Presupuesto quincenal/mensual y Puntos hacia la libertad financiera (🚀).
 
-2. CONSULTAS Y ANÁLISIS FINANCIERO:
-   Si el usuario hace preguntas sobre sus finanzas, deudas, presupuesto, quincena, ahorro o puntos (🚀):
-   - 'intencionGasto' es false y 'gasto' es null.
-   - Responde con precisión basándote en los datos del resumen financiero:
+DATOS REALES DEL USUARIO:
+PRÉSTAMOS / DEUDAS DISPONIBLES:
+${prestamosInfo}
+
+ÓRDEN DE COMPRA ABIERTA:
+${ordenCompraInfo}
+
+PRODUCTOS DEL CATÁLOGO (muestra):
+${productosInfo}
+
+TARJETAS DE CRÉDITO:
+${tarjetasInfo}
+
+RESUMEN FINANCIERO COMPACTO:
 ${resumenTexto}
-   - Sé conciso (2-4 oraciones), cercano y motivador en español de RD con formato Markdown.`;
+
+REGLAS DE DETECCIÓN Y ACCIONES:
+
+1. ACCIÓN "pago_prestamo":
+   - Si el usuario indica pagar, saldar o abonar a un préstamo (ej: "PT09 paga el total de este prestamo", "Paga la cuota de PT01", "Abona 5,000 a PT03", "Salda la deuda de Banreservas"):
+   - 'tipoAccion': "pago_prestamo".
+   - Encuentra el préstamo que coincide por su código (ej: PT09, PT01) o entidad.
+   - Si dice "el total" o "salda" o "liquidar", 'monto' debe ser exactamente su Saldo Pendiente numérico. 'esTotal' = true.
+   - Si dice "la cuota" o no especifica monto y no dijo total, 'monto' debe ser la Cuota Mensual.
+   - Si especificó un monto numérico (ej: "5000", "2000 pesos"), usa ese monto numérico.
+   - 'autoRegistrar': true si dio una orden directa ("paga", "registra el pago", "abona", "pagué").
+   - En tu 'respuesta', felicítalo con entusiasmo por amortizar/saldar su préstamo, menciona el código del préstamo (ej: PT09), el monto pagado en RD$, y destaca los puntos 🚀 ganados hacia su libertad financiera.
+
+2. ACCIÓN "consulta_prestamo":
+   - Si el usuario pregunta cuánto le falta para saldar un préstamo o deuda (ej: "¿cuánto me falta para saldar PT09?", "¿cuánto debo de PT09?", "¿cuánto me falta para saldar mis deudas?"):
+   - 'tipoAccion': "consulta_prestamo".
+   - Extrae el saldo pendiente exacto, total pagado, monto aprobado y cuota del préstamo mencionado.
+   - En tu 'respuesta', responde con precisión cristalina indicando:
+     * El préstamo y su entidad.
+     * Cuánto le falta exactamente para saldarlo (Saldo Pendiente en RD$).
+     * Cuánto ha pagado ya y el avance porcentual.
+     * Su cuota mensual. Si el préstamo ya está completamente saldado, indícaselo con alegría.
+
+3. ACCIÓN "agregar_orden_compra":
+   - Si el usuario pide agregar un producto a la orden de compra abierta o borrador (ej: "agrega leche a la orden de compra abierta", "añade 2 panes a la orden", "agrega café a la orden"):
+   - 'tipoAccion': "agregar_orden_compra".
+   - Extrae 'productoNombre', 'cantidad' (por defecto 1 si no se especifica), y busca si coincide con un producto del catálogo para poner 'productId' y 'precioUnitario'.
+   - 'autoRegistrar': true.
+   - En tu 'respuesta', confirma de forma clara y amable que el producto ha sido añadido a la orden de compra abierta.
+
+4. ACCIÓN "registrar_gasto":
+   - Si pide registrar un gasto común (combustible/gasolina, comida/almuerzo/café, pago de servicio de luz/agua/internet, medicina, etc.):
+   - 'tipoAccion': "registrar_gasto", 'intencionGasto': true.
+   - Extrae 'monto', 'categoria' (Gasolina -> "Combustible", Comida -> "Alimentación", Luz/Agua/Internet -> "Servicios", etc.), 'clasificacion' ("Fijo" o "Variable"), 'metodoPago' ("Efectivo", "Tarjeta de crédito", "Transferencia", etc.), 'tarjetaId', 'fecha', 'descripcion'.
+   - 'autoRegistrar': true si dio orden directa.
+   - En tu 'respuesta', confirma brevemente los datos del gasto.
+
+5. ACCIÓN "pago_tarjeta" o "registrar_ingreso":
+   - Extrae los datos correspondientes ('monto', 'tarjetaNombre', 'categoria', etc.).
+
+6. ACCIÓN "ninguna":
+   - Para consultas generales, análisis de presupuestos o consejos. Responde con calidez y precisión basándote en los datos.`;
 
     const contents: any[] = [];
     if (Array.isArray(historial) && historial.length > 0) {
@@ -607,7 +692,7 @@ ${resumenTexto}
       parts: [{ text: pregunta }],
     });
 
-    const modelCandidates = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+    const modelCandidates = ['gemini-3.8-flash', 'gemini-flash-latest'];
     let response: any = null;
     let lastErr: any = null;
 
@@ -626,28 +711,58 @@ ${resumenTexto}
                   type: Type.STRING,
                   description: 'Respuesta conversacional al usuario en formato Markdown.',
                 },
+                tipoAccion: {
+                  type: Type.STRING,
+                  description: 'pago_prestamo | consulta_prestamo | agregar_orden_compra | registrar_gasto | pago_tarjeta | registrar_ingreso | ninguna',
+                },
+                accion: {
+                  type: Type.OBJECT,
+                  nullable: true,
+                  description: 'Detalles estructurados de la acción requerida.',
+                  properties: {
+                    tipoAccion: { type: Type.STRING },
+                    prestamoId: { type: Type.STRING, nullable: true },
+                    prestamoNumero: { type: Type.STRING, nullable: true },
+                    entidadName: { type: Type.STRING, nullable: true },
+                    monto: { type: Type.NUMBER, nullable: true },
+                    saldoPendiente: { type: Type.NUMBER, nullable: true },
+                    esTotal: { type: Type.BOOLEAN, nullable: true },
+                    categoria: { type: Type.STRING, nullable: true },
+                    clasificacion: { type: Type.STRING, nullable: true },
+                    metodoPago: { type: Type.STRING, nullable: true },
+                    tarjetaId: { type: Type.STRING, nullable: true },
+                    tarjetaNombre: { type: Type.STRING, nullable: true },
+                    fecha: { type: Type.STRING, nullable: true },
+                    descripcion: { type: Type.STRING, nullable: true },
+                    productoNombre: { type: Type.STRING, nullable: true },
+                    productId: { type: Type.STRING, nullable: true },
+                    cantidad: { type: Type.NUMBER, nullable: true },
+                    precioUnitario: { type: Type.NUMBER, nullable: true },
+                    autoRegistrar: { type: Type.BOOLEAN, nullable: true },
+                  },
+                },
                 intencionGasto: {
                   type: Type.BOOLEAN,
-                  description: 'true si el usuario busca registrar o reportar un gasto.',
+                  description: 'true si es un gasto común a registrar.',
                 },
                 gasto: {
                   type: Type.OBJECT,
                   nullable: true,
-                  description: 'Datos extraídos del gasto si intencionGasto es true.',
+                  description: 'Datos del gasto si es un gasto simple.',
                   properties: {
-                    monto: { type: Type.NUMBER, description: 'Monto numérico en RD$' },
-                    categoria: { type: Type.STRING, description: 'Nombre de la categoría' },
-                    clasificacion: { type: Type.STRING, description: 'Variable o Fijo' },
-                    metodoPago: { type: Type.STRING, description: 'Efectivo, Tarjeta de crédito, Transferencia, Débito, u Otro' },
+                    monto: { type: Type.NUMBER },
+                    categoria: { type: Type.STRING },
+                    clasificacion: { type: Type.STRING },
+                    metodoPago: { type: Type.STRING },
                     tarjetaId: { type: Type.STRING, nullable: true },
                     tarjetaNombre: { type: Type.STRING, nullable: true },
-                    fecha: { type: Type.STRING, description: 'YYYY-MM-DD' },
-                    descripcion: { type: Type.STRING, description: 'Detalle o concepto' },
-                    autoRegistrar: { type: Type.BOOLEAN, description: 'true si pidió registrar directamente' },
+                    fecha: { type: Type.STRING },
+                    descripcion: { type: Type.STRING },
+                    autoRegistrar: { type: Type.BOOLEAN },
                   },
                 },
               },
-              required: ['respuesta', 'intencionGasto'],
+              required: ['respuesta', 'tipoAccion'],
             },
           },
         });
