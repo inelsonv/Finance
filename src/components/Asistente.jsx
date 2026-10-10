@@ -2164,52 +2164,6 @@ export default function Asistente({
         />
         <button
           type="button"
-          onClick={() => {
-            setInput("PT09 paga el total de este prestamo");
-          }}
-          disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
-          title="Atajo: Pagar préstamo total o cuota"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            border: "1px solid var(--line)",
-            background: "rgba(16, 185, 129, 0.08)",
-            color: "#059669",
-            cursor: procesandoFactura || enviando ? "not-allowed" : "pointer",
-            flexShrink: 0,
-          }}
-        >
-          <Landmark size={17} />
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setInput("Registra 2,000 en gasolina");
-          }}
-          disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
-          title="Atajo: Registrar gasolina / combustible"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            border: "1px solid var(--line)",
-            background: "rgba(217, 119, 6, 0.08)",
-            color: "#d97706",
-            cursor: procesandoFactura || enviando ? "not-allowed" : "pointer",
-            flexShrink: 0,
-          }}
-        >
-          <Fuel size={17} />
-        </button>
-        <button
-          type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
           title="Subir o tomar foto de factura de supermercado"
@@ -2217,8 +2171,8 @@ export default function Asistente({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: 38,
-            height: 38,
+            width: 40,
+            height: 40,
             borderRadius: 10,
             border: "1px solid var(--line)",
             background: "var(--card)",
@@ -2227,14 +2181,14 @@ export default function Asistente({
             flexShrink: 0,
           }}
         >
-          <Camera size={17} />
+          <Camera size={18} />
         </button>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && enviarPregunta()}
           onPaste={handlePaste}
-          placeholder={procesandoFactura ? "Escaneando factura con IA…" : "Escribe (ej: 'PT09 paga el total', 'agrega leche a la orden', 'gasolina 2000'…)"}
+          placeholder={procesandoFactura ? "Escaneando factura con IA…" : "Escribe tu consulta o movimiento (ej: 'PT09 paga el total', 'agrega leche a la orden'…)"}
           maxLength={2000}
           disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
           style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 13.5 }}

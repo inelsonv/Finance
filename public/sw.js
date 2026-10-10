@@ -1,4 +1,4 @@
-const CACHE_NAME = "smart-finance-v6";
+const CACHE_NAME = "smart-finance-v7";
 const APP_SHELL = ["./", "./index.html", "./icon.svg", "./manifest.json"];
 
 self.addEventListener("install", (event) => {
