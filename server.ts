@@ -526,6 +526,63 @@ app.post('/api/tts', async (req, res) => {
   }
 });
 
+// Endpoint seguro para despachar correos por Gmail API usando el token de acceso del usuario
+app.post('/api/gmail/enviar-reporte', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: 'Falta token de autorización Bearer de Gmail' });
+    }
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+    const { to, subject, htmlBody } = req.body;
+    if (!to || !subject || !htmlBody) {
+      return res.status(400).json({ error: 'Faltan campos requeridos (to, subject, htmlBody)' });
+    }
+
+    const utf8Subject = `=?utf-8?B?${Buffer.from(subject, 'utf-8').toString('base64')}?=`;
+    const emailLines = [
+      `To: ${to}`,
+      `Subject: ${utf8Subject}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `Content-Transfer-Encoding: 8bit`,
+      ``,
+      htmlBody,
+    ];
+    const rawEmail = emailLines.join('\r\n');
+    const base64Url = Buffer.from(rawEmail, 'utf-8')
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const gmailRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ raw: base64Url }),
+    });
+
+    if (!gmailRes.ok) {
+      const errData = (await gmailRes.json().catch(() => ({}))) as any;
+      console.error('Error devuelto por Gmail API:', gmailRes.status, JSON.stringify(errData));
+      const msg =
+        errData?.error?.message ||
+        (typeof errData?.error === 'string' ? errData.error : '') ||
+        `Error Gmail API HTTP ${gmailRes.status}`;
+      return res.status(gmailRes.status).json({ error: msg, details: errData });
+    }
+
+    const data = await gmailRes.json();
+    res.json(data);
+  } catch (error: any) {
+    console.error('Error en /api/gmail/enviar-reporte:', error);
+    res.status(500).json({ error: error.message || 'Error al enviar correo vía Gmail' });
+  }
+});
+
 // Endpoint del Asistente IA Financiero con soporte integral multi-módulo:
 // - Pagos de préstamos (ej: "PT09 paga el total de este prestamo")
 // - Consultas de saldo de deudas (ej: "¿cuánto me falta para saldar PT09?")

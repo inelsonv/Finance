@@ -3023,3 +3023,34 @@ export async function updateVacacion(id, fields) {
 export async function deleteVacacion(id) {
   await deleteDoc(doc(db, "vacaciones", id));
 }
+
+// Configuración e historial de reportes de pagos de quincena enviados por correo
+export function watchReportesQuincenaConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "reportesQuincenaEmail"),
+    (snap) => onChange(snap.exists() ? snap.data() : {
+      email: "iventuramena@gmail.com",
+      activoDiasCobro: true,
+      ultimoEnvio: null,
+    }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveReportesQuincenaConfig(data) {
+  await setDoc(doc(db, "config", "reportesQuincenaEmail"), data, { merge: true });
+}
+
+export async function registrarEnvioReporteEmail(registro) {
+  await setDoc(
+    doc(db, "config", "reportesQuincenaEmail"),
+    {
+      ultimoEnvio: {
+        ...registro,
+        timestamp: Date.now(),
+      },
+    },
+    { merge: true }
+  );
+}
+

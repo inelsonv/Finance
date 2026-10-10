@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { signInWithPopup, signInWithRedirect, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, signInWithEmailAndPassword, signOut, GoogleAuthProvider } from "firebase/auth";
 import { LogIn, LogOut, ShieldAlert, Wallet, Copy, Check, ExternalLink, AlertTriangle, KeyRound } from "lucide-react";
-import { auth, googleProvider, ALLOWED_EMAIL } from "../firebase";
+import { auth, googleProvider, ALLOWED_EMAIL, setCachedAccessToken } from "../firebase";
 
 export function LoginScreen() {
   const [error, setError] = useState(null);
@@ -39,7 +39,11 @@ export function LoginScreen() {
     setError(null);
     setErrorCode(null);
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setCachedAccessToken(credential.accessToken);
+      }
     } catch (err) {
       setErrorCode(err.code);
       const fallbackCodes = ["auth/popup-blocked", "auth/operation-not-supported-in-this-environment"];

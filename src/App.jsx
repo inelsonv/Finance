@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { onAuthStateChanged, signOut, getRedirectResult } from "firebase/auth";
-import { auth, ALLOWED_EMAIL } from "./firebase";
+import { onAuthStateChanged, signOut, getRedirectResult, GoogleAuthProvider } from "firebase/auth";
+import { auth, ALLOWED_EMAIL, setCachedAccessToken, clearCachedAccessToken } from "./firebase";
 import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
@@ -372,14 +372,24 @@ export default function App() {
   const toggleSidebar = () => setSidebarCollapsed((c) => !c);
 
   useEffect(() => {
-    getRedirectResult(auth).catch((err) => {
-      try {
-        sessionStorage.setItem("smart-finance-auth-error", err.message || String(err));
-      } catch (e) {
-        // sessionStorage no disponible, el error simplemente no se muestra
-      }
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          const cred = GoogleAuthProvider.credentialFromResult(result);
+          if (cred?.accessToken) setCachedAccessToken(cred.accessToken);
+        }
+      })
+      .catch((err) => {
+        try {
+          sessionStorage.setItem("smart-finance-auth-error", err.message || String(err));
+        } catch (e) {
+          // sessionStorage no disponible, el error simplemente no se muestra
+        }
+      });
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setAuthUser(user);
+      if (!user) clearCachedAccessToken();
     });
-    const unsub = onAuthStateChanged(auth, (user) => setAuthUser(user));
     return () => unsub();
   }, []);
 

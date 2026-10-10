@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send } from "lucide-react";
+import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
+import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda } from "../lib/db";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
@@ -120,257 +122,23 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   }, []);
 
   const items = useMemo(() => {
-    const list = [];
-
-    // Si hay una estrategia de deudas activa, calcula cuál es la deuda
-    // prioritaria según ese plan, para resaltarla en la lista de abajo y
-    // guiar activamente hacia cumplir ese objetivo.
-    let idPrioridadDeuda = null;
-    if (estrategiaDeudas?.activo) {
-      const pagadoPorPrestamoLocal = {};
-      for (const m of movimientos || []) {
-        if (m.category !== "Pago de préstamo" || !m.prestamoId) continue;
-        pagadoPorPrestamoLocal[m.prestamoId] = (pagadoPorPrestamoLocal[m.prestamoId] || 0) + (Number(m.amount) || 0);
-      }
-      const candidatas = [];
-      for (const p of prestamos || []) {
-        if (p.estado !== "Activo") continue;
-        const saldo = Math.max((Number(p.montoAprobado) || 0) - (pagadoPorPrestamoLocal[p.id] || 0), 0);
-        if (saldo <= 0) continue;
-        candidatas.push({ id: `prestamo-${p.id}`, saldo, tasaInteres: p.tasaInteres ?? null });
-      }
-      for (const t of tarjetas || []) {
-        if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito") continue;
-        if (t.saldoActual != null && t.saldoActual > 0) {
-          candidatas.push({ id: `tarjeta-${t.id}`, saldo: t.saldoActual, tasaInteres: t.tasaInteres ?? null });
-        }
-        if (t.saldoActualUSD != null && t.saldoActualUSD > 0) {
-          const saldoEnRDS = tipoCambio ? t.saldoActualUSD * tipoCambio : t.saldoActualUSD;
-          candidatas.push({ id: `tarjeta-${t.id}`, saldo: saldoEnRDS, tasaInteres: t.tasaInteres ?? null });
-        }
-      }
-      const ordenadas =
-        estrategiaDeudas.metodo === "bola"
-          ? [...candidatas].sort((a, b) => a.saldo - b.saldo)
-          : [...candidatas].sort((a, b) => (b.tasaInteres ?? -1) - (a.tasaInteres ?? -1));
-      idPrioridadDeuda = ordenadas[0]?.id || null;
-    }
-
-    if (presupuestoDisponible) {
-      for (const c of categoriasGasto) {
-        const val = presupuesto?.[c.nombre]?.[String(periodo.month)]?.[periodo.quincena];
-        if (typeof val === "number" && val > 0) {
-          const esVariable = c.clasificacion === "Variable";
-          let gastadoReal = 0;
-          if (esVariable) {
-            const resultado = consumoPresupuesto({
-              presupuesto,
-              movimientos: movimientos || [],
-              categoria: c.nombre,
-              year: periodo.year,
-              month: periodo.month,
-              quincena: periodo.quincena,
-              diasCobro,
-            });
-            gastadoReal = resultado?.gastado || 0;
-          }
-          list.push({
-            key: c.nombre,
-            nombre: c.nombre,
-            monto: val,
-            icon: Wallet,
-            metodoDefault: c.metodoPagoDefault || null,
-            esPrestamo: false,
-            clasificacion: c.clasificacion || "Fijo",
-            esVariable,
-            gastadoReal,
-          });
-        }
-      }
-    }
-    for (const p of prestamos || []) {
-      if (p.estado !== "Activo" && p.estado !== "Pagado") continue;
-      const saldado = p.estado === "Pagado";
-      if (p.frecuenciaCuota === "Personalizado") {
-        const fechasOverride = {
-          ...(p.cuotasPersonalizadasOverrides || {}),
-          ...(overridesLocales[p.id]?.personalizadas || {}),
-        };
-        for (const c of p.cuotasPersonalizadas || []) {
-          if (!c.fecha || !c.monto) continue;
-          const overrideFecha = fechasOverride[c.fecha];
-          const fechaEfectiva = typeof overrideFecha === "string" ? overrideFecha : overrideFecha?.fecha || c.fecha;
-          const [cy, cm, cd] = fechaEfectiva.split("-").map(Number);
-          if (cy !== periodo.year || cm !== periodo.month) continue;
-          const q = cd && cd >= 15 ? "Q2" : "Q1";
-          if (q !== periodo.quincena) continue;
-          list.push({
-            key: `prestamo-${p.id}-${c.fecha}`,
-            nombre: overrideFecha
-              ? `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (movida desde ${c.fecha.split("-").reverse().slice(0, 2).join("/")})`
-              : `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (${c.fecha.split("-").reverse().slice(0, 2).join("/")})`,
-            monto: c.monto,
-            icon: Landmark,
-            metodoDefault: null,
-            esPrestamo: true,
-            esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
-            prestamoId: p.id,
-            prestamoNumero: p.numero,
-            fechaCuota: fechaEfectiva,
-            diaCuota: Number(fechaEfectiva.slice(-2)),
-            entidadId: p.entidadId || "",
-            entidadName: p.entidadName || "",
-            bloqueadoPagado: saldado,
-            origenKey: c.fecha,
-            tieneOverride: !!overrideFecha,
-            cuotaPersonalizada: true,
-          });
-        }
-        continue;
-      }
-
-      const overrides = {
-        ...(p.quincenaOverrides || {}),
-        ...(overridesLocales[p.id]?.mensuales || {}),
-      };
-      const origenKeyEsteMes = `${periodo.month}-${periodo.year}`;
-      const overrideEsteMesRaw = overrides[origenKeyEsteMes];
-      // Solo cuenta como "movida" si es un destino válido (objeto con
-      // year/month/quincena) — protege contra datos de un formato anterior.
-      const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
-
-      // 1) La cuota natural de ESTE mes, si no fue movida a otro lado.
-      const { activo, quincena } = celdaPrestamo(p, periodo.year, periodo.month);
-      if (activo && !overrideEsteMes && quincena === periodo.quincena && p.cuota) {
-        list.push({
-          key: `prestamo-${p.id}`,
-          nombre: `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""}`,
-          monto: p.cuota,
-          icon: Landmark,
-          metodoDefault: null,
-          esPrestamo: true,
-          esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
-          prestamoId: p.id,
-          prestamoNumero: p.numero,
-          fechaCuota: fechaCuotaEnMes(periodo.year, periodo.month, Number(p.fechaInicio.slice(-2))),
-          diaCuota: Number(p.fechaInicio.slice(-2)),
-          entidadId: p.entidadId || "",
-          entidadName: p.entidadName || "",
-          bloqueadoPagado: saldado,
-          origenKey: origenKeyEsteMes,
-          tieneOverride: false,
-        });
-      }
-
-      // 2) Cuotas de OTROS meses que fueron movidas para caer aquí.
-      for (const [origenKey, destino] of Object.entries(overrides)) {
-        if (!destino || typeof destino !== "object") continue;
-        if (destino.year !== periodo.year || destino.month !== periodo.month || destino.quincena !== periodo.quincena) continue;
-        const [origMes, origYear] = origenKey.split("-").map(Number);
-        list.push({
-          key: `prestamo-${p.id}-mov-${origenKey}`,
-          nombre: `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (movida de ${MES_NOMBRES[origMes - 1]})`,
-          monto: p.cuota,
-          icon: Landmark,
-          metodoDefault: null,
-          esPrestamo: true,
-          esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
-          prestamoId: p.id,
-          prestamoNumero: p.numero,
-          fechaCuota: destino.fecha || fechaCuotaEnMes(destino.year, destino.month, Number(p.fechaInicio?.slice(-2))),
-          diaCuota: Number(p.fechaInicio?.slice(-2)),
-          entidadId: p.entidadId || "",
-          entidadName: p.entidadName || "",
-          bloqueadoPagado: saldado,
-          origenKey,
-          tieneOverride: true,
-        });
-      }
-    }
-    for (const t of tarjetas || []) {
-      const saldo = Number(t.saldoActual) || 0;
-      const pagoMin = Number(t.pagoMinimo) || 0;
-      if (saldo <= 0 || pagoMin <= 0 || !t.fechaPago) continue;
-      const diasEnMes = new Date(periodo.year, periodo.month, 0).getDate();
-      const diaPago = Math.min(Number(t.fechaPago), diasEnMes);
-      const q = diaPago >= 15 ? "Q2" : "Q1";
-      if (q !== periodo.quincena) continue;
-      list.push({
-        key: `tarjeta-${t.id}-${periodo.year}-${periodo.month}`,
-        nombre: `Tarjeta ${t.nombre} — pago mínimo`,
-        monto: pagoMin,
-        icon: CreditCard,
-        metodoDefault: null,
-        esTarjeta: true,
-        esPrioridadDeuda: idPrioridadDeuda === `tarjeta-${t.id}`,
-        tarjetaId: t.id,
-        tarjetaNombre: t.nombre,
-      });
-    }
-    // "Pago rápido" activo: si esta deuda específica tiene esa aceleración
-    // activada, se le suma el excedente REAL disponible en ESTA quincena
-    // (no un monto fijo guardado al activarlo) — se recalcula igual que en
-    // Estrategia de deudas: ingreso neto quincenal menos todo lo
-    // presupuestado para esta quincena (gasolina, combustible, etc.) menos
-    // las cuotas mínimas de tarjeta, así nunca excede lo que realmente
-    // queda libre después de cubrir todo lo demás.
-    if (pagoRapido?.activo && fuentesIngreso && categoriasGasto && presupuesto) {
-      const ingresoQuincenal = ingresoMensualNeto(fuentesIngreso) / 2;
-      const resumenQuincena = calcularResumenQuincena({
-        year: periodo.year,
-        month: periodo.month,
-        quincena: periodo.quincena,
-        presupuesto,
-        categoriasGasto,
-        prestamos,
-        movimientos,
-        diasCobro,
-      });
-      let minimoTarjetasQuincena = 0;
-      for (const t of tarjetas || []) {
-        if (t.estado !== "Activa" || !t.fechaPago) continue;
-        const diasEnMesT = new Date(periodo.year, periodo.month, 0).getDate();
-        const diaPagoT = Math.min(Number(t.fechaPago), diasEnMesT);
-        const qT = diaPagoT >= 15 ? "Q2" : "Q1";
-        if (qT !== periodo.quincena) continue;
-        if (t.saldoActual > 0 && t.pagoMinimo) minimoTarjetasQuincena += Number(t.pagoMinimo) || 0;
-        if (t.saldoActualUSD > 0 && t.pagoMinimoUSD) minimoTarjetasQuincena += (Number(t.pagoMinimoUSD) || 0) * (tipoCambio || 1);
-      }
-      const extraQuincenal = Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
-      if (extraQuincenal > 0) {
-        for (const it of list) {
-          const idComparable = it.esPrestamo ? `p-${it.prestamoId}` : it.esTarjeta ? `t-${it.tarjetaId}` : null;
-          const idComparableUSD = it.esTarjeta ? `t-${it.tarjetaId}-usd` : null;
-          if (idComparable && (idComparable === pagoRapido.deudaId || idComparableUSD === pagoRapido.deudaId)) {
-            it.monto = (Number(it.monto) || 0) + extraQuincenal;
-            it.esPagoRapido = true;
-          }
-        }
-      }
-    }
-
-    // Monto editado manualmente (ej. "Almuerzo" que varía por descuento de
-    // nómina) — si el checklist tiene un montoOverride guardado para este
-    // ítem, ese valor manda sobre el calculado del presupuesto. Se guarda
-    // el monto ORIGINAL presupuestado aparte (montoPresupuestado), para
-    // poder detectar más adelante si se pagó de menos y arrastrar el resto
-    // a la próxima quincena.
-    for (const it of list) {
-      it.montoPresupuestado = it.monto;
-      const override = checklist?.items?.[it.key]?.montoOverride;
-      if (override != null) it.monto = Number(override) || 0;
-    }
-
-    // Prioriza los gastos fijos y el combustible antes de deudas y gastos
-    // variables, manteniendo el orden por monto dentro de cada grupo.
-    const esGastoPrioritario = (item) =>
-      item.clasificacion === "Fijo" || /^(combustible|gasolina)$/i.test(item.nombre?.trim() || "");
-    return list.sort((a, b) => {
-      const prioridadA = esGastoPrioritario(a) ? 0 : 1;
-      const prioridadB = esGastoPrioritario(b) ? 0 : 1;
-      return prioridadA - prioridadB || b.monto - a.monto;
+    return generarItemsPeriodo({
+      periodo,
+      categoriasGasto,
+      presupuesto,
+      prestamos,
+      tarjetas,
+      presupuestoYear,
+      movimientos,
+      estrategiaDeudas,
+      tipoCambio,
+      pagoRapido,
+      fuentesIngreso,
+      checklist,
+      overridesLocales,
+      diasCobro,
     });
-  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoDisponible, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso, checklist, overridesLocales]);
+  }, [categoriasGasto, presupuesto, prestamos, tarjetas, periodo, presupuestoYear, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso, checklist, overridesLocales]);
 
   const totales = useMemo(() => {
     let total = 0;
@@ -395,6 +163,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   }, [items, checklist]);
 
   const [confirmandoKey, setConfirmandoKey] = useState(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
   const [editandoMontoKey, setEditandoMontoKey] = useState(null);
   const [montoEditado, setMontoEditado] = useState("");
   const [modoSeleccion, setModoSeleccion] = useState(false);
@@ -658,23 +427,46 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         </div>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-        {modoSeleccion ? (
-          <button
-            onClick={salirModoSeleccion}
-            disabled={confirmandoLote}
-            style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
-          >
-            Cancelar selección
-          </button>
-        ) : (
-          <button
-            onClick={() => setModoSeleccion(true)}
-            style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, background: "var(--sage-bg)", color: "var(--sage)", border: "none", borderRadius: 8, cursor: "pointer" }}
-          >
-            Seleccionar varios
-          </button>
-        )}
+      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <button
+          onClick={() => setShowEmailModal(true)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 14px",
+            fontSize: 12.5,
+            fontWeight: 700,
+            background: "linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(59, 130, 246, 0.25) 100%)",
+            color: "var(--accent, #3b82f6)",
+            border: "1px solid rgba(59, 130, 246, 0.4)",
+            borderRadius: 10,
+            cursor: "pointer",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+          }}
+        >
+          <Mail size={16} />
+          <span>Enviar dashboard por email a iventuramena@gmail.com</span>
+        </button>
+
+        <div>
+          {modoSeleccion ? (
+            <button
+              onClick={salirModoSeleccion}
+              disabled={confirmandoLote}
+              style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+            >
+              Cancelar selección
+            </button>
+          ) : (
+            <button
+              onClick={() => setModoSeleccion(true)}
+              style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, background: "var(--sage-bg)", color: "var(--sage)", border: "none", borderRadius: 8, cursor: "pointer" }}
+            >
+              Seleccionar varios
+            </button>
+          )}
+        </div>
       </div>
 
       {resumenPorMetodo.length > 0 && (
@@ -1037,6 +829,28 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           </button>
         </div>
       )}
+
+      <ModalEnviarReporteEmail
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        periodo={periodo}
+        items={items}
+        totales={totales}
+        resumenPorMetodo={resumenPorMetodo}
+        diasCobro={diasCobro}
+        userEmail="iventuramena@gmail.com"
+        categoriasGasto={categoriasGasto}
+        presupuesto={presupuesto}
+        prestamos={prestamos}
+        tarjetas={tarjetas}
+        presupuestoYear={presupuestoYear}
+        movimientos={movimientos}
+        estrategiaDeudas={estrategiaDeudas}
+        tipoCambio={tipoCambio}
+        pagoRapido={pagoRapido}
+        fuentesIngreso={fuentesIngreso}
+        overridesLocales={overridesLocales}
+      />
     </div>
   );
 }

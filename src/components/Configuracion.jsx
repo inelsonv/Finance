@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Sparkles } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig } from "../lib/db";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 
@@ -41,6 +41,7 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
   const [integracionCorreoEstado, setIntegracionCorreoEstado] = useState(undefined);
   const [tarjetasHabilitadasInput, setTarjetasHabilitadasInput] = useState("");
   const [savingIntegracionCorreo, setSavingIntegracionCorreo] = useState(false);
+  const [reportesEmailConfig, setReportesEmailConfig] = useState({ email: "iventuramena@gmail.com", activoDiasCobro: true, ultimoEnvio: null });
 
   useEffect(() => {
     const unsub1 = watchNotifConfig(setEmailConfig, () => {});
@@ -60,6 +61,7 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       setFechaNacimientoInput(p?.fechaNacimiento || "");
     }, () => {});
     const unsub11 = watchActualizacionPreciosAutoConfig(setActualizacionPreciosConfig, () => {});
+    const unsub12 = watchReportesQuincenaConfig(setReportesEmailConfig, () => {});
     return () => {
       unsub1();
       unsub2();
@@ -72,6 +74,7 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       unsub9();
       unsub10();
       unsub11();
+      unsub12();
     };
   }, []);
 
@@ -104,6 +107,19 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
       setTimeout(() => setSavedEmail(false), 2000);
     } finally {
       setSavingEmail(false);
+    }
+  };
+
+  const handleToggleReportesEmail = async () => {
+    try {
+      const nuevoValor = reportesEmailConfig?.activoDiasCobro === false ? true : false;
+      await saveReportesQuincenaConfig({
+        email: "iventuramena@gmail.com",
+        activoDiasCobro: nuevoValor,
+      });
+      setReportesEmailConfig((prev) => ({ ...prev, activoDiasCobro: nuevoValor }));
+    } catch (e) {
+      console.error("Error al actualizar configuración de reportes:", e);
     }
   };
 
@@ -466,6 +482,35 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
             {savedEmail && <Check size={13} />}
             {savingEmail ? "Guardando…" : savedEmail ? "Guardado" : "Guardar"}
           </button>
+        </div>
+      </Section>
+
+      <Section icon={Mail} title="Reporte Quincenal de Pagos por Email (Gmail)">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Envío automático de un correo estructurado tipo <strong>dashboard ejecutivo</strong> con el desglose de lo que debes pagar en la quincena (segmentado por categoría y por método: transferencia, efectivo, tarjeta, nómina).
+        </div>
+        <div style={{ background: "var(--card-subtle, rgba(0,0,0,0.02))", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Destinatario oficial:</span>
+            <span style={{ fontSize: 13, color: "var(--accent, #3b82f6)", fontWeight: 700 }}>iventuramena@gmail.com</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 13 }}>Frecuencia programada:</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--sage)" }}>Días 15 y 30 de cada mes</span>
+          </div>
+          {reportesEmailConfig?.ultimoEnvio && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, color: "var(--ink-soft)" }}>
+              <span>Último reporte enviado:</span>
+              <span>{new Date(reportesEmailConfig.ultimoEnvio.timestamp || reportesEmailConfig.ultimoEnvio.fecha).toLocaleString("es-DO")}</span>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Activar envíos los días de cobro (15 y 30)</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Recibir automáticamente el dashboard en tu Gmail en cada fecha de pago</div>
+          </div>
+          <Switch checked={reportesEmailConfig?.activoDiasCobro !== false} onChange={handleToggleReportesEmail} />
         </div>
       </Section>
 
