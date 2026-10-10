@@ -1,10 +1,44 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Send, Sparkles, Loader2, Plus, X, Camera, Receipt, Check, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
-import { crearAsistenteChat, guardarAsistenteChat, preguntarAsistente, watchAsistenteChat, watchAsistenteChats, watchPresupuestosHistoricos } from "../lib/db";
+import {
+  Send,
+  Sparkles,
+  Loader2,
+  Plus,
+  X,
+  Camera,
+  Receipt,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Fuel,
+  CheckCircle2,
+  RotateCcw,
+  CreditCard,
+  Calendar,
+  Tag,
+  AlertCircle,
+  Edit2,
+  ArrowRight,
+} from "lucide-react";
+import {
+  crearAsistenteChat,
+  guardarAsistenteChat,
+  preguntarAsistente,
+  watchAsistenteChat,
+  watchAsistenteChats,
+  watchPresupuestosHistoricos,
+  addMovimiento,
+  deleteMovimiento,
+} from "../lib/db";
 import { construirResumenFinanciero } from "../lib/resumenFinanciero";
 import { procesarFacturaConCatalogo, aplicarFacturaACatalogoYMovimientos } from "../lib/facturaOcr";
+import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
+import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
+import { analizarIntencionGasto } from "../lib/asistenteGastoParser";
 
 const SUGERENCIAS = [
+  "⛽ Registra 2,000 en gasolina",
   "📷 ¿Cómo escaneo una factura para registrar gastos y catálogo?",
   "¿Cómo voy con el pago de mis deudas y puntos? 🚀",
   "¿Cuál es mi siguiente deuda según mi estrategia?",
@@ -217,6 +251,514 @@ function TarjetaFacturaChat({
   );
 }
 
+function TarjetaGastoChat({
+  data,
+  guardado,
+  guardando,
+  onGuardar,
+  onDeshacer,
+  tarjetas = [],
+  categoriasGasto = [],
+  onNavigate,
+  onClose,
+}) {
+  const [editando, setEditando] = useState(!guardado);
+  const [monto, setMonto] = useState(data.monto || "");
+  const [categoria, setCategoria] = useState(data.categoria || "Combustible");
+  const [metodoPago, setMetodoPago] = useState(data.metodoPago || "Efectivo");
+  const [tarjetaId, setTarjetaId] = useState(data.tarjetaId || "");
+  const [fecha, setFecha] = useState(data.fecha || new Date().toISOString().slice(0, 10));
+  const [descripcion, setDescripcion] = useState(
+    data.descripcion || (data.categoria === "Combustible" ? "Gasolina" : data.categoria || "Gasto")
+  );
+  const [errorLocal, setErrorLocal] = useState(null);
+
+  const tarjetasActivas = (tarjetas || []).filter(
+    (t) => t.estado === "Activa" && (t.tipoTarjeta || "Crédito") === "Crédito"
+  );
+
+  const categoriasPropias = (categoriasGasto || []).map((c) => c.nombre);
+  const opcionesCategorias = categoriasPropias.length > 0
+    ? categoriasPropias
+    : [...GASTO_CATS_VARIABLE, ...GASTO_CATS_FIJO];
+
+  useEffect(() => {
+    if (metodoPago === "Tarjeta de crédito" && !tarjetaId && tarjetasActivas.length > 0) {
+      setTarjetaId(tarjetasActivas[0].id);
+    }
+  }, [metodoPago, tarjetaId, tarjetasActivas]);
+
+  const esCombustible =
+    categoria.toLowerCase().includes("combustible") ||
+    categoria.toLowerCase().includes("gasolina") ||
+    (descripcion && descripcion.toLowerCase().includes("gasolina"));
+
+  const handleConfirmar = () => {
+    const num = parseFloat(monto);
+    if (!Number.isFinite(num) || num <= 0) {
+      setErrorLocal("Ingresa un monto válido mayor a 0");
+      return;
+    }
+    if (!categoria) {
+      setErrorLocal("Elige una categoría");
+      return;
+    }
+    if (metodoPago === "Tarjeta de crédito" && !tarjetaId && tarjetasActivas.length > 0) {
+      setErrorLocal("Selecciona qué tarjeta de crédito utilizaste");
+      return;
+    }
+
+    if (metodoPago === "Tarjeta de crédito" && tarjetaId) {
+      const tarjetaElegida = tarjetasActivas.find((t) => t.id === tarjetaId);
+      if (tarjetaElegida && !categoriaPermitidaEnTarjeta(tarjetaElegida, categoria)) {
+        setErrorLocal(`La categoría "${categoria}" no está habilitada para la tarjeta ${tarjetaElegida.nombre}.`);
+        return;
+      }
+    }
+
+    setErrorLocal(null);
+    const tarjeta = tarjetasActivas.find((t) => t.id === tarjetaId);
+    onGuardar({
+      monto: num,
+      categoria,
+      clasificacion: GASTO_CATS_FIJO.includes(categoria) ? "Fijo" : "Variable",
+      metodoPago,
+      tarjetaId: metodoPago === "Tarjeta de crédito" ? tarjetaId : null,
+      tarjetaNombre: metodoPago === "Tarjeta de crédito" ? tarjeta?.nombre || "" : "",
+      fecha,
+      descripcion: descripcion.trim() || categoria,
+    });
+    setEditando(false);
+  };
+
+  if (guardado && !editando) {
+    return (
+      <div
+        style={{
+          marginTop: 8,
+          padding: "12px 14px",
+          borderRadius: 14,
+          background: "rgba(16, 185, 129, 0.07)",
+          border: "1.5px solid rgba(16, 185, 129, 0.35)",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.05)",
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          maxWidth: "100%",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, color: "#059669", fontWeight: 700, fontSize: 13 }}>
+            <CheckCircle2 size={18} />
+            <span>Gasto registrado en tus finanzas</span>
+          </div>
+          <span style={{ fontWeight: 800, fontSize: 15, color: "var(--ink)", fontFamily: "monospace" }}>
+            RD$ {(Number(data.monto) || 0).toLocaleString("es", { minimumFractionDigits: 2 })}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", fontSize: 11.5 }}>
+          <span
+            style={{
+              padding: "3px 9px",
+              borderRadius: 999,
+              background: esCombustible ? "rgba(217, 119, 6, 0.12)" : "rgba(16, 185, 129, 0.12)",
+              color: esCombustible ? "#b45309" : "#059669",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            {esCombustible ? <Fuel size={12} /> : <Tag size={12} />}
+            {data.categoria}
+          </span>
+          <span
+            style={{
+              padding: "3px 9px",
+              borderRadius: 999,
+              background: "var(--card-soft, #f3f4f6)",
+              color: "var(--ink-soft)",
+              fontWeight: 500,
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <CreditCard size={12} />
+            {data.metodoPago}
+            {data.tarjetaNombre ? ` (${data.tarjetaNombre})` : ""}
+          </span>
+          <span
+            style={{
+              padding: "3px 9px",
+              borderRadius: 999,
+              background: "var(--card-soft, #f3f4f6)",
+              color: "var(--ink-soft)",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <Calendar size={12} /> {data.fecha}
+          </span>
+          {data.descripcion && (
+            <span
+              style={{
+                padding: "3px 9px",
+                borderRadius: 999,
+                background: "var(--card-soft, #f3f4f6)",
+                color: "var(--ink-soft)",
+              }}
+            >
+              {data.descripcion}
+            </span>
+          )}
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 4,
+            borderTop: "1px solid rgba(16, 185, 129, 0.18)",
+            paddingTop: 8,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setEditando(true)}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              color: "var(--ink)",
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            <Edit2 size={12} /> Modificar
+          </button>
+
+          {data.movimientoId && onDeshacer && (
+            <button
+              type="button"
+              disabled={guardando}
+              onClick={() => onDeshacer(data.movimientoId)}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                background: "rgba(239, 68, 68, 0.08)",
+                border: "1px solid rgba(239, 68, 68, 0.2)",
+                color: "#dc2626",
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: guardando ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              <RotateCcw size={12} /> Deshacer / Eliminar
+            </button>
+          )}
+
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => {
+                onNavigate("movimientos");
+                onClose?.();
+              }}
+              style={{
+                marginLeft: "auto",
+                padding: "6px 10px",
+                borderRadius: 8,
+                background: "none",
+                border: "none",
+                color: "var(--sage)",
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              Ver en Movimientos <ArrowRight size={13} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: "14px",
+        borderRadius: 14,
+        background: "var(--card)",
+        border: "1.5px solid var(--line)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        maxWidth: "100%",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid var(--line-soft)",
+          paddingBottom: 8,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 8,
+              background: esCombustible ? "rgba(217, 119, 6, 0.15)" : "rgba(46, 125, 50, 0.12)",
+              color: esCombustible ? "#d97706" : "var(--sage)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {esCombustible ? <Fuel size={17} /> : <Tag size={16} />}
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: "var(--ink)" }}>
+              {esCombustible ? "⛽ Gasto de Combustible / Gasolina" : "📝 Registrar Gasto"}
+            </div>
+            <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+              {guardado ? "Modificando datos del gasto" : "Listo para guardar en tus movimientos"}
+            </div>
+          </div>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <span
+            style={{
+              fontWeight: 800,
+              fontSize: 15,
+              color: esCombustible ? "#d97706" : "var(--sage)",
+              fontFamily: "monospace",
+            }}
+          >
+            RD$ {monto ? (Number(monto) || 0).toLocaleString("es", { minimumFractionDigits: 2 }) : "0.00"}
+          </span>
+        </div>
+      </div>
+
+      {/* Formulario editable */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div>
+          <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 3, fontWeight: 600 }}>
+            Monto (RD$)
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            value={monto}
+            onChange={(e) => setMonto(e.target.value)}
+            placeholder="Ej: 2000"
+            style={{
+              width: "100%",
+              padding: "6px 8px",
+              fontSize: 12.5,
+              borderRadius: 8,
+              border: "1px solid var(--line)",
+              background: "var(--card)",
+              fontFamily: "monospace",
+              fontWeight: 700,
+            }}
+          />
+        </div>
+
+        <div>
+          <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 3, fontWeight: 600 }}>
+            Categoría
+          </label>
+          <select
+            value={categoria}
+            onChange={(e) => setCategoria(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "6px 8px",
+              fontSize: 12,
+              borderRadius: 8,
+              border: "1px solid var(--line)",
+              background: "var(--card)",
+            }}
+          >
+            {opcionesCategorias.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 3, fontWeight: 600 }}>
+            Método de pago
+          </label>
+          <select
+            value={metodoPago}
+            onChange={(e) => setMetodoPago(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "6px 8px",
+              fontSize: 12,
+              borderRadius: 8,
+              border: "1px solid var(--line)",
+              background: "var(--card)",
+            }}
+          >
+            <option value="Efectivo">Efectivo</option>
+            <option value="Tarjeta de crédito">Tarjeta de crédito</option>
+            <option value="Transferencia">Transferencia</option>
+            <option value="Débito">Débito</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+
+        <div>
+          <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 3, fontWeight: 600 }}>
+            Fecha
+          </label>
+          <input
+            type="date"
+            value={fecha}
+            onChange={(e) => setFecha(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "6px 8px",
+              fontSize: 12,
+              borderRadius: 8,
+              border: "1px solid var(--line)",
+              background: "var(--card)",
+            }}
+          />
+        </div>
+      </div>
+
+      {metodoPago === "Tarjeta de crédito" && (
+        <div>
+          <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 3, fontWeight: 600 }}>
+            Tarjeta de crédito
+          </label>
+          {tarjetasActivas.length > 0 ? (
+            <select
+              value={tarjetaId}
+              onChange={(e) => setTarjetaId(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "6px 8px",
+                fontSize: 12,
+                borderRadius: 8,
+                border: "1px solid var(--line)",
+                background: "var(--card)",
+              }}
+            >
+              {tarjetasActivas.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nombre} ({t.banco || "Banco"})
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div style={{ fontSize: 11, color: "var(--stamp)" }}>No hay tarjetas de crédito activas registradas.</div>
+          )}
+        </div>
+      )}
+
+      <div>
+        <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 3, fontWeight: 600 }}>
+          Nota o concepto
+        </label>
+        <input
+          type="text"
+          value={descripcion}
+          onChange={(e) => setDescripcion(e.target.value)}
+          placeholder="Ej: Gasolina Shell, Almuerzo..."
+          style={{
+            width: "100%",
+            padding: "6px 8px",
+            fontSize: 12,
+            borderRadius: 8,
+            border: "1px solid var(--line)",
+            background: "var(--card)",
+          }}
+        />
+      </div>
+
+      {errorLocal && (
+        <div style={{ color: "#dc2626", fontSize: 11.5, display: "flex", alignItems: "center", gap: 5 }}>
+          <AlertCircle size={14} /> {errorLocal}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+        <button
+          type="button"
+          disabled={guardando}
+          onClick={handleConfirmar}
+          style={{
+            flex: 1,
+            padding: "9px 12px",
+            borderRadius: 9,
+            background: esCombustible ? "#d97706" : "var(--sage)",
+            color: "#fff",
+            border: "none",
+            fontWeight: 700,
+            fontSize: 12.5,
+            cursor: guardando ? "not-allowed" : "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+          }}
+        >
+          {guardando ? <Loader2 size={14} className="despensa-spin" /> : <Check size={15} />}
+          {guardando ? "Registrando gasto…" : `Confirmar y Registrar (RD$ ${(Number(monto) || 0).toLocaleString()})`}
+        </button>
+
+        {guardado && (
+          <button
+            type="button"
+            onClick={() => setEditando(false)}
+            style={{
+              padding: "9px 12px",
+              borderRadius: 9,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              color: "var(--ink-soft)",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            Cancelar
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Asistente({
   movimientos,
   presupuesto,
@@ -251,9 +793,18 @@ export default function Asistente({
   const [enviando, setEnviando] = useState(false);
   const [procesandoFactura, setProcesandoFactura] = useState(false);
   const [guardandoFacturaIndex, setGuardandoFacturaIndex] = useState(null);
+  const [guardandoGastoIndex, setGuardandoGastoIndex] = useState(null);
   const [error, setError] = useState(null);
   const [presupuestosHistoricos, setPresupuestosHistoricos] = useState({});
   const fileInputRef = useRef(null);
+
+  const tarjetasActivas = (tarjetas || []).filter(
+    (t) => t.estado === "Activa" && (t.tipoTarjeta || "Crédito") === "Crédito"
+  );
+  const categoriasPropias = (categoriasGasto || []).map((c) => c.nombre);
+  const opcionesCategorias = categoriasPropias.length > 0
+    ? categoriasPropias
+    : [...GASTO_CATS_VARIABLE, ...GASTO_CATS_FIJO];
   const [pagoDeudaDetectado, setPagoDeudaDetectado] = useState(() => {
     if (ultimoPagoDeuda) return ultimoPagoDeuda;
     try {
@@ -338,6 +889,12 @@ export default function Asistente({
     setEnviando(true);
     setError(null);
 
+    // Detección local inmediata de gasto (ej: "Registra 2000 en gasolina", "Gasté 500 pesos")
+    const analisisLocal = analizarIntencionGasto(pregunta, {
+      categoriasGasto,
+      tarjetas,
+    });
+
     try {
       let idConversacion = chatId;
       const tituloGuardado = chats.find((chat) => chat.id === idConversacion)?.titulo;
@@ -384,8 +941,103 @@ export default function Asistente({
           setError("No se pudo guardar el historial; la respuesta seguirá disponible en esta sesión.");
         }
       }
-      const { respuesta } = await preguntarAsistente(pregunta, resumen, historialParaEnviar);
-      const mensajesCompletos = [...nuevosMensajes, { role: "assistant", content: respuesta }];
+
+      let resAsistente = null;
+      try {
+        resAsistente = await preguntarAsistente(pregunta, resumen, historialParaEnviar, {
+          categorias: opcionesCategorias,
+          tarjetas: tarjetasActivas,
+        });
+      } catch (errApi) {
+        console.warn("Consulta asistente error backend:", errApi);
+        if (analisisLocal) {
+          resAsistente = {
+            respuesta: `He detectado tu gasto en **${analisisLocal.categoria}** por **RD$ ${Number(analisisLocal.monto || 0).toLocaleString("es", { minimumFractionDigits: 2 })}**.`,
+            intencionGasto: true,
+            gasto: analisisLocal,
+          };
+        } else {
+          throw errApi;
+        }
+      }
+
+      const intencionGasto = Boolean(resAsistente?.intencionGasto || analisisLocal);
+      const gastoDetectado = resAsistente?.gasto || analisisLocal;
+
+      let guardadoAutomatico = false;
+      let idNuevoMovimiento = null;
+
+      // Si el usuario dio orden directa de registrar (ej: "Registra 2000 en gasolina", "Anota 500 pesos")
+      // y tenemos un monto válido, lo guardamos directamente en Firestore
+      if (gastoDetectado && Number(gastoDetectado.monto) > 0 && gastoDetectado.autoRegistrar) {
+        try {
+          const tarjeta = tarjetasActivas.find((t) => t.id === gastoDetectado.tarjetaId);
+          const infoFechaPago =
+            gastoDetectado.metodoPago === "Tarjeta de crédito" && tarjeta
+              ? calcularFechaPagoTarjeta(tarjeta, gastoDetectado.fecha)?.fechaPagoStr || null
+              : null;
+
+          const docRef = await addMovimiento({
+            type: "Gasto",
+            category: gastoDetectado.categoria,
+            amount: Number(gastoDetectado.monto),
+            description: gastoDetectado.descripcion || gastoDetectado.categoria,
+            date: gastoDetectado.fecha,
+            clasificacion:
+              gastoDetectado.clasificacion ||
+              (GASTO_CATS_FIJO.includes(gastoDetectado.categoria) ? "Fijo" : "Variable"),
+            metodoPago: gastoDetectado.metodoPago || "Efectivo",
+            tarjetaId: gastoDetectado.metodoPago === "Tarjeta de crédito" ? gastoDetectado.tarjetaId || null : null,
+            tarjetaNombre:
+              gastoDetectado.metodoPago === "Tarjeta de crédito"
+                ? gastoDetectado.tarjetaNombre || tarjeta?.nombre || ""
+                : "",
+            monedaTarjeta: gastoDetectado.metodoPago === "Tarjeta de crédito" ? "RDS" : null,
+            fechaPagoTarjeta: infoFechaPago,
+            origen: "chat_ia",
+          });
+
+          idNuevoMovimiento = docRef.id;
+          guardadoAutomatico = true;
+
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("lanzarCoheteDeuda", {
+                detail: {
+                  puntos: 10,
+                  mensaje: `Gasto de ${gastoDetectado.categoria} registrado`,
+                  forzar: true,
+                },
+              })
+            );
+          }
+        } catch (errAuto) {
+          console.warn("Fallo al registrar automáticamente en Firestore:", errAuto);
+        }
+      }
+
+      let textoRespuesta = resAsistente?.respuesta;
+      if (guardadoAutomatico && gastoDetectado) {
+        textoRespuesta = `✅ ¡Listo! Registré tu gasto de **RD$ ${Number(gastoDetectado.monto).toLocaleString("es", { minimumFractionDigits: 2 })}** en **${gastoDetectado.categoria}** (${gastoDetectado.metodoPago}${gastoDetectado.tarjetaNombre ? ` - ${gastoDetectado.tarjetaNombre}` : ""}) para la fecha ${gastoDetectado.fecha}.\n\nYa está sumado a tus movimientos y balance financiero. Si necesitas ajustar los datos o deshacerlo, puedes hacerlo abajo:`;
+      } else if (!textoRespuesta && gastoDetectado) {
+        textoRespuesta = `He preparado el registro de tu gasto en **${gastoDetectado.categoria}** por **RD$ ${Number(gastoDetectado.monto || 0).toLocaleString("es", { minimumFractionDigits: 2 })}**. Puedes confirmar con un clic para guardarlo en tus movimientos:`;
+      }
+
+      const mensajeAsistente = {
+        role: "assistant",
+        content: textoRespuesta || "Respuesta procesada.",
+        ...(intencionGasto && gastoDetectado
+          ? {
+              gastoData: {
+                ...gastoDetectado,
+                guardado: guardadoAutomatico,
+                movimientoId: idNuevoMovimiento,
+              },
+            }
+          : {}),
+      };
+
+      const mensajesCompletos = [...nuevosMensajes, mensajeAsistente];
       setMensajes(mensajesCompletos);
       if (idConversacion) {
         try {
@@ -399,6 +1051,112 @@ export default function Asistente({
       setMensajes(nuevosMensajes);
     } finally {
       setEnviando(false);
+    }
+  };
+
+  const handleGuardarGasto = async (indiceMensaje, datosAjustados) => {
+    const msg = mensajes[indiceMensaje];
+    if (!msg?.gastoData) return;
+    setGuardandoGastoIndex(indiceMensaje);
+    setError(null);
+
+    try {
+      const { monto, categoria, clasificacion, metodoPago, tarjetaId, tarjetaNombre, fecha, descripcion } = datosAjustados;
+
+      const tarjeta = tarjetasActivas.find((t) => t.id === tarjetaId);
+      const infoFechaPago =
+        metodoPago === "Tarjeta de crédito" && tarjeta
+          ? calcularFechaPagoTarjeta(tarjeta, fecha)?.fechaPagoStr || null
+          : null;
+
+      let docId = msg.gastoData.movimientoId;
+      if (docId) {
+        await deleteMovimiento(docId, "Modificado desde chat IA").catch(() => {});
+      }
+
+      const docRef = await addMovimiento({
+        type: "Gasto",
+        category: categoria,
+        amount: Number(monto),
+        description: descripcion || categoria,
+        date: fecha,
+        clasificacion: clasificacion || (GASTO_CATS_FIJO.includes(categoria) ? "Fijo" : "Variable"),
+        metodoPago,
+        tarjetaId: metodoPago === "Tarjeta de crédito" ? tarjetaId || null : null,
+        tarjetaNombre: metodoPago === "Tarjeta de crédito" ? tarjetaNombre || tarjeta?.nombre || "" : "",
+        monedaTarjeta: metodoPago === "Tarjeta de crédito" ? "RDS" : null,
+        fechaPagoTarjeta: infoFechaPago,
+        origen: "chat_ia",
+      });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("lanzarCoheteDeuda", {
+            detail: {
+              puntos: 10,
+              mensaje: `Gasto de ${categoria} registrado`,
+              forzar: true,
+            },
+          })
+        );
+      }
+
+      const copia = [...mensajes];
+      copia[indiceMensaje] = {
+        ...copia[indiceMensaje],
+        gastoData: {
+          ...copia[indiceMensaje].gastoData,
+          ...datosAjustados,
+          guardado: true,
+          movimientoId: docRef.id,
+        },
+      };
+      setMensajes(copia);
+
+      if (chatId) {
+        try {
+          await guardarAsistenteChat(chatId, `Gasto: ${categoria}`, copia);
+        } catch (_) {}
+      }
+    } catch (err) {
+      setError("Error al registrar el gasto: " + (err.message || String(err)));
+    } finally {
+      setGuardandoGastoIndex(null);
+    }
+  };
+
+  const handleDeshacerGasto = async (indiceMensaje, movimientoId) => {
+    if (!movimientoId) return;
+    setGuardandoGastoIndex(indiceMensaje);
+    setError(null);
+
+    try {
+      await deleteMovimiento(movimientoId, "Eliminado desde chat IA");
+
+      const copia = [...mensajes];
+      copia[indiceMensaje] = {
+        ...copia[indiceMensaje],
+        gastoData: {
+          ...copia[indiceMensaje].gastoData,
+          guardado: false,
+          movimientoId: null,
+        },
+      };
+      copia.push({
+        role: "assistant",
+        content: "↩️ El gasto fue eliminado de tus movimientos. Puedes volver a registrarlo o corregir los datos cuando gustes.",
+      });
+      setMensajes(copia);
+
+      if (chatId) {
+        try {
+          await guardarAsistenteChat(chatId, "Chat", copia);
+        } catch (_) {}
+      }
+    } catch (err) {
+      setError("No se pudo deshacer el gasto: " + (err.message || String(err)));
+    } finally {
+      setGuardandoGastoIndex(null);
     }
   };
 
@@ -667,7 +1425,7 @@ export default function Asistente({
             key={i}
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              maxWidth: m.facturaData ? "96%" : "82%",
+              maxWidth: m.facturaData || m.gastoData ? "96%" : "82%",
               padding: "9px 13px",
               borderRadius: 14,
               fontSize: 13.5,
@@ -707,6 +1465,20 @@ export default function Asistente({
                 }}
               />
             )}
+
+            {m.gastoData && (
+              <TarjetaGastoChat
+                data={m.gastoData}
+                guardado={Boolean(m.gastoData.guardado)}
+                guardando={guardandoGastoIndex === i}
+                onGuardar={(opciones) => handleGuardarGasto(i, opciones)}
+                onDeshacer={(movId) => handleDeshacerGasto(i, movId)}
+                tarjetas={tarjetas}
+                categoriasGasto={categoriasGasto}
+                onNavigate={onNavigate}
+                onClose={onClose}
+              />
+            )}
           </div>
         ))}
 
@@ -722,7 +1494,7 @@ export default function Asistente({
         {enviando && (
           <div style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", borderRadius: 14, background: "var(--card)", border: "1px solid var(--line)" }}>
             <Loader2 size={14} className="despensa-spin" style={{ color: "var(--ink-soft)" }} />
-            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Revisando tus datos…</span>
+            <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>Procesando en Smart Finance…</span>
           </div>
         )}
 
@@ -746,6 +1518,29 @@ export default function Asistente({
             e.target.value = "";
           }}
         />
+        <button
+          type="button"
+          onClick={() => {
+            setInput("Registra 2,000 en gasolina");
+          }}
+          disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
+          title="Atajo: Registrar gasolina / combustible"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 40,
+            height: 40,
+            borderRadius: 10,
+            border: "1px solid var(--line)",
+            background: "rgba(217, 119, 6, 0.08)",
+            color: "#d97706",
+            cursor: procesandoFactura || enviando ? "not-allowed" : "pointer",
+            flexShrink: 0,
+          }}
+        >
+          <Fuel size={18} />
+        </button>
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -772,7 +1567,7 @@ export default function Asistente({
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && enviarPregunta()}
           onPaste={handlePaste}
-          placeholder={procesandoFactura ? "Escaneando factura con IA…" : "Escribe o adjunta una factura 📷…"}
+          placeholder={procesandoFactura ? "Escaneando factura con IA…" : "Escribe (ej: 'Registra 2000 en gasolina' o 📷 factura)…"}
           maxLength={2000}
           disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
           style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 13.5 }}

@@ -145,12 +145,47 @@ export async function buscarYExtraerProducto(nombreProducto) {
 }
 
 // Manda una pregunta al asistente de IA junto con el resumen financiero
-// actual y el historial corto para dar contexto de seguimiento. El componente
-// guarda el historial visible en Firestore para poder retomarlo después.
-export async function preguntarAsistente(pregunta, resumen, historial) {
-  const fn = httpsCallable(functions, "preguntarAsistente");
-  const res = await fn({ pregunta, resumen, historial });
-  return res.data;
+// actual y el historial corto para dar contexto de seguimiento. Detecta y extrae
+// gastos a registrar (por ejemplo combustible / gasolina) de forma estructurada.
+export async function preguntarAsistente(pregunta, resumen, historial, opciones = {}) {
+  // 1. Intenta vía endpoint local / servidor (Gemini 3.8 Flash con respuesta estructurada de gastos)
+  let errorServidor = null;
+  try {
+    const resServer = await fetch("/api/asistente/preguntar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pregunta,
+        resumen,
+        historial,
+        categorias: opciones.categorias || [],
+        tarjetas: opciones.tarjetas || [],
+      }),
+    });
+    if (resServer.ok) {
+      const data = await resServer.json();
+      return data;
+    } else {
+      const errJson = await resServer.json().catch(() => null);
+      errorServidor = errJson?.error || `Error del servidor (${resServer.status})`;
+    }
+  } catch (err) {
+    errorServidor = err?.message || String(err);
+  }
+
+  // 2. Fallback a la Cloud Function de Firebase
+  try {
+    const fn = httpsCallable(functions, "preguntarAsistente");
+    const res = await fn({ pregunta, resumen, historial });
+    return res.data;
+  } catch (errFirebase) {
+    console.warn("Fallo en asistente con Firebase:", errFirebase?.message || errFirebase);
+    throw new Error(
+      errorServidor
+        ? `No se pudo consultar al asistente: ${errorServidor}`
+        : "No se pudo obtener respuesta del asistente financiero."
+    );
+  }
 }
 
 // Lee una factura de supermercado mediante IA (Gemini / Anthropic / Cloud Functions).

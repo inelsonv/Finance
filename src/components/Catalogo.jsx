@@ -747,23 +747,24 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         <button
           type="button"
           onClick={() => setShowModalBravo(true)}
-          title="Ver productos regulares de Supermercados Bravo con fotos de supermercadosrd.com"
+          title="Ver todo el catálogo de Supermercados Bravo con más de 1,036 productos, fotos oficiales y precios en RD$"
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 6,
+            gap: 7,
             padding: "8px 14px",
             fontSize: 13,
             fontWeight: 600,
-            background: "var(--amber-bg)",
-            color: "var(--amber)",
-            border: "1px solid var(--amber)",
+            background: "#fff1f2",
+            color: "#e21c1b",
+            border: "1.5px solid #e21c1b",
             borderRadius: 8,
             cursor: "pointer",
             whiteSpace: "nowrap",
+            boxShadow: "0 2px 8px rgba(226, 28, 27, 0.12)",
           }}
         >
-          <ShoppingBag size={14} /> Catálogo Bravo RD$ (Precios & Fotos)
+          <ShoppingBag size={15} /> Catálogo Completo Bravo (1,036+ Productos RD$)
         </button>
       </div>
 

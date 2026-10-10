@@ -114,7 +114,7 @@ app.get('/api/supermercados/buscar', async (req, res) => {
     }
     const data = await response.json();
 
-    // Cargar catálogo de Bravo local para cruzar precios oficiales
+    // Cargar catálogo de Bravo local (con cache en memoria)
     let catalogoBravo: any[] = [];
     try {
       const rutaCatalogo = path.resolve(__dirname, 'src/data/bravoProductos.json');
@@ -523,6 +523,152 @@ app.post('/api/tts', async (req, res) => {
     res.status(500).json({
       error: error.message || 'Error al generar voz IA',
     });
+  }
+});
+
+// Endpoint del Asistente IA Financiero con detección y registro de gastos (ej. Combustible/Gasolina)
+app.post('/api/asistente/preguntar', async (req, res) => {
+  try {
+    const { pregunta, resumen, historial = [], categorias = [], tarjetas = [] } = req.body;
+    if (!pregunta || typeof pregunta !== 'string') {
+      return res.status(400).json({ error: 'Falta la pregunta o mensaje para el asistente' });
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const listaCategorias = Array.isArray(categorias) && categorias.length > 0
+      ? categorias
+      : [
+          'Combustible',
+          'Alimentación',
+          'Transporte',
+          'Estacionamiento',
+          'Salud',
+          'Entretenimiento',
+          'Compras',
+          'Vivienda',
+          'Servicios',
+          'Seguro de vehículo',
+          'Otro variable',
+          'Otro fijo',
+        ];
+
+    const resumenTexto = resumen ? JSON.stringify(resumen) : 'Sin resumen financiero proporcionado';
+    const tarjetasInfo = Array.isArray(tarjetas) && tarjetas.length > 0
+      ? tarjetas.map((t: any) => `- ID: "${t.id}", Nombre: "${t.nombre}", Banco: "${t.banco || ''}", Moneda: "${t.moneda || 'RD$'}"`).join('\n')
+      : 'No hay tarjetas de crédito registradas';
+
+    const systemInstruction = `Eres el asistente financiero personal de Smart Finance para una persona en República Dominicana.
+Fecha de hoy: ${todayStr}.
+Moneda: RD$ (pesos dominicanos).
+
+FUNCIONES PRINCIPALES:
+1. DETECCIÓN Y REGISTRO DE GASTOS DIRECTAMENTE DESDE EL CHAT:
+   Si el usuario pide registrar, anotar o reportar un gasto (por ejemplo: "registra 2000 en gasolina", "gasté 1,500 pesos en combustible con tarjeta", "anota 300 pesos de café", "pon un gasto de 450 en almuerzo", "pagué 2500 de gasolina shell con Banreservas", "gasolina 1200", etc.):
+   - 'intencionGasto' debe ser true.
+   - Extrae el 'monto' numérico exacto en pesos (ej: 2000). Si no especificó monto, pon null.
+   - Selecciona la mejor 'categoria' de esta lista: ${JSON.stringify(listaCategorias)}.
+     * Gasolina, combustible, diesel, gas, gasoil -> SIEMPRE categoría "Combustible".
+     * Comida, restaurante, café, desayuno, almuerzo, cena, colmado -> "Alimentación".
+     * Uber, taxi, pasaje, peaje, concho -> "Transporte".
+     * Parqueo, estacionamiento -> "Estacionamiento" o "Transporte".
+     * Farmacia, medicina, doctor, clínica -> "Salud".
+     * Supermercado -> "Alimentación" o "Compras".
+   - 'clasificacion': "Fijo" o "Variable" ("Combustible" es "Variable").
+   - 'metodoPago': "Efectivo", "Tarjeta de crédito", "Transferencia", "Débito", o "Otro".
+     * Si menciona "tarjeta", "crédito" o el nombre de una tarjeta -> "Tarjeta de crédito".
+     * Por defecto si no dice método -> "Efectivo".
+   - Si es con tarjeta, intenta asociar con estas tarjetas del usuario si coincide:
+${tarjetasInfo}
+   - 'fecha': en formato YYYY-MM-DD (por defecto ${todayStr}; si dice "ayer", calcula el día anterior).
+   - 'descripcion': concepto claro (ej: "Gasolina", "Combustible Puma", "Almuerzo").
+   - 'autoRegistrar': true si dio una orden directa de registrar/anotar ("registra", "anota", "apunta", "gasté", "pagué").
+   - En tu 'respuesta', confirma de manera amable y breve (1-2 oraciones) indicando el monto en RD$, la categoría y el método, invitándole a confirmar con un toque.
+
+2. CONSULTAS Y ANÁLISIS FINANCIERO:
+   Si el usuario hace preguntas sobre sus finanzas, deudas, presupuesto, quincena, ahorro o puntos (🚀):
+   - 'intencionGasto' es false y 'gasto' es null.
+   - Responde con precisión basándote en los datos del resumen financiero:
+${resumenTexto}
+   - Sé conciso (2-4 oraciones), cercano y motivador en español de RD con formato Markdown.`;
+
+    const contents: any[] = [];
+    if (Array.isArray(historial) && historial.length > 0) {
+      for (const msg of historial.slice(-6)) {
+        if (msg.role === 'user' || msg.role === 'assistant') {
+          contents.push({
+            role: msg.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: String(msg.content || '') }],
+          });
+        }
+      }
+    }
+    contents.push({
+      role: 'user',
+      parts: [{ text: pregunta }],
+    });
+
+    const modelCandidates = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+    let response: any = null;
+    let lastErr: any = null;
+
+    for (const model of modelCandidates) {
+      try {
+        response = await ai.models.generateContent({
+          model,
+          contents,
+          config: {
+            systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                respuesta: {
+                  type: Type.STRING,
+                  description: 'Respuesta conversacional al usuario en formato Markdown.',
+                },
+                intencionGasto: {
+                  type: Type.BOOLEAN,
+                  description: 'true si el usuario busca registrar o reportar un gasto.',
+                },
+                gasto: {
+                  type: Type.OBJECT,
+                  nullable: true,
+                  description: 'Datos extraídos del gasto si intencionGasto es true.',
+                  properties: {
+                    monto: { type: Type.NUMBER, description: 'Monto numérico en RD$' },
+                    categoria: { type: Type.STRING, description: 'Nombre de la categoría' },
+                    clasificacion: { type: Type.STRING, description: 'Variable o Fijo' },
+                    metodoPago: { type: Type.STRING, description: 'Efectivo, Tarjeta de crédito, Transferencia, Débito, u Otro' },
+                    tarjetaId: { type: Type.STRING, nullable: true },
+                    tarjetaNombre: { type: Type.STRING, nullable: true },
+                    fecha: { type: Type.STRING, description: 'YYYY-MM-DD' },
+                    descripcion: { type: Type.STRING, description: 'Detalle o concepto' },
+                    autoRegistrar: { type: Type.BOOLEAN, description: 'true si pidió registrar directamente' },
+                  },
+                },
+              },
+              required: ['respuesta', 'intencionGasto'],
+            },
+          },
+        });
+        if (response?.text) break;
+      } catch (err: any) {
+        lastErr = err;
+        console.warn(`Reintento de asistente con ${model}:`, err?.message || err);
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+
+    if (!response?.text) {
+      throw lastErr || new Error('No se pudo obtener respuesta del modelo');
+    }
+
+    const cleanJson = (response.text || '').trim();
+    const parsed = JSON.parse(cleanJson);
+    return res.json(parsed);
+  } catch (error: any) {
+    console.error('Error en /api/asistente/preguntar:', error);
+    return res.status(500).json({ error: error.message || 'Error al consultar asistente' });
   }
 });
 

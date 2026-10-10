@@ -3,6 +3,20 @@ import bravoProductosRaw from "../data/bravoProductos.json";
 
 export const PRODUCTOS_BRAVO_REGULARES = Array.isArray(bravoProductosRaw) ? bravoProductosRaw : [];
 
+export const CATEGORIAS_BRAVO = [
+  "Todos",
+  "Despensa",
+  "Carnes y Embutidos",
+  "Bebidas",
+  "Lácteos y Huevos",
+  "Limpieza y Hogar",
+  "Frutas y Vegetales",
+  "Panadería y Repostería",
+  "Cuidado Personal",
+  "Snacks y Dulces",
+  "Congelados",
+];
+
 // Mapa de búsqueda rápida por nombre normalizado
 const mapaNormalizado = new Map();
 PRODUCTOS_BRAVO_REGULARES.forEach((p) => {
