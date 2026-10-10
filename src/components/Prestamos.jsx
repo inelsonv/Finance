@@ -1188,12 +1188,28 @@ function Field({ label, value }) {
 
 function HistorialCuotasPagadas({ prestamo, movimientos }) {
   const [abierto, setAbierto] = useState(false);
-  const pagos = useMemo(
-    () => (movimientos || [])
-      .filter((m) => m.category === "Pago de préstamo" && m.prestamoId === prestamo.id)
-      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))),
-    [movimientos, prestamo.id]
-  );
+  const pagos = useMemo(() => {
+    // Obtenemos los pagos ordenados cronológicamente (más antiguo primero) para numerar las cuotas
+    const pagosCronologicos = (movimientos || [])
+      .filter((m) => m.category === "Pago de préstamo" && (m.prestamoId === prestamo.id || (m.prestamoNumero && m.prestamoNumero === prestamo.numero)))
+      .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+
+    const totalCuotasPlan = prestamo?.frecuenciaCuota === "Personalizado"
+      ? (prestamo.cuotasPersonalizadas || []).length
+      : prestamo?.plazo
+      ? (prestamo.plazoUnidad === "años" ? (Number(prestamo.plazo) || 0) * 12 : Number(prestamo.plazo) || 0)
+      : null;
+
+    // Asignamos el número de cuota ordinal a cada pago
+    const mapeados = pagosCronologicos.map((p, idx) => ({
+      ...p,
+      numeroCuota: idx + 1,
+      totalCuotasPlan,
+    }));
+
+    // Mostramos el listado ordenado del más reciente al más antiguo
+    return mapeados.reverse();
+  }, [movimientos, prestamo]);
 
   return (
     <div style={{ borderTop: "1px solid var(--line-soft)", paddingTop: 7 }}>
@@ -1210,10 +1226,26 @@ function HistorialCuotasPagadas({ prestamo, movimientos }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: 8 }}>
             {pagos.map((pago) => (
               <div key={pago.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6, background: "var(--card)", fontSize: 11.5 }}>
-                <span style={{ color: "var(--ink-soft)" }}>
-                  {formatDateDisplay(pago.date) || "Fecha no disponible"}
-                  {pago.metodoPago ? ` · ${pago.metodoPago}` : ""}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                  <span
+                    className="despensa-mono"
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: 700,
+                      padding: "1px 6px",
+                      borderRadius: 6,
+                      background: "var(--sage-bg)",
+                      color: "var(--sage)",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Cuota #{pago.numeroCuota}{pago.totalCuotasPlan ? ` de ${pago.totalCuotasPlan}` : ""}
+                  </span>
+                  <span style={{ color: "var(--ink-soft)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                    {formatDateDisplay(pago.date) || "Fecha no disponible"}
+                    {pago.metodoPago ? ` · ${pago.metodoPago}` : ""}
+                  </span>
+                </div>
                 <strong className="despensa-mono" style={{ color: "var(--sage)", whiteSpace: "nowrap" }}>{formatMoney(Number(pago.amount) || 0)}</strong>
               </div>
             ))}

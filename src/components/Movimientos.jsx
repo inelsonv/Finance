@@ -151,6 +151,43 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   };
   const paginated = useMemo(() => movimientos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [movimientos, page]);
 
+  // Mapa de número de cuota ordinal para pagos de préstamos (calculado cronológicamente por préstamo)
+  const cuotaNumeroPorMovimientoId = useMemo(() => {
+    const map = new Map();
+    const pagosPorPrestamo = new Map();
+
+    for (const m of movimientos || []) {
+      if (m.category === "Pago de préstamo" && (m.prestamoId || m.prestamoNumero)) {
+        const key = m.prestamoId || m.prestamoNumero;
+        if (!pagosPorPrestamo.has(key)) pagosPorPrestamo.set(key, []);
+        pagosPorPrestamo.get(key).push(m);
+      }
+    }
+
+    pagosPorPrestamo.forEach((lista, key) => {
+      // Ordenar cronológicamente (más antiguo primero)
+      const ordenados = [...lista].sort((a, b) =>
+        String(a.date || "").localeCompare(String(b.date || "")) ||
+        String(a.createdAt || "").localeCompare(String(b.createdAt || ""))
+      );
+      const prestamoObj = (prestamos || []).find((p) => p.id === key || p.numero === key);
+      const totalCuotasPlan = prestamoObj?.frecuenciaCuota === "Personalizado"
+        ? (prestamoObj.cuotasPersonalizadas || []).length
+        : prestamoObj?.plazo
+        ? (prestamoObj.plazoUnidad === "años" ? (Number(prestamoObj.plazo) || 0) * 12 : Number(prestamoObj.plazo) || 0)
+        : null;
+
+      ordenados.forEach((item, idx) => {
+        map.set(item.id, {
+          numero: idx + 1,
+          total: totalCuotasPlan,
+        });
+      });
+    });
+
+    return map;
+  }, [movimientos, prestamos]);
+
   const handleDescargarCSV = () => {
     const columnas = [
       "Fecha",
@@ -1153,15 +1190,33 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 500 }}>
-                  {m.category}
-                  {m.prestamoNumero && <span className="despensa-mono" style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.prestamoNumero}</span>}
-                  {m.tarjetaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.tarjetaNombre}</span>}
-                  {m.membresiaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.membresiaNombre}</span>}
-                  {m.fuenteIngresoNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.fuenteIngresoNombre}</span>}
-                  {m.contratoNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.contratoNombre}</span>}
-                  {m.metodoPago === "Tarjeta de crédito" && m.tarjetaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.tarjetaNombre}</span>}
-                  {m.description && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}> · {m.description}</span>}
+                <div style={{ fontSize: 13.5, fontWeight: 500, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span>{m.category}</span>
+                  {m.prestamoNumero && <span className="despensa-mono" style={{ fontWeight: 400, color: "var(--ink-soft)" }}>· {m.prestamoNumero}</span>}
+                  {m.category === "Pago de préstamo" && cuotaNumeroPorMovimientoId.has(m.id) && (() => {
+                    const infoCuota = cuotaNumeroPorMovimientoId.get(m.id);
+                    return (
+                      <span
+                        className="despensa-mono"
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          padding: "1px 6px",
+                          borderRadius: 6,
+                          background: "var(--sage-bg)",
+                          color: "var(--sage)",
+                        }}
+                      >
+                        Cuota #{infoCuota.numero}{infoCuota.total ? `/${infoCuota.total}` : ""}
+                      </span>
+                    );
+                  })()}
+                  {m.tarjetaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}>· {m.tarjetaNombre}</span>}
+                  {m.membresiaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}>· {m.membresiaNombre}</span>}
+                  {m.fuenteIngresoNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}>· {m.fuenteIngresoNombre}</span>}
+                  {m.contratoNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}>· {m.contratoNombre}</span>}
+                  {m.metodoPago === "Tarjeta de crédito" && m.tarjetaNombre && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}>· {m.tarjetaNombre}</span>}
+                  {m.description && <span style={{ fontWeight: 400, color: "var(--ink-soft)" }}>· {m.description}</span>}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 1 }}>
                   {formatDateDisplay(m.date)}

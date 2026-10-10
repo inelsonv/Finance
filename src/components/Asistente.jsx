@@ -23,6 +23,8 @@ import {
   Landmark,
   ShoppingCart,
   Package,
+  Mic,
+  MicOff,
 } from "lucide-react";
 import {
   crearAsistenteChat,
@@ -1199,6 +1201,12 @@ export default function Asistente({
   const [presupuestosHistoricos, setPresupuestosHistoricos] = useState({});
   const fileInputRef = useRef(null);
 
+  // Reconocimiento de voz y dictado por comandos
+  const [escuchandoVoz, setEscuchandoVoz] = useState(false);
+  const [transcripcionParcial, setTranscripcionParcial] = useState("");
+  const recognitionRef = useRef(null);
+  const vozSoportada = typeof window !== "undefined" && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+
   const tarjetasActivas = (tarjetas || []).filter(
     (t) => t.estado === "Activa" && (t.tipoTarjeta || "Crédito") === "Crédito"
   );
@@ -1278,7 +1286,101 @@ export default function Asistente({
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [mensajes, enviando]);
+  }, [mensajes, enviando, transcripcionParcial]);
+
+  // Limpieza al desmontar el reconocimiento de voz
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (_) {}
+      }
+    };
+  }, []);
+
+  const iniciarReconocimientoVoz = () => {
+    if (!vozSoportada) {
+      setError("Tu navegador no soporta reconocimiento de voz nativo.");
+      return;
+    }
+
+    if (escuchandoVoz) {
+      detenerReconocimientoVoz();
+      return;
+    }
+
+    try {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = "es-DO"; // Español República Dominicana / Latinoamérica
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setEscuchandoVoz(true);
+        setTranscripcionParcial("");
+        setError(null);
+      };
+
+      recognition.onresult = (event) => {
+        let textoInterino = "";
+        let textoFinal = "";
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const trans = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            textoFinal += trans;
+          } else {
+            textoInterino += trans;
+          }
+        }
+
+        if (textoInterino) {
+          setTranscripcionParcial(textoInterino);
+        }
+
+        if (textoFinal) {
+          const textoCompleto = textoFinal.trim();
+          setInput((prev) => (prev ? `${prev} ${textoCompleto}` : textoCompleto));
+          setTranscripcionParcial("");
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn("Speech recognition error:", event.error);
+        if (event.error !== "no-speech") {
+          setError(`Micrófono: ${event.error === "not-allowed" ? "Permiso de micrófono denegado" : event.error}`);
+        }
+        setEscuchandoVoz(false);
+        setTranscripcionParcial("");
+      };
+
+      recognition.onend = () => {
+        setEscuchandoVoz(false);
+        setTranscripcionParcial("");
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error("Error al iniciar reconocimiento de voz:", err);
+      setError("No se pudo activar el micrófono.");
+      setEscuchandoVoz(false);
+      setTranscripcionParcial("");
+    }
+  };
+
+  const detenerReconocimientoVoz = () => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (_) {}
+    }
+    setEscuchandoVoz(false);
+    setTranscripcionParcial("");
+  };
 
   const enviarPregunta = async (texto) => {
     const pregunta = (texto ?? input).trim();
@@ -2135,6 +2237,27 @@ export default function Asistente({
           </div>
         )}
 
+        {escuchandoVoz && (
+          <div
+            style={{
+              alignSelf: "flex-start",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 14px",
+              borderRadius: 14,
+              background: "rgba(239, 68, 68, 0.08)",
+              border: "1px solid rgba(239, 68, 68, 0.25)",
+              color: "#dc2626",
+              fontSize: 12.5,
+              animation: "pulse 1.5s infinite",
+            }}
+          >
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#dc2626" }} />
+            <span>Escuchando voz… {transcripcionParcial ? `"${transcripcionParcial}"` : "Habla ahora (ej: 'PT09 paga el total', 'gasto 500 en gasolina'…)"}</span>
+          </div>
+        )}
+
         {enviando && (
           <div style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", borderRadius: 14, background: "var(--card)", border: "1px solid var(--line)" }}>
             <Loader2 size={14} className="despensa-spin" style={{ color: "var(--ink-soft)" }} />
@@ -2183,12 +2306,44 @@ export default function Asistente({
         >
           <Camera size={18} />
         </button>
+
+        {vozSoportada && (
+          <button
+            type="button"
+            onClick={iniciarReconocimientoVoz}
+            disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
+            title={escuchandoVoz ? "Detener dictado por voz" : "Dictar movimiento o consulta por voz"}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              border: escuchandoVoz ? "1.5px solid #ef4444" : "1px solid var(--line)",
+              background: escuchandoVoz ? "rgba(239, 68, 68, 0.12)" : "var(--card)",
+              color: escuchandoVoz ? "#dc2626" : "var(--ink)",
+              cursor: procesandoFactura || enviando ? "not-allowed" : "pointer",
+              flexShrink: 0,
+              transition: "all 0.2s ease",
+            }}
+          >
+            {escuchandoVoz ? <MicOff size={18} /> : <Mic size={18} />}
+          </button>
+        )}
+
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && enviarPregunta()}
           onPaste={handlePaste}
-          placeholder={procesandoFactura ? "Escaneando factura con IA…" : "Escribe tu consulta o movimiento (ej: 'PT09 paga el total', 'agrega leche a la orden'…)"}
+          placeholder={
+            escuchandoVoz
+              ? (transcripcionParcial ? `Escuchando: ${transcripcionParcial}…` : "Escuchando lo que dices…")
+              : procesandoFactura
+              ? "Escaneando factura con IA…"
+              : "Escribe o dicta tu consulta (ej: 'PT09 paga el total', 'gasto 500 en gasolina'…)"
+          }
           maxLength={2000}
           disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
           style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 13.5 }}
