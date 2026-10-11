@@ -1,13 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LogOut, Settings, Smartphone, X, PiggyBank, TrendingDown } from "lucide-react";
+import { LogOut, Settings, Smartphone, X, PiggyBank, TrendingDown, User as UserIcon, Users, ShieldCheck, Clock } from "lucide-react";
 import { confirm } from "../lib/confirm";
+import { watchUsuariosRegistrados } from "../lib/db";
 
 const APP_URL = "https://inelsonv.github.io/Finance/";
 
-export default function AccountMenu({ user, onSignOut, onOpenSettings, synced, ahorroActivo, estrategiaDeudas }) {
+export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, synced, ahorroActivo, estrategiaDeudas }) {
   const [open, setOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
+  const [showUsuarios, setShowUsuarios] = useState(false);
+  const [usuariosLista, setUsuariosLista] = useState([]);
   const ref = useRef(null);
+
+  useEffect(() => {
+    if (showUsuarios && isOwner) {
+      const unsub = watchUsuariosRegistrados(setUsuariosLista, (err) => console.error("Error cargando usuarios:", err));
+      return () => unsub();
+    }
+  }, [showUsuarios, isOwner]);
   const modosActivos = [
     ...(ahorroActivo ? [{ id: "ahorro", label: "Modo Ahorro", Icon: PiggyBank, color: "var(--sage)" }] : []),
     ...(estrategiaDeudas?.activo ? [{ id: "deuda", label: `Pago de deuda · ${estrategiaDeudas.metodo === "bola" ? "Bola de nieve" : "Avalancha"}`, Icon: TrendingDown, color: "var(--amber)" }] : []),
@@ -21,7 +31,9 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings, synced, a
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, []);
 
-  if (!user?.photoURL) return null;
+  if (!user) return null;
+
+  const inicial = (user.displayName || user.email || "U").charAt(0).toUpperCase();
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -30,19 +42,40 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings, synced, a
         title={user.displayName || user.email}
         style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "flex", position: "relative" }}
       >
-        <img
-          src={user.photoURL}
-          alt={user.displayName || user.email}
-          referrerPolicy="no-referrer"
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: "50%",
-            border: open ? "2px solid var(--sage)" : "1px solid var(--line)",
-            objectFit: "cover",
-            flexShrink: 0,
-          }}
-        />
+        {user.photoURL ? (
+          <img
+            src={user.photoURL}
+            alt={user.displayName || user.email}
+            referrerPolicy="no-referrer"
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: "50%",
+              border: open ? "2px solid var(--sage)" : "1px solid var(--line)",
+              objectFit: "cover",
+              flexShrink: 0,
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: "50%",
+              background: "var(--sage-bg)",
+              color: "var(--sage)",
+              border: open ? "2px solid var(--sage)" : "1px solid var(--line)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            {inicial}
+          </div>
+        )}
         {modosActivos.map(({ id, label, Icon, color }, index) => (
           <span
             key={id}
@@ -106,6 +139,22 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings, synced, a
             <div style={{ fontSize: 11, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {user.email}
             </div>
+            <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: isOwner ? "var(--amber-bg)" : "var(--sage-bg)",
+                  color: isOwner ? "var(--amber)" : "var(--sage)",
+                  border: `1px solid ${isOwner ? "var(--amber)" : "var(--sage)"}`,
+                  display: "inline-block",
+                }}
+              >
+                {isOwner ? "👑 Propietario / Admin" : "👤 Cuenta Individual"}
+              </span>
+            </div>
           </div>
           {modosActivos.length > 0 && (
             <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--line-soft)", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -115,6 +164,30 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings, synced, a
                 </div>
               ))}
             </div>
+          )}
+          {isOwner && (
+            <button
+              onClick={() => {
+                setOpen(false);
+                setShowUsuarios(true);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                width: "100%",
+                padding: "10px 12px",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 12.5,
+                color: "var(--ink)",
+                textAlign: "left",
+                borderBottom: "1px solid var(--line-soft)",
+              }}
+            >
+              <Users size={14} /> Directorio de Usuarios
+            </button>
           )}
           <button
             onClick={() => {
@@ -238,6 +311,131 @@ export default function AccountMenu({ user, onSignOut, onOpenSettings, synced, a
 
             <div className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 12, wordBreak: "break-all" }}>
               {APP_URL}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUsuarios && isOwner && (
+        <div
+          onClick={() => setShowUsuarios(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 200,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 14,
+              padding: 24,
+              maxWidth: 520,
+              width: "100%",
+              position: "relative",
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Users size={20} style={{ color: "var(--sage)" }} />
+                <span style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
+                  Directorio Multi-Usuario
+                </span>
+              </div>
+              <button
+                onClick={() => setShowUsuarios(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--ink-soft)",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 16px", lineHeight: 1.5 }}>
+              Cada usuario tiene su propio espacio de datos totalmente aislado (cuentas, gastos, presupuestos, préstamos y puntos propios). Aquí puedes ver los usuarios registrados en Smart Finance.
+            </p>
+
+            <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 10, paddingRight: 4 }}>
+              {usuariosLista.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "24px 12px", color: "var(--ink-soft)", fontSize: 13 }}>
+                  Cargando usuarios registrados…
+                </div>
+              ) : (
+                usuariosLista.map((u) => {
+                  const esEstePropietario = u.rol === "propietario" || u.email?.toLowerCase() === "iventuramena@gmail.com";
+                  return (
+                    <div
+                      key={u.id || u.uid}
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 10,
+                        border: "1px solid var(--line)",
+                        background: esEstePropietario ? "var(--amber-bg)" : "var(--paper)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+                            {u.displayName || "Usuario"}
+                          </span>
+                          {esEstePropietario ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, background: "var(--amber)", color: "#fff", padding: "1px 6px", borderRadius: 4 }}>
+                              Propietario
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 10, fontWeight: 600, background: "var(--sage-bg)", color: "var(--sage)", padding: "1px 6px", borderRadius: 4, border: "1px solid var(--sage)" }}>
+                              Usuario Individual
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {u.email}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right", fontSize: 11, color: "var(--ink-soft)", flexShrink: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end", color: "var(--sage)" }}>
+                          <ShieldCheck size={13} /> Activo
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--line-soft)", textAlign: "right" }}>
+              <button
+                onClick={() => setShowUsuarios(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  background: "var(--ink)",
+                  color: "var(--paper)",
+                  border: "none",
+                  fontSize: 12.5,
+                  cursor: "pointer",
+                }}
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>

@@ -21,7 +21,12 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const functions = getFunctions(app);
 
-export const ALLOWED_EMAIL = "iventuramena@gmail.com";
+export const OWNER_EMAIL = "iventuramena@gmail.com";
+export const ALLOWED_EMAIL = OWNER_EMAIL; // Retrocompatibilidad
+
+export const isOwnerUser = (user) => {
+  return user?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+};
 export const storage = getStorage(app);
 
 // App de Workspace provisionada para OAuth Client ID y permisos de Gmail API

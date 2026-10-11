@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult, GoogleAuthProvider } from "firebase/auth";
-import { auth, ALLOWED_EMAIL, setCachedAccessToken, clearCachedAccessToken } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy } from "./lib/db";
+import { auth, ALLOWED_EMAIL, isOwnerUser, setCachedAccessToken, clearCachedAccessToken } from "./firebase";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy, setCurrentDbUser, inicializarEspacioUsuarioNuevo, watchUsuariosRegistrados } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
@@ -386,14 +386,24 @@ export default function App() {
           // sessionStorage no disponible, el error simplemente no se muestra
         }
       });
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       setAuthUser(user);
-      if (!user) clearCachedAccessToken();
+      setCurrentDbUser(user);
+      if (!user) {
+        clearCachedAccessToken();
+      } else {
+        try {
+          await inicializarEspacioUsuarioNuevo(user);
+        } catch (err) {
+          console.error("Error al preparar espacio multi-usuario:", err);
+        }
+      }
     });
     return () => unsub();
   }, []);
 
-  const authorized = authUser && authUser.email === ALLOWED_EMAIL;
+  const authorized = Boolean(authUser);
+  const esPropietario = isOwnerUser(authUser);
 
   const fechaHoy = (() => {
     const d = new Date();
@@ -916,6 +926,7 @@ export default function App() {
               </div>
               <AccountMenu
                 user={authUser}
+                isOwner={esPropietario}
                 onSignOut={() => signOut(auth)}
                 onOpenSettings={() => setTab("configuracion")}
                 synced={synced}

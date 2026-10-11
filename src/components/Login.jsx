@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { signInWithPopup, signInWithRedirect, signInWithEmailAndPassword, signOut, GoogleAuthProvider } from "firebase/auth";
-import { LogIn, LogOut, ShieldAlert, Wallet, Copy, Check, ExternalLink, AlertTriangle, KeyRound } from "lucide-react";
-import { auth, googleProvider, ALLOWED_EMAIL, setCachedAccessToken } from "../firebase";
+import { signInWithPopup, signInWithRedirect, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider } from "firebase/auth";
+import { LogIn, LogOut, ShieldAlert, Wallet, Copy, Check, ExternalLink, AlertTriangle, KeyRound, UserPlus } from "lucide-react";
+import { auth, googleProvider, OWNER_EMAIL, setCachedAccessToken } from "../firebase";
 
 export function LoginScreen() {
   const [error, setError] = useState(null);
@@ -9,7 +9,8 @@ export function LoginScreen() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
-  const [emailInput, setEmailInput] = useState(ALLOWED_EMAIL);
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
   const [passwordInput, setPasswordInput] = useState("");
   const currentHost = typeof window !== "undefined" ? window.location.hostname : "";
 
@@ -63,17 +64,29 @@ export function LoginScreen() {
     }
   };
 
-  const handleEmailPasswordLogin = async (e) => {
+  const handleEmailPasswordSubmit = async (e) => {
     e.preventDefault();
     if (!emailInput || !passwordInput) return;
     setLoading(true);
     setError(null);
     setErrorCode(null);
     try {
-      await signInWithEmailAndPassword(auth, emailInput.trim(), passwordInput);
+      if (isRegisterMode) {
+        await createUserWithEmailAndPassword(auth, emailInput.trim(), passwordInput);
+      } else {
+        await signInWithEmailAndPassword(auth, emailInput.trim(), passwordInput);
+      }
     } catch (err) {
       setErrorCode(err.code);
-      setError(err.message || String(err));
+      if (err.code === "auth/email-already-in-use") {
+        setError("Este correo ya está registrado. Intenta iniciar sesión.");
+      } else if (err.code === "auth/weak-password") {
+        setError("La contraseña debe tener al menos 6 caracteres.");
+      } else if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
+        setError("Credenciales incorrectas. Verifica tu correo y contraseña.");
+      } else {
+        setError(err.message || String(err));
+      }
     } finally {
       setLoading(false);
     }
@@ -125,7 +138,7 @@ export function LoginScreen() {
           Smart Finance
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 20, lineHeight: 1.5 }}>
-          Tus finanzas son privadas. Accede con tu cuenta ({ALLOWED_EMAIL}).
+          Gestiona tus finanzas personales y presupuesto de forma privada e individual.
         </div>
 
         {!showEmailLogin ? (
@@ -154,10 +167,13 @@ export function LoginScreen() {
               {loading ? "Conectando…" : "Continuar con Google"}
             </button>
 
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
               <button
                 type="button"
-                onClick={() => setShowEmailLogin(true)}
+                onClick={() => {
+                  setIsRegisterMode(false);
+                  setShowEmailLogin(true);
+                }}
                 style={{
                   background: "transparent",
                   border: "none",
@@ -167,12 +183,48 @@ export function LoginScreen() {
                   cursor: "pointer",
                 }}
               >
-                O iniciar con contraseña (sin validar dominios)
+                O ingresar con correo y contraseña
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsRegisterMode(true);
+                  setShowEmailLogin(true);
+                }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: 12,
+                  color: "var(--sage)",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                ¿Eres nuevo? Crea tu cuenta individual gratis
               </button>
             </div>
           </>
         ) : (
-          <form onSubmit={handleEmailPasswordLogin} style={{ textAlign: "left" }}>
+          <form onSubmit={handleEmailPasswordSubmit} style={{ textAlign: "left" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                {isRegisterMode ? "Crear cuenta nueva" : "Iniciar sesión"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsRegisterMode((m) => !m)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: 11.5,
+                  color: "var(--blue)",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                }}
+              >
+                {isRegisterMode ? "¿Ya tienes cuenta? Ingresar" : "¿Nuevo? Crear cuenta"}
+              </button>
+            </div>
             <div style={{ marginBottom: 12 }}>
               <label style={{ display: "block", fontSize: 11.5, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 4 }}>
                 Correo electrónico
@@ -182,6 +234,7 @@ export function LoginScreen() {
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
                 required
+                placeholder="ejemplo@correo.com"
                 style={{
                   width: "100%",
                   padding: "8px 10px",
@@ -203,7 +256,7 @@ export function LoginScreen() {
                 value={passwordInput}
                 onChange={(e) => setPasswordInput(e.target.value)}
                 required
-                placeholder="Contraseña de Firebase"
+                placeholder="Mínimo 6 caracteres"
                 style={{
                   width: "100%",
                   padding: "8px 10px",
@@ -228,8 +281,8 @@ export function LoginScreen() {
                 padding: "10px 16px",
                 fontSize: 13.5,
                 fontWeight: 500,
-                background: "var(--ink)",
-                color: "var(--paper)",
+                background: isRegisterMode ? "var(--sage)" : "var(--ink)",
+                color: "#fff",
                 border: "none",
                 borderRadius: 8,
                 cursor: loading ? "not-allowed" : "pointer",
@@ -237,8 +290,8 @@ export function LoginScreen() {
                 marginBottom: 10,
               }}
             >
-              <KeyRound size={15} />
-              {loading ? "Iniciando…" : "Iniciar sesión con contraseña"}
+              {isRegisterMode ? <UserPlus size={15} /> : <KeyRound size={15} />}
+              {loading ? "Procesando…" : isRegisterMode ? "Crear mi cuenta" : "Iniciar sesión"}
             </button>
             <div style={{ textAlign: "center" }}>
               <button
@@ -398,8 +451,7 @@ export function AccessDeniedScreen({ user }) {
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 20, lineHeight: 1.5 }}>
           La cuenta <strong style={{ color: "var(--ink)" }}>{user?.email}</strong> no tiene permiso para
-          entrar a esta app. Solo <strong style={{ color: "var(--ink)" }}>{ALLOWED_EMAIL}</strong> puede
-          acceder.
+          acceder en este momento.
         </div>
         <button
           onClick={() => signOut(auth)}

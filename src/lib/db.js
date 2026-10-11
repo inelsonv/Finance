@@ -1,8 +1,8 @@
 import {
   addDoc,
-  collection,
+  collection as fsCollection,
   deleteDoc,
-  doc,
+  doc as fsDoc,
   getDoc,
   onSnapshot,
   orderBy,
@@ -18,27 +18,57 @@ import {
   arrayRemove,
   deleteField,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { db, storage, functions } from "../firebase";
+import { ref as fsRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { db, storage, functions, auth, isOwnerUser, OWNER_EMAIL } from "../firebase";
+
+let currentExplicitUser = null;
+
+export function setCurrentDbUser(user) {
+  currentExplicitUser = user;
+}
+
+export function getCurrentDbUser() {
+  return currentExplicitUser || auth.currentUser || null;
+}
+
+export function getCol(colName, ...pathSegments) {
+  const current = getCurrentDbUser();
+  if (!current || isOwnerUser(current)) {
+    return fsCollection(db, colName, ...pathSegments);
+  }
+  return fsCollection(db, "users", current.uid, colName, ...pathSegments);
+}
+
+export function getDocRef(colName, ...pathSegments) {
+  const current = getCurrentDbUser();
+  if (!current || isOwnerUser(current)) {
+    return fsDoc(db, colName, ...pathSegments);
+  }
+  return fsDoc(db, "users", current.uid, colName, ...pathSegments);
+}
+
+// Interceptores locales dinámicos para que cualquier llamada en db.js se auto-enrute al usuario actual
+const collection = (firestoreInstance, colName, ...pathSegments) => {
+  return getCol(colName, ...pathSegments);
+};
+
+const doc = (firestoreInstance, colName, ...pathSegments) => {
+  return getDocRef(colName, ...pathSegments);
+};
+
+const ref = (storageInstance, path) => {
+  const current = getCurrentDbUser();
+  if (!current || isOwnerUser(current)) {
+    return fsRef(storageInstance, path);
+  }
+  return fsRef(storageInstance, `users/${current.uid}/${path}`);
+};
 import { rangoFechasQuincenaConfigurado } from "./quincenaConfig";
 import { httpsCallable } from "firebase/functions";
 
-const productsCol = collection(db, "productos");
-const listCol = collection(db, "listaCompra");
-const entidadesCol = collection(db, "entidades");
-const movimientosCol = collection(db, "movimientos");
-const prestamosCol = collection(db, "prestamos");
-const cuentasCol = collection(db, "cuentas");
-const tarjetasCol = collection(db, "tarjetas");
-const membresiasCol = collection(db, "membresias");
-const librosCol = collection(db, "libros");
-const fuentesIngresoCol = collection(db, "fuentesIngreso");
-const categoriasGastoCol = collection(db, "categoriasGasto");
-const contratosCol = collection(db, "contratos");
-
 export function watchConnectionStatus(onChange) {
   return onSnapshot(
-    productsCol,
+    collection(db, "productos"),
     { includeMetadataChanges: true },
     (snap) => onChange(!snap.metadata.fromCache),
     () => onChange(false)
@@ -46,7 +76,7 @@ export function watchConnectionStatus(onChange) {
 }
 
 export function watchProducts(onChange, onError) {
-  const q = query(productsCol, orderBy("name"));
+  const q = query(collection(db, "productos"), orderBy("name"));
   return onSnapshot(
     q,
     (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
@@ -56,14 +86,14 @@ export function watchProducts(onChange, onError) {
 
 export function watchList(onChange, onError) {
   return onSnapshot(
-    listCol,
+    collection(db, "listaCompra"),
     (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
     (err) => onError && onError(err)
   );
 }
 
 export async function addProduct({ name, category, unit, price, codigoBarras, urlReferencia, proteinaPor100g, imageUrl, tienda }) {
-  const docRef = await addDoc(productsCol, {
+  const docRef = await addDoc(collection(db, "productos"), {
     name,
     category,
     unit: unit || "unidad",
@@ -230,10 +260,8 @@ export async function escanearFactura(imageBase64, mediaType = "image/jpeg") {
   }
 }
 
-const asistenteChatsCol = collection(db, "asistenteChats");
-
 export function watchAsistenteChats(onChange, onError) {
-  const q = query(asistenteChatsCol, orderBy("actualizadoAt", "desc"));
+  const q = query(collection(db, "asistenteChats"), orderBy("actualizadoAt", "desc"));
   return onSnapshot(
     q,
     (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
@@ -250,7 +278,7 @@ export function watchAsistenteChat(id, onChange, onError) {
 }
 
 export async function crearAsistenteChat(titulo = "Nueva conversación", mensajes = []) {
-  const ref = await addDoc(asistenteChatsCol, {
+  const ref = await addDoc(collection(db, "asistenteChats"), {
     titulo,
     mensajes: (mensajes || []).slice(-80),
     creadoAt: serverTimestamp(),
@@ -348,7 +376,7 @@ export async function incrementListQty(productId, current, delta) {
 
 export function watchEntidades(onChange, onError) {
   return onSnapshot(
-    entidadesCol,
+    collection(db, "entidades"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ docId: d.id, ...d.data() }));
       docs.sort((a, b) => {
@@ -363,7 +391,7 @@ export function watchEntidades(onChange, onError) {
 }
 
 export async function addEntidad({ name, type, address, phone, notes }) {
-  await addDoc(entidadesCol, {
+  await addDoc(collection(db, "entidades"), {
     name,
     type,
     address: address || "",
@@ -381,11 +409,9 @@ export async function deleteEntidad(docId) {
   await deleteDoc(doc(db, "entidades", docId));
 }
 
-const tiposEntidadCol = collection(db, "tiposEntidad");
-
 export function watchTiposEntidad(onChange, onError) {
   return onSnapshot(
-    tiposEntidadCol,
+    collection(db, "tiposEntidad"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -396,7 +422,7 @@ export function watchTiposEntidad(onChange, onError) {
 }
 
 export async function addTipoEntidad(nombre) {
-  await addDoc(tiposEntidadCol, { nombre, createdAt: serverTimestamp() });
+  await addDoc(collection(db, "tiposEntidad"), { nombre, createdAt: serverTimestamp() });
 }
 
 export async function deleteTipoEntidad(id) {
@@ -405,7 +431,7 @@ export async function deleteTipoEntidad(id) {
 
 export function watchMovimientos(onChange, onError) {
   return onSnapshot(
-    movimientosCol,
+    collection(db, "movimientos"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
@@ -442,7 +468,7 @@ export async function addMovimiento({
   origen,
   origenChecklist,
 }) {
-  const docRef = await addDoc(movimientosCol, {
+  const docRef = await addDoc(collection(db, "movimientos"), {
     type,
     category,
     amount,
@@ -1646,7 +1672,7 @@ export async function recalcularEstadoPrestamo(prestamoId) {
 // nunca se limpió bien), esto lo vuelve a poner en "Activo" automáticamente.
 // Es la misma lógica de recalcularEstadoPrestamo, aplicada a todos.
 export async function verificarEstadoTodosPrestamos() {
-  const prestamosSnap = await getDocs(prestamosCol);
+  const prestamosSnap = await getDocs(collection(db, "prestamos"));
   for (const prestamoDoc of prestamosSnap.docs) {
     try {
       await recalcularEstadoPrestamo(prestamoDoc.id);
@@ -1666,7 +1692,7 @@ export async function aplicarArregloPrestamoPT07_20260906() {
   const flagSnap = await getDoc(flagRef);
   if (flagSnap.exists() && flagSnap.data().aplicado) return;
 
-  const prestamosSnap = await getDocs(query(prestamosCol, where("numero", "==", "PT07")));
+  const prestamosSnap = await getDocs(query(collection(db, "prestamos"), where("numero", "==", "PT07")));
   if (!prestamosSnap.empty) {
     await recalcularEstadoPrestamo(prestamosSnap.docs[0].id);
   }
@@ -1675,7 +1701,7 @@ export async function aplicarArregloPrestamoPT07_20260906() {
 
 export function watchPrestamos(onChange, onError) {
   return onSnapshot(
-    prestamosCol,
+    collection(db, "prestamos"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.numero || "").localeCompare(b.numero || ""));
@@ -1707,7 +1733,7 @@ export async function addPrestamo({
   frecuenciaCuota,
   cuotasPersonalizadas,
 }) {
-  await addDoc(prestamosCol, {
+  await addDoc(collection(db, "prestamos"), {
     numero,
     tipo: tipo || "Otro",
     entidadId: entidadId || null,
@@ -1773,7 +1799,7 @@ export async function deletePrestamo(id) {
 
 export function watchCuentas(onChange, onError) {
   return onSnapshot(
-    cuentasCol,
+    collection(db, "cuentas"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -1784,7 +1810,7 @@ export function watchCuentas(onChange, onError) {
 }
 
 export async function addCuenta({ nombre, tipo, entidadId, entidadName, numeroCuenta, saldoInicial, notas }) {
-  await addDoc(cuentasCol, {
+  await addDoc(collection(db, "cuentas"), {
     nombre,
     tipo,
     entidadId: entidadId || null,
@@ -1806,7 +1832,7 @@ export async function deleteCuenta(id) {
 
 export function watchTarjetas(onChange, onError) {
   return onSnapshot(
-    tarjetasCol,
+    collection(db, "tarjetas"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -1833,7 +1859,7 @@ export async function addTarjeta({
   marca,
   saldoActual,
 }) {
-  await addDoc(tarjetasCol, {
+  await addDoc(collection(db, "tarjetas"), {
     nombre,
     tipoTarjeta: tipoTarjeta || "Crédito",
     entidadId: entidadId || null,
@@ -1868,7 +1894,7 @@ export async function deleteTarjeta(id) {
 // ---- Biblioteca: registro personal de libros (estilo Goodreads) ----
 export function watchLibros(onChange, onError) {
   return onSnapshot(
-    librosCol,
+    collection(db, "libros"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => {
@@ -1885,7 +1911,7 @@ export function watchLibros(onChange, onError) {
 export async function addLibro({ titulo, autor, estado, genero, calificacion, notas, portadaUrl }) {
   const tituloTrim = (titulo || "").trim();
   if (!tituloTrim) throw new Error("Ponle un título al libro");
-  const docRef = await addDoc(librosCol, {
+  const docRef = await addDoc(collection(db, "libros"), {
     titulo: tituloTrim,
     autor: (autor || "").trim(),
     estado: estado || "Pendiente",
@@ -1932,7 +1958,7 @@ export async function deleteLibro(id) {
 
 export function watchMembresias(onChange, onError) {
   return onSnapshot(
-    membresiasCol,
+    collection(db, "membresias"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -1960,7 +1986,7 @@ export async function addMembresia({
   color,
   nivel,
 }) {
-  await addDoc(membresiasCol, {
+  await addDoc(collection(db, "membresias"), {
     nombre,
     tipo,
     entidadId: entidadId || null,
@@ -1995,7 +2021,7 @@ export async function deleteMembresia(id) {
 
 export function watchFuentesIngreso(onChange, onError) {
   return onSnapshot(
-    fuentesIngresoCol,
+    collection(db, "fuentesIngreso"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -2018,7 +2044,7 @@ export async function addFuenteIngreso({
   codigoEmpleado,
   diasVacacionesAnuales,
 }) {
-  await addDoc(fuentesIngresoCol, {
+  await addDoc(collection(db, "fuentesIngreso"), {
     nombre,
     tipo,
     entidadId: entidadId || null,
@@ -2046,11 +2072,9 @@ export async function deleteFuenteIngreso(id) {
   await deleteDoc(doc(db, "fuentesIngreso", id));
 }
 
-const ingresosPuntualesCol = collection(db, "ingresosPuntuales");
-
 export function watchIngresosPuntuales(onChange, onError) {
   return onSnapshot(
-    ingresosPuntualesCol,
+    collection(db, "ingresosPuntuales"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
@@ -2061,7 +2085,7 @@ export function watchIngresosPuntuales(onChange, onError) {
 }
 
 export async function addIngresoPuntual({ fuenteIngresoId, fuenteIngresoNombre, tipo, monto, fecha, notas }) {
-  await addDoc(ingresosPuntualesCol, {
+  await addDoc(collection(db, "ingresosPuntuales"), {
     fuenteIngresoId,
     fuenteIngresoNombre: fuenteIngresoNombre || "",
     tipo,
@@ -2094,7 +2118,7 @@ export async function marcarIngresoPuntualRecibido(id, ingreso) {
 
 export function watchCategoriasGasto(onChange, onError) {
   return onSnapshot(
-    categoriasGastoCol,
+    collection(db, "categoriasGasto"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -2105,7 +2129,7 @@ export function watchCategoriasGasto(onChange, onError) {
 }
 
 export async function addCategoriaGasto({ nombre, clasificacion, metodoPagoDefault }) {
-  await addDoc(categoriasGastoCol, {
+  await addDoc(collection(db, "categoriasGasto"), {
     nombre,
     clasificacion,
     metodoPagoDefault: metodoPagoDefault || "Efectivo",
@@ -2198,7 +2222,7 @@ export async function saveMetodologiaPresupuestoConfig(config) {
 
 export function watchContratos(onChange, onError) {
   return onSnapshot(
-    contratosCol,
+    collection(db, "contratos"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -2219,7 +2243,7 @@ export async function addContrato({
   estado,
   notas,
 }) {
-  await addDoc(contratosCol, {
+  await addDoc(collection(db, "contratos"), {
     nombre,
     tipo,
     entidadId: entidadId || null,
@@ -2257,11 +2281,9 @@ export async function saveFlujo(nodes, edges, viewport) {
   await setDoc(doc(db, "flujo", "diagrama"), { nodes, edges, viewport: viewport || null, updatedAt: serverTimestamp() });
 }
 
-const accionesCol = collection(db, "acciones");
-
 export function watchAcciones(onChange, onError) {
   return onSnapshot(
-    accionesCol,
+    collection(db, "acciones"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.symbol || "").localeCompare(b.symbol || ""));
@@ -2272,7 +2294,7 @@ export function watchAcciones(onChange, onError) {
 }
 
 export async function addAccion({ symbol, nombre }) {
-  await addDoc(accionesCol, { symbol: symbol.toUpperCase(), nombre: nombre || "", createdAt: serverTimestamp() });
+  await addDoc(collection(db, "acciones"), { symbol: symbol.toUpperCase(), nombre: nombre || "", createdAt: serverTimestamp() });
 }
 
 export async function deleteAccion(id) {
@@ -2531,11 +2553,9 @@ export async function saveInicioOrden(orden) {
   await setDoc(doc(db, "config", "inicioOrden"), { orden });
 }
 
-const calendarioCol = collection(db, "calendario");
-
 export function watchCalendario(onChange, onError) {
   return onSnapshot(
-    calendarioCol,
+    collection(db, "calendario"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => `${a.fecha || ""}${a.hora || ""}`.localeCompare(`${b.fecha || ""}${b.hora || ""}`));
@@ -2546,7 +2566,7 @@ export function watchCalendario(onChange, onError) {
 }
 
 export async function addEvento({ titulo, tipo, fecha, hora, entidadId, entidadName, diasAviso, estado, notas, categoriaGasto, montoEstimado, tipoMantenimiento, activoId, activoNombre, kilometraje }) {
-  await addDoc(calendarioCol, {
+  await addDoc(collection(db, "calendario"), {
     titulo,
     tipo,
     fecha,
@@ -2578,11 +2598,9 @@ export async function deleteEvento(id) {
   await deleteDoc(doc(db, "calendario", id));
 }
 
-const activosCol = collection(db, "activos");
-
 export function watchActivos(onChange, onError) {
   return onSnapshot(
-    activosCol,
+    collection(db, "activos"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -2605,7 +2623,7 @@ export async function addActivo({
   estado,
   notas,
 }) {
-  await addDoc(activosCol, {
+  await addDoc(collection(db, "activos"), {
     nombre,
     tipo,
     marca: marca || "",
@@ -2633,11 +2651,9 @@ export async function deleteActivo(id) {
   await deleteDoc(doc(db, "activos", id));
 }
 
-const mantenimientosCol = collection(db, "mantenimientos");
-
 export function watchMantenimientos(onChange, onError) {
   return onSnapshot(
-    mantenimientosCol,
+    collection(db, "mantenimientos"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
@@ -2648,7 +2664,7 @@ export function watchMantenimientos(onChange, onError) {
 }
 
 export async function addMantenimiento({ activoId, activoNombre, fecha, tipo, costo, kilometraje, notas }) {
-  await addDoc(mantenimientosCol, {
+  await addDoc(collection(db, "mantenimientos"), {
     activoId,
     activoNombre: activoNombre || "",
     fecha,
@@ -2664,11 +2680,9 @@ export async function deleteMantenimiento(id) {
   await deleteDoc(doc(db, "mantenimientos", id));
 }
 
-const metasAhorroCol = collection(db, "metasAhorro");
-
 export function watchMetasAhorro(onChange, onError) {
   return onSnapshot(
-    metasAhorroCol,
+    collection(db, "metasAhorro"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -2693,7 +2707,7 @@ export async function addMetaAhorro({
   icono,
   activoId,
 }) {
-  await addDoc(metasAhorroCol, {
+  await addDoc(collection(db, "metasAhorro"), {
     nombre,
     tipoMeta,
     cuentaId: cuentaId || null,
@@ -2723,11 +2737,9 @@ export async function deleteMetaAhorro(id) {
   await deleteDoc(doc(db, "metasAhorro", id));
 }
 
-const segurosCol = collection(db, "seguros");
-
 export function watchSeguros(onChange, onError) {
   return onSnapshot(
-    segurosCol,
+    collection(db, "seguros"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -2753,7 +2765,7 @@ export async function addSeguro({
   estado,
   notas,
 }) {
-  await addDoc(segurosCol, {
+  await addDoc(collection(db, "seguros"), {
     nombre,
     tipo,
     entidadId: entidadId || null,
@@ -2784,11 +2796,9 @@ export async function deleteSeguro(id) {
   await deleteDoc(doc(db, "seguros", id));
 }
 
-const renovacionesCol = collection(db, "renovaciones");
-
 export function watchRenovaciones(onChange, onError) {
   return onSnapshot(
-    renovacionesCol,
+    collection(db, "renovaciones"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
@@ -2814,7 +2824,7 @@ export async function addRenovacion({
   categoriaGasto,
   notas,
 }) {
-  await addDoc(renovacionesCol, {
+  await addDoc(collection(db, "renovaciones"), {
     nombre,
     tipo,
     entidadId: entidadId || null,
@@ -2845,11 +2855,9 @@ export async function deleteRenovacion(id) {
   await deleteDoc(doc(db, "renovaciones", id));
 }
 
-const historialComprasCol = collection(db, "historialCompras");
-
 export function watchHistorialCompras(onChange, onError) {
   return onSnapshot(
-    historialComprasCol,
+    collection(db, "historialCompras"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       onChange(docs);
@@ -2859,7 +2867,7 @@ export function watchHistorialCompras(onChange, onError) {
 }
 
 export async function registrarCompraProducto({ productId, productName, fecha, cantidad }) {
-  const docRef = await addDoc(historialComprasCol, {
+  const docRef = await addDoc(collection(db, "historialCompras"), {
     productId,
     productName: productName || "",
     fecha,
@@ -2873,11 +2881,9 @@ export async function deleteHistorialCompra(id) {
   await deleteDoc(doc(db, "historialCompras", id));
 }
 
-const ordenesCompraCol = collection(db, "ordenesCompra");
-
 export function watchOrdenesCompra(onChange, onError) {
   return onSnapshot(
-    ordenesCompraCol,
+    collection(db, "ordenesCompra"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (b.folio || "").localeCompare(a.folio || ""));
@@ -2903,7 +2909,7 @@ async function siguienteFolioOC() {
 
 export async function addOrdenCompra({ items, proveedorId, proveedorNombre, notas, categoriaGasto, fechaPlaneada }) {
   const folio = await siguienteFolioOC();
-  const docRef = await addDoc(ordenesCompraCol, {
+  const docRef = await addDoc(collection(db, "ordenesCompra"), {
     folio,
     fecha: new Date().toISOString().slice(0, 10),
     estado: "Borrador",
@@ -2975,11 +2981,9 @@ export async function deleteOrdenCompra(id) {
   await deleteDoc(doc(db, "ordenesCompra", id));
 }
 
-const vacacionesCol = collection(db, "vacaciones");
-
 export function watchVacaciones(onChange, onError) {
   return onSnapshot(
-    vacacionesCol,
+    collection(db, "vacaciones"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       docs.sort((a, b) => (a.fechaInicio || "").localeCompare(b.fechaInicio || ""));
@@ -3001,7 +3005,7 @@ export async function addVacacion({
   estado,
   notas,
 }) {
-  await addDoc(vacacionesCol, {
+  await addDoc(collection(db, "vacaciones"), {
     destino,
     fuenteIngresoId: fuenteIngresoId || null,
     fuenteIngresoName: fuenteIngresoName || "",
@@ -3054,3 +3058,138 @@ export async function registrarEnvioReporteEmail(registro) {
   );
 }
 
+
+
+// ==========================================
+// Soporte Multi-Usuario & Onboarding
+// ==========================================
+export async function inicializarEspacioUsuarioNuevo(user) {
+  if (!user || !user.uid) return;
+  setCurrentDbUser(user);
+
+  const uid = user.uid;
+  const perfilPublicoRef = fsDoc(db, "usuariosRegistrados", uid);
+
+  // Registrar / actualizar usuario en el directorio
+  try {
+    await setDoc(
+      perfilPublicoRef,
+      {
+        uid,
+        email: user.email || "",
+        displayName: user.displayName || user.email?.split("@")[0] || "Usuario",
+        photoURL: user.photoURL || null,
+        rol: isOwnerUser(user) ? "propietario" : "usuario",
+        lastLogin: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn("No se pudo actualizar registro de usuario:", err);
+  }
+
+  // Si es el propietario original, conserva intactas sus colecciones raíz históricas
+  if (isOwnerUser(user)) {
+    return;
+  }
+
+  // Para usuarios individuales, verificar si es su primera vez
+  const initDocRef = fsDoc(db, "users", uid, "config", "inicializado");
+  const initSnap = await getDoc(initDocRef);
+  if (initSnap.exists()) {
+    return; // Ya fue inicializado previamente
+  }
+
+  // Inicializar colecciones base para que el nuevo usuario tenga una app 100% funcional y agradable
+  try {
+    // 1. Categorías de gasto predeterminadas
+    const categoriasBase = [
+      { nombre: "Alimentación y Supermercado", clasificacion: "Necesario", metodoPagoDefault: "Efectivo" },
+      { nombre: "Vivienda y Servicios", clasificacion: "Necesario", metodoPagoDefault: "Transferencia" },
+      { nombre: "Transporte y Combustible", clasificacion: "Necesario", metodoPagoDefault: "Efectivo" },
+      { nombre: "Salud y Medicamentos", clasificacion: "Necesario", metodoPagoDefault: "Efectivo" },
+      { nombre: "Educación y Capacitación", clasificacion: "Necesario", metodoPagoDefault: "Transferencia" },
+      { nombre: "Entretenimiento y Ocio", clasificacion: "Deseo", metodoPagoDefault: "Efectivo" },
+      { nombre: "Ropa y Cuidado Personal", clasificacion: "Deseo", metodoPagoDefault: "Efectivo" },
+      { nombre: "Otros Gastos", clasificacion: "Otros", metodoPagoDefault: "Efectivo" },
+    ];
+    for (const cat of categoriasBase) {
+      await addDoc(fsCollection(db, "users", uid, "categoriasGasto"), {
+        ...cat,
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    // 2. Fuentes de ingreso predeterminadas
+    const fuentesBase = [
+      { nombre: "Sueldo / Salario Principal", tipo: "Fijo", periodicidad: "Quincenal" },
+      { nombre: "Ingresos Extras / Proyectos", tipo: "Variable", periodicidad: "Mensual" },
+    ];
+    for (const fuente of fuentesBase) {
+      await addDoc(fsCollection(db, "users", uid, "fuentesIngreso"), {
+        ...fuente,
+        createdAt: serverTimestamp(),
+      });
+    }
+
+    // 3. Cuentas de dinero base
+    await addDoc(fsCollection(db, "users", uid, "cuentas"), {
+      nombre: "Efectivo",
+      tipo: "Efectivo",
+      saldoActual: 0,
+      moneda: "DOP",
+      color: "#10b981",
+      estado: "Activa",
+      createdAt: serverTimestamp(),
+    });
+    await addDoc(fsCollection(db, "users", uid, "cuentas"), {
+      nombre: "Cuenta Banco Principal",
+      tipo: "Banco",
+      saldoActual: 0,
+      moneda: "DOP",
+      color: "#3b82f6",
+      estado: "Activa",
+      createdAt: serverTimestamp(),
+    });
+
+    // 4. Bono de bienvenida en Puntos Smart Finance
+    await setDoc(fsDoc(db, "users", uid, "config", "puntos"), { total: 100 }, { merge: true });
+    await addDoc(fsCollection(db, "users", uid, "puntosHistorial"), {
+      concepto: "Bono de bienvenida Smart Finance 🎉",
+      puntos: 100,
+      tipo: "positivo",
+      createdAt: serverTimestamp(),
+    });
+
+    // 5. Configuración de días de cobro por defecto (quincenas 15 y 30)
+    await setDoc(fsDoc(db, "users", uid, "config", "diasCobro"), { dias: [15, 30] }, { merge: true });
+
+    // 6. Perfil de configuración personal
+    await setDoc(
+      fsDoc(db, "users", uid, "config", "perfilPersonal"),
+      {
+        nombre: user.displayName || user.email?.split("@")[0] || "Mi Usuario",
+        email: user.email,
+        fechaRegistro: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Marcar como inicializado
+    await setDoc(initDocRef, {
+      version: 1,
+      fechaInicializacion: serverTimestamp(),
+    });
+  } catch (err) {
+    console.error("Error creando datos iniciales para el nuevo usuario:", err);
+  }
+}
+
+export function watchUsuariosRegistrados(onChange, onError) {
+  const q = query(fsCollection(db, "usuariosRegistrados"), orderBy("lastLogin", "desc"));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}

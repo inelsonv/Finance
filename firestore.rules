@@ -1,145 +1,25 @@
 rules_version = '2';
 
-// Solo la cuenta de Google iventuramena@gmail.com puede leer o escribir
-// cualquier dato de esta app. Todas las demás peticiones se rechazan.
-
 service cloud.firestore {
   match /databases/{database}/documents {
     function esPropietario() {
       return request.auth != null && request.auth.token.email == "iventuramena@gmail.com";
     }
 
-    match /productos/{doc} {
-      allow read, write: if esPropietario();
+    // Registro general de perfiles de usuario (Lectura/escritura propia, lectura administrativa para propietario)
+    match /usuariosRegistrados/{userId} {
+      allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
     }
-    match /listaCompra/{doc} {
-      allow read, write: if esPropietario();
+
+    // Espacio de datos 100% aislado para cada usuario individual
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
     }
-    match /entidades/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /movimientos/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /prestamos/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /cuentas/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /tarjetas/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /membresias/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /fuentesIngreso/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /categoriasGasto/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /presupuestos/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /contratos/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /flujo/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /acciones/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /config/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /tiposEntidad/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /calendario/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /activos/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /mantenimientos/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /metasAhorro/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /seguros/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /renovaciones/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /puntosHistorial/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /ingresosPuntuales/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /presupuestoCumplimiento/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /presupuestoAjustesEvaluados/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /ajustesPresupuestoHistorial/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /tarjetaCiclosEvaluados/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /tarjetaCargosHistorial/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /comprasProrateadas/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /sugerenciasInversion/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /historialCompras/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /ordenesCompra/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /vacaciones/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /checklistPagos/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /asistenteChats/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /habitos/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /habitosRegistro/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /habitosPenalizaciones/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /versiculoDiario/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /estado/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /movimientosEliminados/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /libros/{doc} {
-      allow read, write: if esPropietario();
-    }
-    match /cofresGanados/{doc} {
+
+    // Colecciones raíz: datos existentes preservados exclusivamente para la cuenta propietaria original
+    match /{collectionName}/{docId} {
       allow read, write: if esPropietario();
     }
   }
 }
+
