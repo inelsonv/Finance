@@ -389,8 +389,29 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
       </Section>
 
       <Section icon={Palette} title="Apariencia y Temas">
-        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12 }}>
-          Personaliza la apariencia y el estilo visual de Smart Finance. Cada tema incluye una miniatura con vista previa real de los colores y componentes.
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)", flex: 1, minWidth: 240 }}>
+            Personaliza los colores y el estilo visual de Smart Finance. Cada tema incluye una miniatura con vista previa real.
+          </div>
+          {user && (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 10px",
+                background: "var(--sage-bg)",
+                border: "1px solid var(--line-soft)",
+                borderRadius: 20,
+                fontSize: 11.5,
+                fontWeight: 500,
+                color: "var(--sage)",
+              }}
+            >
+              <UserIcon size={12} />
+              <span>Preferencia individual de <strong>{user.displayName || user.email?.split("@")[0] || "tu usuario"}</strong></span>
+            </div>
+          )}
         </div>
         <ThemeSelector currentTheme={theme} onSelectTheme={onSelectTheme || onToggleTheme} />
       </Section>

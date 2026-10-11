@@ -3193,3 +3193,27 @@ export function watchUsuariosRegistrados(onChange, onError) {
     (err) => onError && onError(err)
   );
 }
+
+export async function saveUserThemePreference(uid, theme) {
+  if (!uid || !theme) return;
+  try {
+    const userRef = fsDoc(db, "usuariosRegistrados", uid);
+    await setDoc(userRef, { preferredTheme: theme, themeUpdatedAt: serverTimestamp() }, { merge: true });
+  } catch (err) {
+    console.warn("No se pudo guardar la preferencia de tema en Firestore:", err);
+  }
+}
+
+export async function getUserThemePreference(uid) {
+  if (!uid) return null;
+  try {
+    const userRef = fsDoc(db, "usuariosRegistrados", uid);
+    const snap = await getDoc(userRef);
+    if (snap.exists() && snap.data()?.preferredTheme) {
+      return snap.data().preferredTheme;
+    }
+  } catch (err) {
+    console.warn("No se pudo obtener la preferencia de tema de Firestore:", err);
+  }
+  return null;
+}

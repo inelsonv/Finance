@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult, GoogleAuthProvider } from "firebase/auth";
 import { auth, ALLOWED_EMAIL, isOwnerUser, setCachedAccessToken, clearCachedAccessToken } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy, setCurrentDbUser, inicializarEspacioUsuarioNuevo, watchUsuariosRegistrados } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy, setCurrentDbUser, inicializarEspacioUsuarioNuevo, watchUsuariosRegistrados, saveUserThemePreference, getUserThemePreference } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
@@ -65,6 +65,7 @@ import NotificacionesPage from "./components/NotificacionesPage.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 
 const THEME_KEY = "smart-finance-theme";
+const getUserThemeKey = (uid) => (uid ? `smart-finance-theme_${uid}` : THEME_KEY);
 const SIDEBAR_KEY = "smart-finance-sidebar-collapsed";
 const SIDEBAR_VISIBLE_KEY = "smart-finance-sidebar-visible";
 const ASISTENTE_FLOTANTE_KEY = "smart-finance-asistente-flotante";
@@ -256,10 +257,14 @@ export default function App() {
     document.documentElement.setAttribute("data-theme", theme);
     try {
       localStorage.setItem(THEME_KEY, theme);
+      if (authUser?.uid) {
+        localStorage.setItem(getUserThemeKey(authUser.uid), theme);
+        saveUserThemePreference(authUser.uid, theme);
+      }
     } catch (e) {
       // si falla el guardado, el tema sigue funcionando solo en esta sesión
     }
-  }, [theme]);
+  }, [theme, authUser]);
 
   useEffect(() => {
     try {
@@ -397,6 +402,27 @@ export default function App() {
           await inicializarEspacioUsuarioNuevo(user);
         } catch (err) {
           console.error("Error al preparar espacio multi-usuario:", err);
+        }
+
+        // Cargar y aplicar la preferencia de tema exclusiva de este usuario
+        try {
+          const userKey = getUserThemeKey(user.uid);
+          let userSaved = localStorage.getItem(userKey);
+          const validThemes = ["light", "dark", "navy", "emerald", "slate", "amethyst", "latte", "oled"];
+          if (!userSaved || !validThemes.includes(userSaved)) {
+            const remoteTheme = await getUserThemePreference(user.uid);
+            if (remoteTheme && validThemes.includes(remoteTheme)) {
+              userSaved = remoteTheme;
+              try {
+                localStorage.setItem(userKey, remoteTheme);
+              } catch (e) {}
+            }
+          }
+          if (userSaved && validThemes.includes(userSaved)) {
+            setTheme(userSaved);
+          }
+        } catch (err) {
+          console.warn("Error cargando preferencia de tema del usuario:", err);
         }
       }
     });
