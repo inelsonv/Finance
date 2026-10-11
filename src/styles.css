@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-:root {
+:root,
+:root[data-theme="light"] {
   --paper: #f6f1e4;
   --ink: #26241f;
   --ink-soft: #6f6a5e;
@@ -34,6 +35,114 @@
   --amber-bg: #3a2f14;
   --blue: #7ba3c9;
   --blue-bg: #1f2c38;
+}
+
+:root[data-theme="navy"] {
+  --paper: #0b1329;
+  --ink: #f1f5f9;
+  --ink-soft: #94a3b8;
+  --stamp: #f43f5e;
+  --stamp-bg: #3c1421;
+  --sage: #38bdf8;
+  --sage-bg: #0c2d48;
+  --line: #1e293b;
+  --line-soft: #141f36;
+  --card: #131f37;
+  --muted-line: #334155;
+  --amber: #f59e0b;
+  --amber-bg: #382506;
+  --blue: #60a5fa;
+  --blue-bg: #1e293b;
+}
+
+:root[data-theme="emerald"] {
+  --paper: #0a1b14;
+  --ink: #f0fdf4;
+  --ink-soft: #86efac;
+  --stamp: #fb7185;
+  --stamp-bg: #3f121b;
+  --sage: #10b981;
+  --sage-bg: #064e3b;
+  --line: #1b3d2f;
+  --line-soft: #122c21;
+  --card: #132a20;
+  --muted-line: #2d5a47;
+  --amber: #fbbf24;
+  --amber-bg: #3a2a07;
+  --blue: #34d399;
+  --blue-bg: #093826;
+}
+
+:root[data-theme="slate"] {
+  --paper: #f8fafc;
+  --ink: #0f172a;
+  --ink-soft: #64748b;
+  --stamp: #e11d48;
+  --stamp-bg: #ffe4e6;
+  --sage: #2563eb;
+  --sage-bg: #dbeafe;
+  --line: #e2e8f0;
+  --line-soft: #f1f5f9;
+  --card: #ffffff;
+  --muted-line: #cbd5e1;
+  --amber: #d97706;
+  --amber-bg: #fef3c7;
+  --blue: #3b82f6;
+  --blue-bg: #eff6ff;
+}
+
+:root[data-theme="amethyst"] {
+  --paper: #130d1e;
+  --ink: #faf5ff;
+  --ink-soft: #c4b5fd;
+  --stamp: #f43f5e;
+  --stamp-bg: #3e1220;
+  --sage: #c084fc;
+  --sage-bg: #3b1361;
+  --line: #2e1d47;
+  --line-soft: #201334;
+  --card: #1c132c;
+  --muted-line: #4c3074;
+  --amber: #facc15;
+  --amber-bg: #392806;
+  --blue: #a855f7;
+  --blue-bg: #2e1050;
+}
+
+:root[data-theme="latte"] {
+  --paper: #f4ece2;
+  --ink: #3c2a21;
+  --ink-soft: #7a6355;
+  --stamp: #b84a39;
+  --stamp-bg: #fae9e6;
+  --sage: #7f5539;
+  --sage-bg: #ede0d4;
+  --line: #ddcebe;
+  --line-soft: #ebe2d7;
+  --card: #fbf7f2;
+  --muted-line: #bba490;
+  --amber: #b07d3b;
+  --amber-bg: #faedd9;
+  --blue: #6d6875;
+  --blue-bg: #e9e5e9;
+}
+
+:root[data-theme="oled"] {
+  --paper: #000000;
+  --ink: #ffffff;
+  --ink-soft: #9ca3af;
+  --stamp: #ff4757;
+  --stamp-bg: #380d12;
+  --sage: #00e676;
+  --sage-bg: #00361a;
+  --line: #222222;
+  --line-soft: #141414;
+  --card: #0d0d0d;
+  --muted-line: #444444;
+  --amber: #ffd32a;
+  --amber-bg: #382c00;
+  --blue: #2ed573;
+  --blue-bg: #002d15;
 }
 
 body {
@@ -178,7 +287,19 @@ textarea {
 
 :root[data-theme="dark"] input,
 :root[data-theme="dark"] select,
-:root[data-theme="dark"] textarea {
+:root[data-theme="dark"] textarea,
+:root[data-theme="navy"] input,
+:root[data-theme="navy"] select,
+:root[data-theme="navy"] textarea,
+:root[data-theme="emerald"] input,
+:root[data-theme="emerald"] select,
+:root[data-theme="emerald"] textarea,
+:root[data-theme="amethyst"] input,
+:root[data-theme="amethyst"] select,
+:root[data-theme="amethyst"] textarea,
+:root[data-theme="oled"] input,
+:root[data-theme="oled"] select,
+:root[data-theme="oled"] textarea {
   color-scheme: dark;
 }
 

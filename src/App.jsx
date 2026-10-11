@@ -110,7 +110,8 @@ const TITLES = {
 function getInitialTheme() {
   try {
     const saved = localStorage.getItem(THEME_KEY);
-    if (saved === "dark" || saved === "light") return saved;
+    const validThemes = ["light", "dark", "navy", "emerald", "slate", "amethyst", "latte", "oled"];
+    if (saved && validThemes.includes(saved)) return saved;
   } catch (e) {
     // localStorage no disponible, seguimos con el valor por defecto
   }
@@ -932,6 +933,8 @@ export default function App() {
                 synced={synced}
                 ahorroActivo={!!ahorroAutoConfig?.activo}
                 estrategiaDeudas={estrategiaDeudas}
+                theme={theme}
+                onSelectTheme={setTheme}
               />
             </div>
             <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
@@ -1193,7 +1196,16 @@ export default function App() {
         )}
         {tab === "ordenes-compra" && <OrdenesCompra ordenes={ordenesCompra} products={products} entidades={entidades} categoriasGasto={categoriasGasto} />}
         {tab === "configuracion" && (
-          <Configuracion theme={theme} onToggleTheme={toggleTheme} user={authUser} onSignOut={() => signOut(auth)} categoriasGasto={categoriasGasto} asistenteFlotanteActivo={asistenteFlotanteActivo} onToggleAsistenteFlotante={cambiarAsistenteFlotante} />
+          <Configuracion
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onSelectTheme={setTheme}
+            user={authUser}
+            onSignOut={() => signOut(auth)}
+            categoriasGasto={categoriasGasto}
+            asistenteFlotanteActivo={asistenteFlotanteActivo}
+            onToggleAsistenteFlotante={cambiarAsistenteFlotante}
+          />
         )}
         {tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
         </ErrorBoundary>

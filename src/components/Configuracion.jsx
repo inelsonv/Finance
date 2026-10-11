@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Sparkles } from "lucide-react";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Sparkles, Palette } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
+import ThemeSelector from "./ThemeSelector.jsx";
 
-export default function Configuracion({ theme, onToggleTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante }) {
+export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante }) {
   const [emailConfig, setEmailConfig] = useState(undefined);
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
@@ -387,52 +388,11 @@ export default function Configuracion({ theme, onToggleTheme, user, onSignOut, c
         )}
       </Section>
 
-      <Section icon={theme === "dark" ? Moon : Sun} title="Apariencia">
-        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 10 }}>
-          Elige entre modo claro u oscuro para toda la app.
+      <Section icon={Palette} title="Apariencia y Temas">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12 }}>
+          Personaliza la apariencia y el estilo visual de Smart Finance. Cada tema incluye una miniatura con vista previa real de los colores y componentes.
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={() => theme !== "light" && onToggleTheme()}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              padding: "9px 8px",
-              fontSize: 12.5,
-              fontWeight: 500,
-              borderRadius: 8,
-              border: "1px solid var(--line)",
-              background: theme === "light" ? "var(--sage-bg)" : "var(--card)",
-              color: theme === "light" ? "var(--sage)" : "var(--ink-soft)",
-              cursor: "pointer",
-            }}
-          >
-            <Sun size={14} /> Claro
-          </button>
-          <button
-            onClick={() => theme !== "dark" && onToggleTheme()}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              padding: "9px 8px",
-              fontSize: 12.5,
-              fontWeight: 500,
-              borderRadius: 8,
-              border: "1px solid var(--line)",
-              background: theme === "dark" ? "var(--sage-bg)" : "var(--card)",
-              color: theme === "dark" ? "var(--sage)" : "var(--ink-soft)",
-              cursor: "pointer",
-            }}
-          >
-            <Moon size={14} /> Oscuro
-          </button>
-        </div>
+        <ThemeSelector currentTheme={theme} onSelectTheme={onSelectTheme || onToggleTheme} />
       </Section>
 
       <Section icon={Sparkles} title="Asistente flotante en escritorio">

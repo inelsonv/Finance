@@ -1,14 +1,17 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LogOut, Settings, Smartphone, X, PiggyBank, TrendingDown, User as UserIcon, Users, ShieldCheck, Clock, RotateCw } from "lucide-react";
+import { LogOut, Settings, Smartphone, X, PiggyBank, TrendingDown, User as UserIcon, Users, ShieldCheck, Clock, RotateCw, Palette } from "lucide-react";
 import { confirm } from "../lib/confirm";
 import { watchUsuariosRegistrados } from "../lib/db";
+import { getThemeById } from "../lib/themes";
+import ThemeSelector from "./ThemeSelector.jsx";
 
 const APP_URL = "https://inelsonv.github.io/Finance/";
 
-export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, synced, ahorroActivo, estrategiaDeudas }) {
+export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, synced, ahorroActivo, estrategiaDeudas, theme, onSelectTheme }) {
   const [open, setOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [showUsuarios, setShowUsuarios] = useState(false);
+  const [showThemeModal, setShowThemeModal] = useState(false);
   const [usuariosLista, setUsuariosLista] = useState([]);
   const ref = useRef(null);
 
@@ -210,6 +213,33 @@ export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, 
             }}
           >
             <Settings size={14} /> Configuración
+          </button>
+          <button
+            onClick={() => {
+              setOpen(false);
+              setShowThemeModal(true);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              padding: "10px 12px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12.5,
+              color: "var(--ink)",
+              textAlign: "left",
+              borderBottom: "1px solid var(--line-soft)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Palette size={14} /> Temas y Apariencia
+            </div>
+            <span style={{ fontSize: 11, color: "var(--sage)", fontWeight: 600 }}>
+              {getThemeById(theme)?.nombre || "Tema"}
+            </span>
           </button>
           <button
             onClick={() => {
@@ -469,6 +499,83 @@ export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, 
                 }}
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showThemeModal && (
+        <div
+          onClick={() => setShowThemeModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.65)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 250,
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              padding: "20px 22px",
+              maxWidth: 820,
+              width: "100%",
+              maxHeight: "88vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 16px 40px rgba(0,0,0,0.35)",
+              position: "relative",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Palette size={20} style={{ color: "var(--sage)" }} />
+                <span style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
+                  Personalizar Apariencia y Temas
+                </span>
+              </div>
+              <button
+                onClick={() => setShowThemeModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--ink-soft)",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: 4,
+                  borderRadius: 6,
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, paddingRight: 4 }}>
+              <ThemeSelector currentTheme={theme} onSelectTheme={onSelectTheme} />
+            </div>
+            <div style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--line-soft)", textAlign: "right" }}>
+              <button
+                onClick={() => setShowThemeModal(false)}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 8,
+                  background: "var(--sage)",
+                  color: "#ffffff",
+                  border: "none",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Listo
               </button>
             </div>
           </div>
