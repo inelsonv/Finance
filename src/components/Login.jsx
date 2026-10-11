@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { signInWithPopup, signInWithRedirect, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, GoogleAuthProvider } from "firebase/auth";
 import { LogIn, LogOut, ShieldAlert, Wallet, Copy, Check, ExternalLink, AlertTriangle, KeyRound, UserPlus } from "lucide-react";
 import { auth, googleProvider, OWNER_EMAIL, setCachedAccessToken } from "../firebase";
+import { SmartFinanceMark } from "./SmartFinanceLogo.jsx";
 
 export function LoginScreen() {
   const [error, setError] = useState(null);
@@ -119,26 +120,17 @@ export function LoginScreen() {
           transition: "max-width 0.2s ease",
         }}
       >
-        <div
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 14,
-            background: "var(--sage-bg)",
-            color: "var(--sage)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 16px",
-          }}
-        >
-          <Wallet size={24} />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+          <SmartFinanceMark size={48} />
         </div>
-        <div className="despensa-tab-font" style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>
-          Smart Finance
+        <div className="despensa-tab-font" style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, letterSpacing: "-0.02em" }}>
+          Smart<span style={{ color: "var(--sage)" }}>Finance</span>
         </div>
-        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 20, lineHeight: 1.5 }}>
-          Gestiona tus finanzas personales y presupuesto de forma privada e individual.
+        <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-soft)", marginBottom: 12 }}>
+          Sistema Personal de Gestión Patrimonial
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 22, lineHeight: 1.5 }}>
+          Gestiona tus cuentas, deudas, ahorros y presupuesto bajo un entorno privado e independiente.
         </div>
 
         {!showEmailLogin ? (

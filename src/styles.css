@@ -2,75 +2,83 @@
 
 :root,
 :root[data-theme="light"] {
-  --paper: #f6f1e4;
-  --ink: #26241f;
-  --ink-soft: #6f6a5e;
-  --stamp: #a23e2e;
-  --stamp-bg: #fbefe9;
-  --sage: #5b7a5b;
-  --sage-bg: #eaf0e6;
-  --line: #dcd2bb;
-  --line-soft: #efe9d8;
-  --card: #fffefc;
-  --muted-line: #b4ac93;
-  --amber: #b8892b;
-  --amber-bg: #fbf1de;
-  --blue: #4a6a8a;
-  --blue-bg: #e8eef4;
+  --paper: #f7f4ec;
+  --ink: #1c1917;
+  --ink-soft: #635c4e;
+  --stamp: #ba372a;
+  --stamp-bg: #fbedea;
+  --sage: #2d6a4f;
+  --sage-bg: #e8f1ec;
+  --line: #dcd4c3;
+  --line-soft: #ede6d8;
+  --card: #ffffff;
+  --muted-line: #b6ac98;
+  --amber: #b57c1e;
+  --amber-bg: #faf0dc;
+  --blue: #31608a;
+  --blue-bg: #e7eff6;
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.04);
+  --shadow-md: 0 4px 16px rgba(28, 25, 23, 0.06);
 }
 
 :root[data-theme="dark"] {
-  --paper: #1c1a17;
-  --ink: #ece7da;
-  --ink-soft: #a39b86;
-  --stamp: #e0796a;
-  --stamp-bg: #3a211d;
-  --sage: #8fb08f;
-  --sage-bg: #263326;
-  --line: #3a362e;
-  --line-soft: #2c2924;
-  --card: #242119;
-  --muted-line: #5c574a;
-  --amber: #d9ad5c;
-  --amber-bg: #3a2f14;
-  --blue: #7ba3c9;
-  --blue-bg: #1f2c38;
+  --paper: #111317;
+  --ink: #f3f4f6;
+  --ink-soft: #9ca3af;
+  --stamp: #ef4444;
+  --stamp-bg: #321517;
+  --sage: #10b981;
+  --sage-bg: #063726;
+  --line: #272d3b;
+  --line-soft: #1e232e;
+  --card: #181b22;
+  --muted-line: #3d465c;
+  --amber: #f59e0b;
+  --amber-bg: #352309;
+  --blue: #3b82f6;
+  --blue-bg: #132747;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
 }
 
 :root[data-theme="navy"] {
-  --paper: #0b1329;
-  --ink: #f1f5f9;
+  --paper: #0a0f1d;
+  --ink: #f8fafc;
   --ink-soft: #94a3b8;
   --stamp: #f43f5e;
-  --stamp-bg: #3c1421;
+  --stamp-bg: #38121e;
   --sage: #38bdf8;
-  --sage-bg: #0c2d48;
-  --line: #1e293b;
-  --line-soft: #141f36;
-  --card: #131f37;
-  --muted-line: #334155;
-  --amber: #f59e0b;
-  --amber-bg: #382506;
+  --sage-bg: #0c2744;
+  --line: #1f293d;
+  --line-soft: #151e30;
+  --card: #111827;
+  --muted-line: #2e3e5c;
+  --amber: #fbbf24;
+  --amber-bg: #332408;
   --blue: #60a5fa;
-  --blue-bg: #1e293b;
+  --blue-bg: #122847;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 22px rgba(0, 0, 0, 0.5);
 }
 
 :root[data-theme="emerald"] {
-  --paper: #0a1b14;
+  --paper: #07130c;
   --ink: #f0fdf4;
   --ink-soft: #86efac;
   --stamp: #fb7185;
-  --stamp-bg: #3f121b;
+  --stamp-bg: #38121c;
   --sage: #10b981;
   --sage-bg: #064e3b;
-  --line: #1b3d2f;
-  --line-soft: #122c21;
-  --card: #132a20;
-  --muted-line: #2d5a47;
+  --line: #183a27;
+  --line-soft: #102a1c;
+  --card: #0e2217;
+  --muted-line: #25583b;
   --amber: #fbbf24;
-  --amber-bg: #3a2a07;
+  --amber-bg: #342607;
   --blue: #34d399;
-  --blue-bg: #093826;
+  --blue-bg: #073524;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 6px 22px rgba(0, 0, 0, 0.55);
 }
 
 :root[data-theme="slate"] {
@@ -80,7 +88,7 @@
   --stamp: #e11d48;
   --stamp-bg: #ffe4e6;
   --sage: #2563eb;
-  --sage-bg: #dbeafe;
+  --sage-bg: #eff6ff;
   --line: #e2e8f0;
   --line-soft: #f1f5f9;
   --card: #ffffff;
@@ -89,42 +97,48 @@
   --amber-bg: #fef3c7;
   --blue: #3b82f6;
   --blue-bg: #eff6ff;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06);
 }
 
 :root[data-theme="amethyst"] {
-  --paper: #130d1e;
+  --paper: #0f0a17;
   --ink: #faf5ff;
   --ink-soft: #c4b5fd;
   --stamp: #f43f5e;
-  --stamp-bg: #3e1220;
-  --sage: #c084fc;
-  --sage-bg: #3b1361;
-  --line: #2e1d47;
-  --line-soft: #201334;
-  --card: #1c132c;
-  --muted-line: #4c3074;
+  --stamp-bg: #38121e;
+  --sage: #a855f7;
+  --sage-bg: #35155d;
+  --line: #2c1f40;
+  --line-soft: #201633;
+  --card: #1a1226;
+  --muted-line: #4a356c;
   --amber: #facc15;
-  --amber-bg: #392806;
-  --blue: #a855f7;
-  --blue-bg: #2e1050;
+  --amber-bg: #362706;
+  --blue: #c084fc;
+  --blue-bg: #30164e;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 6px 22px rgba(0, 0, 0, 0.55);
 }
 
 :root[data-theme="latte"] {
-  --paper: #f4ece2;
-  --ink: #3c2a21;
-  --ink-soft: #7a6355;
-  --stamp: #b84a39;
+  --paper: #f5eee5;
+  --ink: #292524;
+  --ink-soft: #78716c;
+  --stamp: #b93826;
   --stamp-bg: #fae9e6;
-  --sage: #7f5539;
-  --sage-bg: #ede0d4;
-  --line: #ddcebe;
-  --line-soft: #ebe2d7;
-  --card: #fbf7f2;
-  --muted-line: #bba490;
-  --amber: #b07d3b;
+  --sage: #785135;
+  --sage-bg: #f3e8dd;
+  --line: #ded3c4;
+  --line-soft: #eee6dc;
+  --card: #ffffff;
+  --muted-line: #bfb2a0;
+  --amber: #b47b1e;
   --amber-bg: #faedd9;
-  --blue: #6d6875;
-  --blue-bg: #e9e5e9;
+  --blue: #57534e;
+  --blue-bg: #ebe7e3;
+  --shadow-sm: 0 1px 2px rgba(41, 37, 36, 0.04);
+  --shadow-md: 0 4px 16px rgba(41, 37, 36, 0.06);
 }
 
 :root[data-theme="oled"] {
@@ -132,17 +146,19 @@
   --ink: #ffffff;
   --ink-soft: #9ca3af;
   --stamp: #ff4757;
-  --stamp-bg: #380d12;
-  --sage: #00e676;
-  --sage-bg: #00361a;
-  --line: #222222;
-  --line-soft: #141414;
-  --card: #0d0d0d;
-  --muted-line: #444444;
+  --stamp-bg: #340c11;
+  --sage: #00e599;
+  --sage-bg: #002919;
+  --line: #222630;
+  --line-soft: #14171d;
+  --card: #0b0d10;
+  --muted-line: #3b4252;
   --amber: #ffd32a;
-  --amber-bg: #382c00;
-  --blue: #2ed573;
-  --blue-bg: #002d15;
+  --amber-bg: #332600;
+  --blue: #00d2d3;
+  --blue-bg: #002626;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.8);
+  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.9);
 }
 
 body {
@@ -262,18 +278,24 @@ html {
 
 body {
   margin: 0;
-  font-family: "Inter", sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   background: var(--paper);
   color: var(--ink);
   overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .despensa-tab-font {
-  font-family: "Space Grotesk", sans-serif;
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  letter-spacing: -0.015em;
 }
 
 .despensa-mono {
-  font-family: "IBM Plex Mono", monospace;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
 }
 
 input,
@@ -283,6 +305,8 @@ textarea {
   color: var(--ink);
   font-family: inherit;
   color-scheme: light;
+  border: 1px solid var(--line);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 :root[data-theme="dark"] input,
@@ -306,22 +330,29 @@ textarea {
 input::placeholder,
 textarea::placeholder {
   color: var(--ink-soft);
-  opacity: 1;
+  opacity: 0.85;
 }
 
 input:focus,
-select:focus {
-  outline: 2px solid var(--sage);
-  outline-offset: 1px;
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--sage);
+  box-shadow: 0 0 0 3px var(--sage-bg);
 }
 
 button {
   font-family: inherit;
   color: inherit;
+  transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
 
 button:hover {
-  opacity: 0.85;
+  opacity: 0.92;
+}
+
+button:active {
+  transform: scale(0.985);
 }
 
 .despensa-row:hover {
@@ -407,14 +438,19 @@ button:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 10px;
+  padding: 8px 10px;
   border: none;
   border-radius: 8px;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   text-align: left;
   width: 100%;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.despensa-navitem:hover {
+  background: var(--line-soft) !important;
 }
 
 .despensa-navlabel {

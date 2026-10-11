@@ -1444,14 +1444,14 @@ export default function LectorEpub({ epubUrl, titulo, libroId, ultimaPosicion, m
                 onChange={(e) => handleCambiarMotorVoz(e.target.value)}
                 style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--paper)" }}
               >
-                <option value="ia">✨ Voz IA casi real (Gemini) · Gratis</option>
+                <option value="ia">Voz de alta fidelidad acústica (Estudio)</option>
                 <option value="dispositivo">Voz del dispositivo / navegador</option>
               </select>
 
               {motorVoz === "ia" ? (
                 <>
                   <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 7, lineHeight: 1.45 }}>
-                    Narración con inteligencia artificial acústica casi humana. Totalmente gratuita, sin descargas pesadas y con modulación natural.
+                    Narración neuronal de calidad de estudio con modulación natural, entonación orgánica y lectura relajada.
                   </div>
                   <select
                     value={vozIA}

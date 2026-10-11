@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   Send,
-  Sparkles,
+  Bot,
   Loader2,
   Plus,
   X,
@@ -2007,8 +2007,8 @@ export default function Asistente({
   return (
       <div className="despensa-asistente" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)", maxHeight: 640 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <Sparkles size={17} style={{ color: "var(--sage)" }} />
-        <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Asistente</span>
+        <Bot size={17} style={{ color: "var(--sage)" }} />
+        <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Consultor Financiero</span>
         <button
           onClick={async () => {
             if (enviando) return;
@@ -2095,8 +2095,8 @@ export default function Asistente({
                 onClick={() => enviarPregunta("¿Cómo impactó mi último pago en mi deuda y qué me recomiendas hacer ahora según mi estrategia?")}
                 style={{ fontSize: 11.5, padding: "5px 10px", borderRadius: 8, background: "var(--card)", border: "1px solid var(--line)", cursor: "pointer", color: "var(--ink)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
               >
-                <Sparkles size={13} style={{ color: "var(--sage)" }} />
-                Analizar impacto con el agente
+                <Bot size={13} style={{ color: "var(--sage)" }} />
+                Analizar impacto con el consultor
               </button>
               {onNavigate && (
                 <button

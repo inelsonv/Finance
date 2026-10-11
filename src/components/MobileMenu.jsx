@@ -1,6 +1,7 @@
 import React from "react";
-import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Sparkles, Library, Map as MapIcon, UtensilsCrossed } from "lucide-react";
+import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Bot, Library, Map as MapIcon, UtensilsCrossed } from "lucide-react";
 import { confirm } from "../lib/confirm";
+import SmartFinanceLogo from "./SmartFinanceLogo.jsx";
 
 const OPCIONES = [
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
@@ -13,7 +14,7 @@ const OPCIONES = [
   { id: "wallet", label: "Wallet", icon: WalletCards },
   { id: "biblioteca", label: "Biblioteca", icon: Library },
   { id: "habitos", label: "Salud", icon: HeartPulse },
-  { id: "asistente", label: "Asistente", icon: Sparkles },
+  { id: "asistente", label: "Consultor Financiero", icon: Bot },
   { id: "mapa-progreso", label: "Mapa de progreso", icon: MapIcon },
   { id: "configuracion", label: "Configuración", icon: Settings },
 ];
@@ -54,7 +55,7 @@ export default function MobileMenu({ tab, setTab, onClose, onSignOut }) {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <span className="despensa-tab-font" style={{ fontSize: 17, fontWeight: 700 }}>Smart Finance</span>
+          <SmartFinanceLogo size={24} />
           <button
             onClick={onClose}
             style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: "50%", background: "var(--paper)", border: "none", color: "var(--ink-soft)", cursor: "pointer" }}

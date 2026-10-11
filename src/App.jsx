@@ -20,7 +20,8 @@ import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
 import MobileMenu from "./components/MobileMenu.jsx";
 import PullToRefresh from "./components/PullToRefresh.jsx";
-import { Menu, Trophy, Sparkles, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Menu, Trophy, Bot, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { SmartFinanceMark } from "./components/SmartFinanceLogo.jsx";
 import SugeridorRecetas from "./components/SugeridorRecetas.jsx";
 import Catalogo from "./components/Catalogo.jsx";
 import Compras from "./components/Compras.jsx";
@@ -100,7 +101,7 @@ const TITLES = {
   seguros: "Seguros",
   renovaciones: "Renovaciones y Trámites",
   puntos: "Puntos",
-  asistente: "Asistente",
+  asistente: "Consultor Financiero",
   "mapa-progreso": "Mapa de progreso",
   "ordenes-compra": "Órdenes de compra",
   recetas: "Sugeridor de platos",
@@ -757,11 +758,19 @@ export default function App() {
     return (
       <div className="despensa-loading-screen">
         <div className="despensa-loading-content">
-          <div className="despensa-tab-font despensa-loading-title">Cargando Smart Finance</div>
+          <SmartFinanceMark size={44} />
+          <div style={{ textAlign: "center" }}>
+            <div className="despensa-tab-font despensa-loading-title">
+              Smart<span style={{ color: "var(--sage)" }}>Finance</span>
+            </div>
+            <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-soft)", marginTop: 2 }}>
+              Suite Patrimonial
+            </div>
+          </div>
           <div className="despensa-loading-track" role="progressbar" aria-label="Cargando Smart Finance" aria-valuetext="Cargando">
             <span className="despensa-loading-indicator" />
           </div>
-          <div className="despensa-loading-caption">Preparando tus datos…</div>
+          <div className="despensa-loading-caption">Sincronizando espacio privado…</div>
         </div>
       </div>
     );
@@ -1261,8 +1270,8 @@ export default function App() {
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: 5 }}>
-                  <Sparkles size={13} style={{ color: "var(--sage)" }} />
-                  Agente Financiero
+                  <Bot size={13} style={{ color: "var(--sage)" }} />
+                  Asesor Financiero
                 </span>
                 <button
                   type="button"
@@ -1298,7 +1307,7 @@ export default function App() {
                   marginTop: 2,
                 }}
               >
-                Preguntar al agente 💬
+                Consultar asesor 💬
               </button>
             </div>
           )}
@@ -1306,14 +1315,14 @@ export default function App() {
             type="button"
             className="despensa-asistente-boton"
             onClick={() => setShowAsistenteFlotante((abierto) => !abierto)}
-            aria-label={showAsistenteFlotante ? "Cerrar asistente" : "Abrir asistente financiero"}
+            aria-label={showAsistenteFlotante ? "Cerrar asistente" : "Abrir consultor financiero"}
             aria-expanded={showAsistenteFlotante}
-            title="Asistente financiero"
+            title="Consultor financiero"
             style={notificacionAgentePago && !showAsistenteFlotante ? {
               boxShadow: "0 0 0 3px rgba(245, 158, 11, 0.4), 0 8px 24px rgba(245, 158, 11, 0.35)",
             } : undefined}
           >
-            {showAsistenteFlotante ? <X size={21} /> : <Sparkles size={22} />}
+            {showAsistenteFlotante ? <X size={21} /> : <Bot size={22} />}
           </button>
         </div>
       )}

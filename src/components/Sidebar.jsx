@@ -26,12 +26,13 @@ import {
   HeartPulse,
   Library,
   Map as MapIcon,
-  Sparkles,
+  Bot,
 } from "lucide-react";
+import SmartFinanceLogo, { SmartFinanceMark } from "./SmartFinanceLogo.jsx";
 
 const NAV_ITEMS = [
   { id: "inicio", label: "Inicio", icon: Home },
-  { id: "asistente", label: "Asistente IA", icon: Sparkles },
+  { id: "asistente", label: "Consultor Financiero", icon: Bot },
   {
     id: "presupuesto",
     label: "Presupuesto",
@@ -102,24 +103,52 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
 
   return (
     <nav className={`despensa-sidebar${collapsed ? " despensa-sidebar--collapsed" : ""}`}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: collapsed ? "center" : "space-between",
-          padding: collapsed ? "0 0 1rem" : "0 4px 1.25rem",
-          gap: 8,
-        }}
-      >
-        {!collapsed && (
-          <div
-            className="despensa-tab-font"
-            style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}
+      {collapsed ? (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <SmartFinanceMark size={28} />
+          <button
+            onClick={onToggleCollapsed}
+            title="Expandir menú"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              border: "1px solid var(--line)",
+              borderRadius: 7,
+              background: "var(--card)",
+              color: "var(--ink-soft)",
+              cursor: "pointer",
+            }}
           >
-            Smart Finance
+            <PanelLeftOpen size={14} />
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 2px 1.25rem",
+            gap: 8,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <SmartFinanceMark size={28} />
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
+              <span
+                className="despensa-tab-font"
+                style={{ fontSize: 16.5, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}
+              >
+                Smart<span style={{ color: "var(--sage)" }}>Finance</span>
+              </span>
+              <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-soft)" }}>
+                Patrimonio & Tesorería
+              </span>
+            </div>
           </div>
-        )}
-        {!collapsed && (
           <button
             onClick={onToggleCollapsed}
             title="Colapsar menú"
@@ -139,29 +168,7 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
           >
             <PanelLeftClose size={14} />
           </button>
-        )}
-      </div>
-
-      {collapsed && (
-        <button
-          onClick={onToggleCollapsed}
-          title="Expandir menú"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 32,
-            height: 32,
-            margin: "0 auto 8px",
-            border: "1px solid var(--line)",
-            borderRadius: 7,
-            background: "var(--card)",
-            color: "var(--ink-soft)",
-            cursor: "pointer",
-          }}
-        >
-          <PanelLeftOpen size={14} />
-        </button>
+        </div>
       )}
 
       <div className="despensa-navlist">

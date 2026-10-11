@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { Check, Sun, Moon, Shield, Sparkles, Compass, Crown, Coffee, Zap, Palette, CheckCircle2 } from "lucide-react";
+import { Check, Sun, Moon, Shield, Landmark, Compass, Crown, Coffee, Zap, Palette, CheckCircle2 } from "lucide-react";
 import { THEMES } from "../lib/themes";
 
 const ICON_MAP = {
   Sun,
   Moon,
   Shield,
-  Sparkles,
+  Landmark,
   Compass,
   Crown,
   Coffee,
