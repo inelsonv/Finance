@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LogOut, Settings, Smartphone, X, PiggyBank, TrendingDown, User as UserIcon, Users, ShieldCheck, Clock } from "lucide-react";
+import { LogOut, Settings, Smartphone, X, PiggyBank, TrendingDown, User as UserIcon, Users, ShieldCheck, Clock, RotateCw } from "lucide-react";
 import { confirm } from "../lib/confirm";
 import { watchUsuariosRegistrados } from "../lib/db";
 
@@ -233,6 +233,40 @@ export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, 
             }}
           >
             <Smartphone size={14} /> Vincular dispositivo
+          </button>
+          <button
+            onClick={async () => {
+              setOpen(false);
+              try {
+                if ("serviceWorker" in navigator) {
+                  const regs = await navigator.serviceWorker.getRegistrations();
+                  for (const r of regs) await r.unregister();
+                }
+                if ("caches" in window) {
+                  const keys = await caches.keys();
+                  for (const k of keys) await caches.delete(k);
+                }
+              } catch (e) {
+                console.error("Error limpiando cache:", e);
+              }
+              window.location.reload();
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "10px 12px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12.5,
+              color: "var(--ink)",
+              textAlign: "left",
+              borderBottom: "1px solid var(--line-soft)",
+            }}
+          >
+            <RotateCw size={14} /> Actualizar app
           </button>
           <button
             onClick={async () => {

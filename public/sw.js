@@ -1,4 +1,4 @@
-const CACHE_NAME = "smart-finance-v7";
+const CACHE_NAME = "smart-finance-v8";
 const APP_SHELL = ["./", "./index.html", "./icon.svg", "./manifest.json"];
 
 self.addEventListener("install", (event) => {
@@ -22,13 +22,17 @@ self.addEventListener("activate", (event) => {
 // maneja su propia caché/reconexión.
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const isHtml = event.request.mode === "navigate" || event.request.headers.get("accept")?.includes("text/html");
+
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, isHtml ? { cache: "no-cache" } : undefined)
       .then((res) => {
-        const resClone = res.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone)).catch(() => {});
+        if (res && res.status === 200) {
+          const resClone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resClone)).catch(() => {});
+        }
         return res;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/index.html")))
+      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html") || caches.match("/index.html")))
   );
 });
