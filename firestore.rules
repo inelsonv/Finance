@@ -5,7 +5,9 @@ service cloud.firestore {
     function esPropietario() {
       return request.auth != null && (
         request.auth.token.email == "iventuramena@gmail.com" ||
-        request.auth.token.email.lower() == "iventuramena@gmail.com"
+        request.auth.token.email.lower() == "iventuramena@gmail.com" ||
+        request.auth.token.email == "inelsonv@bellon.com.do" ||
+        request.auth.token.email.lower() == "inelsonv@bellon.com.do"
       );
     }
 

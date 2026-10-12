@@ -101,6 +101,7 @@ export default function NotificacionesPage({
   habitosRegistro,
   estrategiaDeudas,
   tipoCambio,
+  isOwner = false,
 }) {
   const [leidas, setLeidas] = useState(() => {
     try {
@@ -134,6 +135,7 @@ export default function NotificacionesPage({
     habitosRegistro,
     estrategiaDeudas,
     tipoCambio,
+    isOwner,
   });
 
   const codigoEmpleado = (fuentesIngreso || []).find((f) => f.estado === "Activo" && f.codigoEmpleado)?.codigoEmpleado || "";

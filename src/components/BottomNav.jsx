@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Home, CalendarDays, TrendingDown, ShoppingCart, Bell } from "lucide-react";
+import { Home, CalendarDays, TrendingDown, ShoppingCart, Bell, ArrowLeftRight } from "lucide-react";
 import QuickGasto from "./QuickGasto.jsx";
 import { useNotificaciones } from "./NotificationBell.jsx";
 
@@ -24,6 +24,7 @@ function contarNoLeidas(notificaciones) {
 export default function BottomNav({
   tab,
   setTab,
+  isOwner = false,
   categoriasGasto,
   prestamos,
   tarjetas,
@@ -70,6 +71,7 @@ export default function BottomNav({
     versiculoHoy,
     habitos,
     habitosRegistro,
+    isOwner,
   });
   const noLeidas = contarNoLeidas(notificaciones);
 
@@ -105,15 +107,27 @@ export default function BottomNav({
           {tab === "inicio" && <span className="despensa-bottomnav-dot" />}
         </button>
 
-        <button
-          onClick={() => setTab("compras")}
-          className="despensa-bottomnav-item"
-          title="Compras"
-          style={{ color: activoEnGrupo(tab, "compras") ? "var(--sage)" : "var(--ink-soft)" }}
-        >
-          <ShoppingCart size={22} />
-          {activoEnGrupo(tab, "compras") && <span className="despensa-bottomnav-dot" />}
-        </button>
+        {isOwner ? (
+          <button
+            onClick={() => setTab("compras")}
+            className="despensa-bottomnav-item"
+            title="Compras"
+            style={{ color: activoEnGrupo(tab, "compras") ? "var(--sage)" : "var(--ink-soft)" }}
+          >
+            <ShoppingCart size={22} />
+            {activoEnGrupo(tab, "compras") && <span className="despensa-bottomnav-dot" />}
+          </button>
+        ) : (
+          <button
+            onClick={() => setTab("movimientos")}
+            className="despensa-bottomnav-item"
+            title="Movimientos"
+            style={{ color: tab === "movimientos" ? "var(--sage)" : "var(--ink-soft)" }}
+          >
+            <ArrowLeftRight size={22} />
+            {tab === "movimientos" && <span className="despensa-bottomnav-dot" />}
+          </button>
+        )}
 
         <button
           onClick={() => setTab("notificaciones")}

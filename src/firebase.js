@@ -22,10 +22,22 @@ export const googleProvider = new GoogleAuthProvider();
 export const functions = getFunctions(app);
 
 export const OWNER_EMAIL = "iventuramena@gmail.com";
+export const ADMIN_EMAILS = [
+  "iventuramena@gmail.com",
+  "inelsonv@bellon.com.do",
+];
 export const ALLOWED_EMAIL = OWNER_EMAIL; // Retrocompatibilidad
 
 export const isOwnerUser = (user) => {
-  return user?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+  if (!user) return false;
+  const email = (user.email || "").toLowerCase().trim();
+  if (email && ADMIN_EMAILS.some((adm) => adm.toLowerCase() === email)) {
+    return true;
+  }
+  if (user.rol === "propietario" || user.rol === "admin") {
+    return true;
+  }
+  return false;
 };
 export const storage = getStorage(app);
 

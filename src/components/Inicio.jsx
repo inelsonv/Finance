@@ -2908,17 +2908,25 @@ function SortableCard({ id, onRemove, children }) {
   );
 }
 
-export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas, presupuesto, diasCobro, products = [], metasAhorro = [], activos = [], onNavigate }) {
-  const [orden, setOrden] = useState(SECTION_IDS_DEFAULT);
+export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas, presupuesto, diasCobro, products = [], metasAhorro = [], activos = [], onNavigate, isOwner = false }) {
+  const modulosDisponibles = useMemo(() => {
+    if (isOwner) return SECTION_IDS_DEFAULT;
+    return SECTION_IDS_DEFAULT.filter((id) => id !== "platoSugerido");
+  }, [isOwner]);
+
+  const [orden, setOrden] = useState(() =>
+    isOwner ? SECTION_IDS_DEFAULT : SECTION_IDS_DEFAULT.filter((id) => id !== "platoSugerido")
+  );
   const [gastosPorMesYear, setGastosPorMesYear] = useState(new Date().getFullYear());
   const [modalModulosAbierto, setModalModulosAbierto] = useState(false);
 
   useEffect(() => {
     const unsub = watchInicioOrden((o) => {
-      setOrden(normalizarOrden(o));
+      const normalizado = normalizarOrden(o).filter((id) => isOwner || id !== "platoSugerido");
+      setOrden(normalizado);
     }, () => {});
     return () => unsub();
-  }, []);
+  }, [isOwner]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -2952,8 +2960,8 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   };
 
   const handleMostrarTodos = () => {
-    setOrden(SECTION_IDS_DEFAULT);
-    saveInicioOrden(SECTION_IDS_DEFAULT);
+    setOrden(modulosDisponibles);
+    saveInicioOrden(modulosDisponibles);
   };
 
   const cuotaPrestamos = useMemo(
@@ -3232,15 +3240,15 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   };
 
   const hayCambiosOrden = useMemo(() => {
-    return JSON.stringify(orden) !== JSON.stringify(SECTION_IDS_DEFAULT);
-  }, [orden]);
+    return JSON.stringify(orden) !== JSON.stringify(modulosDisponibles);
+  }, [orden, modulosDisponibles]);
 
   const restablecerOrden = () => {
-    setOrden(SECTION_IDS_DEFAULT);
-    saveInicioOrden(SECTION_IDS_DEFAULT);
+    setOrden(modulosDisponibles);
+    saveInicioOrden(modulosDisponibles);
   };
 
-  const modulosOcultosCount = SECTION_IDS_DEFAULT.length - orden.length;
+  const modulosOcultosCount = modulosDisponibles.length - orden.length;
 
   return (
     <div>
@@ -3265,7 +3273,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--ink-soft)" }}>
           <LayoutGrid size={15} style={{ color: "var(--sage)" }} />
-          <span style={{ fontWeight: 600, color: "var(--ink)" }}>{orden.length} de {SECTION_IDS_DEFAULT.length} módulos</span>
+          <span style={{ fontWeight: 600, color: "var(--ink)" }}>{orden.length} de {modulosDisponibles.length} módulos</span>
           <span>· Arrastra para ordenar o personaliza tu panel</span>
         </div>
 
@@ -3478,7 +3486,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
 
             {/* Lista de módulos con toggles */}
             <div style={{ padding: "16px 20px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
-              {SECTION_IDS_DEFAULT.map((modId) => {
+              {modulosDisponibles.map((modId) => {
                 const info = MODULOS_INFO[modId] || { nombre: modId, descripcion: "", icon: Target };
                 const Icon = info.icon;
                 const estaActivo = orden.includes(modId);

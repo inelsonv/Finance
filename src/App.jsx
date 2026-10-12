@@ -110,6 +110,15 @@ const TITLES = {
   "escanear-factura": "Registrar compra (factura)",
 };
 
+const ADMIN_ONLY_TABS = new Set([
+  "biblioteca",
+  "compras",
+  "catalogo",
+  "recetas",
+  "ordenes-compra",
+  "escanear-factura",
+]);
+
 function getInitialTheme() {
   try {
     const saved = localStorage.getItem(THEME_KEY);
@@ -191,6 +200,7 @@ function leerParamsURL() {
 
 export default function App() {
   const [authUser, setAuthUser] = useState(undefined); // undefined = cargando, null = sin sesión
+  const esPropietario = isOwnerUser(authUser);
   const [tab, setTab] = useState(() => {
     const initialTab = leerParamsURL()?.tab || "inicio";
     return initialTab === "presupuesto" ? "presupuesto-mensual" : initialTab;
@@ -359,6 +369,10 @@ export default function App() {
   const handleCerrarLectura = () => setLibroLeyendo(null);
 
   const seleccionarTab = (tabId) => {
+    if (!esPropietario && ADMIN_ONLY_TABS.has(tabId)) {
+      setTab("inicio");
+      return;
+    }
     if (tabId === "presupuesto" || tabId === "presupuesto-mensual") {
       setPresupuestoYear(new Date().getFullYear());
       setTab("presupuesto-mensual");
@@ -371,6 +385,12 @@ export default function App() {
     }
     setTab(tabId);
   };
+
+  useEffect(() => {
+    if (authUser && !esPropietario && ADMIN_ONLY_TABS.has(tab)) {
+      setTab("inicio");
+    }
+  }, [tab, authUser, esPropietario]);
 
   const handleNavigate = (tabId, periodoObjetivo) => {
     if (tabId === "consejo-modal") {
@@ -456,7 +476,6 @@ export default function App() {
   }, []);
 
   const authorized = Boolean(authUser);
-  const esPropietario = isOwnerUser(authUser);
 
   const fechaHoy = (() => {
     const d = new Date();
@@ -830,10 +849,12 @@ export default function App() {
         onToggleTheme={toggleTheme}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={toggleSidebar}
+        isOwner={esPropietario}
       />}
       <BottomNav
         tab={tab}
         setTab={seleccionarTab}
+        isOwner={esPropietario}
         categoriasGasto={categoriasGasto}
         ingresosPuntuales={ingresosPuntuales}
         ajustesPresupuesto={ajustesPresupuesto}
@@ -883,7 +904,7 @@ export default function App() {
               >
                 {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
               </button>
-              {tab === "catalogo" && (
+              {esPropietario && tab === "catalogo" && (
                 <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
                   {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
                 </span>
@@ -909,6 +930,7 @@ export default function App() {
                 fuentesIngreso={fuentesIngreso}
                 onNavigate={handleSearchNavigate}
                 onOpenChange={setSearchOpen}
+                isOwner={esPropietario}
               />
               <button
                 id="despensa-trofeo-header"
@@ -959,6 +981,7 @@ export default function App() {
                   habitosRegistro={habitosRegistro}
                   estrategiaDeudas={estrategiaDeudas}
                   tipoCambio={tipoCambio}
+                  isOwner={esPropietario}
                 />
               </div>
               <AccountMenu
@@ -980,6 +1003,32 @@ export default function App() {
         </div>
 
         <ErrorBoundary key={tab} onGoHome={() => setTab("inicio")}>
+        {!esPropietario && ADMIN_ONLY_TABS.has(tab) && (
+          <div style={{ textAlign: "center", padding: "4rem 1.5rem" }}>
+            <div style={{ fontSize: 44, marginBottom: 14 }}>🔒</div>
+            <h2 className="despensa-tab-font" style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px", color: "var(--ink)" }}>
+              Sección exclusiva para el Administrador
+            </h2>
+            <p style={{ fontSize: 13.5, color: "var(--ink-soft)", maxWidth: 440, margin: "0 auto 20px", lineHeight: 1.5 }}>
+              La Biblioteca, la despensa y los temas de cocina están reservados únicamente para la cuenta de administración.
+            </p>
+            <button
+              onClick={() => setTab("inicio")}
+              style={{
+                padding: "9px 20px",
+                borderRadius: 8,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Volver al Inicio
+            </button>
+          </div>
+        )}
         {tab === "inicio" && (
           <Inicio
             prestamos={prestamos}
@@ -993,6 +1042,7 @@ export default function App() {
             metasAhorro={metasAhorro}
             activos={activos}
             onNavigate={setTab}
+            isOwner={esPropietario}
           />
         )}
         {tab === "notificaciones" && (
@@ -1021,6 +1071,7 @@ export default function App() {
             habitosRegistro={habitosRegistro}
             estrategiaDeudas={estrategiaDeudas}
             tipoCambio={tipoCambio}
+            isOwner={esPropietario}
           />
         )}
         {tab === "puntos" && (
@@ -1058,8 +1109,8 @@ export default function App() {
         {tab === "fondos-sostenibles" && <FondosSostenibles categoriasGasto={categoriasGasto} presupuesto={presupuestoAnual} />}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} products={products} historialCompras={historialCompras} />}
         {tab === "wallet" && <Wallet tarjetas={tarjetas} membresias={membresias} onNavigate={setTab} />}
-        {tab === "biblioteca" && <Biblioteca libros={libros} libroLeyendo={libroLeyendo} onAbrirLectura={handleAbrirLectura} onCerrarLectura={handleCerrarLectura} />}
-        {tab === "compras" && (
+        {esPropietario && tab === "biblioteca" && <Biblioteca libros={libros} libroLeyendo={libroLeyendo} onAbrirLectura={handleAbrirLectura} onCerrarLectura={handleCerrarLectura} />}
+        {esPropietario && tab === "compras" && (
           <Compras
             products={products}
             ordenesCompra={ordenesCompra}
@@ -1076,7 +1127,7 @@ export default function App() {
         {tab === "deudas-pagos" && (
           <PagosFijos prestamos={prestamos} tarjetas={tarjetas} membresias={membresias} contratos={contratos} movimientos={movimientos} onNavigate={setTab} />
         )}
-        {tab === "catalogo" && (
+        {esPropietario && tab === "catalogo" && (
           <Catalogo
             products={products}
             entidades={entidades}
@@ -1087,7 +1138,7 @@ export default function App() {
             comprasProrateadas={comprasProrateadas}
           />
         )}
-        {tab === "recetas" && (
+        {esPropietario && tab === "recetas" && (
           <SugeridorRecetas
             products={products}
             ordenesCompra={ordenesCompra}
@@ -1230,7 +1281,7 @@ export default function App() {
         {tab === "renovaciones" && (
           <Renovaciones renovaciones={renovaciones} entidades={entidades} activos={activos} categoriasGasto={categoriasGasto} />
         )}
-        {tab === "ordenes-compra" && <OrdenesCompra ordenes={ordenesCompra} products={products} entidades={entidades} categoriasGasto={categoriasGasto} />}
+        {esPropietario && tab === "ordenes-compra" && <OrdenesCompra ordenes={ordenesCompra} products={products} entidades={entidades} categoriasGasto={categoriasGasto} />}
         {tab === "configuracion" && (
           <Configuracion
             theme={theme}
@@ -1243,7 +1294,7 @@ export default function App() {
             onToggleAsistenteFlotante={cambiarAsistenteFlotante}
           />
         )}
-        {tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
+        {esPropietario && tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
         </ErrorBoundary>
       </main>
       {asistenteFlotanteActivo && tab !== "asistente" && (
@@ -1328,7 +1379,7 @@ export default function App() {
         </div>
       )}
       <ConfirmDialogHost />
-      {showMobileMenu && <MobileMenu tab={tab} setTab={seleccionarTab} onClose={() => setShowMobileMenu(false)} onSignOut={() => signOut(auth)} />}
+      {showMobileMenu && <MobileMenu tab={tab} setTab={seleccionarTab} onClose={() => setShowMobileMenu(false)} onSignOut={() => signOut(auth)} isOwner={esPropietario} />}
       {showVersiculoModal && versiculoHoy && (
         <div
           onClick={() => setShowVersiculoModal(false)}

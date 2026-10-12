@@ -30,11 +30,18 @@ function activoEnGrupo(tab, grupoId) {
   return (prefijosPorGrupo[grupoId] || []).includes(tab);
 }
 
-export default function MobileMenu({ tab, setTab, onClose, onSignOut }) {
+export default function MobileMenu({ tab, setTab, onClose, onSignOut, isOwner = false }) {
   const irA = (id) => {
     setTab(id);
     onClose();
   };
+
+  const opciones = OPCIONES.filter((item) => {
+    if (!isOwner) {
+      if (item.id === "biblioteca" || item.id === "recetas" || item.id === "catalogo" || item.id === "compras") return false;
+    }
+    return true;
+  });
 
   return (
     <div
@@ -65,7 +72,7 @@ export default function MobileMenu({ tab, setTab, onClose, onSignOut }) {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {OPCIONES.map((item) => {
+          {opciones.map((item) => {
             const Icon = item.icon;
             const activo = activoEnGrupo(tab, item.id);
             return (

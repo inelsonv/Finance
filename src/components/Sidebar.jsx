@@ -97,9 +97,16 @@ const NAV_ITEMS = [
   { id: "mapa-progreso", label: "Mapa de progreso", icon: MapIcon },
 ];
 
-export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed }) {
+export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount, theme, onToggleTheme, collapsed, onToggleCollapsed, isOwner = false }) {
   const [expandedId, setExpandedId] = useState(null);
   const badgeCounts = { "ordenes-compra": listCount, prestamos: prestamosActivosCount };
+
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (!isOwner) {
+      if (item.id === "biblioteca" || item.id === "compras") return false;
+    }
+    return true;
+  });
 
   return (
     <nav className={`despensa-sidebar${collapsed ? " despensa-sidebar--collapsed" : ""}`}>
@@ -172,7 +179,7 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
       )}
 
       <div className="despensa-navlist">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           const active = tab === item.id || (item.id === "presupuesto" && tab === "presupuesto-mensual");
           const itemHasChildren = item.children && item.children.length > 0;
