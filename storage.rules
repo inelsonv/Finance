@@ -11,14 +11,25 @@ service firebase.storage {
       );
     }
 
-    // Almacenamiento aislado para cada usuario individual
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
+    function esMiembroDuo() {
+      return request.auth != null && (
+        firestore.exists(/databases/(default)/documents/duoMembers/$(request.auth.uid)) ||
+        (request.auth.token.email != null && firestore.exists(/databases/(default)/documents/duoMembersByEmail/$(request.auth.token.email.lower())))
+      );
     }
 
-    // Acceso general para la cuenta propietaria
+    function tieneAccesoCompartido() {
+      return esPropietario() || esMiembroDuo();
+    }
+
+    // Almacenamiento aislado para cada usuario individual
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && (request.auth.uid == userId || tieneAccesoCompartido());
+    }
+
+    // Acceso general para la cuenta propietaria y miembros Dúo
     match /{allPaths=**} {
-      allow read, write: if esPropietario();
+      allow read, write: if tieneAccesoCompartido();
     }
   }
 }

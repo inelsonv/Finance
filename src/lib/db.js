@@ -22,6 +22,21 @@ import { ref as fsRef, uploadBytes, getDownloadURL, deleteObject } from "firebas
 import { db, storage, functions, auth, isOwnerUser, OWNER_EMAIL } from "../firebase";
 
 let currentExplicitUser = null;
+let duoSharedMemberCache = false;
+
+export function setDuoSharedMemberStatus(status) {
+  duoSharedMemberCache = Boolean(status);
+}
+
+export function isDuoSharedMember(user) {
+  if (duoSharedMemberCache) return true;
+  if (!user) return false;
+  try {
+    if (localStorage.getItem(`smart-finance-duo-member-${user.uid}`) === "1") return true;
+    if (user.email && localStorage.getItem(`smart-finance-duo-email-${user.email.toLowerCase()}`) === "1") return true;
+  } catch {}
+  return false;
+}
 
 export function setCurrentDbUser(user) {
   currentExplicitUser = user;
@@ -33,7 +48,7 @@ export function getCurrentDbUser() {
 
 export function getCol(colName, ...pathSegments) {
   const current = getCurrentDbUser();
-  if (!current || isOwnerUser(current)) {
+  if (!current || isOwnerUser(current) || isDuoSharedMember(current)) {
     return fsCollection(db, colName, ...pathSegments);
   }
   return fsCollection(db, "users", current.uid, colName, ...pathSegments);
@@ -41,7 +56,7 @@ export function getCol(colName, ...pathSegments) {
 
 export function getDocRef(colName, ...pathSegments) {
   const current = getCurrentDbUser();
-  if (!current || isOwnerUser(current)) {
+  if (!current || isOwnerUser(current) || isDuoSharedMember(current)) {
     return fsDoc(db, colName, ...pathSegments);
   }
   return fsDoc(db, "users", current.uid, colName, ...pathSegments);
@@ -58,7 +73,7 @@ const doc = (firestoreInstance, colName, ...pathSegments) => {
 
 const ref = (storageInstance, path) => {
   const current = getCurrentDbUser();
-  if (!current || isOwnerUser(current)) {
+  if (!current || isOwnerUser(current) || isDuoSharedMember(current)) {
     return fsRef(storageInstance, path);
   }
   return fsRef(storageInstance, `users/${current.uid}/${path}`);
@@ -3088,8 +3103,8 @@ export async function inicializarEspacioUsuarioNuevo(user) {
     console.warn("No se pudo actualizar registro de usuario:", err);
   }
 
-  // Si es el propietario original, conserva intactas sus colecciones raíz históricas
-  if (isOwnerUser(user)) {
+  // Si es el propietario original o ya es miembro del Plan Dúo, no crear colecciones base duplicadas
+  if (isOwnerUser(user) || isDuoSharedMember(user)) {
     return;
   }
 
@@ -3215,5 +3230,427 @@ export async function getUserThemePreference(uid) {
   } catch (err) {
     console.warn("No se pudo obtener la preferencia de tema de Firestore:", err);
   }
+  return null;
+}
+
+// ==========================================
+// Planes de Suscripción & Plan Dúo (Parejas)
+// ==========================================
+
+export const PLANES_DISPONIBLES = [
+  {
+    id: "individual",
+    nombre: "Plan Individual",
+    badge: "👤 Individual",
+    precio: "Gratuito",
+    precioNumero: 0,
+    periodo: "de por vida",
+    descripcion: "Para una sola persona que gestiona sus finanzas de manera independiente.",
+    maxUsuarios: 1,
+    color: "var(--ink-soft)",
+    bg: "var(--paper)",
+    border: "var(--line)",
+    caracteristicas: [
+      "1 usuario independiente",
+      "Espacio financiero privado y aislado",
+      "Registro ilimitado de movimientos y cuentas",
+      "Presupuesto quincenal y mensual",
+      "Metas de ahorro personales",
+    ],
+  },
+  {
+    id: "duo",
+    nombre: "Plan Dúo",
+    badge: "👫 Plan Dúo (Parejas)",
+    destacado: true,
+    precio: "RD$ 499",
+    precioNumero: 499,
+    periodo: "/ mes (Modo Prueba Activo)",
+    descripcion: "Diseñado para ti y tu pareja. Ambos registran gastos, ven cuentas y administran presupuestos juntos en tiempo real.",
+    maxUsuarios: 2,
+    color: "#8b5cf6",
+    bg: "rgba(139, 92, 246, 0.08)",
+    border: "#8b5cf6",
+    caracteristicas: [
+      "2 cuentas vinculadas (Tú + Tu Pareja)",
+      "Finanzas conjuntas compartidas en tiempo real",
+      "Presupuesto del hogar sincronizado",
+      "Registro colaborativo de gastos y compras",
+      "Metas de ahorro en pareja",
+      "Etiqueta de autor en cada movimiento",
+      "100% sincronizado en móvil y escritorio",
+    ],
+  },
+  {
+    id: "familiar",
+    nombre: "Plan Familiar",
+    badge: "👨‍👩‍👧‍👦 Plan Familiar",
+    precio: "RD$ 899",
+    precioNumero: 899,
+    periodo: "/ mes",
+    descripcion: "Para hogares y familias que desean controlar gastos colectivos con múltiples miembros.",
+    maxUsuarios: 5,
+    color: "#0ea5e9",
+    bg: "rgba(14, 165, 233, 0.08)",
+    border: "#0ea5e9",
+    caracteristicas: [
+      "Hasta 5 cuentas familiares",
+      "Control y visibilidad de finanzas del hogar",
+      "Presupuestos colaborativos de la casa",
+      "Metas de ahorro familiares conjuntas",
+      "Historial de compras y gastos unificado",
+    ],
+  },
+];
+
+export function watchPlanSuscripcion(onChange, onError) {
+  const planRef = fsDoc(db, "planesConfig", "suscripcion");
+  return onSnapshot(
+    planRef,
+    (snap) => {
+      if (snap.exists()) {
+        onChange({ id: snap.id, ...snap.data() });
+      } else {
+        onChange({
+          id: "suscripcion",
+          planId: "individual",
+          planNombre: "Plan Individual",
+          titularEmail: OWNER_EMAIL,
+          maxUsuarios: 1,
+          miembros: [
+            {
+              email: OWNER_EMAIL,
+              nombre: "Titular",
+              rol: "titular",
+              estado: "activo",
+            },
+          ],
+        });
+      }
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function cambiarPlanSuscripcion({ planId, user }) {
+  if (!planId) return;
+  const planInfo = PLANES_DISPONIBLES.find((p) => p.id === planId) || PLANES_DISPONIBLES[0];
+  const planRef = fsDoc(db, "planesConfig", "suscripcion");
+  const snap = await getDoc(planRef);
+  const dataActual = snap.exists() ? snap.data() : {};
+
+  const titularEmail = user?.email || dataActual.titularEmail || OWNER_EMAIL;
+  const titularUid = user?.uid || dataActual.titularUid || null;
+  const titularNombre = user?.displayName || user?.email?.split("@")[0] || "Titular";
+
+  let miembros = Array.isArray(dataActual.miembros) ? [...dataActual.miembros] : [];
+  if (!miembros.some((m) => m.rol === "titular" || m.email?.toLowerCase() === titularEmail.toLowerCase())) {
+    miembros.unshift({
+      email: titularEmail,
+      uid: titularUid,
+      nombre: titularNombre,
+      rol: "titular",
+      estado: "activo",
+      agregadoEn: new Date().toISOString(),
+    });
+  }
+
+  if (planId === "individual") {
+    const pareja = miembros.find((m) => m.rol === "pareja" || m.rol === "miembro");
+    if (pareja?.email) {
+      try {
+        await deleteDoc(fsDoc(db, "duoMembersByEmail", pareja.email.toLowerCase()));
+        if (pareja.uid) await deleteDoc(fsDoc(db, "duoMembers", pareja.uid));
+      } catch (e) {}
+    }
+    miembros = miembros.filter((m) => m.rol === "titular" || m.email?.toLowerCase() === titularEmail.toLowerCase());
+  }
+
+  const payload = {
+    planId,
+    planNombre: planInfo.nombre,
+    titularEmail,
+    titularUid,
+    titularNombre,
+    maxUsuarios: planInfo.maxUsuarios,
+    estado: "activo",
+    miembros,
+    actualizadoEn: serverTimestamp(),
+  };
+
+  await setDoc(planRef, payload, { merge: true });
+
+  if (titularUid) {
+    try {
+      await setDoc(
+        fsDoc(db, "usuariosRegistrados", titularUid),
+        {
+          planId,
+          planNombre: planInfo.nombre,
+          rolPlan: "titular",
+        },
+        { merge: true }
+      );
+    } catch (e) {}
+  }
+
+  return payload;
+}
+
+export async function asociarParejaPlanDuo({ emailPareja, nombrePareja = "Pareja", rol = "pareja", userTitular }) {
+  const emailLimpio = (emailPareja || "").toLowerCase().trim();
+  if (!emailLimpio) throw new Error("Debes ingresar un correo electrónico.");
+  if (emailLimpio === (userTitular?.email || "").toLowerCase().trim()) {
+    throw new Error("No puedes asociar tu propio correo como pareja.");
+  }
+
+  const planRef = fsDoc(db, "planesConfig", "suscripcion");
+  const snap = await getDoc(planRef);
+  const data = snap.exists() ? snap.data() : {};
+
+  const titularEmail = userTitular?.email || data.titularEmail || OWNER_EMAIL;
+  const titularUid = userTitular?.uid || data.titularUid || null;
+  const titularNombre = userTitular?.displayName || titularEmail.split("@")[0] || "Titular";
+
+  let miembros = Array.isArray(data.miembros) ? [...data.miembros] : [];
+  if (!miembros.some((m) => m.email?.toLowerCase() === titularEmail.toLowerCase())) {
+    miembros.unshift({
+      email: titularEmail,
+      uid: titularUid,
+      nombre: titularNombre,
+      rol: "titular",
+      estado: "activo",
+    });
+  }
+
+  let parejaUid = null;
+  let parejaDisplayName = nombrePareja;
+  try {
+    const qUsuarios = query(fsCollection(db, "usuariosRegistrados"), where("email", "==", emailLimpio));
+    const snapUsuarios = await getDocs(qUsuarios);
+    if (!snapUsuarios.empty) {
+      parejaUid = snapUsuarios.docs[0].id;
+      const uData = snapUsuarios.docs[0].data();
+      if (uData.displayName) parejaDisplayName = uData.displayName;
+    }
+  } catch (err) {
+    console.warn("No se pudo consultar usuariosRegistrados:", err);
+  }
+
+  miembros = miembros.filter((m) => m.rol !== "pareja" && m.email?.toLowerCase() !== emailLimpio);
+
+  const nuevoMiembro = {
+    email: emailLimpio,
+    uid: parejaUid,
+    nombre: parejaDisplayName,
+    rol,
+    estado: parejaUid ? "vinculado" : "invitado",
+    agregadoEn: new Date().toISOString(),
+  };
+  miembros.push(nuevoMiembro);
+
+  await setDoc(
+    planRef,
+    {
+      planId: "duo",
+      planNombre: "Plan Dúo",
+      titularEmail,
+      titularUid,
+      titularNombre,
+      maxUsuarios: 2,
+      miembros,
+      actualizadoEn: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  const duoRecord = {
+    titularEmail,
+    titularUid,
+    titularNombre,
+    parejaEmail: emailLimpio,
+    parejaNombre: parejaDisplayName,
+    parejaUid,
+    rol,
+    planId: "duo",
+    vinculadoEn: serverTimestamp(),
+  };
+  await setDoc(fsDoc(db, "duoMembersByEmail", emailLimpio), duoRecord, { merge: true });
+
+  if (parejaUid) {
+    await setDoc(fsDoc(db, "duoMembers", parejaUid), duoRecord, { merge: true });
+    await setDoc(
+      fsDoc(db, "usuariosRegistrados", parejaUid),
+      {
+        planDuoCon: titularEmail,
+        planId: "duo",
+        rolPlan: "pareja",
+      },
+      { merge: true }
+    );
+  }
+
+  return nuevoMiembro;
+}
+
+export async function desvincularParejaPlanDuo({ emailPareja }) {
+  const emailLimpio = (emailPareja || "").toLowerCase().trim();
+  const planRef = fsDoc(db, "planesConfig", "suscripcion");
+  const snap = await getDoc(planRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+  const miembros = (data.miembros || []).filter((m) => m.email?.toLowerCase() !== emailLimpio);
+
+  await setDoc(
+    planRef,
+    {
+      miembros,
+      actualizadoEn: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  try {
+    await deleteDoc(fsDoc(db, "duoMembersByEmail", emailLimpio));
+  } catch (e) {}
+
+  try {
+    const qUsuarios = query(fsCollection(db, "usuariosRegistrados"), where("email", "==", emailLimpio));
+    const snapUsuarios = await getDocs(qUsuarios);
+    if (!snapUsuarios.empty) {
+      const pUid = snapUsuarios.docs[0].id;
+      await deleteDoc(fsDoc(db, "duoMembers", pUid)).catch(() => {});
+      await updateDoc(fsDoc(db, "usuariosRegistrados", pUid), {
+        planDuoCon: deleteField(),
+        planId: "individual",
+        rolPlan: "individual",
+      }).catch(() => {});
+    }
+  } catch (e) {}
+}
+
+export async function sincronizarEstadoDuoUsuario(user) {
+  if (!user) return { esDuo: false };
+  try {
+    const emailLower = (user.email || "").toLowerCase().trim();
+    if (!emailLower) return { esDuo: false };
+
+    if (isOwnerUser(user)) {
+      setDuoSharedMemberStatus(false);
+      return { esDuo: false, isOwner: true };
+    }
+
+    let esDuo = false;
+    let duoData = null;
+
+    // 1. Revisar duoMembersByEmail
+    try {
+      const emailSnap = await getDoc(fsDoc(db, "duoMembersByEmail", emailLower));
+      if (emailSnap && emailSnap.exists()) {
+        esDuo = true;
+        duoData = emailSnap.data();
+      }
+    } catch (e) {}
+
+    // 2. Revisar duoMembers por UID
+    if (!esDuo && user.uid) {
+      try {
+        const uidSnap = await getDoc(fsDoc(db, "duoMembers", user.uid));
+        if (uidSnap && uidSnap.exists()) {
+          esDuo = true;
+          duoData = uidSnap.data();
+        }
+      } catch (e) {}
+    }
+
+    // 3. Revisar planesConfig/suscripcion (definición central del plan)
+    if (!esDuo) {
+      try {
+        const planSnap = await getDoc(fsDoc(db, "planesConfig", "suscripcion"));
+        if (planSnap && planSnap.exists()) {
+          const pData = planSnap.data();
+          if (pData.planId === "duo" && Array.isArray(pData.miembros)) {
+            const miembro = pData.miembros.find((m) => m.email?.toLowerCase().trim() === emailLower);
+            if (miembro) {
+              esDuo = true;
+              duoData = {
+                titularEmail: pData.titularEmail || OWNER_EMAIL,
+                titularUid: pData.titularUid || null,
+                titularNombre: pData.titularNombre || "Titular",
+                parejaEmail: emailLower,
+                parejaNombre: miembro.nombre || user.displayName || "Pareja",
+                planId: "duo",
+              };
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 4. Revisar usuariosRegistrados
+    if (!esDuo && user.uid) {
+      try {
+        const regSnap = await getDoc(fsDoc(db, "usuariosRegistrados", user.uid));
+        if (regSnap && regSnap.exists()) {
+          const rData = regSnap.data();
+          if (rData.planId === "duo" || rData.planDuoCon) {
+            esDuo = true;
+            duoData = {
+              titularEmail: rData.planDuoCon || OWNER_EMAIL,
+              parejaEmail: emailLower,
+              planId: "duo",
+            };
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (esDuo) {
+      setDuoSharedMemberStatus(true);
+      const titularEmail = duoData?.titularEmail || OWNER_EMAIL;
+      try {
+        localStorage.setItem(`smart-finance-duo-member-${user.uid}`, "1");
+        localStorage.setItem(`smart-finance-duo-email-${emailLower}`, "1");
+        localStorage.setItem(`smart-finance-duo-titular-${user.uid}`, titularEmail);
+      } catch (e) {}
+
+      // Sincronizar registros cruzados
+      if (user.uid) {
+        try {
+          await setDoc(fsDoc(db, "duoMembers", user.uid), { ...duoData, parejaUid: user.uid }, { merge: true });
+          await setDoc(fsDoc(db, "duoMembersByEmail", emailLower), { ...duoData, parejaUid: user.uid }, { merge: true });
+          await setDoc(
+            fsDoc(db, "usuariosRegistrados", user.uid),
+            {
+              planDuoCon: titularEmail,
+              planId: "duo",
+              rolPlan: "pareja",
+            },
+            { merge: true }
+          );
+        } catch (e) {}
+      }
+      return { esDuo: true, titularEmail, duoData };
+    } else {
+      setDuoSharedMemberStatus(false);
+      try {
+        localStorage.removeItem(`smart-finance-duo-member-${user.uid}`);
+        localStorage.removeItem(`smart-finance-duo-email-${emailLower}`);
+        localStorage.removeItem(`smart-finance-duo-titular-${user.uid}`);
+      } catch (e) {}
+      return { esDuo: false };
+    }
+  } catch (err) {
+    console.warn("Error al sincronizar estado Dúo del usuario:", err);
+    return { esDuo: false };
+  }
+}
+
+export function getDuoTitularEmail(user) {
+  if (!user) return null;
+  try {
+    return localStorage.getItem(`smart-finance-duo-titular-${user.uid}`) || null;
+  } catch {}
   return null;
 }

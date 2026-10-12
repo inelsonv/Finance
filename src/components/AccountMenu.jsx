@@ -1,26 +1,28 @@
 import React, { useEffect, useRef, useState } from "react";
-import { LogOut, Settings, Smartphone, X, PiggyBank, TrendingDown, User as UserIcon, Users, ShieldCheck, Clock, RotateCw, Palette } from "lucide-react";
+import { LogOut, Settings, Smartphone, X, PiggyBank, TrendingDown, User as UserIcon, Users, ShieldCheck, Clock, RotateCw, Palette, Heart, Sparkles } from "lucide-react";
 import { confirm } from "../lib/confirm";
 import { watchUsuariosRegistrados } from "../lib/db";
 import { getThemeById } from "../lib/themes";
 import ThemeSelector from "./ThemeSelector.jsx";
+import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
 
 const APP_URL = "https://inelsonv.github.io/Finance/";
 
-export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, synced, ahorroActivo, estrategiaDeudas, theme, onSelectTheme }) {
+export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, synced, ahorroActivo, estrategiaDeudas, theme, onSelectTheme, planActual }) {
   const [open, setOpen] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [showUsuarios, setShowUsuarios] = useState(false);
+  const [showPlanesModal, setShowPlanesModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [usuariosLista, setUsuariosLista] = useState([]);
   const ref = useRef(null);
 
   useEffect(() => {
-    if (showUsuarios && isOwner) {
+    if (showUsuarios || showPlanesModal) {
       const unsub = watchUsuariosRegistrados(setUsuariosLista, (err) => console.error("Error cargando usuarios:", err));
       return () => unsub();
     }
-  }, [showUsuarios, isOwner]);
+  }, [showUsuarios, showPlanesModal]);
   const modosActivos = [
     ...(ahorroActivo ? [{ id: "ahorro", label: "Modo Ahorro", Icon: PiggyBank, color: "var(--sage)" }] : []),
     ...(estrategiaDeudas?.activo ? [{ id: "deuda", label: `Pago de deuda · ${estrategiaDeudas.metodo === "bola" ? "Bola de nieve" : "Avalancha"}`, Icon: TrendingDown, color: "var(--amber)" }] : []),
@@ -142,7 +144,7 @@ export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, 
             <div style={{ fontSize: 11, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {user.email}
             </div>
-            <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
               <span
                 style={{
                   fontSize: 10,
@@ -155,7 +157,21 @@ export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, 
                   display: "inline-block",
                 }}
               >
-                {isOwner ? "👑 Propietario / Admin" : "👤 Cuenta Individual"}
+                {isOwner ? "👑 Propietario / Admin" : "👤 Cuenta"}
+              </span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: planActual?.planId === "duo" ? "rgba(139, 92, 246, 0.16)" : planActual?.planId === "familiar" ? "rgba(14, 165, 233, 0.16)" : "var(--paper)",
+                  color: planActual?.planId === "duo" ? "#8b5cf6" : planActual?.planId === "familiar" ? "#0ea5e9" : "var(--ink-soft)",
+                  border: `1px solid ${planActual?.planId === "duo" ? "#8b5cf6" : planActual?.planId === "familiar" ? "#0ea5e9" : "var(--line)"}`,
+                  display: "inline-block",
+                }}
+              >
+                {planActual?.planId === "duo" ? "👫 Plan Dúo" : planActual?.planId === "familiar" ? "👨‍👩‍👧‍👦 Familiar" : "👤 Individual"}
               </span>
             </div>
           </div>
@@ -168,6 +184,30 @@ export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, 
               ))}
             </div>
           )}
+          <button
+            onClick={() => {
+              setOpen(false);
+              setShowPlanesModal(true);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "10px 12px",
+              background: planActual?.planId === "duo" ? "rgba(139, 92, 246, 0.08)" : "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12.5,
+              fontWeight: planActual?.planId === "duo" ? 600 : 500,
+              color: planActual?.planId === "duo" ? "#8b5cf6" : "var(--ink)",
+              textAlign: "left",
+              borderBottom: "1px solid var(--line-soft)",
+            }}
+          >
+            <Heart size={14} style={{ color: "#8b5cf6" }} fill={planActual?.planId === "duo" ? "#8b5cf6" : "none"} />
+            <span>{planActual?.planId === "duo" ? "Plan Dúo & Pareja" : "Planes & Plan Dúo"}</span>
+          </button>
           {isOwner && (
             <button
               onClick={() => {
@@ -581,6 +621,15 @@ export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, 
           </div>
         </div>
       )}
+
+      <ModalPlanesSuscripcion
+        isOpen={showPlanesModal}
+        onClose={() => setShowPlanesModal(false)}
+        user={user}
+        isOwner={isOwner}
+        planActual={planActual}
+        usuariosRegistrados={usuariosLista}
+      />
     </div>
   );
 }

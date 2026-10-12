@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bot, Palette } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig } from "../lib/db";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bot, Palette, Heart, Sparkles } from "lucide-react";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig, watchUsuariosRegistrados } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 import ThemeSelector from "./ThemeSelector.jsx";
+import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
 
-export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante }) {
+export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante, planActual, isOwner }) {
+  const [showPlanesModal, setShowPlanesModal] = useState(false);
+  const [usuariosRegistrados, setUsuariosRegistrados] = useState([]);
   const [emailConfig, setEmailConfig] = useState(undefined);
   const [emailInput, setEmailInput] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
@@ -78,6 +81,13 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
       unsub12();
     };
   }, []);
+
+  useEffect(() => {
+    if (showPlanesModal) {
+      const unsub = watchUsuariosRegistrados(setUsuariosRegistrados, () => {});
+      return () => unsub();
+    }
+  }, [showPlanesModal]);
 
   useEffect(() => {
     setDiasCobroInput(diasCobro.join(", "));
@@ -319,6 +329,57 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
         >
           <LogOut size={13} /> Cerrar sesión
         </button>
+      </Section>
+
+      <Section icon={Heart} title="Plan de Cuenta & Finanzas en Pareja">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ maxWidth: 360 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>
+                {planActual?.planId === "duo" ? "Plan Dúo Activo" : planActual?.planId === "familiar" ? "Plan Familiar Activo" : "Plan Individual"}
+              </span>
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  padding: "2px 8px",
+                  borderRadius: 12,
+                  background: planActual?.planId === "duo" ? "rgba(139, 92, 246, 0.16)" : "var(--sage-bg)",
+                  color: planActual?.planId === "duo" ? "#8b5cf6" : "var(--sage)",
+                  border: `1px solid ${planActual?.planId === "duo" ? "#8b5cf6" : "var(--sage)"}`,
+                }}
+              >
+                {planActual?.planId === "duo" ? "2 Cuentas Compartidas" : "1 Cuenta"}
+              </span>
+            </div>
+            <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "4px 0 0", lineHeight: 1.45 }}>
+              {planActual?.planId === "duo"
+                ? "Tienes el Plan Dúo habilitado. Puedes asociar a tu pareja para registrar y ver finanzas juntos."
+                : "Gestionas tus finanzas de manera individual. Cambia al Plan Dúo para agregar a tu pareja."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPlanesModal(true)}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 8,
+              background: planActual?.planId === "duo" ? "linear-gradient(135deg, #8b5cf6, #7c3aed)" : "var(--ink)",
+              color: "#fff",
+              border: "none",
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              boxShadow: planActual?.planId === "duo" ? "0 2px 8px rgba(139, 92, 246, 0.3)" : "none",
+            }}
+          >
+            <Heart size={14} fill="#fff" />
+            {planActual?.planId === "duo" ? "Administrar Pareja & Plan" : "Ver Planes / Plan Dúo"}
+          </button>
+        </div>
       </Section>
 
       <Section icon={UserIcon} title="Perfil personal">
@@ -740,6 +801,15 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
           usen (empezando por el Checklist de pagos). Te avisaré a medida que cada una quede lista.
         </div>
       </Section>
+
+      <ModalPlanesSuscripcion
+        isOpen={showPlanesModal}
+        onClose={() => setShowPlanesModal(false)}
+        user={user}
+        isOwner={isOwner}
+        planActual={planActual}
+        usuariosRegistrados={usuariosRegistrados}
+      />
     </div>
   );
 }

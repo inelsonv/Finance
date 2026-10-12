@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText, Fuel, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Receipt, Sliders, PieChart, Sparkles } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText, Fuel, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Receipt, Sliders, PieChart, Sparkles, Heart, Users } from "lucide-react";
 import { setPresupuestoCelda, watchPagoRapido, watchMetodologiaPresupuestoConfig } from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { contratoActivoEnMes, calcularQuincenaEfectivaContrato } from "./Contratos.jsx";
@@ -151,6 +151,10 @@ export default function PresupuestoAnual({
   puntosHistorial = [],
   entidades = [],
   contratos = [],
+  planActual = null,
+  duoInfo = null,
+  isOwner = false,
+  user = null,
   abrirModalMetodologia = false,
   onCloseModalMetodologia,
 }) {
@@ -932,6 +936,78 @@ export default function PresupuestoAnual({
           Configurar / Aplicar Tipo de Presupuesto
         </button>
       </div>
+
+      {(planActual?.planId === "duo" || duoInfo?.esDuo) && (() => {
+        const parejaMiembro = Array.isArray(planActual?.miembros)
+          ? planActual.miembros.find((m) => m.rol === "pareja" || m.rol === "miembro")
+          : null;
+        const titularEmail = duoInfo?.titularEmail || planActual?.titularEmail || "Titular";
+        const esTitular = isOwner || user?.email?.toLowerCase() === titularEmail.toLowerCase();
+
+        return (
+          <div
+            style={{
+              background: "linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(236, 72, 153, 0.04) 100%)",
+              border: "1.5px solid rgba(139, 92, 246, 0.35)",
+              borderRadius: 12,
+              padding: "12px 16px",
+              marginBottom: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: 10,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: "50%",
+                  background: "#8b5cf6",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 6px rgba(139, 92, 246, 0.3)",
+                  flexShrink: 0,
+                }}
+              >
+                <Heart size={18} fill="#fff" />
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                    Presupuesto Familiar Compartido · Plan Dúo
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      padding: "2px 7px",
+                      borderRadius: 10,
+                      background: "rgba(139, 92, 246, 0.18)",
+                      color: "#8b5cf6",
+                    }}
+                  >
+                    ✓ Sincronizado en tiempo real
+                  </span>
+                </div>
+                <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: "2px 0 0", lineHeight: 1.4 }}>
+                  {esTitular
+                    ? `Este presupuesto está compartido con tu pareja ${parejaMiembro?.email ? `(${parejaMiembro.email})` : "asociada"}. Ambos pueden ver y planificar juntos.`
+                    : `Estás viendo el presupuesto compartido con el titular (${titularEmail}). Cualquier cambio se refleja para ambos en tiempo real.`}
+                </p>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-soft)" }}>
+              <Users size={13} style={{ color: "#8b5cf6" }} />
+              <span>2 usuarios en sincronía</span>
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 14 }}>
         <button

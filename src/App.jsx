@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { onAuthStateChanged, signOut, getRedirectResult, GoogleAuthProvider } from "firebase/auth";
 import { auth, ALLOWED_EMAIL, isOwnerUser, setCachedAccessToken, clearCachedAccessToken } from "./firebase";
-import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy, setCurrentDbUser, inicializarEspacioUsuarioNuevo, watchUsuariosRegistrados, saveUserThemePreference, getUserThemePreference } from "./lib/db";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy, setCurrentDbUser, inicializarEspacioUsuarioNuevo, watchUsuariosRegistrados, saveUserThemePreference, getUserThemePreference, watchPlanSuscripcion, sincronizarEstadoDuoUsuario, getDuoTitularEmail, setDuoSharedMemberStatus } from "./lib/db";
 import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
 import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
@@ -270,6 +270,9 @@ export default function App() {
   const [asistenteFlotanteActivo, setAsistenteFlotanteActivo] = useState(getInitialAsistenteFlotante);
   const [notificacionAgentePago, setNotificacionAgentePago] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [planActual, setPlanActual] = useState(null);
+  const [duoSyncVersion, setDuoSyncVersion] = useState(0);
+  const [duoInfo, setDuoInfo] = useState({ esDuo: false, titularEmail: null });
 
   useEffect(() => {
     let timer = null;
@@ -439,16 +442,36 @@ export default function App() {
         }
       });
     const unsub = onAuthStateChanged(auth, async (user) => {
-      setAuthUser(user);
-      setCurrentDbUser(user);
       if (!user) {
         clearCachedAccessToken();
-      } else {
-        try {
-          await inicializarEspacioUsuarioNuevo(user);
-        } catch (err) {
-          console.error("Error al preparar espacio multi-usuario:", err);
-        }
+        setCurrentDbUser(null);
+        setDuoInfo({ esDuo: false, titularEmail: null });
+        setAuthUser(null);
+        setDuoSyncVersion((v) => v + 1);
+        return;
+      }
+
+      setCurrentDbUser(user);
+
+      // 1. Sincronizar estado Dúo PRIMERO para que el enrutamiento a colecciones compartidas esté listo
+      let infoDuo = { esDuo: false };
+      try {
+        infoDuo = await sincronizarEstadoDuoUsuario(user);
+        setDuoInfo(infoDuo);
+      } catch (err) {
+        console.error("Error sincronizando estado Plan Dúo:", err);
+      }
+
+      // 2. Inicializar espacio (no creará duplicados si es miembro dúo o propietario)
+      try {
+        await inicializarEspacioUsuarioNuevo(user);
+      } catch (err) {
+        console.error("Error al preparar espacio multi-usuario:", err);
+      }
+
+      // 3. Activar usuario autenticado
+      setAuthUser(user);
+      setDuoSyncVersion((v) => v + 1);
 
         // Cargar y aplicar la preferencia de tema exclusiva de este usuario
         try {
@@ -470,7 +493,6 @@ export default function App() {
         } catch (err) {
           console.warn("Error cargando preferencia de tema del usuario:", err);
         }
-      }
     });
     return () => unsub();
   }, []);
@@ -549,6 +571,21 @@ export default function App() {
     const unsubHabitosPenalizaciones = watchHabitosPenalizaciones(setHabitosPenalizaciones, handleError);
     const unsubVersiculoHoy = watchVersiculoHoy(fechaHoyStr(), setVersiculoHoy, handleError);
     const unsubCofresGanados = watchCofresGanados(setCofresGanados, handleError);
+    const unsubPlan = watchPlanSuscripcion((nuevoPlan) => {
+      setPlanActual(nuevoPlan);
+      if (authUser && !isOwnerUser(authUser)) {
+        const emailLower = (authUser.email || "").toLowerCase().trim();
+        const esPareja = nuevoPlan?.planId === "duo" && Array.isArray(nuevoPlan?.miembros) &&
+          nuevoPlan.miembros.some((m) => m.email?.toLowerCase().trim() === emailLower);
+        if (esPareja) {
+          setDuoSharedMemberStatus(true);
+          setDuoInfo({ esDuo: true, titularEmail: nuevoPlan.titularEmail || OWNER_EMAIL });
+        } else if (nuevoPlan?.planId && nuevoPlan?.planId !== "duo") {
+          setDuoSharedMemberStatus(false);
+          setDuoInfo({ esDuo: false });
+        }
+      }
+    }, handleError);
     const unsubStatus = watchConnectionStatus(setSynced);
     return () => {
       unsubProducts();
@@ -595,9 +632,10 @@ export default function App() {
       unsubHabitosPenalizaciones();
       unsubVersiculoHoy();
       unsubCofresGanados();
+      unsubPlan();
       unsubStatus();
     };
-  }, [authorized]);
+  }, [authorized, duoSyncVersion]);
 
   // Al abrir la app, revisa si la quincena que acaba de cerrar cumplió el
   // presupuesto (sin excederse), y en ese caso otorga puntos. Protegido
@@ -780,7 +818,7 @@ export default function App() {
       (err) => setError(err.message || String(err))
     );
     return () => unsub();
-  }, [authorized, presupuestoYear]);
+  }, [authorized, presupuestoYear, duoSyncVersion]);
 
   if (authUser === undefined) {
     return <SplashScreen caption="Iniciando Smart Finance…" />;
@@ -994,6 +1032,7 @@ export default function App() {
                 estrategiaDeudas={estrategiaDeudas}
                 theme={theme}
                 onSelectTheme={setTheme}
+                planActual={planActual}
               />
             </div>
             <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
@@ -1194,6 +1233,10 @@ export default function App() {
             puntosHistorial={puntosHistorial}
             entidades={entidades}
             contratos={contratos}
+            planActual={planActual}
+            duoInfo={duoInfo}
+            isOwner={esPropietario}
+            user={authUser}
             abrirModalMetodologia={tab === "presupuesto-metodologia"}
             onCloseModalMetodologia={() => {
               if (tab === "presupuesto-metodologia") setTab("presupuesto-mensual");
@@ -1292,6 +1335,8 @@ export default function App() {
             categoriasGasto={categoriasGasto}
             asistenteFlotanteActivo={asistenteFlotanteActivo}
             onToggleAsistenteFlotante={cambiarAsistenteFlotante}
+            planActual={planActual}
+            isOwner={esPropietario}
           />
         )}
         {esPropietario && tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
