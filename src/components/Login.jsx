@@ -85,6 +85,8 @@ export function LoginScreen() {
         setError("La contraseña debe tener al menos 6 caracteres.");
       } else if (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found") {
         setError("Credenciales incorrectas. Verifica tu correo y contraseña.");
+      } else if (err.code === "auth/operation-not-allowed") {
+        setError("El método de registro con correo y contraseña no está habilitado en Firebase. Actívalo en la consola de Firebase.");
       } else {
         setError(err.message || String(err));
       }
@@ -96,6 +98,10 @@ export function LoginScreen() {
   const isUnauthorizedDomain =
     errorCode === "auth/unauthorized-domain" ||
     (error && error.includes("auth/unauthorized-domain"));
+
+  const isOperationNotAllowed =
+    errorCode === "auth/operation-not-allowed" ||
+    (error && error.includes("auth/operation-not-allowed"));
 
   return (
     <div
@@ -114,7 +120,7 @@ export function LoginScreen() {
           border: "1px solid var(--line)",
           borderRadius: 14,
           padding: "2.5rem 2rem",
-          maxWidth: isUnauthorizedDomain ? 440 : 360,
+          maxWidth: isUnauthorizedDomain || isOperationNotAllowed ? 440 : 360,
           width: "100%",
           textAlign: "center",
           transition: "max-width 0.2s ease",
@@ -391,6 +397,76 @@ export function LoginScreen() {
               </li>
               <li>Vuelve a pulsar <strong>Continuar con Google</strong>.</li>
             </ol>
+          </div>
+        ) : isOperationNotAllowed ? (
+          <div
+            style={{
+              marginTop: 18,
+              textAlign: "left",
+              background: "var(--amber-bg)",
+              border: "1px solid var(--amber)",
+              borderRadius: 10,
+              padding: "14px 16px",
+              fontSize: 12,
+              lineHeight: 1.5,
+              color: "var(--ink)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, marginBottom: 6, color: "#8a5800" }}>
+              <AlertTriangle size={16} />
+              ¿Por qué ocurre auth/operation-not-allowed?
+            </div>
+            <p style={{ margin: "0 0 10px", color: "var(--ink-soft)" }}>
+              Este error significa que el método de acceso para registrar cuentas con <strong>correo y contraseña</strong> (o cuentas de correo corporativas como <code>inelsonv@bellon.com.do</code>) aún no está habilitado en tu consola de Firebase (<code>finance-6e127</code>).
+            </p>
+
+            <div style={{ fontWeight: 600, fontSize: 11.5, marginBottom: 6 }}>
+              Cómo habilitarlo en 2 clics (solo toma 30 segundos):
+            </div>
+            <ol style={{ margin: "0 0 12px 18px", padding: 0, fontSize: 11.5, color: "var(--ink)" }}>
+              <li style={{ marginBottom: 4 }}>
+                Abre{" "}
+                <a
+                  href="https://console.firebase.google.com/project/finance-6e127/authentication/providers"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ color: "var(--blue)", fontWeight: 600, textDecoration: "underline", display: "inline-flex", alignItems: "center", gap: 3 }}
+                >
+                  Métodos de acceso en Firebase Console
+                  <ExternalLink size={11} />
+                </a>
+              </li>
+              <li style={{ marginBottom: 4 }}>
+                En la lista de proveedores, haz clic en <strong>Correo electrónico/contraseña</strong> (Email/Password).
+              </li>
+              <li style={{ marginBottom: 4 }}>
+                Activa el interruptor <strong>Habilitar</strong> (primer switch) y pulsa <strong>Guardar</strong>.
+              </li>
+              <li>
+                (Opcional): Si deseas permitir acceso con Google para cuentas corporativas de Google Workspace, asegúrate de que el proveedor <strong>Google</strong> también esté habilitado en esa misma pantalla.
+              </li>
+            </ol>
+
+            <div style={{ textAlign: "center", marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setErrorCode(null);
+                }}
+                style={{
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 6,
+                  padding: "4px 12px",
+                  fontSize: 11.5,
+                  cursor: "pointer",
+                  color: "var(--ink)",
+                }}
+              >
+                Entendido, reintentar
+              </button>
+            </div>
           </div>
         ) : error ? (
           <div style={{ marginTop: 14, fontSize: 11.5, color: "var(--stamp)" }}>{error}</div>
