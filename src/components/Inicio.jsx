@@ -450,8 +450,8 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
   );
 }
 
-function GastosPorCategoriaMesActual({ movimientos, compact }) {
-  const [activo, setActivo] = useState(null);
+function GastosPorCategoriaMesActual({ movimientos, onNavigate }) {
+  const [slideIndex, setSlideIndex] = useState(0);
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
@@ -471,19 +471,86 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
     return { slices: list, total: sum };
   }, [movimientos, prefix]);
 
+  const safeIndex = slices.length > 0 ? Math.min(slideIndex, slices.length - 1) : 0;
+
+  const prevSlide = () => {
+    if (slices.length <= 1) return;
+    setSlideIndex((prev) => (prev > 0 ? prev - 1 : slices.length - 1));
+  };
+
+  const nextSlide = () => {
+    if (slices.length <= 1) return;
+    setSlideIndex((prev) => (prev < slices.length - 1 ? prev + 1 : 0));
+  };
+
   if (slices.length === 0 || total === 0) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "36px 0" }}>
-        <AlertTriangle size={15} />
-        Registra gastos en Movimientos para ver la distribución de este mes.
+      <div
+        className="despensa-dashboard-card"
+        style={{
+          padding: "1.35rem",
+          textAlign: "center",
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          minHeight: 330,
+        }}
+      >
+        <div>
+          <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>Gastos por categoría</div>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 16 }}>
+            Distribución mensual
+          </div>
+          <div
+            style={{
+              width: 86,
+              height: 86,
+              borderRadius: "50%",
+              background: "var(--amber-bg)",
+              border: "1.5px solid var(--line-soft)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--amber)",
+              margin: "16px auto",
+            }}
+          >
+            <PieChartIcon size={42} />
+          </div>
+          <div style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5, maxWidth: 280, margin: "0 auto" }}>
+            No hay gastos registrados en este mes todavía. Registra tus compras en Movimientos para activar este gráfico.
+          </div>
+        </div>
+        <div style={{ marginTop: 20 }}>
+          <button
+            onClick={() => onNavigate && onNavigate("movimientos")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "8px 16px",
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: "var(--ink)",
+              color: "var(--paper)",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+            }}
+          >
+            <Plus size={14} />
+            Registrar gasto
+          </button>
+        </div>
       </div>
     );
   }
 
-  const cx = 110;
-  const cy = 95;
+  const cx = 90;
+  const cy = 90;
   const r = 74;
-  const strokeWidth = 16;
+  const strokeWidth = 14;
   const gapDeg = slices.length > 1 ? 2.5 : 0;
 
   let cumulativeAngle = 0;
@@ -498,16 +565,128 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
     return { ...s, color, startAngle, endAngle, pathD, pct };
   });
 
-  const activoData = arcs.find((a) => a.category === activo);
-  const top1 = arcs[0] || null;
-  const top2 = arcs[1] || null;
+  const activeArc = arcs[safeIndex] || arcs[0];
+  const iconKey = iconoParaCategoria(activeArc.category);
+  const CatIcon = ICONOS_CATEGORIA_GASTO[iconKey] || Receipt;
+  const pctDisplay = activeArc.pct * 100;
 
   return (
-    <div>
-      {/* Contenedor del velocímetro/anillo circular con métrica central */}
-      <div style={{ position: "relative", width: "100%", maxWidth: 230, margin: "0 auto" }}>
-        <svg viewBox="0 0 220 190" style={{ width: "100%", height: "auto", display: "block" }}>
-          {/* Pista de fondo con el mismo tono y grosor que el gráfico de Fondo de emergencia */}
+    <div
+      className="despensa-dashboard-card"
+      style={{
+        padding: "1.35rem",
+        textAlign: "center",
+        position: "relative",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
+      {/* Botones de navegación de slide (arriba a la izquierda) */}
+      {slices.length > 1 && (
+        <div style={{ position: "absolute", top: 12, left: 12, display: "flex", alignItems: "center", gap: 3, zIndex: 2 }}>
+          <button
+            onClick={prevSlide}
+            title="Categoría anterior"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 22,
+              height: 22,
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: "pointer",
+            }}
+          >
+            <ChevronLeftIcon size={12} />
+          </button>
+          <span className="despensa-mono" style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-soft)", minWidth: 26, textAlign: "center" }}>
+            {safeIndex + 1}/{slices.length}
+          </span>
+          <button
+            onClick={nextSlide}
+            title="Siguiente categoría"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 22,
+              height: 22,
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              background: "var(--paper)",
+              color: "var(--ink-soft)",
+              cursor: "pointer",
+            }}
+          >
+            <ChevronRightIcon size={12} />
+          </button>
+        </div>
+      )}
+
+      {/* Botón "Ver todas" e InfoTooltip (arriba a la derecha) */}
+      <div style={{ position: "absolute", top: 12, right: 12, display: "flex", alignItems: "center", gap: 6, zIndex: 2 }}>
+        <button
+          onClick={() => onNavigate && onNavigate("presupuesto-categoria-gasto")}
+          title="Ver categorías en Presupuesto"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            padding: "3px 8px",
+            fontSize: 11,
+            border: "1px solid var(--line)",
+            borderRadius: 6,
+            background: "var(--paper)",
+            color: "var(--ink-soft)",
+            cursor: "pointer",
+          }}
+        >
+          Ver todas
+        </button>
+        <InfoTooltip>
+          Distribución de gastos del mes actual por categoría. Pasa el cursor o pulsa en cualquier segmento o flecha para ver el importe y porcentaje de cada rubro.
+        </InfoTooltip>
+      </div>
+
+      {/* Título de la tarjeta e indicador de categoría activa */}
+      <div>
+        <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 2 }}>
+          Gastos por categoría
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, flexWrap: "wrap" }}>
+          <span
+            style={{
+              padding: "1px 8px",
+              borderRadius: 10,
+              background: `${activeArc.color}1c`,
+              color: activeArc.color,
+              fontWeight: 600,
+              fontSize: 10.5,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <CatIcon size={11} /> {activeArc.category}
+          </span>
+          <span>· {formatMoney(activeArc.value)}</span>
+        </div>
+      </div>
+
+      {/* Gráfico circular con el disco e ícono temático en el centro exacto */}
+      <div style={{ position: "relative", width: 175, height: 175, margin: "0 auto" }}>
+        <svg
+          width={175}
+          height={175}
+          viewBox="0 0 180 180"
+          style={{ display: "block" }}
+        >
+          {/* Pista de fondo con el mismo tono que el gráfico de Metas / Fondo de emergencia */}
           <circle
             cx={cx}
             cy={cy}
@@ -515,188 +694,152 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
             fill="none"
             stroke="var(--line-soft)"
             strokeWidth={strokeWidth}
-            opacity={0.55}
           />
 
-          {/* Arcos de las categorías con corte recto (butt) idéntico a las zonas del velocímetro */}
-          {arcs.map((a) => {
-            const isSelected = activo === a.category;
+          {/* Segmentos de categoría: el activo se resalta y los demás permanecen con opacidad sutil */}
+          {arcs.map((a, idx) => {
+            const isSelected = idx === safeIndex;
             return (
               <path
                 key={a.category}
                 d={a.pathD}
                 fill="none"
                 stroke={a.color}
-                strokeWidth={isSelected ? strokeWidth + 3.5 : strokeWidth}
+                strokeWidth={isSelected ? 16 : 13}
                 strokeLinecap="butt"
-                opacity={activo && !isSelected ? 0.35 : 1}
+                opacity={isSelected ? 1 : 0.38}
                 style={{
                   cursor: "pointer",
-                  transition: "stroke-width 0.15s ease, opacity 0.15s ease",
+                  transition: "stroke-width 0.2s ease, opacity 0.2s ease",
                 }}
-                onMouseEnter={() => setActivo(a.category)}
-                onMouseLeave={() => setActivo(null)}
-                onClick={() => setActivo((prev) => (prev === a.category ? null : a.category))}
+                onClick={() => setSlideIndex(idx)}
               />
             );
           })}
         </svg>
 
-        {/* Tipografía central grande en despensa-mono idéntica a los otros KPIs */}
+        {/* Disco interior con ícono temático idéntico al diseño de la captura */}
         <div
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
+            inset: 0,
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
             pointerEvents: "none",
-            textAlign: "center",
-            padding: "0 18px",
           }}
         >
           <div
             style={{
-              fontSize: 10,
-              fontWeight: 600,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              color: "var(--ink-soft)",
-              marginBottom: 1,
-              maxWidth: 120,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              width: 86,
+              height: 86,
+              borderRadius: "50%",
+              background: `${activeArc.color}15`,
+              border: `1.5px solid ${activeArc.color}45`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: activeArc.color,
+              boxShadow: "0 2px 10px rgba(0,0,0,0.06)",
+              transition: "all 0.25s ease",
             }}
           >
-            {activoData ? activoData.category : "Total mes"}
+            <CatIcon size={40} />
           </div>
-          <div
-            className="despensa-mono"
-            style={{
-              fontSize: 21,
-              fontWeight: 700,
-              color: activoData ? activoData.color : "var(--ink)",
-              lineHeight: 1.15,
-            }}
-          >
-            {formatMoney(activoData ? activoData.value : total)}
-          </div>
-          <span
-            className="despensa-tab-font"
-            style={{
-              fontSize: 10.5,
-              fontWeight: 600,
-              marginTop: 5,
-              padding: "2px 8px",
-              borderRadius: 14,
-              background: activoData ? `${activoData.color}22` : "var(--line-soft)",
-              color: activoData ? activoData.color : "var(--ink-soft)",
-            }}
-          >
-            {activoData
-              ? `${Math.round(activoData.pct * 100)}% del gasto`
-              : `${slices.length} categorías`}
-          </span>
         </div>
       </div>
 
-      {/* Chips interactivos de categorías */}
-      {slices.length > 2 && (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 4,
-            justifyContent: "center",
-            marginTop: 8,
-            marginBottom: 2,
-            maxHeight: 46,
-            overflowY: "auto",
-          }}
-        >
-          {arcs.map((a) => {
-            const isSel = activo === a.category;
-            return (
-              <button
-                key={a.category}
-                type="button"
-                onClick={() => setActivo((prev) => (prev === a.category ? null : a.category))}
-                onMouseEnter={() => setActivo(a.category)}
-                onMouseLeave={() => setActivo(null)}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  padding: "2px 6px",
-                  borderRadius: 10,
-                  border: isSel ? `1px solid ${a.color}` : "1px solid var(--line-soft)",
-                  background: isSel ? `${a.color}18` : "var(--card)",
-                  color: isSel ? a.color : "var(--ink-soft)",
-                  cursor: "pointer",
-                  transition: "all 0.15s ease",
-                }}
-              >
-                <span
-                  style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: "50%",
-                    background: a.color,
-                    flexShrink: 0,
-                  }}
-                />
-                <span style={{ maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {a.category}
-                </span>
-                <span className="despensa-mono" style={{ fontSize: 9.5, opacity: 0.85 }}>
-                  {Math.round(a.pct * 100)}%
-                </span>
-              </button>
-            );
-          })}
+      {/* Porcentaje en tamaño grande idéntico a la captura (32px, bold, despensa-mono) */}
+      <div style={{ marginTop: 8, marginBottom: 6 }}>
+        <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: activeArc.color }}>
+          {pctDisplay.toFixed(1)}%
+        </span>
+      </div>
+
+      {/* Badge de estado del progreso */}
+      <span
+        className="despensa-tab-font"
+        style={{
+          fontSize: 12,
+          fontWeight: 600,
+          padding: "3px 12px",
+          borderRadius: 20,
+          background: `${activeArc.color}20`,
+          color: activeArc.color,
+          display: "inline-block",
+          margin: "0 auto",
+        }}
+      >
+        {safeIndex === 0
+          ? "Mayor gasto"
+          : safeIndex === 1
+          ? "Segundo gasto"
+          : safeIndex === 2
+          ? "Tercer gasto"
+          : `Gasto #${safeIndex + 1}`}
+      </span>
+
+      {/* Paginación de puntos idéntica a la captura */}
+      {slices.length > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10 }}>
+          {slices.map((s, idx) => (
+            <button
+              key={s.category || idx}
+              onClick={() => setSlideIndex(idx)}
+              title={`Ver ${s.category}`}
+              style={{
+                width: idx === safeIndex ? 18 : 6,
+                height: 6,
+                borderRadius: 3,
+                background: idx === safeIndex ? activeArc.color : "var(--line)",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                transition: "all 0.25s ease",
+              }}
+            />
+          ))}
         </div>
       )}
 
-      {/* Cuadrícula inferior idéntica a Nivel de endeudamiento y Fondo de emergencia */}
+      {/* Fila de 4 MiniStats en cuadrícula inferior idéntica a la captura */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: top2 ? "repeat(3, 1fr)" : "repeat(2, 1fr)",
+          gridTemplateColumns: "repeat(4, 1fr)",
           gap: 6,
           borderTop: "1px solid var(--line-soft)",
-          marginTop: 14,
-          paddingTop: 14,
+          marginTop: 20,
+          paddingTop: 16,
           textAlign: "left",
         }}
       >
         <MiniStat
-          icon={PieChartIcon}
-          label={top1 ? top1.category : "Top 1"}
-          value={top1 ? formatMoney(top1.value) : "—"}
-          color={top1 ? top1.color : "var(--sage)"}
+          icon={CatIcon}
+          label="Gasto"
+          value={formatMoney(activeArc.value)}
+          color={activeArc.color}
           compact
         />
-        {top2 && (
-          <MiniStat
-            icon={TrendingDown}
-            label={top2.category}
-            value={formatMoney(top2.value)}
-            color={top2.color}
-            compact
-          />
-        )}
+        <MiniStat
+          icon={TrendingDown}
+          label="% Mes"
+          value={`${pctDisplay.toFixed(1)}%`}
+          color="var(--sage)"
+          compact
+        />
         <MiniStat
           icon={Banknote}
-          label="Gasto total"
+          label="Total Mes"
           value={formatMoney(total)}
-          color="var(--stamp)"
+          color="var(--ink)"
+          compact
+        />
+        <MiniStat
+          icon={PieChartIcon}
+          label="Categorías"
+          value={`${slices.length}`}
+          color="var(--blue)"
           compact
         />
       </div>
@@ -3062,15 +3205,10 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   );
 
   const gastoCategoriaContent = (
-    <div className="despensa-dashboard-card" style={{ padding: "1.35rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-      <div>
-        <InfoTooltip>
-          Distribución de gastos del mes actual por categoría. Pasa el cursor o pulsa en cualquier segmento o etiqueta para ver su importe y porcentaje exacto.
-        </InfoTooltip>
-        <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Gastos por categoría</div>
-        <GastosPorCategoriaMesActual movimientos={movimientos} compact />
-      </div>
-    </div>
+    <GastosPorCategoriaMesActual
+      movimientos={movimientos}
+      onNavigate={onNavigate}
+    />
   );
 
   const inflacionContent = <InflacionCard />;
