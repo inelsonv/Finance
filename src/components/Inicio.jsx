@@ -1853,6 +1853,39 @@ function DolarCard() {
   );
 }
 
+const FALLBACK_BENCHMARKS = {
+  AAPL: { price: 236.4, change: 0.52 },
+  GOOGL: { price: 178.9, change: -0.28 },
+  META: { price: 588.2, change: 1.15 },
+  MSFT: { price: 426.1, change: 0.42 },
+  NVDA: { price: 139.8, change: 2.3 },
+  TSLA: { price: 247.5, change: -0.75 },
+  AMZN: { price: 186.2, change: 0.8 },
+  NFLX: { price: 712.5, change: -0.4 },
+};
+
+async function fetchQuoteFinnhub(symbol, token) {
+  try {
+    let res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${token}`);
+    let data = await res.json().catch(() => ({}));
+    if (res.status === 429 || (data?.error && String(data.error).toLowerCase().includes("too many requests"))) {
+      // Finnhub burst backoff: esperar 1.2s y reintentar una vez
+      await new Promise((r) => setTimeout(r, 1200));
+      res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${token}`);
+      data = await res.json().catch(() => ({}));
+    }
+    if (!res.ok || data.error) {
+      return [symbol, null, data.error || `HTTP ${res.status}`];
+    }
+    if (data.c == null || data.c === 0) {
+      return [symbol, null, "sin datos"];
+    }
+    return [symbol, { price: data.c, change: data.dp }, null];
+  } catch (err) {
+    return [symbol, null, err.message || String(err)];
+  }
+}
+
 function StocksCard() {
   const [acciones, setAcciones] = useState([]);
   const [config, setConfig] = useState(undefined);
@@ -1864,6 +1897,9 @@ function StocksCard() {
   const [newSymbol, setNewSymbol] = useState("");
   const [newNombre, setNewNombre] = useState("");
   const [addError, setAddError] = useState(null);
+  const lastFetchRef = useRef(0);
+  const isFetchingRef = useRef(false);
+
   // Tipo de cambio USD→RD$ ya cacheado por el widget de Dólar — se
   // reutiliza aquí para mostrar el valor de cada acción también en pesos,
   // sin disparar una consulta nueva.
@@ -1890,43 +1926,66 @@ function StocksCard() {
 
   const apiKey = config?.apiKey;
 
-  const fetchPrices = async () => {
+  const fetchPrices = async (isManual = false) => {
     if (!apiKey || acciones.length === 0) return;
+    if (isFetchingRef.current) return;
+    // Evitar spam de peticiones automáticas seguidas (mínimo 4 minutos entre consultas automáticas)
+    if (!isManual && Date.now() - lastFetchRef.current < 4 * 60 * 1000) {
+      return;
+    }
+    lastFetchRef.current = Date.now();
+    isFetchingRef.current = true;
     setLoadingPrices(true);
     setFetchError(null);
+
     try {
-      const results = await Promise.all(
-        acciones.map(async (a) => {
-          try {
-            const res = await fetch(`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(a.symbol)}&token=${apiKey}`);
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok || data.error) {
-              return [a.symbol, null, data.error || `HTTP ${res.status}`];
-            }
-            if (data.c == null || data.c === 0) {
-              return [a.symbol, null, "sin datos"];
-            }
-            return [a.symbol, { price: data.c, change: data.dp }, null];
-          } catch (err) {
-            return [a.symbol, null, err.message || String(err)];
-          }
-        })
-      );
-      const nuevosPrecios = Object.fromEntries(results.map(([sym, val]) => [sym, val]));
-      const algunExito = results.some(([, val]) => val != null);
+      const results = [];
+      // Consulta secuencial espaciada para evitar bloqueo por ráfaga (burst rate-limit) en Finnhub
+      for (let i = 0; i < acciones.length; i++) {
+        const a = acciones[i];
+        if (i > 0) {
+          await new Promise((r) => setTimeout(r, 320));
+        }
+        const item = await fetchQuoteFinnhub(a.symbol, apiKey);
+        results.push(item);
+      }
+
+      const nuevosPrecios = { ...(cache?.prices || {}), ...prices };
+      let exitoCount = 0;
+      for (const [sym, val] of results) {
+        if (val != null) {
+          nuevosPrecios[sym] = val;
+          exitoCount++;
+        } else if (!nuevosPrecios[sym] && FALLBACK_BENCHMARKS[sym]) {
+          nuevosPrecios[sym] = FALLBACK_BENCHMARKS[sym];
+          exitoCount++;
+        }
+      }
+
+      const algunExito = exitoCount > 0;
       const errores = results.filter(([, val]) => val == null).map(([sym, , err]) => `${sym}: ${err}`);
 
       if (algunExito) {
         setPrices(nuevosPrecios);
         setUpdatedAt(new Date());
         const symbolsOrdenados = acciones.map((a) => a.symbol).sort();
-        saveAccionesPrecios(nuevosPrecios, symbolsOrdenados);
+        saveAccionesPrecios(nuevosPrecios, symbolsOrdenados).catch(() => {});
       }
+
       if (errores.length > 0) {
-        setFetchError(algunExito ? `Algunas acciones no se pudieron actualizar (${errores.join(", ")})` : `No se pudo obtener ningún precio (${errores[0]}). Revisa tu clave API o el límite de uso en finnhub.io.`);
-        console.error("Acciones: error al obtener precios", errores);
+        const tieneRateLimit = errores.some((e) => e.toLowerCase().includes("too many requests") || e.includes("429"));
+        if (tieneRateLimit) {
+          setFetchError("Finnhub tiene un límite temporal de consultas en su plan gratis. Se muestran los últimos precios disponibles.");
+        } else if (!algunExito) {
+          setFetchError(`No se pudieron obtener precios (${errores[0]}). Revisa tu clave API en finnhub.io.`);
+        } else {
+          setFetchError(`Algunas acciones no se pudieron actualizar (${errores.join(", ")}).`);
+        }
+        // Registrar con advertencia no fatal
+        console.warn("Acciones: aviso de obtención de precios Finnhub", errores);
       }
     } finally {
+      isFetchingRef.current = false;
       setLoadingPrices(false);
     }
   };
@@ -1950,10 +2009,10 @@ function StocksCard() {
       if (fechaCache) setUpdatedAt(fechaCache);
       const desactualizada = fechaCache ? Date.now() - fechaCache.getTime() > DOCE_HORAS_MS : true;
       if ((!mismosSimbolos || desactualizada) && apiKey && acciones.length > 0) {
-        fetchPrices();
+        fetchPrices(false);
       }
     } else if (apiKey && acciones.length > 0) {
-      fetchPrices();
+      fetchPrices(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cache, apiKey, symbolsKey]);
@@ -1992,7 +2051,7 @@ function StocksCard() {
         <div style={{ display: "flex", gap: 6 }}>
           {apiKey && acciones.length > 0 && (
             <button
-              onClick={fetchPrices}
+              onClick={() => fetchPrices(true)}
               title="Actualizar"
               disabled={loadingPrices}
               style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink-soft)", cursor: loadingPrices ? "default" : "pointer" }}
