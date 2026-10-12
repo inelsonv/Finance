@@ -80,6 +80,19 @@ function arcPath(cx, cy, r, pct1, pct2) {
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
 }
 
+function circularArcPath(cx, cy, r, startAngleDeg, endAngleDeg) {
+  const diff = Math.max(0.01, endAngleDeg - startAngleDeg);
+  if (diff >= 359.9) {
+    const p1 = polarToCartesian(cx, cy, r, startAngleDeg);
+    const pMid = polarToCartesian(cx, cy, r, startAngleDeg + 180);
+    return `M ${p1.x} ${p1.y} A ${r} ${r} 0 1 1 ${pMid.x} ${pMid.y} A ${r} ${r} 0 1 1 ${p1.x} ${p1.y}`;
+  }
+  const start = polarToCartesian(cx, cy, r, startAngleDeg);
+  const end = polarToCartesian(cx, cy, r, endAngleDeg);
+  const largeArc = diff > 180 ? 1 : 0;
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
+}
+
 const ZONES_DEUDA = [
   { from: 0, to: 20, color: "var(--sage)" },
   { from: 20, to: 35, color: "#c99a3f" },
@@ -439,8 +452,6 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
 
 function GastosPorCategoriaMesActual({ movimientos, compact }) {
   const [activo, setActivo] = useState(null);
-  const [tooltipPos, setTooltipPos] = useState(null);
-  const wrapperRef = useRef(null);
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
@@ -448,135 +459,247 @@ function GastosPorCategoriaMesActual({ movimientos, compact }) {
 
   const { slices, total } = useMemo(() => {
     const byCategory = {};
-    for (const m of movimientos) {
+    for (const m of movimientos || []) {
       if (m.type !== "Gasto" || !(m.date || "").startsWith(prefix)) continue;
       const cat = m.category || "Otro";
       byCategory[cat] = (byCategory[cat] || 0) + (Number(m.amount) || 0);
     }
     const list = Object.entries(byCategory)
-      .map(([category, value], i) => ({ category, value }))
+      .map(([category, value]) => ({ category, value }))
       .sort((a, b) => b.value - a.value);
     const sum = list.reduce((s, d) => s + d.value, 0);
     return { slices: list, total: sum };
   }, [movimientos, prefix]);
 
-  if (slices.length === 0) {
+  if (slices.length === 0 || total === 0) {
     return (
-      <div style={{ textAlign: "center", padding: "1.5rem 1rem", color: "var(--ink-soft)", fontSize: 12.5 }}>
-        Todavía no hay gastos registrados este mes.
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontSize: 13, color: "var(--ink-soft)", padding: "36px 0" }}>
+        <AlertTriangle size={15} />
+        Registra gastos en Movimientos para ver la distribución de este mes.
       </div>
     );
   }
 
-  const cx = 90;
-  const cy = 90;
-  const r = 78;
-  let cumulative = 0;
+  const cx = 110;
+  const cy = 95;
+  const r = 74;
+  const strokeWidth = 16;
+  const gapDeg = slices.length > 1 ? 2.5 : 0;
+
+  let cumulativeAngle = 0;
   const arcs = slices.map((s, i) => {
-    const startAngle = (cumulative / total) * 360;
-    cumulative += s.value;
-    const endAngle = (cumulative / total) * 360;
+    const pct = s.value / total;
+    const sweepAngle = pct * 360;
+    const startAngle = cumulativeAngle + gapDeg / 2;
+    const endAngle = cumulativeAngle + sweepAngle - gapDeg / 2;
+    cumulativeAngle += sweepAngle;
     const color = LINE_COLORS[i % LINE_COLORS.length];
-    const start = polarToCartesian(cx, cy, r, startAngle);
-    const end = polarToCartesian(cx, cy, r, endAngle);
-    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-    const d = `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
-    return { d, color, ...s };
+    const pathD = circularArcPath(cx, cy, r, startAngle, Math.max(startAngle + 0.5, endAngle));
+    return { ...s, color, startAngle, endAngle, pathD, pct };
   });
 
   const activoData = arcs.find((a) => a.category === activo);
-
-  const handleMouseMove = (e) => {
-    if (!wrapperRef.current) return;
-    const rect = wrapperRef.current.getBoundingClientRect();
-    setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
+  const top1 = arcs[0] || null;
+  const top2 = arcs[1] || null;
 
   return (
-    <div ref={wrapperRef} style={{ position: "relative", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: compact ? 0 : 20 }}>
-      <svg
-        viewBox="0 0 180 180"
-        style={{ width: compact ? "100%" : 160, maxWidth: compact ? 220 : 160, height: "auto", flexShrink: 0, display: "block", margin: compact ? "0 auto" : undefined }}
-        onMouseLeave={() => {
-          setActivo(null);
-          setTooltipPos(null);
-        }}
-      >
-        {arcs.map((a) => (
-          <path
-            key={a.category}
-            d={a.d}
-            fill={a.color}
-            opacity={activo && activo !== a.category ? 0.45 : 1}
-            style={{ cursor: "pointer", transition: "opacity 0.15s" }}
-            onMouseEnter={() => setActivo(a.category)}
-            onMouseMove={handleMouseMove}
-            onClick={() => setActivo((prev) => (prev === a.category ? null : a.category))}
+    <div>
+      {/* Contenedor del velocímetro/anillo circular con métrica central */}
+      <div style={{ position: "relative", width: "100%", maxWidth: 230, margin: "0 auto" }}>
+        <svg viewBox="0 0 220 190" style={{ width: "100%", height: "auto", display: "block" }}>
+          {/* Pista de fondo con el mismo tono y grosor que el gráfico de Fondo de emergencia */}
+          <circle
+            cx={cx}
+            cy={cy}
+            r={r}
+            fill="none"
+            stroke="var(--line-soft)"
+            strokeWidth={strokeWidth}
+            opacity={0.55}
           />
-        ))}
-        <circle cx={cx} cy={cy} r={44} fill="var(--card)" style={{ pointerEvents: "none" }} />
-        {activoData ? (
-          <>
-            <text x={cx} y={cy - 4} textAnchor="middle" fontSize="8.5" fill={activoData.color} fontFamily="Inter, sans-serif" fontWeight="600">
-              {activoData.category.length > 16 ? activoData.category.slice(0, 15) + "…" : activoData.category}
-            </text>
-            <text x={cx} y={cy + 14} textAnchor="middle" fontSize="15" fontWeight="700" fill="var(--ink)" fontFamily="IBM Plex Mono, monospace">
-              {Math.round((activoData.value / total) * 100)}%
-            </text>
-          </>
-        ) : (
-          <>
-            <text x={cx} y={cy - 4} textAnchor="middle" fontSize="9" fill="var(--ink-soft)" fontFamily="Inter, sans-serif">
-              Este mes
-            </text>
-            <text x={cx} y={cy + 12} textAnchor="middle" fontSize="12" fontWeight="700" fill="var(--ink)" fontFamily="IBM Plex Mono, monospace">
-              ${Math.round(total).toLocaleString("es")}
-            </text>
-          </>
-        )}
-      </svg>
-      {activoData && tooltipPos && (
+
+          {/* Arcos de las categorías con corte recto (butt) idéntico a las zonas del velocímetro */}
+          {arcs.map((a) => {
+            const isSelected = activo === a.category;
+            return (
+              <path
+                key={a.category}
+                d={a.pathD}
+                fill="none"
+                stroke={a.color}
+                strokeWidth={isSelected ? strokeWidth + 3.5 : strokeWidth}
+                strokeLinecap="butt"
+                opacity={activo && !isSelected ? 0.35 : 1}
+                style={{
+                  cursor: "pointer",
+                  transition: "stroke-width 0.15s ease, opacity 0.15s ease",
+                }}
+                onMouseEnter={() => setActivo(a.category)}
+                onMouseLeave={() => setActivo(null)}
+                onClick={() => setActivo((prev) => (prev === a.category ? null : a.category))}
+              />
+            );
+          })}
+        </svg>
+
+        {/* Tipografía central grande en despensa-mono idéntica a los otros KPIs */}
         <div
           style={{
             position: "absolute",
-            left: tooltipPos.x + 14,
-            top: tooltipPos.y + 14,
-            background: "var(--card)",
-            border: "1px solid var(--line)",
-            borderRadius: 8,
-            padding: "6px 10px",
-            fontSize: 11.5,
-            color: "var(--ink)",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
             pointerEvents: "none",
-            whiteSpace: "nowrap",
-            boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
-            zIndex: 10,
+            textAlign: "center",
+            padding: "0 18px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, marginBottom: 2 }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: activoData.color, flexShrink: 0 }} />
-            {activoData.category}
+          <div
+            style={{
+              fontSize: 10,
+              fontWeight: 600,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "var(--ink-soft)",
+              marginBottom: 1,
+              maxWidth: 120,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {activoData ? activoData.category : "Total mes"}
           </div>
-          <span className="despensa-mono">{formatMoney(activoData.value)}</span>
-          <span style={{ color: "var(--ink-soft)" }}> · {Math.round((activoData.value / total) * 100)}%</span>
+          <div
+            className="despensa-mono"
+            style={{
+              fontSize: 21,
+              fontWeight: 700,
+              color: activoData ? activoData.color : "var(--ink)",
+              lineHeight: 1.15,
+            }}
+          >
+            {formatMoney(activoData ? activoData.value : total)}
+          </div>
+          <span
+            className="despensa-tab-font"
+            style={{
+              fontSize: 10.5,
+              fontWeight: 600,
+              marginTop: 5,
+              padding: "2px 8px",
+              borderRadius: 14,
+              background: activoData ? `${activoData.color}22` : "var(--line-soft)",
+              color: activoData ? activoData.color : "var(--ink-soft)",
+            }}
+          >
+            {activoData
+              ? `${Math.round(activoData.pct * 100)}% del gasto`
+              : `${slices.length} categorías`}
+          </span>
+        </div>
+      </div>
+
+      {/* Chips interactivos de categorías */}
+      {slices.length > 2 && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 4,
+            justifyContent: "center",
+            marginTop: 8,
+            marginBottom: 2,
+            maxHeight: 46,
+            overflowY: "auto",
+          }}
+        >
+          {arcs.map((a) => {
+            const isSel = activo === a.category;
+            return (
+              <button
+                key={a.category}
+                type="button"
+                onClick={() => setActivo((prev) => (prev === a.category ? null : a.category))}
+                onMouseEnter={() => setActivo(a.category)}
+                onMouseLeave={() => setActivo(null)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  fontSize: 10,
+                  fontWeight: 500,
+                  padding: "2px 6px",
+                  borderRadius: 10,
+                  border: isSel ? `1px solid ${a.color}` : "1px solid var(--line-soft)",
+                  background: isSel ? `${a.color}18` : "var(--card)",
+                  color: isSel ? a.color : "var(--ink-soft)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: a.color,
+                    flexShrink: 0,
+                  }}
+                />
+                <span style={{ maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {a.category}
+                </span>
+                <span className="despensa-mono" style={{ fontSize: 9.5, opacity: 0.85 }}>
+                  {Math.round(a.pct * 100)}%
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
-      {!compact && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 140 }}>
-          {arcs.map((a) => (
-            <div
-              key={a.category}
-              onMouseEnter={() => setActivo(a.category)}
-              onMouseLeave={() => setActivo(null)}
-              style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, cursor: "pointer", opacity: activo && activo !== a.category ? 0.5 : 1 }}
-            >
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.color, flexShrink: 0 }} />
-              <span style={{ color: "var(--ink-soft)", flex: 1 }}>{a.category}</span>
-              <span className="despensa-mono" style={{ fontWeight: 600 }}>{Math.round((a.value / total) * 100)}%</span>
-            </div>
-          ))}
-        </div>
-      )}
+
+      {/* Cuadrícula inferior idéntica a Nivel de endeudamiento y Fondo de emergencia */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: top2 ? "repeat(3, 1fr)" : "repeat(2, 1fr)",
+          gap: 6,
+          borderTop: "1px solid var(--line-soft)",
+          marginTop: 14,
+          paddingTop: 14,
+          textAlign: "left",
+        }}
+      >
+        <MiniStat
+          icon={PieChartIcon}
+          label={top1 ? top1.category : "Top 1"}
+          value={top1 ? formatMoney(top1.value) : "—"}
+          color={top1 ? top1.color : "var(--sage)"}
+          compact
+        />
+        {top2 && (
+          <MiniStat
+            icon={TrendingDown}
+            label={top2.category}
+            value={formatMoney(top2.value)}
+            color={top2.color}
+            compact
+          />
+        )}
+        <MiniStat
+          icon={Banknote}
+          label="Gasto total"
+          value={formatMoney(total)}
+          color="var(--stamp)"
+          compact
+        />
+      </div>
     </div>
   );
 }
@@ -2939,12 +3062,12 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   );
 
   const gastoCategoriaContent = (
-    <div className="despensa-dashboard-card" style={{ padding: "1.35rem", minWidth: 0, height: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <PieChartIcon size={16} style={{ color: "var(--ink-soft)" }} />
-        <span className="despensa-tab-font" style={{ fontSize: 13.5, fontWeight: 600 }}>Gastos por categoría</span>
-      </div>
-      <div style={{ flex: 1, minHeight: 0 }}>
+    <div className="despensa-dashboard-card" style={{ padding: "1.35rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+      <div>
+        <InfoTooltip>
+          Distribución de gastos del mes actual por categoría. Pasa el cursor o pulsa en cualquier segmento o etiqueta para ver su importe y porcentaje exacto.
+        </InfoTooltip>
+        <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Gastos por categoría</div>
         <GastosPorCategoriaMesActual movimientos={movimientos} compact />
       </div>
     </div>
