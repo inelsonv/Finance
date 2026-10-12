@@ -705,6 +705,20 @@ button:active {
   animation: despensa-gauge-start 1.35s cubic-bezier(0.2, 0.75, 0.25, 1) both;
 }
 
+/* Tarjetas ejecutivas con curvatura refinada de alto impacto visual */
+.despensa-dashboard-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.despensa-dashboard-card:hover {
+  border-color: color-mix(in srgb, var(--line) 70%, var(--sage));
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.03);
+}
+
 @keyframes despensa-gauge-start {
   from {
     transform: rotate(-180deg);

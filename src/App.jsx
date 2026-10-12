@@ -15,6 +15,7 @@ import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/qui
 import { periodoKey } from "./lib/racha";
 import { calcularResumenQuincena, rangoFechasQuincena } from "./lib/quincenaResumen";
 import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
+import FirebaseErrorScreen from "./components/FirebaseErrorScreen.jsx";
 import AccountMenu from "./components/AccountMenu.jsx";
 import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
@@ -778,17 +779,15 @@ export default function App() {
 
   if (error) {
     return (
-      <div style={{ maxWidth: 640, margin: "0 auto", padding: "3rem 1rem" }}>
-        <div style={{ background: "var(--stamp-bg)", color: "var(--stamp)", borderRadius: 10, padding: "1rem 1.25rem", fontSize: 13 }}>
-          <strong style={{ display: "block", marginBottom: 6 }}>No se pudo conectar con Firebase</strong>
-          {error}
-          <div style={{ marginTop: 10, color: "var(--ink-soft)" }}>
-            Revisa que las 6 variables VITE_FIREBASE_* estén configuradas correctamente
-            (en local: archivo .env; en GitHub Pages: repository secrets) y que las
-            reglas de Firestore estén desplegadas.
-          </div>
-        </div>
-      </div>
+      <FirebaseErrorScreen
+        error={error}
+        user={authUser}
+        onRetry={() => {
+          setError(null);
+          setLoading(true);
+        }}
+        onSignOut={() => signOut(auth)}
+      />
     );
   }
 

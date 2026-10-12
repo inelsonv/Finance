@@ -91,27 +91,62 @@ function GaugeChart({ value, maxValue, zones, marks }) {
   const cx = 110;
   const cy = 108;
   const r = 88;
+  const strokeWidth = 16;
   const numValue = Number.isFinite(value) ? value : 0;
   const toPct = (v) => Math.max(0, Math.min((v / maxValue) * 100, 100));
   const needleAngle = -90 + toPct(numValue) * 1.8;
   const needleTargetRotation = needleAngle - 90;
+  const firstZone = zones && zones.length > 0 ? zones[0] : null;
+  const lastZone = zones && zones.length > 0 ? zones[zones.length - 1] : null;
 
   return (
     <svg viewBox="0 0 220 128" style={{ width: "100%", maxWidth: 280, display: "block", margin: "0 auto" }}>
-      {zones.map((z) => (
-        <path
-          key={z.from}
-          d={arcPath(cx, cy, r, toPct(z.from), toPct(z.to))}
-          fill="none"
-          stroke={z.color}
-          strokeWidth={16}
-          strokeLinecap="butt"
+      {/* Pista de fondo con esquinas exteriores redondeadas */}
+      <path
+        d={arcPath(cx, cy, r, 0, 100)}
+        fill="none"
+        stroke="var(--line-soft)"
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        opacity={0.55}
+      />
+      {/* Esquina redondeada del extremo izquierdo (solo en la esquina inicial) */}
+      {firstZone && (
+        <circle
+          cx={cx - r}
+          cy={cy}
+          r={strokeWidth / 2}
+          fill={firstZone.color}
         />
-      ))}
+      )}
+      {/* Esquina redondeada del extremo derecho (solo en la esquina final) */}
+      {lastZone && (
+        <circle
+          cx={cx + r}
+          cy={cy}
+          r={strokeWidth / 2}
+          fill={lastZone.color}
+        />
+      )}
+      {/* Segmentos de zonas con corte recto (butt) en el cambio de cada color */}
+      {zones.map((z, idx) => {
+        const p1 = toPct(z.from);
+        const p2 = idx < zones.length - 1 ? toPct(z.to) + 0.1 : toPct(z.to);
+        return (
+          <path
+            key={z.from}
+            d={arcPath(cx, cy, r, p1, p2)}
+            fill="none"
+            stroke={z.color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="butt"
+          />
+        );
+      })}
       {marks.map((mark) => {
         const p = polarToCartesian(cx, cy, r + 14, -90 + toPct(mark) * 1.8);
         return (
-          <text key={mark} x={p.x} y={p.y} fontSize="8.5" textAnchor="middle" fill="var(--ink-soft)" fontFamily="IBM Plex Mono, monospace">
+          <text key={mark} x={p.x} y={p.y} fontSize="8.5" textAnchor="middle" fill="var(--ink-soft)" fontFamily="IBM Plex Mono, monospace" fontWeight="600">
             {mark}
           </text>
         );
@@ -585,11 +620,9 @@ function InflacionCard() {
 
   return (
     <div
+      className="despensa-dashboard-card"
       style={{
-        background: "var(--card)",
-        border: "1px solid var(--line)",
-        borderRadius: 12,
-        padding: "1.25rem",
+        padding: "1.35rem",
         height: "100%",
         minHeight: 165,
         display: "flex",
@@ -700,11 +733,9 @@ function CombustibleCard({ presupuesto, diasCobro }) {
 
   return (
     <div
+      className="despensa-dashboard-card"
       style={{
-        background: "var(--card)",
-        border: "1px solid var(--line)",
-        borderRadius: 12,
-        padding: "1.25rem",
+        padding: "1.35rem",
         height: "100%",
         minHeight: 165,
         display: "flex",
@@ -873,11 +904,9 @@ function ClimaCardInner() {
 
   return (
     <div
+      className="despensa-dashboard-card"
       style={{
-        background: "var(--card)",
-        border: "1px solid var(--line)",
-        borderRadius: 12,
-        padding: "1.25rem",
+        padding: "1.35rem",
         textAlign: "center",
         position: "relative",
         height: "100%",
@@ -1132,11 +1161,9 @@ function MetasSlideCard({
   if (metasActivas.length === 0) {
     return (
       <div
+        className="despensa-dashboard-card"
         style={{
-          background: "var(--card)",
-          border: "1px solid var(--line)",
-          borderRadius: 12,
-          padding: "1.25rem",
+          padding: "1.35rem",
           textAlign: "center",
           position: "relative",
           display: "flex",
@@ -1234,11 +1261,9 @@ function MetasSlideCard({
 
   return (
     <div
+      className="despensa-dashboard-card"
       style={{
-        background: "var(--card)",
-        border: "1px solid var(--line)",
-        borderRadius: 12,
-        padding: "1.25rem",
+        padding: "1.35rem",
         textAlign: "center",
         position: "relative",
         height: "100%",
@@ -1490,11 +1515,9 @@ function DolarCard() {
 
   return (
     <div
+      className="despensa-dashboard-card"
       style={{
-        background: "var(--card)",
-        border: "1px solid var(--line)",
-        borderRadius: 12,
-        padding: "1.25rem",
+        padding: "1.35rem",
         height: "100%",
         minHeight: 165,
         display: "flex",
@@ -1689,7 +1712,7 @@ function StocksCard() {
   };
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem" }}>
+    <div className="despensa-dashboard-card" style={{ padding: "1.35rem" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <LineChart size={16} style={{ color: "var(--ink-soft)" }} />
@@ -2123,11 +2146,9 @@ function PlatoSugeridoCard({ products = [], onNavigate }) {
     <>
       <div
         onClick={() => setModalAbierto(true)}
+        className="despensa-dashboard-card"
         style={{
-          background: "var(--card)",
-          border: "1px solid var(--line)",
-          borderRadius: 12,
-          padding: "1.25rem",
+          padding: "1.35rem",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -2766,7 +2787,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const clasificacionAhorro = clasificarCapacidadAhorro(pctCapacidadAhorro);
 
   const endeudamientoContent = (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+    <div className="despensa-dashboard-card" style={{ padding: "1.35rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
       <div>
         <InfoTooltip>
           (Cuotas de préstamos activos + pago mínimo de tarjetas activas) ÷ ingreso mensual estimado.
@@ -2807,7 +2828,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   );
 
   const fondoEmergenciaContent = (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+    <div className="despensa-dashboard-card" style={{ padding: "1.35rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
       <div>
         <InfoTooltip>
           Saldo en cuentas de Ahorro ÷ gasto mensual promedio de este año. Los expertos recomiendan tener
@@ -2847,7 +2868,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   );
 
   const capacidadAhorroContent = (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+    <div className="despensa-dashboard-card" style={{ padding: "1.35rem", textAlign: "center", position: "relative", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
       <div>
         <InfoTooltip>
           (Ingreso mensual estimado - Gasto mensual promedio) ÷ ingreso mensual estimado. Representa el
@@ -2903,7 +2924,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const dolarContent = <DolarCard />;
 
   const gastoMesContent = (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", minWidth: 0, height: "100%", display: "flex", flexDirection: "column" }}>
+    <div className="despensa-dashboard-card" style={{ padding: "1.35rem", minWidth: 0, height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <TrendingUp size={16} style={{ color: "var(--ink-soft)" }} />
@@ -2918,7 +2939,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   );
 
   const gastoCategoriaContent = (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.25rem", minWidth: 0, height: "100%", display: "flex", flexDirection: "column" }}>
+    <div className="despensa-dashboard-card" style={{ padding: "1.35rem", minWidth: 0, height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <PieChartIcon size={16} style={{ color: "var(--ink-soft)" }} />
         <span className="despensa-tab-font" style={{ fontSize: 13.5, fontWeight: 600 }}>Gastos por categoría</span>

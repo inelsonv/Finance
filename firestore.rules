@@ -3,21 +3,29 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function esPropietario() {
-      return request.auth != null && request.auth.token.email == "iventuramena@gmail.com";
+      return request.auth != null && (
+        request.auth.token.email == "iventuramena@gmail.com" ||
+        request.auth.token.email.lower() == "iventuramena@gmail.com"
+      );
     }
 
-    // Registro general de perfiles de usuario (Lectura/escritura propia, lectura administrativa para propietario)
+    // Directorio de usuarios registrados
+    // Cada usuario autenticado puede leer y actualizar su propio perfil; el propietario tiene acceso administrativo
     match /usuariosRegistrados/{userId} {
       allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
     }
 
     // Espacio de datos 100% aislado para cada usuario individual
+    // Aplica tanto al documento directo del usuario como a todas sus subcolecciones y documentos anidados
+    match /users/{userId} {
+      allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
+    }
     match /users/{userId}/{allPaths=**} {
       allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
     }
 
-    // Colecciones raíz: datos existentes preservados exclusivamente para la cuenta propietaria original
-    match /{collectionName}/{docId} {
+    // Colecciones y documentos raíz: datos históricos preservados exclusivamente para la cuenta propietaria original
+    match /{document=**} {
       allow read, write: if esPropietario();
     }
   }

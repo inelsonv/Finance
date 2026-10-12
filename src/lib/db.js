@@ -3094,14 +3094,14 @@ export async function inicializarEspacioUsuarioNuevo(user) {
   }
 
   // Para usuarios individuales, verificar si es su primera vez
-  const initDocRef = fsDoc(db, "users", uid, "config", "inicializado");
-  const initSnap = await getDoc(initDocRef);
-  if (initSnap.exists()) {
-    return; // Ya fue inicializado previamente
-  }
-
-  // Inicializar colecciones base para que el nuevo usuario tenga una app 100% funcional y agradable
   try {
+    const initDocRef = fsDoc(db, "users", uid, "config", "inicializado");
+    const initSnap = await getDoc(initDocRef);
+    if (initSnap.exists()) {
+      return; // Ya fue inicializado previamente
+    }
+
+    // Inicializar colecciones base para que el nuevo usuario tenga una app 100% funcional y agradable
     // 1. Categorías de gasto predeterminadas
     const categoriasBase = [
       { nombre: "Alimentación y Supermercado", clasificacion: "Necesario", metodoPagoDefault: "Efectivo" },
