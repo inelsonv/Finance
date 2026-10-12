@@ -5,15 +5,15 @@ import React from "react";
  * Diseño geométrico institucional que fusiona el monograma 'SF' con un lingote/bóveda
  * y vector de crecimiento patrimonial, proyectando solidez, privacidad y elegancia bancaria.
  */
-export function SmartFinanceMark({ size = 28, className = "", style = {} }) {
-  const gradientId = `sf-grad-${size}`;
-  const strokeGradId = `sf-stroke-${size}`;
+export function SmartFinanceMark({ size = 28, hasBox = true, className = "", style = {} }) {
+  const gradientId = `sf-grad-${size}-${hasBox ? "boxed" : "free"}`;
+  const strokeGradId = `sf-stroke-${size}-${hasBox ? "boxed" : "free"}`;
 
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 40 40"
+      viewBox={hasBox ? "0 0 40 40" : "8 8 24 24"}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
@@ -39,17 +39,19 @@ export function SmartFinanceMark({ size = 28, className = "", style = {} }) {
         </linearGradient>
       </defs>
 
-      {/* Base arquitectónica de soporte (prisma exterior sutil) */}
-      <rect
-        x="3"
-        y="3"
-        width="34"
-        height="34"
-        rx="9"
-        fill="var(--sage-bg)"
-        stroke="var(--line)"
-        strokeWidth="1"
-      />
+      {/* Base arquitectónica de soporte (prisma exterior sutil) solo si hasBox es true */}
+      {hasBox && (
+        <rect
+          x="3"
+          y="3"
+          width="34"
+          height="34"
+          rx="9"
+          fill="var(--sage-bg)"
+          stroke="var(--line)"
+          strokeWidth="1"
+        />
+      )}
 
       {/* Geometría Monograma S-F: Facetas dinámicas de tesorería y crecimiento */}
       {/* Barra superior de entrada (Bóveda y liquidez) */}

@@ -148,6 +148,30 @@ function getInitialAsistenteFlotante() {
   }
 }
 
+function SplashScreen({ caption = "Sincronizando espacio privado…" }) {
+  return (
+    <div className="despensa-loading-screen" role="status" aria-label="Cargando Smart Finance">
+      <div className="despensa-loading-content">
+        <div className="despensa-splash-logo-wrap">
+          <SmartFinanceMark size={96} hasBox={false} />
+        </div>
+        <div className="despensa-splash-brand">
+          <div className="despensa-tab-font despensa-splash-title">
+            Smart<span style={{ color: "var(--sage)" }}>Finance</span>
+          </div>
+          <div className="despensa-splash-subtitle">
+            Suite Patrimonial
+          </div>
+        </div>
+        <div className="despensa-loading-track" role="progressbar" aria-label="Cargando Smart Finance" aria-valuetext="Cargando">
+          <span className="despensa-loading-indicator" />
+        </div>
+        <div className="despensa-loading-caption">{caption}</div>
+      </div>
+    </div>
+  );
+}
+
 function leerParamsURL() {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -740,11 +764,7 @@ export default function App() {
   }, [authorized, presupuestoYear]);
 
   if (authUser === undefined) {
-    return (
-      <div style={{ padding: "3rem 1rem", textAlign: "center", color: "var(--ink-soft)" }}>
-        Verificando sesión…
-      </div>
-    );
+    return <SplashScreen caption="Iniciando Smart Finance…" />;
   }
 
   if (authUser === null) {
@@ -756,25 +776,7 @@ export default function App() {
   }
 
   if (loading) {
-    return (
-      <div className="despensa-loading-screen">
-        <div className="despensa-loading-content">
-          <SmartFinanceMark size={44} />
-          <div style={{ textAlign: "center" }}>
-            <div className="despensa-tab-font despensa-loading-title">
-              Smart<span style={{ color: "var(--sage)" }}>Finance</span>
-            </div>
-            <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-soft)", marginTop: 2 }}>
-              Suite Patrimonial
-            </div>
-          </div>
-          <div className="despensa-loading-track" role="progressbar" aria-label="Cargando Smart Finance" aria-valuetext="Cargando">
-            <span className="despensa-loading-indicator" />
-          </div>
-          <div className="despensa-loading-caption">Sincronizando espacio privado…</div>
-        </div>
-      </div>
-    );
+    return <SplashScreen caption="Sincronizando espacio privado…" />;
   }
 
   if (error) {
