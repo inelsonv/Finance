@@ -2,64 +2,9 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function esPropietario() {
-      return request.auth != null && (
-        request.auth.token.email == "iventuramena@gmail.com" ||
-        request.auth.token.email.lower() == "iventuramena@gmail.com" ||
-        request.auth.token.email == "inelsonv@bellon.com.do" ||
-        request.auth.token.email.lower() == "inelsonv@bellon.com.do"
-      );
-    }
-
-    function esMiembroDuo() {
-      return request.auth != null && (
-        exists(/databases/$(database)/documents/duoMembers/$(request.auth.uid)) ||
-        (request.auth.token.email != null && exists(/databases/$(database)/documents/duoMembersByEmail/$(request.auth.token.email.lower())))
-      );
-    }
-
-    function tieneAccesoCompartido() {
-      return esPropietario() || esMiembroDuo();
-    }
-
-    // Gestión y verificación de miembros del Plan Dúo
-    match /duoMembers/{userId} {
-      allow read, write: if request.auth != null;
-    }
-    match /duoMembersByEmail/{email} {
-      allow read, write: if request.auth != null;
-    }
-    match /planesConfig/{configId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Directorio de usuarios registrados
-    // Cada usuario autenticado puede leer y actualizar su propio perfil; el propietario y miembros pueden sincronizarse
-    match /usuariosRegistrados/{userId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Espacio de datos 100% aislado para cada usuario individual
-    // Aplica tanto al documento directo del usuario como a todas sus subcolecciones y documentos anidados
-    match /users/{userId} {
-      allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
-    }
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
-    }
-
-    // Presupuestos y categorías de gasto (primer paso del espacio compartido Plan Dúo)
-    match /presupuestos/{year} {
-      allow read, write: if request.auth != null;
-    }
-    match /categoriasGasto/{categoriaId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Colecciones y documentos raíz: datos históricos y compartidos para titular y pareja vinculada al Plan Dúo
+    // Permite lectura y escritura a cualquier usuario autenticado en la app
     match /{document=**} {
-      allow read, write: if tieneAccesoCompartido();
+      allow read, write: if request.auth != null;
     }
   }
 }
-

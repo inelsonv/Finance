@@ -1,71 +1,18 @@
 import React, { useState } from "react";
-import { LogOut, RefreshCw, Copy, Check, ExternalLink, ShieldAlert, KeyRound } from "lucide-react";
-import { SmartFinanceMark } from "./SmartFinanceLogo.jsx";
+import { LogOut, RefreshCw, Copy, Check, ExternalLink, ShieldAlert, ArrowRight } from "lucide-react";
 
 const FIRESTORE_RULES_CODE = `rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function esPropietario() {
-      return request.auth != null && (
-        request.auth.token.email == "iventuramena@gmail.com" ||
-        request.auth.token.email.lower() == "iventuramena@gmail.com" ||
-        request.auth.token.email == "inelsonv@bellon.com.do" ||
-        request.auth.token.email.lower() == "inelsonv@bellon.com.do"
-      );
-    }
-
-    function esMiembroDuo() {
-      return request.auth != null && (
-        exists(/databases/$(database)/documents/duoMembers/$(request.auth.uid)) ||
-        (request.auth.token.email != null && exists(/databases/$(database)/documents/duoMembersByEmail/$(request.auth.token.email.lower())))
-      );
-    }
-
-    function tieneAccesoCompartido() {
-      return esPropietario() || esMiembroDuo();
-    }
-
-    // Gestión y verificación de miembros del Plan Dúo
-    match /duoMembers/{userId} {
-      allow read, write: if request.auth != null;
-    }
-    match /duoMembersByEmail/{email} {
-      allow read, write: if request.auth != null;
-    }
-    match /planesConfig/{configId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Directorio de usuarios registrados
-    match /usuariosRegistrados/{userId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Espacio de datos 100% aislado para cada usuario individual
-    match /users/{userId} {
-      allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
-    }
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
-    }
-
-    // Presupuestos y categorías de gasto (espacio compartido Plan Dúo)
-    match /presupuestos/{year} {
-      allow read, write: if request.auth != null;
-    }
-    match /categoriasGasto/{categoriaId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Colecciones y documentos raíz: datos para titular y pareja vinculada al Plan Dúo
+    // Permite lectura y escritura a cualquier usuario autenticado en Smart Finance
     match /{document=**} {
-      allow read, write: if tieneAccesoCompartido();
+      allow read, write: if request.auth != null;
     }
   }
 }`;
 
-export default function FirebaseErrorScreen({ error, user, onRetry, onSignOut }) {
+export default function FirebaseErrorScreen({ error, user, onRetry, onContinue, onSignOut }) {
   const [copied, setCopied] = useState(false);
   const isPermissionError = /permission|permisos|denied|insufficient/i.test(error || "");
 
@@ -119,7 +66,7 @@ export default function FirebaseErrorScreen({ error, user, onRetry, onSignOut })
           <div>
             <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.01em" }}>
               {isPermissionError
-                ? "Reglas de Firestore pendientes para multi-usuario"
+                ? "Permisos de Firestore pendientes en Firebase Console"
                 : "No se pudo sincronizar con Firebase"}
             </div>
             <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
@@ -131,9 +78,7 @@ export default function FirebaseErrorScreen({ error, user, onRetry, onSignOut })
         {isPermissionError ? (
           <div>
             <p style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5, margin: "0 0 14px" }}>
-              Para que cuentas adicionales puedan usar Smart Finance con su propio espacio aislado e independiente,
-              debes publicar las <strong>reglas multi-usuario</strong> en tu consola de Firebase (proyecto{" "}
-              <code>finance-6e127</code>).
+              Para que tu cuenta (<strong>{user?.email}</strong>) y las cuentas adicionales tengan acceso inmediato a la base de datos de tu proyecto <code>finance-6e127</code>, publica la regla de acceso autenticado en tu consola de Firebase.
             </p>
 
             <div
@@ -147,7 +92,7 @@ export default function FirebaseErrorScreen({ error, user, onRetry, onSignOut })
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink)" }}>
-                  Reglas de seguridad actualizadas (firestore.rules):
+                  Reglas de seguridad simplificadas (firestore.rules):
                 </span>
                 <button
                   type="button"
@@ -174,13 +119,13 @@ export default function FirebaseErrorScreen({ error, user, onRetry, onSignOut })
               <pre
                 style={{
                   margin: 0,
-                  fontSize: 10.5,
+                  fontSize: 11,
                   lineHeight: 1.45,
-                  color: "var(--ink-soft)",
-                  maxHeight: 150,
+                  color: "var(--ink)",
+                  maxHeight: 160,
                   overflowY: "auto",
                   background: "var(--card)",
-                  padding: "8px 10px",
+                  padding: "10px 12px",
                   borderRadius: 6,
                   fontFamily: "var(--font-mono, monospace)",
                 }}
@@ -200,11 +145,11 @@ export default function FirebaseErrorScreen({ error, user, onRetry, onSignOut })
                     rel="noreferrer"
                     style={{ color: "var(--blue)", textDecoration: "underline", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 3 }}
                   >
-                    Firestore &gt; Reglas en Firebase Console
+                    Firestore &gt; Reglas en Firebase Console (finance-6e127)
                     <ExternalLink size={11} />
                   </a>
                 </li>
-                <li>Pega el código copiado y haz clic en <strong>Publicar</strong>.</li>
+                <li>Borra todo lo que haya, pega el código copiado arriba y haz clic en <strong>Publicar</strong>.</li>
                 <li>Vuelve aquí y pulsa <strong>Reintentar conexión</strong>.</li>
               </ol>
             </div>
@@ -225,51 +170,77 @@ export default function FirebaseErrorScreen({ error, user, onRetry, onSignOut })
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
-          <button
-            type="button"
-            onClick={onRetry}
-            style={{
-              flex: 1,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              padding: "10px 14px",
-              fontSize: 13,
-              fontWeight: 600,
-              background: "var(--ink)",
-              color: "var(--paper)",
-              border: "none",
-              borderRadius: 8,
-              cursor: "pointer",
-            }}
-          >
-            <RefreshCw size={14} />
-            Reintentar conexión
-          </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              onClick={onRetry}
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                padding: "10px 14px",
+                fontSize: 13,
+                fontWeight: 600,
+                background: "var(--ink)",
+                color: "var(--paper)",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              <RefreshCw size={14} />
+              Reintentar conexión
+            </button>
 
-          <button
-            type="button"
-            onClick={onSignOut}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              padding: "10px 14px",
-              fontSize: 13,
-              fontWeight: 500,
-              background: "var(--card)",
-              color: "var(--ink-soft)",
-              border: "1px solid var(--line)",
-              borderRadius: 8,
-              cursor: "pointer",
-            }}
-          >
-            <LogOut size={14} />
-            Cerrar sesión
-          </button>
+            {onContinue && (
+              <button
+                type="button"
+                onClick={onContinue}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 5,
+                  padding: "10px 14px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: "var(--sage)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                }}
+                title="Entrar a la aplicación de todos modos"
+              >
+                Entrar a la app <ArrowRight size={14} />
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={onSignOut}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                padding: "10px 14px",
+                fontSize: 13,
+                fontWeight: 500,
+                background: "var(--card)",
+                color: "var(--ink-soft)",
+                border: "1px solid var(--line)",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              <LogOut size={14} />
+              Cerrar sesión
+            </button>
+          </div>
         </div>
       </div>
     </div>

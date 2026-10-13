@@ -828,6 +828,10 @@ export default function App() {
           setError(null);
           setLoading(true);
         }}
+        onContinue={() => {
+          setError(null);
+          setLoading(false);
+        }}
         onSignOut={() => signOut(auth)}
       />
     );
