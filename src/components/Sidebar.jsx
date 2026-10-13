@@ -12,8 +12,6 @@ import {
   Moon,
   PiggyBank,
   CreditCard,
-  PanelLeftClose,
-  PanelLeftOpen,
   Ticket,
   Briefcase,
   ChevronDown,
@@ -108,68 +106,45 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
 
   return (
     <nav className={`despensa-sidebar${collapsed ? " despensa-sidebar--collapsed" : ""}`}>
-      {collapsed ? (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          <SmartFinanceMark size={28} />
-          <button
-            onClick={onToggleCollapsed}
-            title="Expandir menú"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 32,
-              height: 32,
-              border: "1px solid var(--line)",
-              borderRadius: 7,
-              background: "var(--card)",
-              color: "var(--ink-soft)",
-              cursor: "pointer",
-            }}
-          >
-            <PanelLeftOpen size={14} />
-          </button>
-        </div>
-      ) : (
-        <div
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: collapsed ? "center" : "flex-start",
+          padding: collapsed ? "0 0 1.25rem" : "0 2px 1.25rem",
+        }}
+      >
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          title={collapsed ? "Desplegar menú" : "Colapsar menú"}
+          aria-label={collapsed ? "Desplegar menú" : "Colapsar menú"}
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
-            padding: "0 2px 1.25rem",
-            gap: 8,
+            gap: 9,
+            background: "none",
+            border: "none",
+            padding: collapsed ? 4 : "4px 6px",
+            margin: collapsed ? 0 : "-4px -6px",
+            borderRadius: 8,
+            cursor: "pointer",
+            textAlign: "left",
+            transition: "opacity 0.15s ease, transform 0.1s ease",
           }}
+          className="hover:opacity-80 active:scale-95"
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <SmartFinanceMark size={28} />
+          <SmartFinanceMark size={28} />
+          {!collapsed && (
             <span
               className="despensa-tab-font"
               style={{ fontSize: 16.5, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}
             >
               Smart<span style={{ color: "var(--sage)" }}>Finance</span>
             </span>
-          </div>
-          <button
-            onClick={onToggleCollapsed}
-            title="Colapsar menú"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: 28,
-              height: 28,
-              flexShrink: 0,
-              border: "1px solid var(--line)",
-              borderRadius: 7,
-              background: "var(--card)",
-              color: "var(--ink-soft)",
-              cursor: "pointer",
-            }}
-          >
-            <PanelLeftClose size={14} />
-          </button>
-        </div>
-      )}
+          )}
+        </button>
+      </div>
 
       <div className="despensa-navlist">
         {navItems.map((item) => {
