@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine, Link as LinkIcon, UtensilsCrossed, ShoppingBag } from "lucide-react";
+import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine, Link as LinkIcon, UtensilsCrossed } from "lucide-react";
 import {
   addProduct,
   deleteProduct,
@@ -20,7 +20,6 @@ import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
 import { confirm } from "../lib/confirm";
 import BarcodeScanner from "./BarcodeScanner.jsx";
 import ComprasProrateadas from "./ComprasProrateadas.jsx";
-import ModalProductosBravo from "./ModalProductosBravo.jsx";
 import { buscarImagenParaProducto, buscarProductosSupermercadosRd, buscarPrecioParaProducto, formatearPrecioRD } from "../lib/supermercadosRd";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
@@ -43,7 +42,7 @@ async function buscarProductoPorCodigo(codigo) {
 export default function Catalogo({ products, entidades, historialCompras, ordenesCompra, onNavigate, categoriasGasto, comprasProrateadas }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "", proteinaPor100g: "" });
+  const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "" });
   const [productoUrl, setProductoUrl] = useState("");
   const [importandoUrl, setImportandoUrl] = useState(false);
   const [importarUrlMsg, setImportarUrlMsg] = useState(null);
@@ -52,7 +51,6 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
   const [urlReferenciaGuardada, setUrlReferenciaGuardada] = useState(null);
   const [nombreBusqueda, setNombreBusqueda] = useState("");
   const [buscandoPorNombre, setBuscandoPorNombre] = useState(false);
-  const [showModalBravo, setShowModalBravo] = useState(false);
 
   const handleAutoBuscarFoto = async (p) => {
     setUploadingId(p.id);
@@ -70,7 +68,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
       }
 
       if (cambios.length > 0) {
-        setScanMsg({ tipo: "ok", texto: `Se actualizó ${cambios.join(" y ")} de Bravo para "${p.name}".` });
+        setScanMsg({ tipo: "ok", texto: `Se actualizó ${cambios.join(" y ")} para "${p.name}".` });
       } else {
         const img = await buscarImagenParaProducto(p.name);
         if (img) {
@@ -139,7 +137,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         setUrlReferenciaGuardada(mejor.fuente || "https://supermercadosrd.com/");
         setImportarUrlMsg({
           tipo: "ok",
-          texto: `¡Encontrado en supermercadosrd.com! "${mejor.nombre}" con precio oficial ${formatearPrecioRD(mejor.precio)} y foto de Bravo.`,
+          texto: `¡Encontrado! "${mejor.nombre}" con precio ${formatearPrecioRD(mejor.precio)} y foto oficial.`,
         });
         return;
       }
@@ -365,7 +363,6 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         price: Number.isFinite(price) ? price : 0,
         codigoBarras: form.codigoBarras || null,
         urlReferencia: urlReferenciaGuardada || null,
-        proteinaPor100g: form.proteinaPor100g ? parseFloat(form.proteinaPor100g) : null,
       });
       if (formImage) {
         await uploadProductImage(docRef.id, formImage);
@@ -375,7 +372,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
           // bloquea el guardado del producto — solo se queda sin foto.
         });
       }
-      setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "", proteinaPor100g: "" });
+      setForm({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "" });
       setFormImage(null);
       setFormImagePreview(null);
       setProductoUrl("");
@@ -744,28 +741,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
           {showForm ? <X size={14} /> : <Plus size={14} />}
           {showForm ? "Cancelar" : "Agregar producto"}
         </button>
-        <button
-          type="button"
-          onClick={() => setShowModalBravo(true)}
-          title="Ver todo el catálogo de Supermercados Bravo con más de 1,036 productos, fotos oficiales y precios en RD$"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 7,
-            padding: "8px 14px",
-            fontSize: 13,
-            fontWeight: 600,
-            background: "#fff1f2",
-            color: "#e21c1b",
-            border: "1.5px solid #e21c1b",
-            borderRadius: 8,
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-            boxShadow: "0 2px 8px rgba(226, 28, 27, 0.12)",
-          }}
-        >
-          <ShoppingBag size={15} /> Catálogo Completo Bravo (1,036+ Productos RD$)
-        </button>
+
       </div>
 
       {scanBusy && (
@@ -971,17 +947,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                 onKeyDown={(e) => e.key === "Enter" && handleAdd()}
                 style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
               />
-              <input
-                className="despensa-mono"
-                type="number"
-                step="0.1"
-                min="0"
-                placeholder="Proteína g/100g (opcional)"
-                value={form.proteinaPor100g}
-                onChange={(e) => setForm({ ...form, proteinaPor100g: e.target.value })}
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-                style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-              />
+
             </div>
           </div>
           <button
@@ -1503,12 +1469,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         </div>
       )}
 
-      {showModalBravo && (
-        <ModalProductosBravo
-          products={products}
-          onClose={() => setShowModalBravo(false)}
-        />
-      )}
+
     </div>
   );
 }

@@ -97,7 +97,7 @@ export default function GlobalSearch({
     const items = [];
     const modulosFiltrados = MODULOS.filter((m) => {
       if (!isOwner) {
-        if (["catalogo", "ordenes-compra", "escanear-factura", "recetas", "compras", "biblioteca"].includes(m.tab)) {
+        if (["catalogo", "ordenes-compra", "escanear-factura", "recetas", "compras"].includes(m.tab)) {
           return false;
         }
       }
@@ -105,7 +105,6 @@ export default function GlobalSearch({
     });
     for (const m of modulosFiltrados) items.push({ id: null, tipo: "Ir a módulo", icon: Compass, nombre: m.nombre, subtitulo: null, tab: m.tab });
     if (isOwner) {
-      items.push({ id: null, tipo: "Ir a módulo", icon: Compass, nombre: "Biblioteca", subtitulo: null, tab: "biblioteca" });
       items.push({ id: null, tipo: "Ir a módulo", icon: Compass, nombre: "Sugeridor de platos (Cocina)", subtitulo: null, tab: "recetas" });
       items.push({ id: null, tipo: "Ir a módulo", icon: Compass, nombre: "Compras y Despensa", subtitulo: null, tab: "compras" });
       for (const p of products || []) items.push({ id: p.id, tipo: "Catálogo", icon: Package, nombre: p.name, subtitulo: p.category, tab: "catalogo" });

@@ -7,7 +7,7 @@ import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
 import { lanzarCoheteHaciaPuntos } from "./lib/coheteVolando";
 import { reproducirSonidoCofre } from "./lib/sonidos";
-import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, watchLibros, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas, watchEstrategiaDeudas, watchTipoCambioCache, demoteOtrosLeyendo, updateLibro } from "./lib/db";
+import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas, watchEstrategiaDeudas, watchTipoCambioCache } from "./lib/db";
 import { periodoDeFecha } from "./lib/rachaHabito";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
@@ -59,8 +59,6 @@ import Wallet from "./components/Wallet.jsx";
 import Asistente from "./components/Asistente.jsx";
 import MapaProgreso from "./components/MapaProgreso.jsx";
 import FondosSostenibles from "./components/FondosSostenibles.jsx";
-import Biblioteca from "./components/Biblioteca.jsx";
-import LectorEpub from "./components/LectorEpub.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import NotificacionesPage from "./components/NotificacionesPage.jsx";
@@ -111,7 +109,6 @@ const TITLES = {
 };
 
 const ADMIN_ONLY_TABS = new Set([
-  "biblioteca",
   "compras",
   "catalogo",
   "recetas",
@@ -246,8 +243,7 @@ export default function App() {
   const [habitos, setHabitos] = useState([]);
   const [habitosRegistro, setHabitosRegistro] = useState([]);
   const [datosCorporales, setDatosCorporales] = useState(null);
-  const [libros, setLibros] = useState([]);
-  const [libroLeyendo, setLibroLeyendo] = useState(null);
+
   const [habitosPenalizaciones, setHabitosPenalizaciones] = useState([]);
   const [versiculoHoy, setVersiculoHoy] = useState(null);
   const [cofresGanados, setCofresGanados] = useState([]);
@@ -356,20 +352,7 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [highlightId, tab]);
 
-  const handleAbrirLectura = async (l) => {
-    setLibroLeyendo(l);
-    if (l.estado !== "Leyendo") {
-      try {
-        await demoteOtrosLeyendo(l.id);
-        await updateLibro(l.id, { estado: "Leyendo" });
-      } catch (err) {
-        // Si falla el cambio de estado, igual se deja abrir el libro para
-        // leer — no bloquea la lectura por esto.
-      }
-    }
-  };
 
-  const handleCerrarLectura = () => setLibroLeyendo(null);
 
   const seleccionarTab = (tabId) => {
     if (!esPropietario && ADMIN_ONLY_TABS.has(tabId)) {
@@ -567,7 +550,7 @@ export default function App() {
     const unsubHabitos = watchHabitos(setHabitos, handleError);
     const unsubHabitosRegistro = watchHabitosRegistro(setHabitosRegistro, handleError);
     const unsubDatosCorporales = watchDatosCorporales(setDatosCorporales, handleError);
-    const unsubLibros = watchLibros(setLibros, handleError);
+
     const unsubHabitosPenalizaciones = watchHabitosPenalizaciones(setHabitosPenalizaciones, handleError);
     const unsubVersiculoHoy = watchVersiculoHoy(fechaHoyStr(), setVersiculoHoy, handleError);
     const unsubCofresGanados = watchCofresGanados(setCofresGanados, handleError);
@@ -628,7 +611,7 @@ export default function App() {
       unsubHabitos();
       unsubHabitosRegistro();
       unsubDatosCorporales();
-      unsubLibros();
+
       unsubHabitosPenalizaciones();
       unsubVersiculoHoy();
       unsubCofresGanados();
@@ -1049,7 +1032,7 @@ export default function App() {
               Sección exclusiva para el Administrador
             </h2>
             <p style={{ fontSize: 13.5, color: "var(--ink-soft)", maxWidth: 440, margin: "0 auto 20px", lineHeight: 1.5 }}>
-              La Biblioteca, la despensa y los temas de cocina están reservados únicamente para la cuenta de administración.
+              Las compras y temas de despensa están reservados únicamente para la cuenta de administración.
             </p>
             <button
               onClick={() => setTab("inicio")}
@@ -1148,7 +1131,7 @@ export default function App() {
         {tab === "fondos-sostenibles" && <FondosSostenibles categoriasGasto={categoriasGasto} presupuesto={presupuestoAnual} />}
         {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} products={products} historialCompras={historialCompras} />}
         {tab === "wallet" && <Wallet tarjetas={tarjetas} membresias={membresias} onNavigate={setTab} />}
-        {esPropietario && tab === "biblioteca" && <Biblioteca libros={libros} libroLeyendo={libroLeyendo} onAbrirLectura={handleAbrirLectura} onCerrarLectura={handleCerrarLectura} />}
+
         {esPropietario && tab === "compras" && (
           <Compras
             products={products}
@@ -1633,18 +1616,7 @@ export default function App() {
         </div>
       )}
 
-      {libroLeyendo && (
-        <LectorEpub
-          epubUrl={libroLeyendo.epubUrl}
-          titulo={libroLeyendo.titulo}
-          libroId={libroLeyendo.id}
-          ultimaPosicion={libroLeyendo.ultimaPosicion}
-          marcadores={libroLeyendo.marcadores}
-          portadaUrl={libroLeyendo.portadaUrl}
-          ultimoFragmentoVoz={libroLeyendo.ultimoFragmentoVoz}
-          onClose={handleCerrarLectura}
-        />
-      )}
+
     </div>
   );
 }

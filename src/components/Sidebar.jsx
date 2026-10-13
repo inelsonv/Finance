@@ -24,7 +24,6 @@ import {
   Coins,
   Wallet as WalletIcon,
   HeartPulse,
-  Library,
   Map as MapIcon,
   Bot,
 } from "lucide-react";
@@ -92,7 +91,6 @@ const NAV_ITEMS = [
   },
   { id: "entidades", label: "Entidades", icon: Landmark },
   { id: "wallet", label: "Wallet", icon: WalletIcon },
-  { id: "biblioteca", label: "Biblioteca", icon: Library },
   { id: "habitos", label: "Salud", icon: HeartPulse },
   { id: "mapa-progreso", label: "Mapa de progreso", icon: MapIcon },
 ];
@@ -103,7 +101,7 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
 
   const navItems = NAV_ITEMS.filter((item) => {
     if (!isOwner) {
-      if (item.id === "biblioteca" || item.id === "compras") return false;
+      if (item.id === "compras") return false;
     }
     return true;
   });

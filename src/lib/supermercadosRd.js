@@ -1,7 +1,5 @@
-// Utilidades de integración con Supermercados Bravo y supermercadosrd.com
-import bravoProductosRaw from "../data/bravoProductos.json";
-
-export const PRODUCTOS_BRAVO_REGULARES = Array.isArray(bravoProductosRaw) ? bravoProductosRaw : [];
+// Utilidades de consulta de precios RD
+export const PRODUCTOS_BRAVO_REGULARES = [];
 
 export const CATEGORIAS_BRAVO = [
   "Todos",

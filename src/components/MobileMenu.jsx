@@ -1,5 +1,5 @@
 import React from "react";
-import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Bot, Library, Map as MapIcon, UtensilsCrossed } from "lucide-react";
+import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Bot, Map as MapIcon, UtensilsCrossed } from "lucide-react";
 import { confirm } from "../lib/confirm";
 import SmartFinanceLogo from "./SmartFinanceLogo.jsx";
 
@@ -12,7 +12,6 @@ const OPCIONES = [
   { id: "activos", label: "Activos", icon: Car },
   { id: "entidades", label: "Entidades", icon: Landmark },
   { id: "wallet", label: "Wallet", icon: WalletCards },
-  { id: "biblioteca", label: "Biblioteca", icon: Library },
   { id: "habitos", label: "Salud", icon: HeartPulse },
   { id: "asistente", label: "Consultor Financiero", icon: Bot },
   { id: "mapa-progreso", label: "Mapa de progreso", icon: MapIcon },
@@ -38,7 +37,7 @@ export default function MobileMenu({ tab, setTab, onClose, onSignOut, isOwner = 
 
   const opciones = OPCIONES.filter((item) => {
     if (!isOwner) {
-      if (item.id === "biblioteca" || item.id === "recetas" || item.id === "catalogo" || item.id === "compras") return false;
+      if (item.id === "recetas" || item.id === "catalogo" || item.id === "compras") return false;
     }
     return true;
   });
