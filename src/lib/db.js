@@ -33,6 +33,10 @@ export function isDuoSharedMember(user) {
   // El propietario nunca es un miembro dúo secundario
   if (isOwnerUser(user)) return false;
 
+  const emailLower = (user.email || "").toLowerCase().trim();
+  // inelsonv@bellon.com.do seleccionó explícitamente el plan gratuito individual: 100% aislado
+  if (emailLower === "inelsonv@bellon.com.do") return false;
+
   // Si el usuario tiene seleccionado el plan individual, NUNCA es miembro dúo
   try {
     const planLocal = localStorage.getItem(`smart-finance-plan-${user.uid}`);
@@ -44,7 +48,7 @@ export function isDuoSharedMember(user) {
 
   try {
     if (localStorage.getItem(`smart-finance-duo-member-${user.uid}`) === "1") return true;
-    if (user.email && localStorage.getItem(`smart-finance-duo-email-${user.email.toLowerCase().trim()}`) === "1") return true;
+    if (user.email && localStorage.getItem(`smart-finance-duo-email-${emailLower}`) === "1") return true;
   } catch {}
   return false;
 }
@@ -61,6 +65,7 @@ const COLECCIONES_COMPARTIDAS_DUO = new Set([
   "presupuestos",
   "categoriasGasto",
   "flujo",
+  "config",
 ]);
 
 const COLECCIONES_SISTEMA_GLOBALES = new Set([
@@ -2244,6 +2249,137 @@ export async function setPresupuestoBatch(year, dataByCat) {
     dataByCat,
     { merge: true }
   );
+}
+
+// Transferencias de gastos fijos y rubros presupuestados entre quincenas
+export function watchTransferenciasPresupuesto(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "transferenciasPresupuesto"),
+    (snap) => onChange(snap.exists() ? snap.data().transferencias || [] : []),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function moverGastoQuincena({ categoria, monto, origen, destino, motivo }) {
+  if (!categoria || !origen || !destino) return;
+  const montoNum = Number(monto) || 0;
+  if (montoNum <= 0) return;
+
+  const origenDocRef = doc(db, "presupuestos", String(origen.year));
+  const destinoDocRef = doc(db, "presupuestos", String(destino.year));
+
+  const origenSnap = await getDoc(origenDocRef);
+  const origenData = origenSnap.exists() ? origenSnap.data() : {};
+  const actualOrigen = Number(origenData?.[categoria]?.[String(origen.month)]?.[origen.quincena]) || 0;
+  const nuevoOrigen = Math.max(0, actualOrigen - montoNum);
+
+  if (origen.year === destino.year) {
+    const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+    const nuevoDestino = actualDestino + montoNum;
+
+    await setDoc(
+      origenDocRef,
+      {
+        [categoria]: {
+          [String(origen.month)]: { [origen.quincena]: nuevoOrigen },
+          [String(destino.month)]: { [destino.quincena]: nuevoDestino },
+        },
+      },
+      { merge: true }
+    );
+  } else {
+    const destinoSnap = await getDoc(destinoDocRef);
+    const destinoData = destinoSnap.exists() ? destinoSnap.data() : {};
+    const actualDestino = Number(destinoData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+    const nuevoDestino = actualDestino + montoNum;
+
+    await setDoc(
+      origenDocRef,
+      { [categoria]: { [String(origen.month)]: { [origen.quincena]: nuevoOrigen } } },
+      { merge: true }
+    );
+    await setDoc(
+      destinoDocRef,
+      { [categoria]: { [String(destino.month)]: { [destino.quincena]: nuevoDestino } } },
+      { merge: true }
+    );
+  }
+
+  const transfId = `${categoria}_${origen.year}_${origen.month}_${origen.quincena}_${destino.year}_${destino.month}_${destino.quincena}_${Date.now()}`;
+  const transfRecord = {
+    id: transfId,
+    categoria,
+    monto: montoNum,
+    origen: { year: origen.year, month: origen.month, quincena: origen.quincena },
+    destino: { year: destino.year, month: destino.month, quincena: destino.quincena },
+    motivo: motivo || "Mover a otra quincena",
+    fecha: new Date().toISOString(),
+  };
+
+  const transfDocRef = doc(db, "config", "transferenciasPresupuesto");
+  const transfSnap = await getDoc(transfDocRef);
+  const listaActual = transfSnap.exists() ? transfSnap.data().transferencias || [] : [];
+  await setDoc(
+    transfDocRef,
+    { transferencias: [...listaActual, transfRecord], updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+
+  return transfRecord;
+}
+
+export async function revertirMoverGastoQuincena(transferencia) {
+  if (!transferencia || !transferencia.categoria || !transferencia.origen || !transferencia.destino) return;
+  const { categoria, monto, origen, destino, id } = transferencia;
+  const montoNum = Number(monto) || 0;
+
+  const origenDocRef = doc(db, "presupuestos", String(origen.year));
+  const destinoDocRef = doc(db, "presupuestos", String(destino.year));
+
+  const origenSnap = await getDoc(origenDocRef);
+  const origenData = origenSnap.exists() ? origenSnap.data() : {};
+  const actualOrigen = Number(origenData?.[categoria]?.[String(origen.month)]?.[origen.quincena]) || 0;
+  const restauradoOrigen = actualOrigen + montoNum;
+
+  if (origen.year === destino.year) {
+    const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+    const restauradoDestino = Math.max(0, actualDestino - montoNum);
+
+    await setDoc(
+      origenDocRef,
+      {
+        [categoria]: {
+          [String(origen.month)]: { [origen.quincena]: restauradoOrigen },
+          [String(destino.month)]: { [destino.quincena]: restauradoDestino },
+        },
+      },
+      { merge: true }
+    );
+  } else {
+    const destinoSnap = await getDoc(destinoDocRef);
+    const destinoData = destinoSnap.exists() ? destinoSnap.data() : {};
+    const actualDestino = Number(destinoData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+    const restauradoDestino = Math.max(0, actualDestino - montoNum);
+
+    await setDoc(
+      origenDocRef,
+      { [categoria]: { [String(origen.month)]: { [origen.quincena]: restauradoOrigen } } },
+      { merge: true }
+    );
+    await setDoc(
+      destinoDocRef,
+      { [categoria]: { [String(destino.month)]: { [destino.quincena]: restauradoDestino } } },
+      { merge: true }
+    );
+  }
+
+  const transfDocRef = doc(db, "config", "transferenciasPresupuesto");
+  const transfSnap = await getDoc(transfDocRef);
+  if (transfSnap.exists()) {
+    const lista = transfSnap.data().transferencias || [];
+    const filtrada = lista.filter((t) => t.id !== id);
+    await setDoc(transfDocRef, { transferencias: filtrada, updatedAt: serverTimestamp() }, { merge: true });
+  }
 }
 
 const CONFIG_METODOLOGIA_KEY = "smart-finance-metodologia-config";

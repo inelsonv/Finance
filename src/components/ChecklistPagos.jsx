@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send } from "lucide-react";
 import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
-import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda } from "../lib/db";
+import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena } from "../lib/db";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -78,7 +78,7 @@ function periodoAdyacente(periodo, dir) {
   }
 }
 
-export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos, estrategiaDeudas, tipoCambio, onOpenPrestamo }) {
+export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos, estrategiaDeudas, tipoCambio, onOpenPrestamo, userEmail }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
   const [overridesLocales, setOverridesLocales] = useState({});
@@ -173,7 +173,108 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   const [moviendoAbiertoKey, setMoviendoAbiertoKey] = useState(null);
   const [destinoFecha, setDestinoFecha] = useState("");
 
+  const [transferenciasPresupuesto, setTransferenciasPresupuesto] = useState([]);
+  useEffect(() => {
+    const unsub = watchTransferenciasPresupuesto(
+      (list) => setTransferenciasPresupuesto(Array.isArray(list) ? list : []),
+      () => setTransferenciasPresupuesto([])
+    );
+    return () => unsub && unsub();
+  }, []);
+
+  const siguienteQuincena = useMemo(() => {
+    if (periodo.quincena === "Q1") {
+      return { year: periodo.year, month: periodo.month, quincena: "Q2" };
+    }
+    const nextMonth = periodo.month === 12 ? 1 : periodo.month + 1;
+    const nextYear = periodo.month === 12 ? periodo.year + 1 : periodo.year;
+    return { year: nextYear, month: nextMonth, quincena: "Q1" };
+  }, [periodo]);
+
+  const opcionesQuincenasFuturas = useMemo(() => {
+    const res = [];
+    let cur = { year: periodo.year, month: periodo.month, quincena: periodo.quincena };
+    for (let i = 0; i < 4; i++) {
+      if (cur.quincena === "Q1") {
+        cur = { year: cur.year, month: cur.month, quincena: "Q2" };
+      } else {
+        const nextM = cur.month === 12 ? 1 : cur.month + 1;
+        const nextY = cur.month === 12 ? cur.year + 1 : cur.year;
+        cur = { year: nextY, month: nextM, quincena: "Q1" };
+      }
+      res.push({
+        ...cur,
+        label: `${cur.quincena === "Q1" ? "1ra" : "2da"} quincena de ${MESES[cur.month - 1]} ${cur.year}`,
+      });
+    }
+    return res;
+  }, [periodo]);
+
+  const transferenciasDesdePeriodo = useMemo(() => {
+    return (transferenciasPresupuesto || []).filter(
+      (t) =>
+        t?.origen?.year === periodo.year &&
+        t?.origen?.month === periodo.month &&
+        t?.origen?.quincena === periodo.quincena
+    );
+  }, [transferenciasPresupuesto, periodo]);
+
+  const transferenciasHaciaPeriodo = useMemo(() => {
+    return (transferenciasPresupuesto || []).filter(
+      (t) =>
+        t?.destino?.year === periodo.year &&
+        t?.destino?.month === periodo.month &&
+        t?.destino?.quincena === periodo.quincena
+    );
+  }, [transferenciasPresupuesto, periodo]);
+
+  const [moviendoGastoKey, setMoviendoGastoKey] = useState(null);
+  const [moviendoGastoTarget, setMoviendoGastoTarget] = useState(null);
+  const [moviendoGastoMonto, setMoviendoGastoMonto] = useState("");
+  const [moviendoGastoCargando, setMoviendoGastoCargando] = useState(false);
+
+  const abrirMoverGasto = (it) => {
+    setMoviendoAbiertoKey(null);
+    setMoviendoGastoKey(it.key);
+    setMoviendoGastoMonto(String(it.monto || ""));
+    setMoviendoGastoTarget(siguienteQuincena);
+  };
+
+  const confirmarMoverGasto = async (it) => {
+    const montoNum = Number(moviendoGastoMonto) || Number(it.monto) || 0;
+    if (montoNum <= 0) return;
+    setMoviendoGastoCargando(true);
+    try {
+      const target = moviendoGastoTarget || siguienteQuincena;
+      await moverGastoQuincena({
+        categoria: it.nombre,
+        monto: montoNum,
+        origen: { year: periodo.year, month: periodo.month, quincena: periodo.quincena },
+        destino: { year: target.year, month: target.month, quincena: target.quincena },
+        motivo: `Pasado de ${periodo.quincena === "Q1" ? "1ra" : "2da"} quincena a ${target.quincena === "Q1" ? "1ra" : "2da"} quincena`,
+      });
+      setMoviendoGastoKey(null);
+    } catch (err) {
+      console.error("Error al pasar gasto a siguiente quincena:", err);
+    } finally {
+      setMoviendoGastoCargando(false);
+    }
+  };
+
+  const handleRevertirTransferencia = async (transf) => {
+    if (!transf) return;
+    setMoviendoGastoCargando(true);
+    try {
+      await revertirMoverGastoQuincena(transf);
+    } catch (err) {
+      console.error("Error al revertir gasto transferido:", err);
+    } finally {
+      setMoviendoGastoCargando(false);
+    }
+  };
+
   const abrirMoverQuincena = (it) => {
+    setMoviendoGastoKey(null);
     setMoviendoAbiertoKey(it.key);
     const nextMonth = periodo.month === 12
       ? { year: periodo.year + 1, month: 1 }
@@ -382,9 +483,10 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   };
 
   const navegarPeriodo = (direccion) => {
-    if (moviendoKey) return;
+    if (moviendoKey || moviendoGastoCargando) return;
     setChecklist({});
     setMoviendoAbiertoKey(null);
+    setMoviendoGastoKey(null);
     setModoSeleccion(false);
     setSeleccionados(new Set());
     setPeriodo((actual) => periodoAdyacente(actual, direccion));
@@ -446,7 +548,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           }}
         >
           <Mail size={16} />
-          <span>Enviar dashboard por email a iventuramena@gmail.com</span>
+          <span>Enviar dashboard por email{userEmail ? ` a ${userEmail}` : ""}</span>
         </button>
 
         <div>
@@ -533,6 +635,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
               return (
                 <div
                   key={`${periodoKey}:${it.key}`}
+                  className="checklist-variable-card"
                   style={{
                     background: "var(--card)",
                     border: `1px solid ${excedido ? "var(--stamp)" : "var(--line)"}`,
@@ -540,13 +643,15 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     padding: "10px 12px",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <Icon size={14} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
-                    <span style={{ fontSize: 13.5, fontWeight: 500, flex: 1 }}>{it.nombre}</span>
+                  <div className="checklist-variable-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                      <Icon size={14} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
+                      <span style={{ fontSize: 13.5, fontWeight: 500, flex: 1, minWidth: 0, overflowWrap: "break-word", wordBreak: "normal" }}>{it.nombre}</span>
+                    </div>
                     <span
                       title="Se calcula solo, según lo que registres en Movimientos — no requiere marcarse"
                       className="despensa-mono"
-                      style={{ fontSize: 12, fontWeight: 600, color: excedido ? "var(--stamp)" : "var(--ink)" }}
+                      style={{ fontSize: 12, fontWeight: 600, color: excedido ? "var(--stamp)" : "var(--ink)", flexShrink: 0, whiteSpace: "nowrap" }}
                     >
                       {formatMoney(it.gastadoReal)} / {formatMoney(it.monto)}
                     </span>
@@ -561,231 +666,550 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
             return (
               <div
                 key={`${periodoKey}:${it.key}`}
+                className={`checklist-item-card ${estado.pagado ? "checklist-item-card--pagado" : ""}`}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
                   background: "var(--card)",
                   border: `1px solid ${estado.pagado ? "var(--sage)" : "var(--line)"}`,
                   borderRadius: 10,
-                  padding: "10px 12px",
-                  opacity: estado.pagado ? 0.7 : 1,
+                  opacity: estado.pagado ? 0.72 : 1,
                 }}
               >
-                <button
-                  onClick={() => {
-                    if (it.bloqueadoPagado) return;
-                    if (modoSeleccion) {
-                      if (!estado.pagado) toggleSeleccion(it.key);
-                      return;
-                    }
-                    toggleItem(it);
-                  }}
-                  disabled={confirmandoKey === it.key || it.bloqueadoPagado || confirmandoLote || (modoSeleccion && estado.pagado)}
-                  title={
-                    it.bloqueadoPagado
-                      ? "Préstamo saldado — ya no se puede modificar"
-                      : modoSeleccion
-                        ? seleccionados.has(it.key)
-                          ? "Quitar de la selección"
-                          : "Seleccionar para pagar"
-                        : estado.pagado
-                          ? "Marcar como pendiente"
-                          : "Marcar como pagado"
-                  }
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    width: 26,
-                    height: 26,
-                    borderRadius: 7,
-                    border: `2px solid ${modoSeleccion ? (seleccionados.has(it.key) ? "var(--sage)" : "var(--line)") : estado.pagado ? "var(--sage)" : "var(--line)"}`,
-                    background: modoSeleccion ? (seleccionados.has(it.key) ? "var(--sage)" : "transparent") : estado.pagado ? "var(--sage)" : "transparent",
-                    color: "#fff",
-                    cursor: it.bloqueadoPagado || (modoSeleccion && estado.pagado) ? "not-allowed" : confirmandoKey === it.key ? "wait" : "pointer",
-                    flexShrink: 0,
-                    opacity: modoSeleccion && estado.pagado ? 0.4 : 1,
-                  }}
-                >
-                  {(modoSeleccion ? seleccionados.has(it.key) : estado.pagado) && <Check size={15} />}
-                </button>
-
-                <Icon size={14} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    onDoubleClick={it.esPrestamo && onOpenPrestamo ? () => onOpenPrestamo(it.prestamoId) : undefined}
-                    title={it.esPrestamo && onOpenPrestamo ? "Doble clic para abrir este préstamo" : undefined}
-                    style={{ fontSize: 13.5, fontWeight: 500, textDecoration: estado.pagado ? "line-through" : "none", cursor: it.esPrestamo && onOpenPrestamo ? "pointer" : undefined }}
-                  >
-                    {it.nombre}
-                    {it.bloqueadoPagado && (
-                      <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--sage-bg)", color: "var(--sage)", textDecoration: "none" }}>
-                        Saldado
-                      </span>
-                    )}
-                    {it.esPrioridadDeuda && !estado.pagado && (
-                      <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--stamp-bg)", color: "var(--stamp)", textDecoration: "none" }}>
-                        Prioridad
-                      </span>
-                    )}
-                  </div>
-                  {it.esPrestamo && it.fechaCuota && (
-                    <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 1 }}>
-                      Vence: {formatoFechaCuota(it.fechaCuota)}
-                    </div>
-                  )}
-                  {(it.esPrestamo || it.esTarjeta) && it.entidadName && (
-                    <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
-                      <Landmark size={10} /> Pagar a: {it.entidadName}
-                    </div>
-                  )}
-                  {it.esPagoRapido && (
-                    <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", alignItems: "center", gap: 3, marginTop: 1, fontWeight: 600 }}>
-                      🚀 Monto aumentado por Pago rápido
-                    </div>
-                  )}
-                  {estado.metodoPago === "Descuento Nómina" && estado.fuenteIngresoNombre && (
-                    <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
-                      <Briefcase size={10} /> Descontado de: {estado.fuenteIngresoNombre}
-                    </div>
-                  )}
-                  {it.esPrestamo && !it.bloqueadoPagado && it.origenKey && (
-                    <div style={{ marginTop: 3 }}>
-                      {moviendoAbiertoKey === it.key ? (
-                        <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-                          <input
-                            value={destinoFecha}
-                            onChange={(e) => setDestinoFecha(e.target.value)}
-                            style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
-                            type="date"
-                          />
-                          {destinoFecha && (() => {
-                            const [year, month, day] = destinoFecha.split("-").map(Number);
-                            const quincenaDestino = day >= 15 ? "2da" : "1ra";
-                            return <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Se mostrará en {quincenaDestino} quincena de {MES_NOMBRES[month - 1]} {year}</span>;
-                          })()}
-                          <button
-                            onClick={() => confirmarMoverQuincena(it)}
-                            disabled={moviendoKey === it.key}
-                            style={{ fontSize: 10.5, padding: "3px 8px", background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
-                          >
-                            {moviendoKey === it.key ? "…" : "Confirmar"}
-                          </button>
-                          <button
-                            onClick={() => setMoviendoAbiertoKey(null)}
-                            style={{ fontSize: 10.5, padding: "3px 8px", background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                          {it.tieneOverride && (
-                            <button
-                              onClick={() => quitarMover(it)}
-                              disabled={moviendoKey === it.key}
-                              title="Volver esta cuota a su quincena original"
-                              style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--amber)", background: "transparent", border: "none", cursor: moviendoKey === it.key ? "wait" : "pointer" }}
-                            >
-                              <ArrowLeftRight size={10} /> Volver a la quincena original
-                            </button>
-                          )}
-                          <button
-                            onClick={() => abrirMoverQuincena(it)}
-                            title="Mover esta cuota a otra quincena, aunque sea de otro mes"
-                            style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer" }}
-                          >
-                            <ArrowLeftRight size={10} /> {it.tieneOverride ? "Mover otra vez" : "Mover a otra quincena"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <select
-                  value={estado.metodoPago || it.metodoDefault || ""}
-                  onChange={(e) => setMetodo(it.key, e.target.value)}
-                  disabled={it.bloqueadoPagado}
-                  style={{
-                    padding: "5px 6px",
-                    border: "1px solid var(--line)",
-                    borderRadius: 7,
-                    fontSize: 11.5,
-                    background: it.bloqueadoPagado ? "var(--line-soft)" : "var(--paper)",
-                    color: it.bloqueadoPagado ? "var(--ink-soft)" : "var(--ink)",
-                    flexShrink: 0,
-                    cursor: it.bloqueadoPagado ? "not-allowed" : "pointer",
-                  }}
-                >
-                  <option value="">Método…</option>
-                  {METODOS.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-
-                {editandoMontoKey === it.key ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-                    <input
-                      type="number"
-                      value={montoEditado}
-                      onChange={(e) => setMontoEditado(e.target.value)}
-                      autoFocus
-                      onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
-                      style={{ width: 90, padding: "4px 6px", fontSize: 12.5, border: "1px solid var(--sage)", borderRadius: 6, textAlign: "right" }}
-                    />
-                    <button
-                      onClick={async () => {
-                        const actual = checklist?.items?.[it.key] || {};
-                        await setChecklistItem(periodoKey, it.key, { ...actual, montoOverride: Number(montoEditado) || 0 });
-                        setEditandoMontoKey(null);
-                      }}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
-                    >
-                      <Check size={12} />
-                    </button>
-                    <button
-                      onClick={() => setEditandoMontoKey(null)}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                ) : (
+                {/* Fila principal con checkbox, icono, título linear y monto */}
+                <div className="checklist-item-main">
                   <button
                     onClick={() => {
                       if (it.bloqueadoPagado) return;
-                      setEditandoMontoKey(it.key);
-                      setMontoEditado(String(it.monto || ""));
+                      if (modoSeleccion) {
+                        if (!estado.pagado) toggleSeleccion(it.key);
+                        return;
+                      }
+                      toggleItem(it);
                     }}
-                    disabled={it.bloqueadoPagado}
-                    title={it.bloqueadoPagado ? "Préstamo saldado — ya no se puede modificar" : "Tocar para editar el monto"}
-                    className="despensa-mono"
+                    disabled={confirmandoKey === it.key || it.bloqueadoPagado || confirmandoLote || (modoSeleccion && estado.pagado)}
+                    title={
+                      it.bloqueadoPagado
+                        ? "Préstamo saldado — ya no se puede modificar"
+                        : modoSeleccion
+                          ? seleccionados.has(it.key)
+                            ? "Quitar de la selección"
+                            : "Seleccionar para pagar"
+                          : estado.pagado
+                            ? "Marcar como pendiente"
+                            : "Marcar como pagado"
+                    }
                     style={{
-                      fontSize: 13.5,
-                      fontWeight: 600,
-                      minWidth: 80,
-                      textAlign: "right",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 26,
+                      height: 26,
+                      borderRadius: 7,
+                      border: `2px solid ${modoSeleccion ? (seleccionados.has(it.key) ? "var(--sage)" : "var(--line)") : estado.pagado ? "var(--sage)" : "var(--line)"}`,
+                      background: modoSeleccion ? (seleccionados.has(it.key) ? "var(--sage)" : "transparent") : estado.pagado ? "var(--sage)" : "transparent",
+                      color: "#fff",
+                      cursor: it.bloqueadoPagado || (modoSeleccion && estado.pagado) ? "not-allowed" : confirmandoKey === it.key ? "wait" : "pointer",
                       flexShrink: 0,
-                      background: "transparent",
-                      border: "none",
-                      color: "var(--ink)",
-                      cursor: it.bloqueadoPagado ? "default" : "pointer",
-                      padding: 0,
-                      textDecoration: it.bloqueadoPagado ? "none" : "underline",
-                      textDecorationStyle: "dotted",
-                      textDecorationColor: "var(--line)",
-                      textUnderlineOffset: 3,
+                      opacity: modoSeleccion && estado.pagado ? 0.4 : 1,
                     }}
                   >
-                    {formatMoney(it.monto)}
+                    {(modoSeleccion ? seleccionados.has(it.key) : estado.pagado) && <Check size={15} />}
                   </button>
-                )}
+
+                  <Icon size={15} style={{ color: "var(--ink-soft)", flexShrink: 0, marginTop: 2 }} />
+
+                  <div className="checklist-item-text">
+                    <div
+                      onDoubleClick={it.esPrestamo && onOpenPrestamo ? () => onOpenPrestamo(it.prestamoId) : undefined}
+                      title={it.esPrestamo && onOpenPrestamo ? "Doble clic para abrir este préstamo" : undefined}
+                      className="checklist-item-title"
+                      style={{
+                        fontSize: 13.5,
+                        fontWeight: 500,
+                        textDecoration: estado.pagado ? "line-through" : "none",
+                        cursor: it.esPrestamo && onOpenPrestamo ? "pointer" : undefined,
+                      }}
+                    >
+                      {it.nombre}
+                      {it.bloqueadoPagado && (
+                        <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--sage-bg)", color: "var(--sage)", textDecoration: "none", display: "inline-block", verticalAlign: "middle" }}>
+                          Saldado
+                        </span>
+                      )}
+                      {it.esPrioridadDeuda && !estado.pagado && (
+                        <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--stamp-bg)", color: "var(--stamp)", textDecoration: "none", display: "inline-block", verticalAlign: "middle" }}>
+                          Prioridad
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Detalles en vista desktop */}
+                    <div className="checklist-item-desktop-only">
+                      {it.esPrestamo && it.fechaCuota && (
+                        <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 1 }}>
+                          Vence: {formatoFechaCuota(it.fechaCuota)}
+                        </div>
+                      )}
+                      {(it.esPrestamo || it.esTarjeta) && it.entidadName && (
+                        <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
+                          <Landmark size={10} /> Pagar a: {it.entidadName}
+                        </div>
+                      )}
+                      {it.esPagoRapido && (
+                        <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", alignItems: "center", gap: 3, marginTop: 1, fontWeight: 600 }}>
+                          🚀 Monto aumentado por Pago rápido
+                        </div>
+                      )}
+                      {estado.metodoPago === "Descuento Nómina" && estado.fuenteIngresoNombre && (
+                        <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
+                          <Briefcase size={10} /> Descontado de: {estado.fuenteIngresoNombre}
+                        </div>
+                      )}
+                      {it.esPrestamo && !it.bloqueadoPagado && it.origenKey && (
+                        <div style={{ marginTop: 3 }}>
+                          {moviendoAbiertoKey === it.key ? (
+                            <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                              <input
+                                value={destinoFecha}
+                                onChange={(e) => setDestinoFecha(e.target.value)}
+                                style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
+                                type="date"
+                              />
+                              {destinoFecha && (() => {
+                                const [year, month, day] = destinoFecha.split("-").map(Number);
+                                const quincenaDestino = day >= 15 ? "2da" : "1ra";
+                                return <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Se mostrará en {quincenaDestino} quincena de {MES_NOMBRES[month - 1]} {year}</span>;
+                              })()}
+                              <button
+                                onClick={() => confirmarMoverQuincena(it)}
+                                disabled={moviendoKey === it.key}
+                                style={{ fontSize: 10.5, padding: "3px 8px", background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
+                              >
+                                {moviendoKey === it.key ? "…" : "Confirmar"}
+                              </button>
+                              <button
+                                onClick={() => setMoviendoAbiertoKey(null)}
+                                style={{ fontSize: 10.5, padding: "3px 8px", background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                              {it.tieneOverride && (
+                                <button
+                                  onClick={() => quitarMover(it)}
+                                  disabled={moviendoKey === it.key}
+                                  title="Volver esta cuota a su quincena original"
+                                  style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--amber)", background: "transparent", border: "none", cursor: moviendoKey === it.key ? "wait" : "pointer" }}
+                                >
+                                  <ArrowLeftRight size={10} /> Volver a la quincena original
+                                </button>
+                              )}
+                              <button
+                                onClick={() => abrirMoverQuincena(it)}
+                                title="Mover esta cuota a otra quincena, aunque sea de otro mes"
+                                style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer" }}
+                              >
+                                <ArrowLeftRight size={10} /> {it.tieneOverride ? "Mover otra vez" : "Mover a otra quincena"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Para gastos fijos y rubros presupuestados (como Gym, Alquiler, etc.) */}
+                      {!it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
+                        <div style={{ marginTop: 4 }}>
+                          {transferenciasHaciaPeriodo.filter((t) => t.categoria === it.nombre).map((t) => (
+                            <div key={t.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--sage)", background: "var(--sage-bg)", padding: "2px 7px", borderRadius: 6, marginBottom: 4 }}>
+                              <span>🔄 Incluye {formatMoney(t.monto)} pasado de {t.origen?.quincena === "Q1" ? "1ra" : "2da"} quincena</span>
+                              <button
+                                onClick={() => handleRevertirTransferencia(t)}
+                                disabled={moviendoGastoCargando}
+                                title="Devolver a la quincena original"
+                                style={{ background: "transparent", border: "none", color: "var(--amber)", fontSize: 10.5, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                              >
+                                Devolver
+                              </button>
+                            </div>
+                          ))}
+
+                          {!estado.pagado && (
+                            <div>
+                              {moviendoGastoKey === it.key ? (
+                                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", background: "var(--paper)", padding: "6px 8px", borderRadius: 8, border: "1px solid var(--line)" }}>
+                                  <span style={{ fontSize: 11, fontWeight: 600 }}>Pasar a:</span>
+                                  <select
+                                    value={`${moviendoGastoTarget?.year}-${moviendoGastoTarget?.month}-${moviendoGastoTarget?.quincena}`}
+                                    onChange={(e) => {
+                                      const [y, m, q] = e.target.value.split("-");
+                                      setMoviendoGastoTarget({ year: Number(y), month: Number(m), quincena: q });
+                                    }}
+                                    style={{ fontSize: 11, padding: "3px 6px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)" }}
+                                  >
+                                    {opcionesQuincenasFuturas.map((op) => (
+                                      <option key={`${op.year}-${op.month}-${op.quincena}`} value={`${op.year}-${op.month}-${op.quincena}`}>
+                                        {op.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <span style={{ fontSize: 11 }}>Monto:</span>
+                                  <input
+                                    type="number"
+                                    value={moviendoGastoMonto}
+                                    onChange={(e) => setMoviendoGastoMonto(e.target.value)}
+                                    style={{ width: 75, fontSize: 11, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)" }}
+                                  />
+                                  <button
+                                    onClick={() => confirmarMoverGasto(it)}
+                                    disabled={moviendoGastoCargando}
+                                    style={{ fontSize: 11, padding: "3px 8px", background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+                                  >
+                                    {moviendoGastoCargando ? "…" : "Confirmar"}
+                                  </button>
+                                  <button
+                                    onClick={() => setMoviendoGastoKey(null)}
+                                    style={{ fontSize: 11, padding: "3px 8px", background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => abrirMoverGasto(it)}
+                                  title="Pasar este gasto fijo a la siguiente quincena"
+                                  style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: 0, fontSize: 11, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer", fontWeight: 500 }}
+                                >
+                                  <ArrowLeftRight size={11} /> Pasar a siguiente quincena
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Selector de método (desktop) */}
+                  <div className="checklist-item-desktop-only" style={{ flexShrink: 0 }}>
+                    <select
+                      value={estado.metodoPago || it.metodoDefault || ""}
+                      onChange={(e) => setMetodo(it.key, e.target.value)}
+                      disabled={it.bloqueadoPagado}
+                      style={{
+                        padding: "5px 6px",
+                        border: "1px solid var(--line)",
+                        borderRadius: 7,
+                        fontSize: 11.5,
+                        background: it.bloqueadoPagado ? "var(--line-soft)" : "var(--paper)",
+                        color: it.bloqueadoPagado ? "var(--ink-soft)" : "var(--ink)",
+                        flexShrink: 0,
+                        cursor: it.bloqueadoPagado ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <option value="">Método…</option>
+                      {METODOS.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Monto editable o botón de monto */}
+                  <div style={{ flexShrink: 0, textAlign: "right" }}>
+                    {editandoMontoKey === it.key ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <input
+                          type="number"
+                          value={montoEditado}
+                          onChange={(e) => setMontoEditado(e.target.value)}
+                          autoFocus
+                          onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+                          style={{ width: 85, padding: "4px 6px", fontSize: 12.5, border: "1px solid var(--sage)", borderRadius: 6, textAlign: "right" }}
+                        />
+                        <button
+                          onClick={async () => {
+                            const actual = checklist?.items?.[it.key] || {};
+                            await setChecklistItem(periodoKey, it.key, { ...actual, montoOverride: Number(montoEditado) || 0 });
+                            setEditandoMontoKey(null);
+                          }}
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
+                        >
+                          <Check size={12} />
+                        </button>
+                        <button
+                          onClick={() => setEditandoMontoKey(null)}
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          if (it.bloqueadoPagado) return;
+                          setEditandoMontoKey(it.key);
+                          setMontoEditado(String(it.monto || ""));
+                        }}
+                        disabled={it.bloqueadoPagado}
+                        title={it.bloqueadoPagado ? "Préstamo saldado — ya no se puede modificar" : "Tocar para editar el monto"}
+                        className="despensa-mono checklist-item-monto-btn"
+                        style={{
+                          fontSize: 13.5,
+                          fontWeight: 600,
+                          minWidth: 70,
+                          textAlign: "right",
+                          background: "transparent",
+                          border: "none",
+                          color: "var(--ink)",
+                          cursor: it.bloqueadoPagado ? "default" : "pointer",
+                          padding: 0,
+                          textDecoration: it.bloqueadoPagado ? "none" : "underline",
+                          textDecorationStyle: "dotted",
+                          textDecorationColor: "var(--line)",
+                          textUnderlineOffset: 3,
+                        }}
+                      >
+                        {formatMoney(it.monto)}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Fila inferior para móvil: Vence, Entidad, Mover cuota y Método */}
+                <div className="checklist-item-bottom-row">
+                  <div className="checklist-item-bottom-left">
+                    {it.esPrestamo && it.fechaCuota && (
+                      <span style={{ fontSize: 10.5, color: "var(--ink-soft)", whiteSpace: "nowrap" }}>
+                        Vence: {formatoFechaCuota(it.fechaCuota)}
+                      </span>
+                    )}
+                    {(it.esPrestamo || it.esTarjeta) && it.entidadName && (
+                      <span style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" }}>
+                        <Landmark size={10} /> {it.entidadName}
+                      </span>
+                    )}
+                    {it.esPagoRapido && (
+                      <span style={{ fontSize: 10.5, color: "var(--amber)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                        🚀 Pago rápido
+                      </span>
+                    )}
+                    {estado.metodoPago === "Descuento Nómina" && estado.fuenteIngresoNombre && (
+                      <span style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" }}>
+                        <Briefcase size={10} /> {estado.fuenteIngresoNombre}
+                      </span>
+                    )}
+                    {it.esPrestamo && !it.bloqueadoPagado && it.origenKey && (
+                      <div style={{ width: "100%", marginTop: 2 }}>
+                        {moviendoAbiertoKey === it.key ? (
+                          <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                            <input
+                              value={destinoFecha}
+                              onChange={(e) => setDestinoFecha(e.target.value)}
+                              style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
+                              type="date"
+                            />
+                            <button
+                              onClick={() => confirmarMoverQuincena(it)}
+                              disabled={moviendoKey === it.key}
+                              style={{ fontSize: 10.5, padding: "3px 8px", background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
+                            >
+                              {moviendoKey === it.key ? "…" : "Confirmar"}
+                            </button>
+                            <button
+                              onClick={() => setMoviendoAbiertoKey(null)}
+                              style={{ fontSize: 10.5, padding: "3px 8px", background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            {it.tieneOverride && (
+                              <button
+                                onClick={() => quitarMover(it)}
+                                disabled={moviendoKey === it.key}
+                                title="Volver esta cuota a su quincena original"
+                                style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--amber)", background: "transparent", border: "none", cursor: moviendoKey === it.key ? "wait" : "pointer" }}
+                              >
+                                <ArrowLeftRight size={10} /> Volver
+                              </button>
+                            )}
+                            <button
+                              onClick={() => abrirMoverQuincena(it)}
+                              title="Mover esta cuota a otra quincena"
+                              style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer" }}
+                            >
+                              <ArrowLeftRight size={10} /> Mover quincena
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Para gastos fijos y rubros presupuestados en móvil */}
+                    {!it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
+                      <div style={{ width: "100%", marginTop: 3 }}>
+                        {transferenciasHaciaPeriodo.filter((t) => t.categoria === it.nombre).map((t) => (
+                          <div key={t.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, color: "var(--sage)", background: "var(--sage-bg)", padding: "2px 6px", borderRadius: 6, marginBottom: 3 }}>
+                            <span>🔄 Movido de {t.origen?.quincena === "Q1" ? "1ra" : "2da"} Q (+{formatMoney(t.monto)})</span>
+                            <button
+                              onClick={() => handleRevertirTransferencia(t)}
+                              disabled={moviendoGastoCargando}
+                              style={{ background: "transparent", border: "none", color: "var(--amber)", fontSize: 10, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                            >
+                              Devolver
+                            </button>
+                          </div>
+                        ))}
+
+                        {!estado.pagado && (
+                          <div>
+                            {moviendoGastoKey === it.key ? (
+                              <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap", background: "var(--paper)", padding: "6px 8px", borderRadius: 8, border: "1px solid var(--line)", width: "100%" }}>
+                                <div style={{ fontSize: 10.5, fontWeight: 600, width: "100%", color: "var(--ink)" }}>Pasar a otra quincena:</div>
+                                <select
+                                  value={`${moviendoGastoTarget?.year}-${moviendoGastoTarget?.month}-${moviendoGastoTarget?.quincena}`}
+                                  onChange={(e) => {
+                                    const [y, m, q] = e.target.value.split("-");
+                                    setMoviendoGastoTarget({ year: Number(y), month: Number(m), quincena: q });
+                                  }}
+                                  style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)", maxWidth: "100%" }}
+                                >
+                                  {opcionesQuincenasFuturas.map((op) => (
+                                    <option key={`${op.year}-${op.month}-${op.quincena}`} value={`${op.year}-${op.month}-${op.quincena}`}>
+                                      {op.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Monto:</span>
+                                  <input
+                                    type="number"
+                                    value={moviendoGastoMonto}
+                                    onChange={(e) => setMoviendoGastoMonto(e.target.value)}
+                                    style={{ width: 70, fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--card)", color: "var(--ink)" }}
+                                  />
+                                </div>
+                                <div style={{ display: "flex", gap: 5, marginTop: 2 }}>
+                                  <button
+                                    onClick={() => confirmarMoverGasto(it)}
+                                    disabled={moviendoGastoCargando}
+                                    style={{ fontSize: 10.5, padding: "3px 8px", background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}
+                                  >
+                                    {moviendoGastoCargando ? "…" : "Confirmar"}
+                                  </button>
+                                  <button
+                                    onClick={() => setMoviendoGastoKey(null)}
+                                    style={{ fontSize: 10.5, padding: "3px 8px", background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => abrirMoverGasto(it)}
+                                title="Pasar este gasto fijo a la siguiente quincena"
+                                style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer", fontWeight: 500 }}
+                              >
+                                <ArrowLeftRight size={10} /> Pasar a siguiente quincena
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <select
+                    value={estado.metodoPago || it.metodoDefault || ""}
+                    onChange={(e) => setMetodo(it.key, e.target.value)}
+                    disabled={it.bloqueadoPagado}
+                    style={{
+                      padding: "4px 6px",
+                      border: "1px solid var(--line)",
+                      borderRadius: 7,
+                      fontSize: 11,
+                      background: it.bloqueadoPagado ? "var(--line-soft)" : "var(--paper)",
+                      color: it.bloqueadoPagado ? "var(--ink-soft)" : "var(--ink)",
+                      flexShrink: 0,
+                      cursor: it.bloqueadoPagado ? "not-allowed" : "pointer",
+                      maxWidth: 110,
+                    }}
+                  >
+                    <option value="">Método…</option>
+                    {METODOS.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Sección informativa de gastos fijos pasados a otra quincena */}
+      {transferenciasDesdePeriodo.length > 0 && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: "10px 12px",
+            background: "var(--paper)",
+            border: "1px dashed var(--line)",
+            borderRadius: 10,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <ArrowLeftRight size={13} style={{ color: "var(--sage)" }} />
+            <span>Gastos fijos pasados a otra quincena ({transferenciasDesdePeriodo.length}):</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {transferenciasDesdePeriodo.map((t) => (
+              <div
+                key={t.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  fontSize: 11.5,
+                  padding: "6px 9px",
+                  background: "var(--card)",
+                  borderRadius: 7,
+                  border: "1px solid var(--line-soft)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <Wallet size={12} style={{ color: "var(--ink-soft)" }} />
+                  <span style={{ fontWeight: 600, color: "var(--ink)" }}>{t.categoria}</span>
+                  <span className="despensa-mono" style={{ color: "var(--ink-soft)" }}>{formatMoney(t.monto)}</span>
+                  <span style={{ color: "var(--ink-soft)", fontSize: 11 }}>
+                    → Pasado a {t.destino?.quincena === "Q1" ? "1ra" : "2da"} quincena de {MESES?.[t.destino?.month - 1] || t.destino?.month} {t.destino?.year}
+                  </span>
+                </div>
+                <button
+                  onClick={() => handleRevertirTransferencia(t)}
+                  disabled={moviendoGastoCargando}
+                  style={{
+                    fontSize: 11,
+                    padding: "3px 8px",
+                    background: "var(--amber-bg)",
+                    color: "var(--amber)",
+                    border: "1px solid var(--amber)",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontWeight: 600,
+                  }}
+                >
+                  <ArrowLeftRight size={10} /> Devolver a esta quincena
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -838,7 +1262,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         totales={totales}
         resumenPorMetodo={resumenPorMetodo}
         diasCobro={diasCobro}
-        userEmail="iventuramena@gmail.com"
+        userEmail={userEmail || "iventuramena@gmail.com"}
         categoriasGasto={categoriasGasto}
         presupuesto={presupuesto}
         prestamos={prestamos}

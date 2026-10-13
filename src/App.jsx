@@ -409,6 +409,33 @@ export default function App() {
   };
   const toggleSidebar = () => setSidebarCollapsed((c) => !c);
 
+  const resetUserState = () => {
+    setProducts([]);
+    setList([]);
+    setEntidades([]);
+    setMovimientos([]);
+    setPrestamos([]);
+    setCuentas([]);
+    setTarjetas([]);
+    setMembresias([]);
+    setFuentesIngreso([]);
+    setCategoriasGasto([]);
+    setContratos([]);
+    setTiposEntidad([]);
+    setFlujo([]);
+    setEventos([]);
+    setActivos([]);
+    setMantenimientos([]);
+    setMetasAhorro([]);
+    setSeguros([]);
+    setRenovaciones([]);
+    setIngresosPuntuales([]);
+    setHistorialCompras([]);
+    setOrdenesCompra([]);
+    setVacaciones([]);
+    setPresupuestoAnual(null);
+  };
+
   useEffect(() => {
     getRedirectResult(auth)
       .then((result) => {
@@ -424,32 +451,6 @@ export default function App() {
           // sessionStorage no disponible, el error simplemente no se muestra
         }
       });
-    const resetUserState = () => {
-      setProducts([]);
-      setList([]);
-      setEntidades([]);
-      setMovimientos([]);
-      setPrestamos([]);
-      setCuentas([]);
-      setTarjetas([]);
-      setMembresias([]);
-      setFuentesIngreso([]);
-      setCategoriasGasto([]);
-      setContratos([]);
-      setTiposEntidad([]);
-      setFlujo([]);
-      setEventos([]);
-      setActivos([]);
-      setMantenimientos([]);
-      setMetasAhorro([]);
-      setSeguros([]);
-      setRenovaciones([]);
-      setIngresosPuntuales([]);
-      setHistorialCompras([]);
-      setOrdenesCompra([]);
-      setVacaciones([]);
-      setPresupuestoAnual(null);
-    };
 
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -513,6 +514,7 @@ export default function App() {
 
   useEffect(() => {
     const handlePlanChanged = () => {
+      resetUserState();
       setDuoSyncVersion((v) => v + 1);
     };
     window.addEventListener("smart-finance-plan-changed", handlePlanChanged);
@@ -839,13 +841,14 @@ export default function App() {
 
   useEffect(() => {
     if (!authorized) return;
+    setPresupuestoAnual(null);
     const unsub = watchPresupuestoAnual(
       presupuestoYear,
       setPresupuestoAnual,
       (err) => setError(err.message || String(err))
     );
     return () => unsub();
-  }, [authorized, presupuestoYear, duoSyncVersion]);
+  }, [authorized, presupuestoYear, duoSyncVersion, authUser?.uid]);
 
   if (authUser === undefined) {
     return <SplashScreen caption="Iniciando Smart Finance…" />;
@@ -1321,6 +1324,7 @@ export default function App() {
             estrategiaDeudas={estrategiaDeudas}
             tipoCambio={tipoCambio}
             onOpenPrestamo={(prestamoId) => handleSearchNavigate("prestamos", prestamoId)}
+            userEmail={authUser?.email || ""}
           />
         )}
         {(tab === "vacaciones" || tab === "vuelos") && (
