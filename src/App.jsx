@@ -424,16 +424,47 @@ export default function App() {
           // sessionStorage no disponible, el error simplemente no se muestra
         }
       });
+    const resetUserState = () => {
+      setProducts([]);
+      setList([]);
+      setEntidades([]);
+      setMovimientos([]);
+      setPrestamos([]);
+      setCuentas([]);
+      setTarjetas([]);
+      setMembresias([]);
+      setFuentesIngreso([]);
+      setCategoriasGasto([]);
+      setContratos([]);
+      setTiposEntidad([]);
+      setFlujo([]);
+      setEventos([]);
+      setActivos([]);
+      setMantenimientos([]);
+      setMetasAhorro([]);
+      setSeguros([]);
+      setRenovaciones([]);
+      setIngresosPuntuales([]);
+      setHistorialCompras([]);
+      setOrdenesCompra([]);
+      setVacaciones([]);
+      setPresupuestoAnual(null);
+    };
+
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         clearCachedAccessToken();
         setCurrentDbUser(null);
+        setDuoSharedMemberStatus(false);
         setDuoInfo({ esDuo: false, titularEmail: null });
         setAuthUser(null);
+        resetUserState();
         setDuoSyncVersion((v) => v + 1);
         return;
       }
 
+      // Limpiar estados anteriores inmediatamente antes de suscribirse a los del nuevo usuario
+      resetUserState();
       setCurrentDbUser(user);
 
       // 1. Sincronizar estado Dúo PRIMERO para que el enrutamiento a colecciones compartidas esté listo
@@ -478,6 +509,14 @@ export default function App() {
         }
     });
     return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const handlePlanChanged = () => {
+      setDuoSyncVersion((v) => v + 1);
+    };
+    window.addEventListener("smart-finance-plan-changed", handlePlanChanged);
+    return () => window.removeEventListener("smart-finance-plan-changed", handlePlanChanged);
   }, []);
 
   const authorized = Boolean(authUser);
@@ -554,18 +593,23 @@ export default function App() {
     const unsubHabitosPenalizaciones = watchHabitosPenalizaciones(setHabitosPenalizaciones, handleError);
     const unsubVersiculoHoy = watchVersiculoHoy(fechaHoyStr(), setVersiculoHoy, handleError);
     const unsubCofresGanados = watchCofresGanados(setCofresGanados, handleError);
-    const unsubPlan = watchPlanSuscripcion((nuevoPlan) => {
+    const unsubPlan = watchPlanSuscripcion(authUser, (nuevoPlan) => {
       setPlanActual(nuevoPlan);
       if (authUser && !isOwnerUser(authUser)) {
-        const emailLower = (authUser.email || "").toLowerCase().trim();
-        const esPareja = nuevoPlan?.planId === "duo" && Array.isArray(nuevoPlan?.miembros) &&
-          nuevoPlan.miembros.some((m) => m.email?.toLowerCase().trim() === emailLower);
-        if (esPareja) {
-          setDuoSharedMemberStatus(true);
-          setDuoInfo({ esDuo: true, titularEmail: nuevoPlan.titularEmail || OWNER_EMAIL });
-        } else if (nuevoPlan?.planId && nuevoPlan?.planId !== "duo") {
+        if (nuevoPlan?.planId === "individual") {
           setDuoSharedMemberStatus(false);
-          setDuoInfo({ esDuo: false });
+          setDuoInfo({ esDuo: false, titularEmail: null });
+        } else {
+          const emailLower = (authUser.email || "").toLowerCase().trim();
+          const esPareja = nuevoPlan?.planId === "duo" && Array.isArray(nuevoPlan?.miembros) &&
+            nuevoPlan.miembros.some((m) => m.email?.toLowerCase().trim() === emailLower);
+          if (esPareja) {
+            setDuoSharedMemberStatus(true);
+            setDuoInfo({ esDuo: true, titularEmail: nuevoPlan.titularEmail || OWNER_EMAIL });
+          } else {
+            setDuoSharedMemberStatus(false);
+            setDuoInfo({ esDuo: false, titularEmail: null });
+          }
         }
       }
     }, handleError);
