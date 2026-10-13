@@ -2274,19 +2274,37 @@ export async function moverGastoQuincena({ categoria, monto, origen, destino, mo
   const nuevoOrigen = Math.max(0, actualOrigen - montoNum);
 
   if (origen.year === destino.year) {
-    const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
-    const nuevoDestino = actualDestino + montoNum;
+    if (String(origen.month) === String(destino.month)) {
+      const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+      const nuevoDestino = actualDestino + montoNum;
 
-    await setDoc(
-      origenDocRef,
-      {
-        [categoria]: {
-          [String(origen.month)]: { [origen.quincena]: nuevoOrigen },
-          [String(destino.month)]: { [destino.quincena]: nuevoDestino },
+      await setDoc(
+        origenDocRef,
+        {
+          [categoria]: {
+            [String(origen.month)]: {
+              [origen.quincena]: nuevoOrigen,
+              [destino.quincena]: nuevoDestino,
+            },
+          },
         },
-      },
-      { merge: true }
-    );
+        { merge: true }
+      );
+    } else {
+      const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+      const nuevoDestino = actualDestino + montoNum;
+
+      await setDoc(
+        origenDocRef,
+        {
+          [categoria]: {
+            [String(origen.month)]: { [origen.quincena]: nuevoOrigen },
+            [String(destino.month)]: { [destino.quincena]: nuevoDestino },
+          },
+        },
+        { merge: true }
+      );
+    }
   } else {
     const destinoSnap = await getDoc(destinoDocRef);
     const destinoData = destinoSnap.exists() ? destinoSnap.data() : {};
@@ -2303,6 +2321,18 @@ export async function moverGastoQuincena({ categoria, monto, origen, destino, mo
       { [categoria]: { [String(destino.month)]: { [destino.quincena]: nuevoDestino } } },
       { merge: true }
     );
+  }
+
+  // Si el origen queda en 0 o menos, asegurar limpiar el item en checklistPagos para que no quede residuo
+  if (nuevoOrigen <= 0) {
+    try {
+      const origenPeriodoKey = `${origen.year}-${origen.month}-${origen.quincena}`;
+      await setDoc(
+        doc(db, "checklistPagos", origenPeriodoKey),
+        { items: { [categoria]: { pagado: false, montoOverride: null } } },
+        { merge: true }
+      );
+    } catch {}
   }
 
   const transfId = `${categoria}_${origen.year}_${origen.month}_${origen.quincena}_${destino.year}_${destino.month}_${destino.quincena}_${Date.now()}`;
@@ -2342,19 +2372,37 @@ export async function revertirMoverGastoQuincena(transferencia) {
   const restauradoOrigen = actualOrigen + montoNum;
 
   if (origen.year === destino.year) {
-    const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
-    const restauradoDestino = Math.max(0, actualDestino - montoNum);
+    if (String(origen.month) === String(destino.month)) {
+      const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+      const restauradoDestino = Math.max(0, actualDestino - montoNum);
 
-    await setDoc(
-      origenDocRef,
-      {
-        [categoria]: {
-          [String(origen.month)]: { [origen.quincena]: restauradoOrigen },
-          [String(destino.month)]: { [destino.quincena]: restauradoDestino },
+      await setDoc(
+        origenDocRef,
+        {
+          [categoria]: {
+            [String(origen.month)]: {
+              [origen.quincena]: restauradoOrigen,
+              [destino.quincena]: restauradoDestino,
+            },
+          },
         },
-      },
-      { merge: true }
-    );
+        { merge: true }
+      );
+    } else {
+      const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+      const restauradoDestino = Math.max(0, actualDestino - montoNum);
+
+      await setDoc(
+        origenDocRef,
+        {
+          [categoria]: {
+            [String(origen.month)]: { [origen.quincena]: restauradoOrigen },
+            [String(destino.month)]: { [destino.quincena]: restauradoDestino },
+          },
+        },
+        { merge: true }
+      );
+    }
   } else {
     const destinoSnap = await getDoc(destinoDocRef);
     const destinoData = destinoSnap.exists() ? destinoSnap.data() : {};
