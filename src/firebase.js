@@ -24,7 +24,6 @@ export const functions = getFunctions(app);
 export const OWNER_EMAIL = "iventuramena@gmail.com";
 export const ADMIN_EMAILS = [
   "iventuramena@gmail.com",
-  "inelsonv@bellon.com.do",
 ];
 export const ALLOWED_EMAIL = OWNER_EMAIL; // Retrocompatibilidad
 

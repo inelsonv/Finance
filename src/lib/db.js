@@ -46,19 +46,48 @@ export function getCurrentDbUser() {
   return currentExplicitUser || auth.currentUser || null;
 }
 
+const COLECCIONES_COMPARTIDAS_DUO = new Set([
+  "presupuestos",
+  "categoriasGasto",
+  "flujo",
+]);
+
+const COLECCIONES_SISTEMA_GLOBALES = new Set([
+  "usuariosRegistrados",
+  "duoMembers",
+  "duoMembersByEmail",
+  "planesConfig",
+]);
+
 export function getCol(colName, ...pathSegments) {
   const current = getCurrentDbUser();
-  if (!current || isOwnerUser(current) || isDuoSharedMember(current)) {
+  if (COLECCIONES_SISTEMA_GLOBALES.has(colName)) {
     return fsCollection(db, colName, ...pathSegments);
   }
+  if (!current || isOwnerUser(current)) {
+    return fsCollection(db, colName, ...pathSegments);
+  }
+  // En Plan Dúo, solo se comparte el presupuesto (y sus categorías/diagrama de flujo)
+  if (isDuoSharedMember(current) && COLECCIONES_COMPARTIDAS_DUO.has(colName)) {
+    return fsCollection(db, colName, ...pathSegments);
+  }
+  // Toda la información financiera personal (cuentas, movimientos, tarjetas, préstamos, ahorro, etc.) es 100% aislada
   return fsCollection(db, "users", current.uid, colName, ...pathSegments);
 }
 
 export function getDocRef(colName, ...pathSegments) {
   const current = getCurrentDbUser();
-  if (!current || isOwnerUser(current) || isDuoSharedMember(current)) {
+  if (COLECCIONES_SISTEMA_GLOBALES.has(colName)) {
     return fsDoc(db, colName, ...pathSegments);
   }
+  if (!current || isOwnerUser(current)) {
+    return fsDoc(db, colName, ...pathSegments);
+  }
+  // En Plan Dúo, solo se comparte el presupuesto
+  if (isDuoSharedMember(current) && COLECCIONES_COMPARTIDAS_DUO.has(colName)) {
+    return fsDoc(db, colName, ...pathSegments);
+  }
+  // Toda la información personal va a su propio espacio aislado
   return fsDoc(db, "users", current.uid, colName, ...pathSegments);
 }
 
@@ -73,7 +102,7 @@ const doc = (firestoreInstance, colName, ...pathSegments) => {
 
 const ref = (storageInstance, path) => {
   const current = getCurrentDbUser();
-  if (!current || isOwnerUser(current) || isDuoSharedMember(current)) {
+  if (!current || isOwnerUser(current)) {
     return fsRef(storageInstance, path);
   }
   return fsRef(storageInstance, `users/${current.uid}/${path}`);
@@ -3103,8 +3132,8 @@ export async function inicializarEspacioUsuarioNuevo(user) {
     console.warn("No se pudo actualizar registro de usuario:", err);
   }
 
-  // Si es el propietario original o ya es miembro del Plan Dúo, no crear colecciones base duplicadas
-  if (isOwnerUser(user) || isDuoSharedMember(user)) {
+  // Si es el propietario original, sus datos residen en las colecciones raíz existentes
+  if (isOwnerUser(user)) {
     return;
   }
 
