@@ -142,17 +142,12 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
         >
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <SmartFinanceMark size={28} />
-            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
-              <span
-                className="despensa-tab-font"
-                style={{ fontSize: 16.5, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}
-              >
-                Smart<span style={{ color: "var(--sage)" }}>Finance</span>
-              </span>
-              <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ink-soft)" }}>
-                Patrimonio & Tesorería
-              </span>
-            </div>
+            <span
+              className="despensa-tab-font"
+              style={{ fontSize: 16.5, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}
+            >
+              Smart<span style={{ color: "var(--sage)" }}>Finance</span>
+            </span>
           </div>
           <button
             onClick={onToggleCollapsed}

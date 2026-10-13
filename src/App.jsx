@@ -166,7 +166,7 @@ function SplashScreen({ caption = "Sincronizando espacio privado…" }) {
             Smart<span style={{ color: "var(--sage)" }}>Finance</span>
           </div>
           <div className="despensa-splash-subtitle">
-            Suite Patrimonial
+            Patrimonio & Tesorería
           </div>
         </div>
         <div className="despensa-loading-track" role="progressbar" aria-label="Cargando Smart Finance" aria-valuetext="Cargando">
