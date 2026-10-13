@@ -9,13 +9,37 @@ service cloud.firestore {
     function esPropietario() {
       return request.auth != null && (
         request.auth.token.email == "iventuramena@gmail.com" ||
-        request.auth.token.email.lower() == "iventuramena@gmail.com"
+        request.auth.token.email.lower() == "iventuramena@gmail.com" ||
+        request.auth.token.email == "inelsonv@bellon.com.do" ||
+        request.auth.token.email.lower() == "inelsonv@bellon.com.do"
       );
+    }
+
+    function esMiembroDuo() {
+      return request.auth != null && (
+        exists(/databases/$(database)/documents/duoMembers/$(request.auth.uid)) ||
+        (request.auth.token.email != null && exists(/databases/$(database)/documents/duoMembersByEmail/$(request.auth.token.email.lower())))
+      );
+    }
+
+    function tieneAccesoCompartido() {
+      return esPropietario() || esMiembroDuo();
+    }
+
+    // Gestión y verificación de miembros del Plan Dúo
+    match /duoMembers/{userId} {
+      allow read, write: if request.auth != null;
+    }
+    match /duoMembersByEmail/{email} {
+      allow read, write: if request.auth != null;
+    }
+    match /planesConfig/{configId} {
+      allow read, write: if request.auth != null;
     }
 
     // Directorio de usuarios registrados
     match /usuariosRegistrados/{userId} {
-      allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
+      allow read, write: if request.auth != null;
     }
 
     // Espacio de datos 100% aislado para cada usuario individual
@@ -26,9 +50,17 @@ service cloud.firestore {
       allow read, write: if request.auth != null && (request.auth.uid == userId || esPropietario());
     }
 
-    // Colecciones y documentos raíz: reservadas para el propietario original
+    // Presupuestos y categorías de gasto (espacio compartido Plan Dúo)
+    match /presupuestos/{year} {
+      allow read, write: if request.auth != null;
+    }
+    match /categoriasGasto/{categoriaId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Colecciones y documentos raíz: datos para titular y pareja vinculada al Plan Dúo
     match /{document=**} {
-      allow read, write: if esPropietario();
+      allow read, write: if tieneAccesoCompartido();
     }
   }
 }`;
