@@ -121,15 +121,12 @@ const ADMIN_ONLY_TABS = new Set([
 function getInitialTheme() {
   try {
     const saved = localStorage.getItem(THEME_KEY);
-    const validThemes = ["light", "dark", "navy", "emerald", "slate", "amethyst", "latte", "oled"];
+    const validThemes = ["navy", "light", "dark", "emerald", "slate", "amethyst", "latte", "oled"];
     if (saved && validThemes.includes(saved)) return saved;
   } catch (e) {
     // localStorage no disponible, seguimos con el valor por defecto
   }
-  if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    return "dark";
-  }
-  return "light";
+  return "navy";
 }
 
 function getInitialCollapsed() {
@@ -168,7 +165,7 @@ function SplashScreen({ caption = "Sincronizando espacio privado…" }) {
             Smart<span style={{ color: "var(--sage)" }}>Finance</span>
           </div>
           <div className="despensa-splash-subtitle">
-            Patrimonio & Tesorería
+            Pequeños hábitos, grandes resultados
           </div>
         </div>
         <div className="despensa-loading-track" role="progressbar" aria-label="Cargando Smart Finance" aria-valuetext="Cargando">

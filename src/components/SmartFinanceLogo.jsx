@@ -83,7 +83,7 @@ export default function SmartFinanceLogo({
   size = 28,
   markOnly = false,
   showTagline = false,
-  tagline = "Finanzas & Patrimonio",
+  tagline = "Pequeños hábitos, grandes resultados",
   className = "",
   style = {},
 }) {

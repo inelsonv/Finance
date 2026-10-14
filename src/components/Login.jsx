@@ -133,7 +133,7 @@ export function LoginScreen() {
           Smart<span style={{ color: "var(--sage)" }}>Finance</span>
         </div>
         <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-soft)", marginBottom: 12 }}>
-          Sistema Personal de Gestión Patrimonial
+          Pequeños hábitos, grandes resultados
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 22, lineHeight: 1.5 }}>
           Gestiona tus cuentas, deudas, ahorros y presupuesto bajo un entorno privado e independiente.
