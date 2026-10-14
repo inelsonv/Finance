@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send } from "lucide-react";
 import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
-import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena } from "../lib/db";
+import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto } from "../lib/db";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -351,6 +351,27 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     }
   };
 
+  const toggleModoChecklist = async (it) => {
+    const cat = (categoriasGasto || []).find(
+      (c) => (c.nombre || "").trim().toLowerCase() === (it.nombre || "").trim().toLowerCase()
+    );
+    const nuevoTipo = it.esConsumoGradual ? "pago_unico" : "consumo_gradual";
+    try {
+      if (cat?.id) {
+        await updateCategoriaGasto(cat.id, { tipoGastoChecklist: nuevoTipo });
+      } else {
+        await addCategoriaGasto({
+          nombre: it.nombre,
+          clasificacion: it.clasificacion || "Variable",
+          metodoPagoDefault: it.metodoDefault || "Efectivo",
+          tipoGastoChecklist: nuevoTipo,
+        });
+      }
+    } catch (e) {
+      console.error("Error al alternar modo de checklist:", e);
+    }
+  };
+
   // Lógica central de registrar un pago ya confirmado: marca el ítem como
   // pagado y crea el movimiento correspondiente. La usan tanto el flujo de
   // un solo ítem como el de confirmación en lote (selección múltiple).
@@ -394,7 +415,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         amount: it.monto,
         description: it.nombre,
         date: todayStr(),
-        clasificacion: GASTO_CATS_FIJO.includes(it.nombre) ? "Fijo" : "Variable",
+        clasificacion: it.clasificacion || (GASTO_CATS_FIJO.includes(it.nombre) ? "Fijo" : "Variable"),
         metodoPago,
         origenChecklist: { periodoKey, itemKey: it.key },
       });
@@ -629,7 +650,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
             const estado = it.bloqueadoPagado ? { pagado: true } : checklist?.items?.[it.key] || {};
             const Icon = it.icon;
 
-            if (it.esVariable) {
+            if (it.esConsumoGradual) {
               const pct = it.monto > 0 ? Math.min((it.gastadoReal / it.monto) * 100, 100) : 0;
               const excedido = it.gastadoReal > it.monto;
               return (
@@ -647,9 +668,27 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
                       <Icon size={14} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
                       <span style={{ fontSize: 13.5, fontWeight: 500, flex: 1, minWidth: 0, overflowWrap: "break-word", wordBreak: "normal" }}>{it.nombre}</span>
+                      <button
+                        type="button"
+                        onClick={() => toggleModoChecklist(it)}
+                        title="Cambiar este gasto a pago único (para marcarlo con casilla como un gasto puntual)"
+                        style={{
+                          fontSize: 10,
+                          padding: "2px 7px",
+                          borderRadius: 6,
+                          border: "1px solid var(--line)",
+                          background: "var(--paper)",
+                          color: "var(--ink-soft)",
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                        }}
+                      >
+                        Cambiar a pago único
+                      </button>
                     </div>
                     <span
-                      title="Se calcula solo, según lo que registres en Movimientos — no requiere marcarse"
+                      title="Se calcula solo según lo registrado en Movimientos durante la quincena"
                       className="despensa-mono"
                       style={{ fontSize: 12, fontWeight: 600, color: excedido ? "var(--stamp)" : "var(--ink)", flexShrink: 0, whiteSpace: "nowrap" }}
                     >
@@ -740,10 +779,70 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                           Prioridad
                         </span>
                       )}
+                      {it.esVariable && !it.esPrestamo && !it.esTarjeta && (
+                        <span
+                          className="despensa-mono"
+                          title="Gasto variable — pago único"
+                          style={{
+                            marginLeft: 6,
+                            fontSize: 9.5,
+                            fontWeight: 600,
+                            padding: "1px 6px",
+                            borderRadius: 10,
+                            background: "var(--paper)",
+                            border: "1px solid var(--line)",
+                            color: "var(--ink-soft)",
+                            textDecoration: "none",
+                            display: "inline-block",
+                            verticalAlign: "middle",
+                          }}
+                        >
+                          Variable
+                        </span>
+                      )}
+                      {it.gastadoReal > 0 && !estado.pagado && (
+                        <span
+                          title={`Registrado en movimientos durante esta quincena: ${formatMoney(it.gastadoReal)}`}
+                          style={{
+                            marginLeft: 6,
+                            fontSize: 9.5,
+                            color: "var(--ink-soft)",
+                            background: "var(--line-soft)",
+                            padding: "1px 6px",
+                            borderRadius: 6,
+                            display: "inline-block",
+                            verticalAlign: "middle",
+                            textDecoration: "none",
+                          }}
+                        >
+                          Registrado: {formatMoney(it.gastadoReal)}
+                        </span>
+                      )}
                     </div>
 
                     {/* Detalles en vista desktop */}
                     <div className="checklist-item-desktop-only">
+                      {it.esVariable && !it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
+                        <div style={{ marginTop: 2, marginBottom: 2 }}>
+                          <button
+                            type="button"
+                            onClick={() => toggleModoChecklist(it)}
+                            title="Cambiar a barra de avance de consumo continuo (estilo gasolina)"
+                            style={{
+                              fontSize: 10.5,
+                              color: "var(--ink-soft)",
+                              background: "transparent",
+                              border: "none",
+                              cursor: "pointer",
+                              padding: 0,
+                              textDecoration: "underline",
+                              textDecorationStyle: "dotted",
+                            }}
+                          >
+                            Ver como barra de consumo
+                          </button>
+                        </div>
+                      )}
                       {it.esPrestamo && it.fechaCuota && (
                         <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 1 }}>
                           Vence: {formatoFechaCuota(it.fechaCuota)}
@@ -1112,6 +1211,29 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                                 style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer", fontWeight: 500 }}
                               >
                                 <ArrowLeftRight size={10} /> Pasar a siguiente quincena
+                              </button>
+                            )}
+                            {it.esVariable && !it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
+                              <button
+                                type="button"
+                                onClick={() => toggleModoChecklist(it)}
+                                title="Cambiar a barra de consumo continuo"
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 3,
+                                  padding: 0,
+                                  fontSize: 10,
+                                  color: "var(--ink-soft)",
+                                  background: "transparent",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  textDecoration: "underline",
+                                  textDecorationStyle: "dotted",
+                                  marginLeft: 10,
+                                }}
+                              >
+                                Ver como barra
                               </button>
                             )}
                           </div>

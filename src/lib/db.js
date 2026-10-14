@@ -34,10 +34,8 @@ export function isDuoSharedMember(user) {
   if (isOwnerUser(user)) return false;
 
   const emailLower = (user.email || "").toLowerCase().trim();
-  // inelsonv@bellon.com.do seleccionó explícitamente el plan gratuito individual: 100% aislado
-  if (emailLower === "inelsonv@bellon.com.do") return false;
 
-  // Si el usuario tiene seleccionado el plan individual, NUNCA es miembro dúo
+  // Si el usuario tiene seleccionado el plan individual, sus colecciones personales son privadas
   try {
     const planLocal = localStorage.getItem(`smart-finance-plan-${user.uid}`);
     if (planLocal === "individual") return false;
@@ -2201,11 +2199,13 @@ export function watchCategoriasGasto(onChange, onError) {
   );
 }
 
-export async function addCategoriaGasto({ nombre, clasificacion, metodoPagoDefault }) {
+export async function addCategoriaGasto({ nombre, clasificacion, metodoPagoDefault, color, tipoGastoChecklist }) {
   await addDoc(collection(db, "categoriasGasto"), {
     nombre,
     clasificacion,
     metodoPagoDefault: metodoPagoDefault || "Efectivo",
+    color: color || null,
+    tipoGastoChecklist: tipoGastoChecklist || null,
     createdAt: serverTimestamp(),
   });
 }
@@ -3335,13 +3335,11 @@ export async function inicializarEspacioUsuarioNuevo(user) {
       lastLogin: serverTimestamp(),
     };
 
-    // Para inelsonv@bellon.com.do o cualquier usuario que eligió el plan gratuito:
-    // asegurar 100% de aislamiento en usuariosRegistrados
+    // Para inelsonv@bellon.com.do o usuarios con plan individual, asegurar que su cuenta sea individual
     if (emailLower === "inelsonv@bellon.com.do") {
       updateData.planId = "individual";
       updateData.planNombre = "Plan Individual";
       updateData.rolPlan = "individual";
-      updateData.planDuoCon = deleteField();
     }
 
     await setDoc(perfilPublicoRef, updateData, { merge: true });
@@ -3354,16 +3352,11 @@ export async function inicializarEspacioUsuarioNuevo(user) {
     return;
   }
 
-  // Si es inelsonv@bellon.com.do (o usuario individual), desvincular de inmediato cualquier residuo Dúo
+  // Para usuarios con plan individual, sus cuentas y movimientos personales permanecen en su espacio privado
   if (emailLower === "inelsonv@bellon.com.do") {
     setDuoSharedMemberStatus(false);
     try {
-      localStorage.removeItem(`smart-finance-duo-member-${uid}`);
-      localStorage.removeItem(`smart-finance-duo-email-${emailLower}`);
-      localStorage.removeItem(`smart-finance-duo-titular-${uid}`);
       localStorage.setItem(`smart-finance-plan-${uid}`, "individual");
-      await deleteDoc(fsDoc(db, "duoMembersByEmail", emailLower)).catch(() => {});
-      await deleteDoc(fsDoc(db, "duoMembers", uid)).catch(() => {});
     } catch (e) {}
   }
 
@@ -3968,15 +3961,33 @@ export async function asociarParejaPlanDuo({ emailPareja, nombrePareja = "Pareja
 
   if (parejaUid) {
     await setDoc(fsDoc(db, "duoMembers", parejaUid), duoRecord, { merge: true });
-    await setDoc(
-      fsDoc(db, "usuariosRegistrados", parejaUid),
-      {
-        planDuoCon: titularEmail,
-        planId: "duo",
-        rolPlan: "pareja",
-      },
-      { merge: true }
-    );
+    // Si la pareja ya tiene un plan individual, mantener su plan individual y solo concederle acceso al presupuesto compartido
+    try {
+      const regSnap = await getDoc(fsDoc(db, "usuariosRegistrados", parejaUid));
+      const esIndividual = regSnap.exists() && regSnap.data().planId === "individual";
+      await setDoc(
+        fsDoc(db, "usuariosRegistrados", parejaUid),
+        {
+          planDuoCon: titularEmail,
+          planId: esIndividual ? "individual" : "duo",
+          rolPlan: "pareja",
+          tienePresupuestoCompartido: true,
+          presupuestoCompartidoDe: titularEmail,
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      await setDoc(
+        fsDoc(db, "usuariosRegistrados", parejaUid),
+        {
+          planDuoCon: titularEmail,
+          rolPlan: "pareja",
+          tienePresupuestoCompartido: true,
+          presupuestoCompartidoDe: titularEmail,
+        },
+        { merge: true }
+      );
+    }
   }
 
   return nuevoMiembro;
@@ -4012,8 +4023,8 @@ export async function desvincularParejaPlanDuo({ emailPareja }) {
       await deleteDoc(fsDoc(db, "duoMembers", pUid)).catch(() => {});
       await updateDoc(fsDoc(db, "usuariosRegistrados", pUid), {
         planDuoCon: deleteField(),
-        planId: "individual",
-        rolPlan: "individual",
+        tienePresupuestoCompartido: deleteField(),
+        presupuestoCompartidoDe: deleteField(),
       }).catch(() => {});
     }
   } catch (e) {}
@@ -4058,40 +4069,69 @@ export async function sincronizarEstadoDuoUsuario(user) {
       } catch (e) {}
     }
 
-    // inelsonv@bellon.com.do seleccionó el plan gratuito, o cualquier usuario en plan individual:
-    // AISLAMIENTO TOTAL: Jamás asociar nada del otro usuario
+    // Si el usuario tiene Plan Individual:
+    // Sus cuentas, tarjetas, movimientos y metas personales se mantienen 100% aisladas
     if (emailLower === "inelsonv@bellon.com.do" || esIndividual) {
       setDuoSharedMemberStatus(false);
       try {
-        localStorage.removeItem(`smart-finance-duo-member-${user.uid}`);
-        localStorage.removeItem(`smart-finance-duo-email-${emailLower}`);
-        localStorage.removeItem(`smart-finance-duo-titular-${user.uid}`);
         localStorage.setItem(`smart-finance-plan-${user.uid}`, "individual");
+      } catch (e) {}
 
-        // Eliminar cualquier vínculo Dúo residual en Firestore
-        await deleteDoc(fsDoc(db, "duoMembersByEmail", emailLower)).catch(() => {});
-        if (user.uid) {
-          await deleteDoc(fsDoc(db, "duoMembers", user.uid)).catch(() => {});
-          await updateDoc(fsDoc(db, "usuariosRegistrados", user.uid), {
-            planId: "individual",
-            planDuoCon: deleteField(),
-            rolPlan: "individual",
-          }).catch(() => {});
-        }
-
-        // Remover de planesConfig/suscripcion.miembros si aún estuviera listado
-        const planRef = fsDoc(db, "planesConfig", "suscripcion");
-        const planSnap = await getDoc(planRef);
-        if (planSnap.exists()) {
-          const pData = planSnap.data();
-          if (Array.isArray(pData.miembros) && pData.miembros.some((m) => m.email?.toLowerCase().trim() === emailLower)) {
-            const nuevos = pData.miembros.filter((m) => m.email?.toLowerCase().trim() !== emailLower);
-            await updateDoc(planRef, { miembros: nuevos, actualizadoEn: serverTimestamp() }).catch(() => {});
+      // Comprobar si un usuario en Plan Dúo le compartió su presupuesto
+      let sharedDuo = null;
+      try {
+        const emailSnap = await getDoc(fsDoc(db, "duoMembersByEmail", emailLower));
+        if (emailSnap && emailSnap.exists()) {
+          sharedDuo = emailSnap.data();
+        } else if (user.uid) {
+          const uidSnap = await getDoc(fsDoc(db, "duoMembers", user.uid));
+          if (uidSnap && uidSnap.exists()) {
+            sharedDuo = uidSnap.data();
           }
         }
       } catch (e) {}
 
-      return { esDuo: false, planId: "individual" };
+      // También verificar en planesConfig/suscripcion.miembros
+      if (!sharedDuo) {
+        try {
+          const planSnap = await getDoc(fsDoc(db, "planesConfig", "suscripcion"));
+          if (planSnap && planSnap.exists()) {
+            const planData = planSnap.data();
+            const esMiembro = Array.isArray(planData.miembros) &&
+              planData.miembros.some((m) => m.email?.toLowerCase().trim() === emailLower);
+            if (esMiembro && planData.planId === "duo") {
+              sharedDuo = {
+                titularEmail: planData.titularEmail || OWNER_EMAIL,
+                titularNombre: planData.titularNombre || "Titular",
+                titularUid: planData.titularUid || null,
+                rol: "pareja",
+                planId: "duo",
+                compartirPresupuesto: true,
+              };
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (sharedDuo) {
+        const titularEmail = sharedDuo.titularEmail || OWNER_EMAIL;
+        try {
+          localStorage.setItem(`smart-finance-duo-titular-${user.uid}`, titularEmail);
+          localStorage.setItem(`smart-finance-shared-budget-${user.uid}`, "1");
+        } catch (e) {}
+        return {
+          esDuo: false,
+          planId: "individual",
+          tienePresupuestoCompartido: true,
+          titularEmail,
+          titularUid: sharedDuo.titularUid || null,
+          titularNombre: sharedDuo.titularNombre || titularEmail.split("@")[0] || "Titular",
+          compartirPresupuesto: true,
+          duoData: sharedDuo,
+        };
+      }
+
+      return { esDuo: false, planId: "individual", tienePresupuestoCompartido: false };
     }
 
     // 2. Si no es individual, verificar si existe un vínculo Dúo mutuo, legítimo y activo
@@ -4119,7 +4159,7 @@ export async function sincronizarEstadoDuoUsuario(user) {
         localStorage.setItem(`smart-finance-duo-titular-${user.uid}`, titularEmail);
         localStorage.setItem(`smart-finance-plan-${user.uid}`, "duo");
       } catch (e) {}
-      return { esDuo: true, titularEmail, duoData };
+      return { esDuo: true, titularEmail, duoData, tienePresupuestoCompartido: true };
     } else {
       setDuoSharedMemberStatus(false);
       try {
@@ -4128,7 +4168,7 @@ export async function sincronizarEstadoDuoUsuario(user) {
         localStorage.removeItem(`smart-finance-duo-titular-${user.uid}`);
         localStorage.setItem(`smart-finance-plan-${user.uid}`, "individual");
       } catch (e) {}
-      return { esDuo: false, planId: "individual" };
+      return { esDuo: false, planId: "individual", tienePresupuestoCompartido: false };
     }
   } catch (err) {
     console.warn("Error al sincronizar estado Dúo del usuario:", err);
@@ -4143,4 +4183,120 @@ export function getDuoTitularEmail(user) {
     return localStorage.getItem(`smart-finance-duo-titular-${user.uid}`) || null;
   } catch {}
   return null;
+}
+
+// -------------------------------------------------------------
+// Funciones específicas para Presupuesto Compartido (Plan Dúo)
+// Permite que un usuario con Plan Individual vea en tiempo real
+// el presupuesto del usuario con Plan Dúo
+// -------------------------------------------------------------
+
+export function watchPresupuestoCompartido(year, titularEmail, titularUid, onChange, onError) {
+  const esTitularOwner = !titularEmail || titularEmail.toLowerCase().trim() === OWNER_EMAIL.toLowerCase().trim();
+  const docRef = esTitularOwner
+    ? fsDoc(db, "presupuestos", String(year))
+    : titularUid
+    ? fsDoc(db, "users", titularUid, "presupuestos", String(year))
+    : fsDoc(db, "presupuestos", String(year));
+
+  return onSnapshot(
+    docRef,
+    (snap) => onChange && onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchCategoriasCompartidas(titularEmail, titularUid, onChange, onError) {
+  const esTitularOwner = !titularEmail || titularEmail.toLowerCase().trim() === OWNER_EMAIL.toLowerCase().trim();
+  const colRef = esTitularOwner
+    ? fsCollection(db, "categoriasGasto")
+    : titularUid
+    ? fsCollection(db, "users", titularUid, "categoriasGasto")
+    : fsCollection(db, "categoriasGasto");
+
+  return onSnapshot(
+    colRef,
+    (snap) => {
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      onChange && onChange(items);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function setPresupuestoCeldaCompartida(year, category, month, quincena, amount, titularEmail, titularUid) {
+  const esTitularOwner = !titularEmail || titularEmail.toLowerCase().trim() === OWNER_EMAIL.toLowerCase().trim();
+  const docRef = esTitularOwner
+    ? fsDoc(db, "presupuestos", String(year))
+    : titularUid
+    ? fsDoc(db, "users", titularUid, "presupuestos", String(year))
+    : fsDoc(db, "presupuestos", String(year));
+
+  await setDoc(
+    docRef,
+    { [category]: { [String(month)]: { [quincena]: amount } } },
+    { merge: true }
+  );
+}
+
+export function watchEstadoPresupuestoCompartido(user, onChange, onError) {
+  if (!user || !user.email) {
+    onChange && onChange({ tieneAcceso: false });
+    return () => {};
+  }
+  const emailLower = (user.email || "").toLowerCase().trim();
+  const docRef = fsDoc(db, "duoMembersByEmail", emailLower);
+
+  return onSnapshot(
+    docRef,
+    async (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        onChange && onChange({
+          tieneAcceso: true,
+          titularEmail: data.titularEmail || OWNER_EMAIL,
+          titularNombre: data.titularNombre || data.titularEmail?.split("@")[0] || "Titular",
+          titularUid: data.titularUid || null,
+          rol: data.rol || "pareja",
+          compartirPresupuesto: true,
+          duoData: data,
+        });
+      } else {
+        try {
+          const pSnap = await getDoc(fsDoc(db, "planesConfig", "suscripcion"));
+          if (pSnap.exists()) {
+            const pData = pSnap.data();
+            const esMiembro = Array.isArray(pData.miembros) &&
+              pData.miembros.some((m) => m.email?.toLowerCase().trim() === emailLower);
+            if (esMiembro && pData.planId === "duo") {
+              onChange && onChange({
+                tieneAcceso: true,
+                titularEmail: pData.titularEmail || OWNER_EMAIL,
+                titularNombre: pData.titularNombre || "Titular",
+                titularUid: pData.titularUid || null,
+                rol: "pareja",
+                compartirPresupuesto: true,
+              });
+              return;
+            }
+          }
+        } catch (e) {}
+        onChange && onChange({ tieneAcceso: false });
+      }
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function compartirPresupuestoPlanDuo({ emailDestino, nombreDestino = "Pareja", userTitular }) {
+  return asociarParejaPlanDuo({
+    emailPareja: emailDestino,
+    nombrePareja: nombreDestino,
+    rol: "pareja",
+    userTitular,
+  });
+}
+
+export async function desvincularPresupuestoCompartido({ emailDestino }) {
+  return desvincularParejaPlanDuo({ emailPareja: emailDestino });
 }

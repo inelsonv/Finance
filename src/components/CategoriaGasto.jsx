@@ -17,6 +17,7 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
   const [showForm, setShowForm] = useState(false);
   const [nombre, setNombre] = useState("");
   const [clasificacion, setClasificacion] = useState("Variable");
+  const [tipoGastoChecklist, setTipoGastoChecklist] = useState("pago_unico");
   const [metodoPagoDefault, setMetodoPagoDefault] = useState("Efectivo");
   const [color, setColor] = useState(FLOW_COLORS[0]);
   const [error, setError] = useState(null);
@@ -51,9 +52,10 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
     setSaving(true);
     setError(null);
     try {
-      await addCategoriaGasto({ nombre: nombreTrim, clasificacion, metodoPagoDefault, color });
+      await addCategoriaGasto({ nombre: nombreTrim, clasificacion, metodoPagoDefault, color, tipoGastoChecklist });
       setNombre("");
       setClasificacion("Variable");
+      setTipoGastoChecklist("pago_unico");
       setMetodoPagoDefault("Efectivo");
       setColor(FLOW_COLORS[0]);
       setShowForm(false);
@@ -101,7 +103,17 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
               autoFocus
               placeholder="Nombre, ej. Combustible"
               value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setNombre(val);
+                if (/combustible|gasolina|gasoil|diesel|supermercado|alimento|comida|despensa|mercado/i.test(val)) {
+                  setTipoGastoChecklist("consumo_gradual");
+                  setClasificacion("Variable");
+                } else if (/mantenimiento|reparaci|taller|repuesto|mec[aá]nic/i.test(val)) {
+                  setTipoGastoChecklist("pago_unico");
+                  setClasificacion("Variable");
+                }
+              }}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
               style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
             />
@@ -110,7 +122,10 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
                 <button
                   key={c}
                   type="button"
-                  onClick={() => setClasificacion(c)}
+                  onClick={() => {
+                    setClasificacion(c);
+                    if (c === "Fijo") setTipoGastoChecklist("pago_unico");
+                  }}
                   style={{
                     flex: 1,
                     padding: "8px 4px",
@@ -124,6 +139,35 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
                   }}
                 >
                   {c}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
+              Formato en el Checklist de pagos:
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              {[
+                { id: "pago_unico", label: "Pago único (con casilla)", desc: "Se paga una sola vez (ej. mantenimiento, servicios)" },
+                { id: "consumo_gradual", label: "Consumo gradual (con barra)", desc: "Se va gastando poco a poco (ej. gasolina, súper)" },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setTipoGastoChecklist(opt.id)}
+                  style={{
+                    padding: "6px 8px",
+                    textAlign: "left",
+                    borderRadius: 8,
+                    border: `1px solid ${tipoGastoChecklist === opt.id ? "var(--sage)" : "var(--line)"}`,
+                    background: tipoGastoChecklist === opt.id ? "var(--sage-bg)" : "var(--paper)",
+                    color: tipoGastoChecklist === opt.id ? "var(--sage)" : "var(--ink)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ fontSize: 11.5, fontWeight: 600 }}>{opt.label}</div>
+                  <div style={{ fontSize: 9.5, color: "var(--ink-soft)", marginTop: 1 }}>{opt.desc}</div>
                 </button>
               ))}
             </div>
@@ -237,6 +281,37 @@ export default function CategoriaGasto({ movimientos, categoriasPersonalizadas }
                   }}
                 >
                   {c.clasificacion}
+                </button>
+                <button
+                  onClick={() => {
+                    const actualEsGradual = c.tipoGastoChecklist
+                      ? c.tipoGastoChecklist === "consumo_gradual"
+                      : (c.clasificacion === "Variable" && /^(combustible|gasolina|gasoil|diesel|supermercado|alimentos?|alimentaci[oó]n|despensa|comida|mercado|v[ií]veres)$/i.test(c.nombre));
+                    updateCategoriaGasto(c.id, { tipoGastoChecklist: actualEsGradual ? "pago_unico" : "consumo_gradual" });
+                  }}
+                  title={
+                    (c.tipoGastoChecklist === "consumo_gradual" || (!c.tipoGastoChecklist && c.clasificacion === "Variable" && /^(combustible|gasolina|gasoil|diesel|supermercado|alimentos?|alimentaci[oó]n|despensa|comida|mercado|v[ií]veres)$/i.test(c.nombre)))
+                      ? "En Checklist: Se muestra como barra de consumo continuo — clic para cambiar a pago único con casilla"
+                      : "En Checklist: Se muestra como pago único con casilla para marcar — clic para cambiar a barra de consumo"
+                  }
+                  style={{
+                    fontSize: 10,
+                    padding: "2px 7px",
+                    borderRadius: 20,
+                    border: "1px solid var(--line)",
+                    background: (c.tipoGastoChecklist === "consumo_gradual" || (!c.tipoGastoChecklist && c.clasificacion === "Variable" && /^(combustible|gasolina|gasoil|diesel|supermercado|alimentos?|alimentaci[oó]n|despensa|comida|mercado|v[ií]veres)$/i.test(c.nombre)))
+                      ? "var(--sage-bg)"
+                      : "transparent",
+                    color: (c.tipoGastoChecklist === "consumo_gradual" || (!c.tipoGastoChecklist && c.clasificacion === "Variable" && /^(combustible|gasolina|gasoil|diesel|supermercado|alimentos?|alimentaci[oó]n|despensa|comida|mercado|v[ií]veres)$/i.test(c.nombre)))
+                      ? "var(--sage)"
+                      : "var(--ink-soft)",
+                    cursor: "pointer",
+                    fontWeight: 500,
+                  }}
+                >
+                  {(c.tipoGastoChecklist === "consumo_gradual" || (!c.tipoGastoChecklist && c.clasificacion === "Variable" && /^(combustible|gasolina|gasoil|diesel|supermercado|alimentos?|alimentaci[oó]n|despensa|comida|mercado|v[ií]veres)$/i.test(c.nombre)))
+                    ? "Barra"
+                    : "Pago único"}
                 </button>
                 <button
                   onClick={() => updateCategoriaGasto(c.id, { agruparConCompromisos: !c.agruparConCompromisos })}

@@ -1,6 +1,14 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText, Fuel, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Receipt, Sliders, PieChart, Sparkles, Heart, Users } from "lucide-react";
-import { setPresupuestoCelda, watchPagoRapido, watchMetodologiaPresupuestoConfig } from "../lib/db";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText, Fuel, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Receipt, Sliders, PieChart, Sparkles, Heart, Users, Share2, Eye } from "lucide-react";
+import {
+  setPresupuestoCelda,
+  watchPagoRapido,
+  watchMetodologiaPresupuestoConfig,
+  watchPresupuestoCompartido,
+  watchCategoriasCompartidas,
+  setPresupuestoCeldaCompartida,
+  watchEstadoPresupuestoCompartido,
+} from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { contratoActivoEnMes, calcularQuincenaEfectivaContrato } from "./Contratos.jsx";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -10,6 +18,7 @@ import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuinc
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import { METODOLOGIAS } from "../lib/metodologiaPresupuesto";
 import MetodologiaPresupuestoModal from "./MetodologiaPresupuestoModal.jsx";
+import ModalCompartirPresupuesto from "./ModalCompartirPresupuesto.jsx";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
@@ -155,11 +164,73 @@ export default function PresupuestoAnual({
   duoInfo = null,
   isOwner = false,
   user = null,
+  usuariosRegistrados = [],
   abrirModalMetodologia = false,
   onCloseModalMetodologia,
+  onAbrirPlanes,
 }) {
   const [configMetodologia, setConfigMetodologia] = useState({ metodologia: "50-30-20", pilares: {}, customPct: { necesidad: 50, deseo: 30, ahorro: 20 } });
   const [modalMetodologiaAbierto, setModalMetodologiaAbierto] = useState(false);
+  const [modalCompartirAbierto, setModalCompartirAbierto] = useState(false);
+
+  // Gestión de Presupuesto Compartido (Plan Dúo <-> Plan Individual)
+  const [infoCompartido, setInfoCompartido] = useState(null);
+  const [presupuestoCompartido, setPresupuestoCompartido] = useState(null);
+  const [categoriasCompartidas, setCategoriasCompartidas] = useState(null);
+  const [vistaPresupuesto, setVistaPresupuesto] = useState(() => {
+    try {
+      return localStorage.getItem(`smart-finance-vista-presupuesto-${user?.uid}`) || "personal";
+    } catch {
+      return "personal";
+    }
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    const unsub = watchEstadoPresupuestoCompartido(user, (info) => {
+      setInfoCompartido(info);
+      if (info?.tieneAcceso) {
+        try {
+          const pref = localStorage.getItem(`smart-finance-vista-presupuesto-${user.uid}`);
+          if (pref) {
+            setVistaPresupuesto(pref);
+          } else {
+            setVistaPresupuesto("compartido");
+          }
+        } catch (e) {}
+      }
+    });
+    return () => unsub && unsub();
+  }, [user]);
+
+  useEffect(() => {
+    if (!infoCompartido?.tieneAcceso || !infoCompartido?.titularEmail) {
+      setPresupuestoCompartido(null);
+      setCategoriasCompartidas(null);
+      return;
+    }
+    const unsubP = watchPresupuestoCompartido(
+      year,
+      infoCompartido.titularEmail,
+      infoCompartido.titularUid,
+      setPresupuestoCompartido
+    );
+    const unsubC = watchCategoriasCompartidas(
+      infoCompartido.titularEmail,
+      infoCompartido.titularUid,
+      setCategoriasCompartidas
+    );
+    return () => {
+      unsubP && unsubP();
+      unsubC && unsubC();
+    };
+  }, [infoCompartido?.titularEmail, infoCompartido?.titularUid, year]);
+
+  const esVistaCompartida = vistaPresupuesto === "compartido" && Boolean(infoCompartido?.tieneAcceso);
+  const presupuestoEfectivo = (esVistaCompartida && presupuestoCompartido) ? presupuestoCompartido : (presupuesto || {});
+  const categoriasPersonalizadasEfectivas = (esVistaCompartida && categoriasCompartidas && categoriasCompartidas.length > 0)
+    ? categoriasCompartidas
+    : categoriasPersonalizadas;
 
   useEffect(() => {
     const unsub = watchMetodologiaPresupuestoConfig(setConfigMetodologia, () => {});
@@ -219,7 +290,7 @@ export default function PresupuestoAnual({
   // planificando (no solo la que está en curso hoy), ya que el presupuesto
   // se llena con anticipación para meses futuros también.
   const calcularExtraPagoRapido = (mes, quincena) => {
-    if (!pagoRapido?.activo || !fuentesIngreso || !categoriasPersonalizadas) return 0;
+    if (!pagoRapido?.activo || !fuentesIngreso || !categoriasPersonalizadasEfectivas) return 0;
 
     // La estrategia de Pago rápido nunca mira hacia atrás — solo aplica
     // desde la quincena actual en adelante. Si la deuda ya se saldó, deja
@@ -234,8 +305,8 @@ export default function PresupuestoAnual({
       year,
       month: mes,
       quincena,
-      presupuesto,
-      categoriasGasto: categoriasPersonalizadas,
+      presupuesto: presupuestoEfectivo,
+      categoriasGasto: categoriasPersonalizadasEfectivas,
       prestamos,
       movimientos,
       diasCobro,
@@ -257,7 +328,7 @@ export default function PresupuestoAnual({
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
 
   const categorias = useMemo(() => {
-    const list = (categoriasPersonalizadas || []).map((c) => ({
+    const list = (categoriasPersonalizadasEfectivas || []).map((c) => ({
       nombre: c.nombre,
       clasificacion: c.clasificacion,
       agruparConCompromisos: !!c.agruparConCompromisos,
@@ -268,7 +339,7 @@ export default function PresupuestoAnual({
     // ordenan al final, para que queden justo antes de esa sección en la
     // tabla (sin fusionarse — solo se acomodan una al lado de la otra).
     return [...list].sort((a, b) => (a.agruparConCompromisos ? 1 : 0) - (b.agruparConCompromisos ? 1 : 0));
-  }, [categoriasPersonalizadas]);
+  }, [categoriasPersonalizadasEfectivas]);
 
   const prestamosActivos = useMemo(
     () =>
@@ -530,7 +601,7 @@ export default function PresupuestoAnual({
     getCeldaRenovacionCategoria(categoriaNombre, mes, "Q1") + getCeldaRenovacionCategoria(categoriaNombre, mes, "Q2");
 
   const getCelda = (categoria, mes, quincena) => {
-    const val = presupuesto?.[categoria]?.[String(mes)]?.[quincena];
+    const val = presupuestoEfectivo?.[categoria]?.[String(mes)]?.[quincena];
     return typeof val === "number" ? val : null;
   };
 
@@ -566,7 +637,7 @@ export default function PresupuestoAnual({
       for (let m = 1; m <= 12; m++) totals[m - 1] += ahorroMensual;
     }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuestoEfectivo, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
 
   const totalPorQuincenaGlobal = useMemo(() => {
     const totals = {};
@@ -613,7 +684,7 @@ export default function PresupuestoAnual({
       }
     }
     return totals;
-  }, [categorias, presupuesto, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuestoEfectivo, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
 
 
   const totalPorCategoria = (categoria) => {
@@ -739,7 +810,7 @@ export default function PresupuestoAnual({
     return categorias
       .map((cat) => {
         const resultado = consumoPresupuesto({
-          presupuesto,
+          presupuesto: presupuestoEfectivo,
           movimientos: movimientos || [],
           categoria: cat.nombre,
           year,
@@ -752,7 +823,7 @@ export default function PresupuestoAnual({
       })
       .filter(Boolean)
       .sort((a, b) => b.pct - a.pct);
-  }, [categorias, presupuesto, movimientos, year, mesActual, quincenaActual, yearActualConfig, diasCobro]);
+  }, [categorias, presupuestoEfectivo, movimientos, year, mesActual, quincenaActual, yearActualConfig, diasCobro]);
 
 
   if (categorias.length === 0 && prestamosActivos.length === 0 && metasActivas.length === 0 && eventosConGasto.length === 0 && ordenesConGasto.length === 0 && vacacionesConGasto.length === 0 && renovacionesConGasto.length === 0) {
@@ -777,7 +848,19 @@ export default function PresupuestoAnual({
     const num = parseFloat(value);
     setSavingKey(key);
     try {
-      await setPresupuestoCelda(year, categoria, mes, quincena, Number.isFinite(num) && num > 0 ? num : 0);
+      if (esVistaCompartida && infoCompartido?.titularEmail) {
+        await setPresupuestoCeldaCompartida(
+          year,
+          categoria,
+          mes,
+          quincena,
+          Number.isFinite(num) && num > 0 ? num : 0,
+          infoCompartido.titularEmail,
+          infoCompartido.titularUid
+        );
+      } else {
+        await setPresupuestoCelda(year, categoria, mes, quincena, Number.isFinite(num) && num > 0 ? num : 0);
+      }
     } finally {
       setSavingKey(null);
     }
@@ -937,7 +1020,196 @@ export default function PresupuestoAnual({
         </button>
       </div>
 
-      {(planActual?.planId === "duo" || duoInfo?.esDuo) && (() => {
+      {/* Selector de Vista: Mi Presupuesto Personal vs Presupuesto Plan Dúo (Compartido) */}
+      {(infoCompartido?.tieneAcceso || planActual?.planId === "duo" || isOwner) && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 14,
+            flexWrap: "wrap",
+            gap: 10,
+          }}
+        >
+          {infoCompartido?.tieneAcceso ? (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                background: "var(--paper)",
+                padding: "3px 4px",
+                borderRadius: 10,
+                border: "1px solid var(--line)",
+                gap: 4,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setVistaPresupuesto("personal");
+                  try {
+                    localStorage.setItem(`smart-finance-vista-presupuesto-${user?.uid}`, "personal");
+                  } catch (e) {}
+                }}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: vistaPresupuesto === "personal" ? "var(--card)" : "transparent",
+                  color: vistaPresupuesto === "personal" ? "var(--ink)" : "var(--ink-soft)",
+                  fontWeight: vistaPresupuesto === "personal" ? 700 : 500,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  boxShadow: vistaPresupuesto === "personal" ? "0 1px 4px rgba(0,0,0,0.12)" : "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                👤 Mi Presupuesto Personal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setVistaPresupuesto("compartido");
+                  try {
+                    localStorage.setItem(`smart-finance-vista-presupuesto-${user?.uid}`, "compartido");
+                  } catch (e) {}
+                }}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: vistaPresupuesto === "compartido" ? "#8b5cf6" : "transparent",
+                  color: vistaPresupuesto === "compartido" ? "#ffffff" : "var(--ink-soft)",
+                  fontWeight: vistaPresupuesto === "compartido" ? 700 : 500,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  boxShadow: vistaPresupuesto === "compartido" ? "0 2px 8px rgba(139, 92, 246, 0.35)" : "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  transition: "all 0.15s ease",
+                }}
+              >
+                <Heart size={14} fill={vistaPresupuesto === "compartido" ? "#ffffff" : "none"} />
+                Presupuesto Plan Dúo ({infoCompartido.titularEmail?.split("@")[0] || "Titular"})
+              </button>
+            </div>
+          ) : <div />}
+
+          {(planActual?.planId === "duo" || isOwner) && (
+            <button
+              type="button"
+              onClick={() => setModalCompartirAbierto(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "7px 14px",
+                borderRadius: 8,
+                background: "rgba(139, 92, 246, 0.1)",
+                color: "#8b5cf6",
+                border: "1px solid rgba(139, 92, 246, 0.35)",
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Share2 size={14} />
+              Compartir Presupuesto (Plan Dúo)
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Banner cuando se visualiza el Presupuesto Compartido del Plan Dúo */}
+      {esVistaCompartida && infoCompartido?.titularEmail && (
+        <div
+          style={{
+            background: "linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(236, 72, 153, 0.05) 100%)",
+            border: "1.5px solid rgba(139, 92, 246, 0.4)",
+            borderRadius: 12,
+            padding: "12px 16px",
+            marginBottom: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 12,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: "#8b5cf6",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 2px 8px rgba(139, 92, 246, 0.35)",
+                flexShrink: 0,
+              }}
+            >
+              <Eye size={19} />
+            </div>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>
+                  Estás viendo el Presupuesto del Plan Dúo
+                </span>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    padding: "2px 8px",
+                    borderRadius: 10,
+                    background: "rgba(139, 92, 246, 0.2)",
+                    color: "#8b5cf6",
+                  }}
+                >
+                  ✓ Sincronizado en tiempo real
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "3px 0 0" }}>
+                Compartido por <strong>{infoCompartido.titularEmail}</strong>. Tu cuenta mantiene su <strong>Plan Individual</strong> y tus cuentas, tarjetas y movimientos personales siguen 100% privados.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              onClick={() => {
+                setVistaPresupuesto("personal");
+                try {
+                  localStorage.setItem(`smart-finance-vista-presupuesto-${user?.uid}`, "personal");
+                } catch (e) {}
+              }}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: "1px solid var(--line)",
+                background: "var(--card)",
+                color: "var(--ink)",
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Ver Mi Presupuesto Personal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Banner para el titular o usuario en Plan Dúo */}
+      {!esVistaCompartida && (planActual?.planId === "duo" || duoInfo?.esDuo) && (() => {
         const parejaMiembro = Array.isArray(planActual?.miembros)
           ? planActual.miembros.find((m) => m.rol === "pareja" || m.rol === "miembro")
           : null;
@@ -996,14 +1268,38 @@ export default function PresupuestoAnual({
                 </div>
                 <p style={{ fontSize: 11.5, color: "var(--ink-soft)", margin: "2px 0 0", lineHeight: 1.4 }}>
                   {esTitular
-                    ? `Este presupuesto está compartido con tu pareja ${parejaMiembro?.email ? `(${parejaMiembro.email})` : "asociada"}. Ambos pueden ver y planificar juntos.`
+                    ? `Este presupuesto está compartido con ${parejaMiembro?.email ? `tu pareja (${parejaMiembro.email})` : "otro usuario"}. Pueden ver y planificar juntos (incluso si tiene Plan Individual).`
                     : `Estás viendo el presupuesto compartido con el titular (${titularEmail}). Cualquier cambio se refleja para ambos en tiempo real.`}
                 </p>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-soft)" }}>
-              <Users size={13} style={{ color: "#8b5cf6" }} />
-              <span>2 usuarios en sincronía</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {esTitular && (
+                <button
+                  type="button"
+                  onClick={() => setModalCompartirAbierto(true)}
+                  style={{
+                    padding: "5px 11px",
+                    borderRadius: 7,
+                    background: "#8b5cf6",
+                    color: "#fff",
+                    border: "none",
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                  }}
+                >
+                  <Share2 size={13} />
+                  Gestionar Acceso
+                </button>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-soft)" }}>
+                <Users size={13} style={{ color: "#8b5cf6" }} />
+                <span>2 usuarios en sincronía</span>
+              </div>
             </div>
           </div>
         );

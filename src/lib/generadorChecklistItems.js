@@ -27,6 +27,40 @@ function celdaPrestamo(prestamo, year, mes) {
   return { activo, quincena };
 }
 
+export function esCategoriaConsumoGradual(categoriaOItem) {
+  if (!categoriaOItem) return false;
+
+  // 1. Configuración explícita del usuario
+  const tipo = categoriaOItem.tipoGastoChecklist || categoriaOItem.modoChecklist;
+  if (tipo === "pago_unico") return false;
+  if (tipo === "consumo_gradual") return true;
+
+  // 2. Gastos fijos siempre son compromisos puntuales (factura, cuota, mensualidad)
+  if (categoriaOItem.clasificacion === "Fijo") return false;
+
+  const nombre = (
+    typeof categoriaOItem === "string"
+      ? categoriaOItem
+      : categoriaOItem.nombre || categoriaOItem.category || ""
+  ).trim();
+
+  // 3. Gastos de mantenimiento (ej. mantenimiento de vehículo, del hogar), reparaciones,
+  // talleres, repuestos: aunque sean variables, son gastos puntuales donde se hace un
+  // solo pago, por lo que NO deben mostrarse como barra de consumo progresivo.
+  if (/mantenimiento|reparaci[oó]n|taller|repuesto|mec[aá]nic|arreglo/i.test(nombre)) {
+    return false;
+  }
+
+  // 4. Solo categorías de consumo continuo / frecuente durante la quincena
+  // (como combustible/gasolina o supermercado/alimentos) se muestran por defecto como barra.
+  if (/^(combustible|gasolina|gasoil|diesel|supermercado|alimentos?|alimentaci[oó]n|despensa|comida|mercado|v[ií]veres)$/i.test(nombre)) {
+    return true;
+  }
+
+  // Por defecto, cualquier otro gasto variable presupuestado se trata como pago único
+  return false;
+}
+
 export function generarItemsPeriodo({
   periodo,
   categoriasGasto = [],
@@ -82,19 +116,19 @@ export function generarItemsPeriodo({
       const val = presupuesto?.[c.nombre]?.[String(periodo.month)]?.[periodo.quincena];
       if (typeof val === "number" && val > 0) {
         const esVariable = c.clasificacion === "Variable";
+        const esGradual = esCategoriaConsumoGradual(c);
         let gastadoReal = 0;
-        if (esVariable) {
-          const resultado = consumoPresupuesto({
-            presupuesto,
-            movimientos: movimientos || [],
-            categoria: c.nombre,
-            year: periodo.year,
-            month: periodo.month,
-            quincena: periodo.quincena,
-            diasCobro,
-          });
-          gastadoReal = resultado?.gastado || 0;
-        }
+        const resultado = consumoPresupuesto({
+          presupuesto,
+          movimientos: movimientos || [],
+          categoria: c.nombre,
+          year: periodo.year,
+          month: periodo.month,
+          quincena: periodo.quincena,
+          diasCobro,
+        });
+        gastadoReal = resultado?.gastado || 0;
+
         list.push({
           key: c.nombre,
           nombre: c.nombre,
@@ -102,8 +136,11 @@ export function generarItemsPeriodo({
           icon: Wallet,
           metodoDefault: c.metodoPagoDefault || null,
           esPrestamo: false,
+          categoriaId: c.id || null,
           clasificacion: c.clasificacion || "Fijo",
+          tipoGastoChecklist: c.tipoGastoChecklist || (esGradual ? "consumo_gradual" : "pago_unico"),
           esVariable,
+          esConsumoGradual: esGradual,
           gastadoReal,
         });
       }

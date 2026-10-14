@@ -60,31 +60,29 @@ function IconoNodo({ nombre, size = 13 }) {
 }
 
 // Anillo de progreso alrededor del ícono, usado en los nodos de préstamo
-// para mostrar cuánto se ha pagado del total.
-function IconoNodoConProgreso({ nombre, pct, size = 32 }) {
+// para mostrar cuánto se ha pagado del saldo total (0-100%).
+function AnilloProgreso({ pct, color, size = 28, children }) {
   const r = (size - 4) / 2;
   const c = size / 2;
   const circunferencia = 2 * Math.PI * r;
   const offset = circunferencia * (1 - Math.min(Math.max(pct, 0), 100) / 100);
   return (
-    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size} style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)" }}>
-        <circle cx={c} cy={c} r={r} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={2.5} />
+    <div style={{ position: "relative", width: size, height: size, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+      <svg width={size} height={size} style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)", pointerEvents: "none" }}>
+        <circle cx={c} cy={c} r={r} fill="none" stroke="currentColor" opacity={0.15} strokeWidth={2.5} />
         <circle
           cx={c}
           cy={c}
           r={r}
           fill="none"
-          stroke="#fff"
+          stroke={color || "currentColor"}
           strokeWidth={2.5}
           strokeDasharray={circunferencia}
           strokeDashoffset={offset}
           strokeLinecap="round"
         />
       </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-        <IconoNodo nombre={nombre} size={14} />
-      </div>
+      {children}
     </div>
   );
 }
@@ -99,8 +97,8 @@ function ingresoMensualCalculado(fuentesIngreso) {
 }
 
 function ActivityFlowNode({ data }) {
-  const color = data.color || "#5b7a5b";
-  const esIngreso = data.tipo === "ingreso";
+  const color = data.color || PALETTE[0];
+  const esIngreso = data.tipo === "ingreso" || data.role === "ingreso";
 
   const tooltipLineas = [data.label];
   if (data.amount != null) {
@@ -121,92 +119,187 @@ function ActivityFlowNode({ data }) {
     <div
       title={tooltip}
       style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        background: color,
-        color: "#fff",
-        border: data.advertencia ? "2px solid #e0a52e" : data.limitadoEjecucion ? "2px solid #d9432e" : data.activoEjecucion ? "2px solid #f5c518" : `2px solid ${color}`,
-        borderRadius: 10,
         padding: "8px 12px",
-        fontFamily: "Inter, sans-serif",
-        width: 190,
-        boxSizing: "border-box",
-        boxShadow: data.limitadoEjecucion
-          ? "0 0 0 6px rgba(217, 67, 46, 0.35), 0 2px 8px rgba(0,0,0,0.25)"
+        borderRadius: 8,
+        background: "var(--card)",
+        border: data.limitadoEjecucion
+          ? "2px solid #b83a2b"
           : data.activoEjecucion
-            ? "0 0 0 6px rgba(245, 197, 24, 0.35), 0 2px 8px rgba(0,0,0,0.25)"
-            : "0 1px 4px rgba(0,0,0,0.15)",
-        transform: data.activoEjecucion ? "scale(1.06)" : "scale(1)",
-        transition: "box-shadow 0.3s ease, transform 0.3s ease, border 0.3s ease",
+          ? `2px solid ${color}`
+          : "1px solid var(--line)",
+        boxShadow: data.activoEjecucion
+          ? `0 0 0 3px ${color}33, 0 4px 12px rgba(0,0,0,0.12)`
+          : "0 1px 3px rgba(0,0,0,0.06)",
+        minWidth: 140,
+        maxWidth: 200,
+        position: "relative",
+        fontFamily: "Inter, sans-serif",
+        cursor: "pointer",
+        userSelect: "none",
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: "#fff", border: `2px solid ${color}` }} />
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          background: data.progresoPct == null ? "rgba(255,255,255,0.25)" : "transparent",
-          opacity: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-          color: "#fff",
-        }}
-      >
+      <Handle type="target" position={Position.Top} style={{ background: color, width: 8, height: 8 }} />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {data.progresoPct != null ? (
-          <IconoNodoConProgreso nombre={data.icon} pct={data.progresoPct} />
+          <AnilloProgreso pct={data.progresoPct} color={color} size={28}>
+            <div
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 4,
+                background: color,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+              }}
+            >
+              <IconoNodo nombre={data.icon} size={12} />
+            </div>
+          </AnilloProgreso>
         ) : (
-          <IconoNodo nombre={data.icon} size={16} />
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              background: color,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              flexShrink: 0,
+            }}
+          >
+            <IconoNodo nombre={data.icon} size={13} />
+          </div>
+        )}
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: "var(--ink)",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {data.label}
+          </div>
+
+          {esIngreso && (
+            <div
+              className="despensa-mono"
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: color,
+                marginTop: 2,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {data.amount != null ? formatMoney(data.amount) : "Sin monto"}
+            </div>
+          )}
+
+          {!esIngreso && data.amount != null && (
+            <div
+              className="despensa-mono"
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: color,
+                marginTop: 2,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {formatMoney(data.amount)}
+              {data.calculado && (
+                <span style={{ fontSize: 9.5, fontWeight: 400, color: "var(--ink-soft)" }}> · 10% auto</span>
+              )}
+              {data.progresoPct != null && (
+                <span style={{ fontSize: 9.5, fontWeight: 400, color: "var(--ink-soft)" }}>
+                  {" "}· {Math.round(data.progresoPct)}%
+                </span>
+              )}
+            </div>
+          )}
+
+          {!esIngreso && data.categoriaGasto && (
+            <div
+              style={{
+                fontSize: 9.5,
+                color: "var(--ink-soft)",
+                marginTop: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {data.categoriaGasto}
+            </div>
+          )}
+
+          {data.entidadName && (
+            <div
+              style={{
+                fontSize: 9,
+                color: "var(--ink-soft)",
+                marginTop: 1,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {data.entidadName}
+            </div>
+          )}
+        </div>
+
+        {data.advertencia && (
+          <span
+            title="Supera el 30% de tu ingreso — nivel de endeudamiento alto"
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#e0a52e",
+              background: "rgba(224, 165, 46, 0.15)",
+              borderRadius: "50%",
+              width: 18,
+              height: 18,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            !
+          </span>
+        )}
+
+        {data.progresoPct != null && data.progresoPct >= 100 && (
+          <span
+            style={{
+              color: "var(--amber)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Check size={14} />
+          </span>
         )}
       </div>
-      <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-        <div
-          style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "#fff" }}
-        >
-          {data.label}
-        </div>
-        {esIngreso && (
-          <div className="despensa-mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {data.amount != null ? formatMoney(data.amount) : "Sin monto"}
-          </div>
-        )}
-        {!esIngreso && data.amount != null && (
-          <div className="despensa-mono" style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {formatMoney(data.amount)}
-            {data.calculado && <span style={{ fontWeight: 400, opacity: 0.85 }}> · 10% auto</span>}
-            {data.progresoPct != null && <span style={{ fontWeight: 400, opacity: 0.85 }}> · {Math.round(data.progresoPct)}% pagado</span>}
-          </div>
-        )}
-        {!esIngreso && data.categoriaGasto && (
-          <div style={{ fontSize: 9.5, color: "rgba(255,255,255,0.75)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {data.categoriaGasto}
-          </div>
-        )}
-      </div>
-      {data.advertencia && (
-        <div
-          title="Supera el 30% de tu ingreso — nivel de endeudamiento alto"
-          style={{
-            flexShrink: 0,
-            width: 20,
-            height: 20,
-            borderRadius: "50%",
-            background: "#e0a52e",
-            color: "#1a1a1a",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 13,
-            fontWeight: 800,
-          }}
-        >
-          !
-        </div>
-      )}
-      <Handle type="source" position={Position.Bottom} style={{ background: "#fff", border: `2px solid ${color}` }} />
+
+      <Handle type="source" position={Position.Bottom} style={{ background: color, width: 8, height: 8 }} />
     </div>
   );
 }
@@ -1280,17 +1373,30 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
-                      padding: "6px 12px",
+                      padding: "5px 10px",
                       fontSize: 12,
-                      fontWeight: 500,
-                      borderRadius: 20,
-                      border: `1px solid ${preset.color}`,
-                      background: "var(--paper)",
-                      color: preset.color,
+                      borderRadius: 6,
+                      border: "1px solid var(--line)",
+                      background: "var(--card)",
+                      color: "var(--ink)",
                       cursor: "pointer",
                     }}
                   >
-                    <IconoNodo nombre={preset.icon} size={12} /> {preset.label}
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 18,
+                        height: 18,
+                        borderRadius: 4,
+                        background: preset.color,
+                        color: "#fff",
+                      }}
+                    >
+                      <IconoNodo nombre={preset.icon} size={11} />
+                    </span>
+                    <span>{preset.label}</span>
                   </button>
                 ))}
               </div>
@@ -1401,9 +1507,9 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: 30,
-                  height: 30,
-                  borderRadius: 7,
+                  width: 28,
+                  height: 28,
+                  borderRadius: 6,
                   border: editIcon === key ? "2px solid var(--sage)" : "1px solid var(--line)",
                   background: editIcon === key ? "var(--sage-bg)" : "var(--card)",
                   color: editIcon === key ? "var(--sage)" : "var(--ink-soft)",
