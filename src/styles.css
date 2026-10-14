@@ -661,7 +661,26 @@ button:active {
   .despensa-puntos-btn {
     padding: 6px 8px !important;
   }
+  .despensa-whatsapp-btn {
+    padding: 6px 8px !important;
+  }
 }
+
+.despensa-whatsapp-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.despensa-whatsapp-btn:active {
+  transform: translateY(0);
+}
+.despensa-sidebar-whatsapp:hover {
+  background: linear-gradient(135deg, rgba(37,211,102,0.22) 0%, rgba(37,211,102,0.12) 100%) !important;
+  border-color: rgba(37,211,102,0.55) !important;
+}
+.despensa-menu-item-whatsapp:hover {
+  background: rgba(37,211,102,0.14) !important;
+}
+
 
 .despensa-bottomnav {
   display: none;

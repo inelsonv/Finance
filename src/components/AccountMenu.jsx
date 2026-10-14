@@ -5,6 +5,7 @@ import { watchUsuariosRegistrados } from "../lib/db";
 import { getThemeById } from "../lib/themes";
 import ThemeSelector from "./ThemeSelector.jsx";
 import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
+import WhatsAppGroupButton from "./WhatsAppGroupButton.jsx";
 
 const APP_URL = "https://inelsonv.github.io/Finance/";
 
@@ -304,6 +305,7 @@ export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, 
           >
             <Smartphone size={14} /> Vincular dispositivo
           </button>
+          <WhatsAppGroupButton variant="menu-item" onClick={() => setOpen(false)} />
           <button
             onClick={async () => {
               setOpen(false);
