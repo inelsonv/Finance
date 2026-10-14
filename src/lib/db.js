@@ -19,7 +19,8 @@ import {
   deleteField,
 } from "firebase/firestore";
 import { ref as fsRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { db, storage, functions, auth, isOwnerUser, OWNER_EMAIL } from "../firebase";
+import { deleteUser, reauthenticateWithPopup, signOut } from "firebase/auth";
+import { db, storage, functions, auth, isOwnerUser, OWNER_EMAIL, googleProvider } from "../firebase";
 
 let currentExplicitUser = null;
 let duoSharedMemberCache = false;
@@ -4300,3 +4301,156 @@ export async function compartirPresupuestoPlanDuo({ emailDestino, nombreDestino 
 export async function desvincularPresupuestoCompartido({ emailDestino }) {
   return desvincularParejaPlanDuo({ emailPareja: emailDestino });
 }
+
+/**
+ * Elimina de manera permanente e irreversible la cuenta del usuario actual:
+ * 1. Desvincula membresías de planes compartidos / Plan Dúo.
+ * 2. Borra todas sus subcolecciones y documentos en Firestore (`users/{uid}/*`).
+ * 3. Elimina su ficha en `usuariosRegistrados/{uid}`.
+ * 4. Limpia la caché y almacenamiento local (`localStorage`).
+ * 5. Borra la cuenta en Firebase Authentication (con re-autenticación si la sesión expiró).
+ * 6. Cierra la sesión activa.
+ */
+export async function eliminarCuentaUsuario(user) {
+  if (!user || !user.uid) {
+    throw new Error("No hay una sesión de usuario válida para eliminar.");
+  }
+
+  // 1. Proteger al administrador / propietario principal
+  if (isOwnerUser(user)) {
+    throw new Error(
+      "La cuenta del Administrador / Propietario principal está protegida y no puede eliminarse desde la aplicación."
+    );
+  }
+
+  const uid = user.uid;
+  const emailLower = (user.email || "").toLowerCase().trim();
+
+  // 2. Desvincular de Plan Dúo o membresías compartidas
+  try {
+    setDuoSharedMemberStatus(false);
+    if (emailLower) {
+      await deleteDoc(fsDoc(db, "duoMembersByEmail", emailLower)).catch(() => {});
+    }
+    await deleteDoc(fsDoc(db, "duoMembers", uid)).catch(() => {});
+
+    const planRef = fsDoc(db, "planesConfig", "suscripcion");
+    const snapPlan = await getDoc(planRef).catch(() => null);
+    if (snapPlan && snapPlan.exists()) {
+      const pData = snapPlan.data();
+      if (
+        Array.isArray(pData.miembros) &&
+        pData.miembros.some(
+          (m) => (m.email && m.email.toLowerCase().trim() === emailLower) || m.uid === uid
+        )
+      ) {
+        const nuevos = pData.miembros.filter(
+          (m) => (!m.email || m.email.toLowerCase().trim() !== emailLower) && m.uid !== uid
+        );
+        await updateDoc(planRef, { miembros: nuevos, actualizadoEn: serverTimestamp() }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso al desvincular membresía de planes:", err);
+  }
+
+  // 3. Borrar todas las subcolecciones y documentos personales en users/{uid}/*
+  const coleccionesPersonales = [
+    "cuentas",
+    "tarjetas",
+    "prestamos",
+    "membresias",
+    "contratos",
+    "fuentesIngreso",
+    "categoriasGasto",
+    "movimientos",
+    "products",
+    "list",
+    "ordenesCompra",
+    "historialCompras",
+    "activos",
+    "seguros",
+    "renovaciones",
+    "mantenimientos",
+    "metasAhorro",
+    "vacaciones",
+    "eventos",
+    "flujo",
+    "habitos",
+    "habitosRegistro",
+    "habitosPenalizaciones",
+    "config",
+    "presupuestos",
+    "puntosHistorial",
+    "recompensas",
+    "cofres",
+    "versiculos",
+    "notificaciones",
+    "comprasProrateadas",
+    "ingresosPuntuales",
+    "ajustesPresupuesto",
+    "sugerenciasInversion",
+    "acciones",
+    "tipoCambioCache",
+  ];
+
+  for (const colName of coleccionesPersonales) {
+    try {
+      const colRef = fsCollection(db, "users", uid, colName);
+      const snapshot = await getDocs(colRef);
+      if (!snapshot.empty) {
+        const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
+        await Promise.all(deletePromises);
+      }
+    } catch (err) {
+      console.warn(`Aviso al limpiar subcolección ${colName} de users/${uid}:`, err);
+    }
+  }
+
+  // 4. Borrar documento raíz del usuario en users/{uid} y en usuariosRegistrados/{uid}
+  try {
+    await deleteDoc(fsDoc(db, "users", uid)).catch(() => {});
+  } catch (e) {}
+
+  try {
+    await deleteDoc(fsDoc(db, "usuariosRegistrados", uid)).catch(() => {});
+  } catch (e) {}
+
+  // 5. Limpiar datos y cachés locales del usuario en localStorage
+  try {
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (
+        key &&
+        (key.includes(uid) || (emailLower && key.includes(emailLower)) || key.startsWith("smart-finance-"))
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try {
+        localStorage.removeItem(k);
+      } catch (e) {}
+    });
+  } catch (e) {}
+
+  // 6. Eliminar el usuario en Firebase Authentication
+  try {
+    await deleteUser(user);
+  } catch (authErr) {
+    if (authErr?.code === "auth/requires-recent-login") {
+      // Si la sesión es antigua, solicita re-autenticación con popup y reintenta
+      await reauthenticateWithPopup(user, googleProvider);
+      await deleteUser(user);
+    } else {
+      throw authErr;
+    }
+  }
+
+  // 7. Cerrar sesión
+  try {
+    await signOut(auth);
+  } catch (e) {}
+}
+

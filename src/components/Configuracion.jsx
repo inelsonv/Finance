@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bot, Palette, Heart, Sparkles } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig, watchUsuariosRegistrados } from "../lib/db";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bot, Palette, Heart, Sparkles, AlertTriangle, Trash2, Lock } from "lucide-react";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig, watchUsuariosRegistrados, eliminarCuentaUsuario } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Switch from "./Switch.jsx";
 import ThemeSelector from "./ThemeSelector.jsx";
 import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
 import WhatsAppGroupButton, { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
-import ModalLogoWhatsApp from "./ModalLogoWhatsApp.jsx";
 
 export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante, planActual, isOwner }) {
   const [showPlanesModal, setShowPlanesModal] = useState(false);
-  const [showLogoModal, setShowLogoModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
   const [usuariosRegistrados, setUsuariosRegistrados] = useState([]);
   const [emailConfig, setEmailConfig] = useState(undefined);
   const [emailInput, setEmailInput] = useState("");
@@ -807,39 +809,63 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
 
       <Section icon={WhatsAppIcon} title="Comunidad y Soporte">
         <WhatsAppGroupButton variant="card" />
-        <button
-          onClick={() => setShowLogoModal(true)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            width: "100%",
-            marginTop: 10,
-            padding: "11px 14px",
-            background: "var(--paper)",
-            border: "1px solid var(--line)",
-            borderRadius: 10,
-            cursor: "pointer",
-            textAlign: "left",
-            flexWrap: "wrap",
-            gap: 8,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#0d1b15", border: "1px solid #10b981", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
-              <img src="/logo-perfil-whatsapp.svg" alt="Logo preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </Section>
+
+      <Section icon={AlertTriangle} title="Zona de Peligro" danger>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+            {isOwner
+              ? "Esta es la cuenta del Administrador / Propietario principal del sistema. Está protegida contra eliminación para garantizar la continuidad del servicio."
+              : "Al eliminar tu cuenta se borrarán permanentemente todos tus datos personales, movimientos, cuentas, presupuestos, tarjetas, metas y configuraciones. Esta acción es definitiva e irreversible."}
+          </p>
+
+          {isOwner ? (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 12px",
+                background: "var(--amber-bg)",
+                border: "1px solid var(--amber)",
+                borderRadius: 8,
+                fontSize: 12.5,
+                color: "var(--amber)",
+                fontWeight: 600,
+                alignSelf: "flex-start",
+              }}
+            >
+              <Lock size={15} />
+              Cuenta de Administrador Principal protegida
             </div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
-                Descargar foto de perfil para el grupo
-              </div>
-              <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
-                Logo oficial calibrado para recorte circular de WhatsApp (PNG 1024×1024 y SVG)
-              </div>
-            </div>
-          </div>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--sage)" }}>Ver y Descargar →</span>
-        </button>
+          ) : (
+            <button
+              onClick={() => {
+                setDeleteConfirmInput("");
+                setDeleteError(null);
+                setShowDeleteModal(true);
+              }}
+              style={{
+                alignSelf: "flex-start",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "9px 16px",
+                background: "rgba(239, 68, 68, 0.08)",
+                color: "var(--stamp)",
+                border: "1px solid var(--stamp)",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Trash2 size={15} />
+              Eliminar mi cuenta definitivamente
+            </button>
+          )}
+        </div>
       </Section>
 
       <ModalPlanesSuscripcion
@@ -851,22 +877,206 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
         usuariosRegistrados={usuariosRegistrados}
       />
 
-      <ModalLogoWhatsApp
-        isOpen={showLogoModal}
-        onClose={() => setShowLogoModal(false)}
-      />
+      {showDeleteModal && (
+        <div
+          onClick={() => !deletingAccount && setShowDeleteModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.65)",
+            backdropFilter: "blur(4px)",
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(460px, 94vw)",
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              padding: "24px 22px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+              boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: "rgba(239, 68, 68, 0.12)",
+                  border: "1px solid var(--stamp)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--stamp)",
+                  flexShrink: 0,
+                }}
+              >
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3 className="despensa-tab-font" style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--stamp)" }}>
+                  ¿Eliminar cuenta definitivamente?
+                </h3>
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                  Esta acción es permanente e irreversible
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--ink)",
+                lineHeight: 1.5,
+                background: "var(--paper)",
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: "1px solid var(--line-soft)",
+              }}
+            >
+              Se eliminarán para siempre:
+              <ul style={{ margin: "6px 0 0", paddingLeft: 18, color: "var(--ink-soft)", fontSize: 12 }}>
+                <li>Todos tus movimientos, transacciones e ingresos.</li>
+                <li>Tus presupuestos, cuentas bancarias, tarjetas y préstamos.</li>
+                <li>Metas de ahorro, activos, contratos y hábitos.</li>
+                <li>Tu perfil de usuario en la base de datos y autenticación.</li>
+              </ul>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>
+                Para confirmar, escribe <strong style={{ color: "var(--stamp)" }}>ELIMINAR</strong> a continuación:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmInput}
+                onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                placeholder="ELIMINAR"
+                disabled={deletingAccount}
+                style={{
+                  width: "100%",
+                  padding: "9px 12px",
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  color: "var(--ink)",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            {deleteError && (
+              <div
+                style={{
+                  padding: "9px 12px",
+                  borderRadius: 8,
+                  background: "rgba(239, 68, 68, 0.1)",
+                  color: "var(--stamp)",
+                  fontSize: 12,
+                  lineHeight: 1.4,
+                }}
+              >
+                {deleteError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deletingAccount}
+                style={{
+                  padding: "9px 16px",
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: deletingAccount ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (deleteConfirmInput.trim() !== "ELIMINAR" || deletingAccount) return;
+                  setDeletingAccount(true);
+                  setDeleteError(null);
+                  try {
+                    await eliminarCuentaUsuario(user);
+                    setShowDeleteModal(false);
+                    window.location.reload();
+                  } catch (err) {
+                    console.error("Error al eliminar la cuenta:", err);
+                    setDeleteError(err.message || "Error al eliminar la cuenta. Por favor intenta de nuevo.");
+                    setDeletingAccount(false);
+                  }
+                }}
+                disabled={deleteConfirmInput.trim() !== "ELIMINAR" || deletingAccount}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "9px 18px",
+                  background:
+                    deleteConfirmInput.trim() === "ELIMINAR" && !deletingAccount
+                      ? "var(--stamp)"
+                      : "var(--line)",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor:
+                    deleteConfirmInput.trim() === "ELIMINAR" && !deletingAccount
+                      ? "pointer"
+                      : "not-allowed",
+                }}
+              >
+                {deletingAccount ? "Eliminando cuenta…" : "Eliminar definitivamente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function Section({ icon: Icon, title, children }) {
+function Section({ icon: Icon, title, danger = false, children }) {
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "1.1rem" }}>
+    <div
+      style={{
+        background: "var(--card)",
+        border: danger ? "1px solid rgba(239, 68, 68, 0.35)" : "1px solid var(--line)",
+        borderRadius: 12,
+        padding: "1.1rem",
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <Icon size={15} style={{ color: "var(--ink-soft)" }} />
-        <span className="despensa-tab-font" style={{ fontSize: 13.5, fontWeight: 600 }}>{title}</span>
+        <Icon size={15} style={{ color: danger ? "var(--stamp)" : "var(--ink-soft)" }} />
+        <span
+          className="despensa-tab-font"
+          style={{ fontSize: 13.5, fontWeight: 600, color: danger ? "var(--stamp)" : "var(--ink)" }}
+        >
+          {title}
+        </span>
       </div>
       {children}
     </div>
   );
 }
+
