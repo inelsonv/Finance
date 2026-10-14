@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Fondo sofisticado gradiente radial -->
+    <radialGradient id="bgRadial" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#14261e"/>
+      <stop offset="50%" stop-color="#0c1712"/>
+      <stop offset="100%" stop-color="#050a08"/>
+    </radialGradient>
+
+    <!-- Resplandor esmeralda central -->
+    <radialGradient id="emeraldGlow" cx="50%" cy="46%" r="42%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.32"/>
+      <stop offset="60%" stop-color="#059669" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#059669" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Gradiente de la insignia circular -->
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.5"/>
+      <stop offset="40%" stop-color="#059669" stop-opacity="0.15"/>
+      <stop offset="70%" stop-color="#fbbf24" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.6"/>
+    </linearGradient>
+
+    <!-- Gradiente del emblema SF -->
+    <linearGradient id="emblemGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="50%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+
+    <!-- Gradiente de la barra central platino -->
+    <linearGradient id="whiteBarGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+
+    <!-- Gradiente de la esfera dorada -->
+    <radialGradient id="goldSphere" cx="35%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="45%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </radialGradient>
+
+    <!-- Filtro de sombra suave -->
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.65"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#059669" flood-opacity="0.3"/>
+    </filter>
+
+    <filter id="glowFilter" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="30" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- 1. Fondo completo (1024x1024) -->
+  <rect width="1024" height="1024" fill="url(#bgRadial)"/>
+
+  <!-- 2. Halo de resplandor esmeralda de fondo -->
+  <circle cx="512" cy="460" r="420" fill="url(#emeraldGlow)"/>
+
+  <!-- 3. Anillo perimetral que define la zona circular de WhatsApp -->
+  <circle cx="512" cy="512" r="460" fill="none" stroke="url(#ringGrad)" stroke-width="3" opacity="0.45"/>
+  <circle cx="512" cy="512" r="446" fill="none" stroke="#10b981" stroke-width="1.5" stroke-dasharray="8 8" opacity="0.3"/>
+
+  <!-- 4. Contenedor de la insignia circular interna -->
+  <circle cx="512" cy="460" r="300" fill="#0d1b15" stroke="url(#ringGrad)" stroke-width="4" filter="url(#dropShadow)"/>
+  <circle cx="512" cy="460" r="296" fill="none" stroke="#10b981" stroke-width="1" opacity="0.4"/>
+
+  <!-- 5. Emblema SF Monumental (Centrado dentro del círculo) -->
+  <g transform="translate(142, 90) scale(20)" filter="url(#dropShadow)">
+    <!-- Barra superior: Bóveda y liquidez -->
+    <path
+      d="M11 13.5C11 11.567 12.567 10 14.5 10H25.5C27.433 10 29 11.567 29 13.5V14.5H16.5C14.567 14.5 13 16.067 13 18V18H11V13.5Z"
+      fill="url(#emblemGrad)"
+    />
+
+    <!-- Barra central diagonal: Transición y balance patrimonial -->
+    <path
+      d="M13 18.5C13 17.119 14.119 16 15.5 16H25C26.105 16 27 16.895 27 18V19.5C27 20.881 25.881 22 24.5 22H15.5C14.119 22 13 20.881 13 19.5V18.5Z"
+      fill="url(#whiteBarGrad)"
+    />
+
+    <!-- Base inferior: Anclaje y solidez de activos -->
+    <path
+      d="M11 26.5C11 24.567 12.567 23 14.5 23H27V26.5C27 28.433 25.433 30 23.5 30H14.5C12.567 30 11 28.433 11 26.5Z"
+      fill="url(#emblemGrad)"
+    />
+
+    <!-- Pulso dorado: Tesorería y rentabilidad -->
+    <circle cx="27.5" cy="12.5" r="2.2" fill="url(#goldSphere)"/>
+  </g>
+
+  <!-- 6. Tipografía institucional elegante "SMART FINANCE" (dentro de zona visible) -->
+  <g text-anchor="middle">
+    <!-- Texto principal -->
+    <text x="512" y="828" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="52" font-weight="800" letter-spacing="4">
+      <tspan fill="#ffffff">SMART </tspan>
+      <tspan fill="#34d399">FINANCE</tspan>
+    </text>
+
+    <!-- Subtítulo refinado de Tesorería -->
+    <text x="512" y="872" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="600" fill="#94a3b8" letter-spacing="10">
+      PATRIMONIO &amp; TESORERÍA
+    </text>
+  </g>
+
+  <!-- Pequeños acentos decorativos geométricos -->
+  <circle cx="340" cy="866" r="3" fill="#fbbf24" opacity="0.8"/>
+  <circle cx="684" cy="866" r="3" fill="#fbbf24" opacity="0.8"/>
+</svg>

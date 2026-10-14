@@ -6,9 +6,11 @@ import Switch from "./Switch.jsx";
 import ThemeSelector from "./ThemeSelector.jsx";
 import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
 import WhatsAppGroupButton, { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
+import ModalLogoWhatsApp from "./ModalLogoWhatsApp.jsx";
 
 export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante, planActual, isOwner }) {
   const [showPlanesModal, setShowPlanesModal] = useState(false);
+  const [showLogoModal, setShowLogoModal] = useState(false);
   const [usuariosRegistrados, setUsuariosRegistrados] = useState([]);
   const [emailConfig, setEmailConfig] = useState(undefined);
   const [emailInput, setEmailInput] = useState("");
@@ -805,6 +807,39 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
 
       <Section icon={WhatsAppIcon} title="Comunidad y Soporte">
         <WhatsAppGroupButton variant="card" />
+        <button
+          onClick={() => setShowLogoModal(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "100%",
+            marginTop: 10,
+            padding: "11px 14px",
+            background: "var(--paper)",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            cursor: "pointer",
+            textAlign: "left",
+            flexWrap: "wrap",
+            gap: 8,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#0d1b15", border: "1px solid #10b981", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+              <img src="/logo-perfil-whatsapp.svg" alt="Logo preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+                Descargar foto de perfil para el grupo
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+                Logo oficial calibrado para recorte circular de WhatsApp (PNG 1024×1024 y SVG)
+              </div>
+            </div>
+          </div>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--sage)" }}>Ver y Descargar →</span>
+        </button>
       </Section>
 
       <ModalPlanesSuscripcion
@@ -814,6 +849,11 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
         isOwner={isOwner}
         planActual={planActual}
         usuariosRegistrados={usuariosRegistrados}
+      />
+
+      <ModalLogoWhatsApp
+        isOpen={showLogoModal}
+        onClose={() => setShowLogoModal(false)}
       />
     </div>
   );
