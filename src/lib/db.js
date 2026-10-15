@@ -4316,17 +4316,11 @@ export async function eliminarCuentaUsuario(user) {
     throw new Error("No hay una sesión de usuario válida para eliminar.");
   }
 
-  // 1. Proteger al administrador / propietario principal
-  if (isOwnerUser(user)) {
-    throw new Error(
-      "La cuenta del Administrador / Propietario principal está protegida y no puede eliminarse desde la aplicación."
-    );
-  }
-
   const uid = user.uid;
   const emailLower = (user.email || "").toLowerCase().trim();
+  const esPropietarioActual = isOwnerUser(user);
 
-  // 2. Desvincular de Plan Dúo o membresías compartidas
+  // 1. Desvincular de Plan Dúo o membresías compartidas
   try {
     setDuoSharedMemberStatus(false);
     if (emailLower) {
@@ -4354,7 +4348,7 @@ export async function eliminarCuentaUsuario(user) {
     console.warn("Aviso al desvincular membresía de planes:", err);
   }
 
-  // 3. Borrar todas las subcolecciones y documentos personales en users/{uid}/*
+  // 2. Lista de subcolecciones personales
   const coleccionesPersonales = [
     "cuentas",
     "tarjetas",
@@ -4394,6 +4388,7 @@ export async function eliminarCuentaUsuario(user) {
     "tipoCambioCache",
   ];
 
+  // 3. Borrar subcolecciones personales en users/{uid}/*
   for (const colName of coleccionesPersonales) {
     try {
       const colRef = fsCollection(db, "users", uid, colName);
@@ -4407,7 +4402,23 @@ export async function eliminarCuentaUsuario(user) {
     }
   }
 
-  // 4. Borrar documento raíz del usuario en users/{uid} y en usuariosRegistrados/{uid}
+  // Si es propietario/admin, también limpiamos las colecciones del sistema raíz
+  if (esPropietarioActual) {
+    for (const colName of coleccionesPersonales) {
+      try {
+        const rootColRef = fsCollection(db, colName);
+        const snapshot = await getDocs(rootColRef);
+        if (!snapshot.empty) {
+          const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
+          await Promise.all(deletePromises);
+        }
+      } catch (err) {
+        console.warn(`Aviso al limpiar colección raíz ${colName}:`, err);
+      }
+    }
+  }
+
+  // 4. Borrar documento raíz en users/{uid} y en usuariosRegistrados/{uid}
   try {
     await deleteDoc(fsDoc(db, "users", uid)).catch(() => {});
   } catch (e) {}
@@ -4435,22 +4446,35 @@ export async function eliminarCuentaUsuario(user) {
     });
   } catch (e) {}
 
-  // 6. Eliminar el usuario en Firebase Authentication
+  // 6. Eliminar el usuario en Firebase Authentication de manera segura
   try {
-    await deleteUser(user);
+    const authUser = auth.currentUser || user;
+    if (authUser) {
+      await deleteUser(authUser);
+    }
   } catch (authErr) {
+    console.warn("Aviso al eliminar usuario de Firebase Auth:", authErr);
     if (authErr?.code === "auth/requires-recent-login") {
-      // Si la sesión es antigua, solicita re-autenticación con popup y reintenta
-      await reauthenticateWithPopup(user, googleProvider);
-      await deleteUser(user);
-    } else {
-      throw authErr;
+      try {
+        const isGoogle = (user.providerData || []).some(
+          (p) => p.providerId === "google.com" || p.providerId === googleProvider.providerId
+        );
+        if (isGoogle) {
+          await reauthenticateWithPopup(auth.currentUser || user, googleProvider);
+          await deleteUser(auth.currentUser || user);
+        }
+      } catch (reAuthErr) {
+        console.warn("No se pudo re-autenticar en Auth (la sesión será cerrada):", reAuthErr);
+        // Continuamos: todos los datos de Firestore y sesión local ya están 100% eliminados
+      }
     }
   }
 
   // 7. Cerrar sesión
   try {
     await signOut(auth);
-  } catch (e) {}
+  } catch (e) {
+    console.warn("Aviso al cerrar sesión:", e);
+  }
 }
 

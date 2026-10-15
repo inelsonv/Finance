@@ -298,11 +298,14 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
   const programarTooltipMes = (monthIndex) => {
     cancelarTooltipMes();
     setActiveMonth(monthIndex);
-    setTooltipMonth(null);
-    hoverTimerRef.current = setTimeout(() => {
+    if (tooltipMonth != null) {
       setTooltipMonth(monthIndex);
-      hoverTimerRef.current = null;
-    }, 1200);
+    } else {
+      hoverTimerRef.current = setTimeout(() => {
+        setTooltipMonth(monthIndex);
+        hoverTimerRef.current = null;
+      }, 100);
+    }
   };
   const limpiarTooltipMes = () => {
     cancelarTooltipMes();
@@ -417,6 +420,12 @@ function GastosPorMesChart({ movimientos, year, setYear }) {
         <div
           className="despensa-chart-tooltip"
           role="tooltip"
+          style={{
+            top: 10,
+            left: `${Math.min(Math.max((xFor(tooltipMonth) / width) * 100, 26), 74)}%`,
+            transform: "translateX(-50%)",
+            zIndex: 60,
+          }}
         >
           <div className="despensa-chart-tooltip__header">
             <span>{MESES[tooltipMonth]} {year}</span>
@@ -3749,8 +3758,8 @@ function InfoTooltip({ children }) {
             lineHeight: 1.5,
             color: "var(--ink-soft)",
             textAlign: "left",
-            boxShadow: "0 6px 18px rgba(0,0,0,0.18)",
-            zIndex: 20,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.24)",
+            zIndex: 80,
           }}
         >
           {children}
