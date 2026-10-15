@@ -922,7 +922,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
                     <button
                       onClick={() => iniciarCompraPresencial(o)}
                       disabled={busyThis}
-                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--amber)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 700, background: "var(--amber)", color: "#18181b", border: "none", borderRadius: 7, cursor: "pointer" }}
                     >
                       <Store size={12} /> Iniciar compra presencial
                     </button>
@@ -950,7 +950,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
                   <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
                     <button
                       onClick={() => setModoCompraId(o.id)}
-                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--amber)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 700, background: "var(--amber)", color: "#18181b", border: "none", borderRadius: 7, cursor: "pointer" }}
                     >
                       <ShoppingCart size={12} /> Continuar comprando
                     </button>

@@ -522,7 +522,7 @@ export default function EstrategiaDeudas({
                   gap: 6,
                   padding: "8px 12px",
                   background: "var(--amber)",
-                  color: "#fff",
+                  color: "#18181b",
                   border: "none",
                   borderRadius: 8,
                   fontSize: 12.5,
@@ -733,7 +733,7 @@ export default function EstrategiaDeudas({
                   ) : (
                     <button
                       onClick={() => activarPagoRapido(pagoRapidoInfo.deuda.id, pagoRapidoInfo.deuda.nombre, pagoRapidoInfo.extraMensual)}
-                      style={{ padding: "7px 14px", fontSize: 12, fontWeight: 700, background: "var(--amber)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+                      style={{ padding: "7px 14px", fontSize: 12, fontWeight: 700, background: "var(--amber)", color: "#18181b", border: "none", borderRadius: 8, cursor: "pointer" }}
                     >
                       🚀 Activar pago rápido
                     </button>
@@ -799,7 +799,7 @@ export default function EstrategiaDeudas({
                       height: 26,
                       borderRadius: "50%",
                       background: esPrioridad ? "var(--amber)" : "var(--line-soft)",
-                      color: esPrioridad ? "#fff" : "var(--ink-soft)",
+                      color: esPrioridad ? "#18181b" : "var(--ink-soft)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -871,9 +871,9 @@ export default function EstrategiaDeudas({
                         borderRadius: 7,
                         border: "1px solid " + (esPrioridad ? "var(--amber)" : "var(--line)"),
                         background: esPrioridad ? "var(--amber)" : "var(--paper)",
-                        color: esPrioridad ? "#fff" : "var(--ink)",
+                        color: esPrioridad ? "#18181b" : "var(--ink)",
                         fontSize: 12,
-                        fontWeight: 600,
+                        fontWeight: 700,
                         cursor: "pointer",
                         whiteSpace: "nowrap",
                         boxShadow: esPrioridad ? "0 2px 4px rgba(234, 154, 41, 0.25)" : "none",
@@ -1362,7 +1362,7 @@ export default function EstrategiaDeudas({
                   border: "none",
                   borderRadius: 8,
                   background: "var(--amber)",
-                  color: "#fff",
+                  color: "#18181b",
                   fontSize: 12.5,
                   fontWeight: 700,
                   cursor: "pointer",
