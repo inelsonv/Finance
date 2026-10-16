@@ -113,7 +113,29 @@ function ActivityFlowNode({ data }) {
   if (data.categoriaGasto) tooltipLineas.push(`Categoría de gasto: ${data.categoriaGasto}`);
   if (data.clasificacion) tooltipLineas.push(data.clasificacion);
   if (data.advertencia) tooltipLineas.push("⚠ Supera el 30% de tu ingreso — nivel de endeudamiento alto");
+  if (data.esPrioridadDeuda) {
+    tooltipLineas.push(`★ Deuda a pagar según estrategia (${data.metodoEstrategia === "bola" ? "Bola de nieve" : "Avalancha"}) — prioridad actual`);
+  }
+  if (data.esMayorInteresDeuda) {
+    tooltipLineas.push(`⚠ Mayor tasa de interés${data.tasaInteres ? ` (${data.tasaInteres}%)` : ""} — es la deuda que más intereses genera`);
+  }
   const tooltip = tooltipLineas.join("\n");
+
+  let borderColor = "1px solid var(--line)";
+  let boxGlow = "0 1px 3px rgba(0,0,0,0.06)";
+
+  if (data.limitadoEjecucion) {
+    borderColor = "2px solid #b83a2b";
+  } else if (data.activoEjecucion) {
+    borderColor = `2px solid ${color}`;
+    boxGlow = `0 0 0 3px ${color}33, 0 4px 12px rgba(0,0,0,0.12)`;
+  } else if (data.esPrioridadDeuda) {
+    borderColor = "2px solid #f59e0b";
+    boxGlow = "0 0 0 2px rgba(245, 158, 11, 0.25), 0 2px 8px rgba(245, 158, 11, 0.15)";
+  } else if (data.esMayorInteresDeuda) {
+    borderColor = "2px solid #dc2626";
+    boxGlow = "0 0 0 2px rgba(220, 38, 38, 0.25), 0 2px 8px rgba(220, 38, 38, 0.15)";
+  }
 
   return (
     <div
@@ -122,16 +144,10 @@ function ActivityFlowNode({ data }) {
         padding: "8px 12px",
         borderRadius: 8,
         background: "var(--card)",
-        border: data.limitadoEjecucion
-          ? "2px solid #b83a2b"
-          : data.activoEjecucion
-          ? `2px solid ${color}`
-          : "1px solid var(--line)",
-        boxShadow: data.activoEjecucion
-          ? `0 0 0 3px ${color}33, 0 4px 12px rgba(0,0,0,0.12)`
-          : "0 1px 3px rgba(0,0,0,0.06)",
+        border: borderColor,
+        boxShadow: boxGlow,
         minWidth: 140,
-        maxWidth: 200,
+        maxWidth: 220,
         position: "relative",
         fontFamily: "Inter, sans-serif",
         cursor: "pointer",
@@ -189,6 +205,43 @@ function ActivityFlowNode({ data }) {
           >
             {data.label}
           </div>
+
+          {(data.esPrioridadDeuda || data.esMayorInteresDeuda) && (
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
+              {data.esPrioridadDeuda && (
+                <span
+                  style={{
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    padding: "1px 5px",
+                    borderRadius: 4,
+                    background: "rgba(245, 158, 11, 0.18)",
+                    color: "#b45309",
+                    border: "1px solid rgba(245, 158, 11, 0.4)",
+                  }}
+                  title="Deuda que sigue a pagar según tu estrategia activa"
+                >
+                  ★ Pagar siguiente
+                </span>
+              )}
+              {data.esMayorInteresDeuda && (
+                <span
+                  style={{
+                    fontSize: 9.5,
+                    fontWeight: 700,
+                    padding: "1px 5px",
+                    borderRadius: 4,
+                    background: "rgba(220, 38, 38, 0.15)",
+                    color: "#dc2626",
+                    border: "1px solid rgba(220, 38, 38, 0.4)",
+                  }}
+                  title={`Deuda con mayor tasa de interés${data.tasaInteres ? ` (${data.tasaInteres}%)` : ""} — es la que más intereses genera`}
+                >
+                  ⚠ Mayor interés{data.tasaInteres ? ` (${data.tasaInteres}%)` : ""}
+                </span>
+              )}
+            </div>
+          )}
 
           {esIngreso && (
             <div
@@ -338,12 +391,106 @@ function nextId() {
   return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function matchDeuda(node, deuda) {
+  if (!node || !deuda) return false;
+  const data = node.data || {};
+  if (deuda.prestamoId && data.prestamoId && String(deuda.prestamoId) === String(data.prestamoId)) return true;
+  if (deuda.tarjetaId && data.tarjetaId && String(deuda.tarjetaId) === String(data.tarjetaId)) return true;
+  const label = (data.label || "").trim().toLowerCase();
+  const nombre = (deuda.nombre || "").trim().toLowerCase();
+  if (label && nombre && (label === nombre || label.includes(nombre) || nombre.includes(label))) return true;
+  if (deuda.numero && label.includes(String(deuda.numero).toLowerCase())) return true;
+  return false;
+}
+
 export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, prestamos, metasAhorro, movimientos, tarjetas, presupuesto, diasCobro, cuentas, estrategiaDeudas }) {
   // Un préstamo con una sola cuota total (plazo/cuotasPersonalizadas de
   // longitud 1) no es un pago fijo recurrente — se excluye del índice de
   // endeudamiento y del pipeline de flujo en varios lugares de este archivo.
   const cuotasTotalesPrestamo = (p) =>
     p.frecuenciaCuota === "Personalizado" ? (p.cuotasPersonalizadas || []).length : p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
+
+  // Cálculo de la deuda prioritaria a pagar (según la estrategia: bola o avalancha)
+  // y la deuda que más interés genera (mayor tasa)
+  const infoEstrategiaDeudas = useMemo(() => {
+    const pagadoPorPrestamo = {};
+    for (const m of movimientos || []) {
+      if (m.type !== "Gasto" && m.type !== "Transferencia") continue;
+      if (!m.prestamoId) continue;
+      pagadoPorPrestamo[m.prestamoId] = (pagadoPorPrestamo[m.prestamoId] || 0) + (Number(m.amount) || 0);
+    }
+
+    const list = [];
+    for (const p of prestamos || []) {
+      if (p.estado !== "Activo" && p.estado !== "En mora") continue;
+      const pagado = pagadoPorPrestamo[p.id] || 0;
+      const saldo = Math.max((Number(p.montoAprobado) || 0) - pagado, 0);
+      if (saldo <= 0) continue;
+      list.push({
+        id: `p-${p.id}`,
+        tipo: "prestamo",
+        prestamoId: p.id,
+        nombre: `Préstamo ${p.numero || ""}`.trim(),
+        numero: p.numero,
+        saldo,
+        tasaInteres: p.tasaInteres != null ? Number(p.tasaInteres) : null,
+        cuota: Number(p.cuota) || 0,
+      });
+    }
+
+    for (const t of tarjetas || []) {
+      if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito") continue;
+      if (t.saldoActual != null && t.saldoActual > 0) {
+        list.push({
+          id: `t-${t.id}`,
+          tipo: "tarjeta",
+          tarjetaId: t.id,
+          nombre: t.nombre,
+          ultimos4: t.ultimos4,
+          saldo: Number(t.saldoActual) || 0,
+          tasaInteres: t.tasaInteres != null ? Number(t.tasaInteres) : null,
+          cuota: Number(t.pagoMinimo) || 0,
+        });
+      }
+      if (t.saldoActualUSD != null && t.saldoActualUSD > 0) {
+        list.push({
+          id: `t-${t.id}-usd`,
+          tipo: "tarjeta",
+          tarjetaId: t.id,
+          nombre: `${t.nombre} (USD)`,
+          ultimos4: t.ultimos4,
+          saldo: Number(t.saldoActualUSD) || 0,
+          tasaInteres: t.tasaInteres != null ? Number(t.tasaInteres) : null,
+          cuota: Number(t.pagoMinimoUSD) || 0,
+        });
+      }
+    }
+
+    if (list.length === 0) {
+      return { deudaPrioritaria: null, deudaMayorInteres: null, metodo: "bola", listaDeudas: [] };
+    }
+
+    const metodo = estrategiaDeudas?.metodo || "bola";
+    const ordenadas =
+      metodo === "bola"
+        ? [...list].sort((a, b) => a.saldo - b.saldo)
+        : [...list].sort((a, b) => (b.tasaInteres ?? -1) - (a.tasaInteres ?? -1));
+
+    const deudaPrioritaria = ordenadas[0] || null;
+
+    // La deuda con la mayor tasa de interés (la que más intereses genera)
+    const conTasa = list.filter((d) => d.tasaInteres != null && d.tasaInteres > 0);
+    let deudaMayorInteres = null;
+    if (conTasa.length > 0) {
+      conTasa.sort((a, b) => b.tasaInteres - a.tasaInteres || b.saldo - a.saldo);
+      deudaMayorInteres = conTasa[0];
+    } else {
+      const conSaldo = [...list].sort((a, b) => b.saldo - a.saldo);
+      deudaMayorInteres = conSaldo[0] || null;
+    }
+
+    return { deudaPrioritaria, deudaMayorInteres, metodo, listaDeudas: list };
+  }, [prestamos, tarjetas, movimientos, estrategiaDeudas]);
 
   const [nodes, setNodes] = useState(() => flujo?.nodes || defaultNodes());
   const [edges, setEdges] = useState(() => flujo?.edges || defaultEdges());
@@ -415,6 +562,79 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
       loadedOnce.current = true;
     }
   }, [flujo]);
+
+  // Sincronizar colores y marcas de estrategia de deudas en los nodos del diagrama
+  // (amarillo para la que se debe pagar según estrategia, rojo para la de más interés)
+  useEffect(() => {
+    if (!infoEstrategiaDeudas || !infoEstrategiaDeudas.listaDeudas?.length) return;
+    const { deudaPrioritaria, deudaMayorInteres, metodo } = infoEstrategiaDeudas;
+
+    setNodes((prevNodes) => {
+      let huboCambio = false;
+      const actualizados = prevNodes.map((node) => {
+        const esNodoDeuda =
+          node.data?.prestamoId ||
+          node.data?.tarjetaId ||
+          /^(pr[eé]stamo|tarjeta)/i.test(node.data?.label || "");
+        if (!esNodoDeuda) return node;
+
+        const esPrioridad = deudaPrioritaria && matchDeuda(node, deudaPrioritaria);
+        const esMayorInteres = deudaMayorInteres && matchDeuda(node, deudaMayorInteres);
+
+        let targetColor = PALETTE[3];
+        if (esPrioridad) {
+          targetColor = "#f59e0b"; // Amarillo/ámbar de la estrategia: la que se debe pagar
+        } else if (esMayorInteres) {
+          targetColor = "#dc2626"; // Rojo: la que mayor interés genera
+        }
+
+        const tasa = esPrioridad
+          ? deudaPrioritaria?.tasaInteres
+          : esMayorInteres
+          ? deudaMayorInteres?.tasaInteres
+          : node.data?.tasaInteres;
+
+        if (
+          node.data?.color !== targetColor ||
+          node.data?.esPrioridadDeuda !== !!esPrioridad ||
+          node.data?.esMayorInteresDeuda !== !!esMayorInteres ||
+          node.data?.tasaInteres !== tasa
+        ) {
+          huboCambio = true;
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              color: targetColor,
+              esPrioridadDeuda: !!esPrioridad,
+              esMayorInteresDeuda: !!esMayorInteres,
+              metodoEstrategia: metodo,
+              tasaInteres: tasa,
+            },
+          };
+        }
+        return node;
+      });
+
+      if (!huboCambio) return prevNodes;
+
+      // Actualizar también los colores de las aristas que van hacia estas deudas
+      setEdges((prevEdges) =>
+        prevEdges.map((e) => {
+          const targetNode = actualizados.find((n) => n.id === e.target);
+          if (targetNode?.data?.esPrioridadDeuda) {
+            return { ...e, ...edgeStyle("#f59e0b") };
+          }
+          if (targetNode?.data?.esMayorInteresDeuda) {
+            return { ...e, ...edgeStyle("#dc2626") };
+          }
+          return e;
+        })
+      );
+
+      return actualizados;
+    });
+  }, [infoEstrategiaDeudas]);
 
   const onNodesChange = useCallback((changes) => {
     setNodes((nds) => applyNodeChanges(changes, nds));
@@ -631,14 +851,38 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
     });
     conectar(diezmoId, deudasId);
     const nodosDeuda = [
-      ...prestamosActivos.map((p, i) => ({ label: `Préstamo ${p.numero || i + 1}`, amount: Number(p.cuota) || null, icon: "landmark", prestamoId: p.id, entidadName: p.entidadName || null })),
-      ...tarjetasActivas.map((t) => ({ label: `Tarjeta ${t.nombre || ""}${t.ultimos4 ? ` ····${t.ultimos4}` : ""}`, amount: Number(t.pagoMinimo) || null, icon: "creditCard", tarjetaId: t.id, entidadName: t.entidadName || null })),
+      ...prestamosActivos.map((p, i) => ({
+        label: `Préstamo ${p.numero || i + 1}`,
+        amount: Number(p.cuota) || null,
+        icon: "landmark",
+        prestamoId: p.id,
+        entidadName: p.entidadName || null,
+        tasaInteres: p.tasaInteres != null ? Number(p.tasaInteres) : null,
+      })),
+      ...tarjetasActivas.map((t) => ({
+        label: `Tarjeta ${t.nombre || ""}${t.ultimos4 ? ` ····${t.ultimos4}` : ""}`,
+        amount: Number(t.pagoMinimo) || null,
+        icon: "creditCard",
+        tarjetaId: t.id,
+        entidadName: t.entidadName || null,
+        tasaInteres: t.tasaInteres != null ? Number(t.tasaInteres) : null,
+      })),
     ];
     if (nodosDeuda.length > 0) {
       const yPrestamos = y + step;
       const anchoTotal = (nodosDeuda.length - 1) * 210;
       nodosDeuda.forEach((d, i) => {
         const pid = nextId();
+        const esPrioridad = infoEstrategiaDeudas.deudaPrioritaria && matchDeuda({ data: d }, infoEstrategiaDeudas.deudaPrioritaria);
+        const esMayorInteres = infoEstrategiaDeudas.deudaMayorInteres && matchDeuda({ data: d }, infoEstrategiaDeudas.deudaMayorInteres);
+
+        let colorDeuda = PALETTE[3];
+        if (esPrioridad) {
+          colorDeuda = "#f59e0b"; // Amarillo/ámbar de estrategia de deudas (deuda a pagar)
+        } else if (esMayorInteres) {
+          colorDeuda = "#dc2626"; // Rojo: la que genera mayor tasa de interés
+        }
+
         nuevosNodos.push({
           id: pid,
           type: "activity",
@@ -646,15 +890,24 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
           data: {
             label: d.label,
             amount: d.amount,
-            color: PALETTE[3],
+            color: colorDeuda,
             icon: d.icon,
             tipo: "categoria",
+            esPrioridadDeuda: !!esPrioridad,
+            esMayorInteresDeuda: !!esMayorInteres,
+            metodoEstrategia: infoEstrategiaDeudas.metodo,
+            tasaInteres: d.tasaInteres,
             ...(d.prestamoId ? { prestamoId: d.prestamoId } : {}),
             ...(d.tarjetaId ? { tarjetaId: d.tarjetaId } : {}),
             ...(d.entidadName ? { entidadName: d.entidadName } : {}),
           },
         });
-        conectar(deudasId, pid);
+        nuevasAristas.push({
+          id: `e-${deudasId}-${pid}`,
+          source: deudasId,
+          target: pid,
+          ...edgeStyle(colorDeuda),
+        });
       });
     }
     y += nodosDeuda.length > 0 ? step * 2 : step;
@@ -790,21 +1043,8 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
 
     // Deuda prioritaria según el método activo en Estrategia de deudas
     // (bola de nieve: menor saldo primero; avalancha: mayor tasa de
-    // interés primero) — se usa el mismo criterio de esa pantalla.
-    let nombreDeudaPrioritaria = null;
-    if (estrategiaDeudas?.activo) {
-      const candidatas = [
-        ...prestamosActivosPct.map((p) => ({ nombre: `Préstamo ${p.numero || ""}`.trim(), saldo: Number(p.montoAprobado) || 0, tasa: Number(p.tasaInteres) || 0 })),
-        ...tarjetasActivasPct.filter((t) => t.saldoActual > 0).map((t) => ({ nombre: t.nombre, saldo: Number(t.saldoActual) || 0, tasa: Number(t.tasaInteres) || 0 })),
-      ];
-      if (candidatas.length > 0) {
-        const ordenadas =
-          estrategiaDeudas.metodo === "bola"
-            ? [...candidatas].sort((a, b) => a.saldo - b.saldo)
-            : [...candidatas].sort((a, b) => (b.tasa || -1) - (a.tasa || -1));
-        nombreDeudaPrioritaria = ordenadas[0]?.nombre || null;
-      }
-    }
+    // interés primero) — sincronizado con la estrategia.
+    const nombreDeudaPrioritaria = infoEstrategiaDeudas?.deudaPrioritaria?.nombre || null;
 
     // Orden real del pipeline: Ingreso → Diezmo → Gastos fijos → (Pago de
     // deudas si el endeudamiento es urgente) → Ahorro → Inversión →
@@ -828,7 +1068,7 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
         ids: [nodoPrincipal.id, ...hijos.map((h) => h.id)],
         monto: Number(nodoPrincipal.data.amount) || 0,
         hijos,
-        notaPrioridad: esPasoDeDeuda && nombreDeudaPrioritaria ? `Atacar primero: ${nombreDeudaPrioritaria} (${estrategiaDeudas.metodo === "bola" ? "bola de nieve" : "avalancha"})` : null,
+        notaPrioridad: esPasoDeDeuda && nombreDeudaPrioritaria ? `Atacar primero: ${nombreDeudaPrioritaria} (${infoEstrategiaDeudas.metodo === "bola" ? "bola de nieve" : "avalancha"})` : null,
       });
     }
     if (pasos.length <= 1) return;
@@ -1138,6 +1378,37 @@ export default function FlujoEditor({ flujo, fuentesIngreso, categoriasGasto, pr
             </button>
           )}
         </div>
+
+        {infoEstrategiaDeudas.deudaPrioritaria && (
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 10,
+              fontSize: 11,
+              background: "var(--card)",
+              padding: "4px 8px",
+              borderRadius: 8,
+              border: "1px solid var(--line)",
+              flexWrap: "wrap",
+            }}
+            title="Colores sincronizados con tu pantalla de Estrategia de Deuda"
+          >
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#f59e0b", display: "inline-block" }} />
+              <span style={{ color: "var(--ink-soft)" }}>Pagar siguiente:</span>
+              <strong style={{ color: "var(--ink)" }}>{infoEstrategiaDeudas.deudaPrioritaria.nombre}</strong>
+            </span>
+            {infoEstrategiaDeudas.deudaMayorInteres && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#dc2626", display: "inline-block" }} />
+                <span style={{ color: "var(--ink-soft)" }}>Mayor interés:</span>
+                <strong style={{ color: "var(--ink)" }}>{infoEstrategiaDeudas.deudaMayorInteres.nombre}</strong>
+                {infoEstrategiaDeudas.deudaMayorInteres.tasaInteres ? ` (${infoEstrategiaDeudas.deudaMayorInteres.tasaInteres}%)` : ""}
+              </span>
+            )}
+          </div>
+        )}
 
         <span style={{ fontSize: 11.5, color: "var(--ink-soft)", marginLeft: "auto" }}>
           Arrastra para mover · Conecta desde el borde de un nodo · Doble clic en un nodo para editar monto
