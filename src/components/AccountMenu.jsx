@@ -6,6 +6,7 @@ import { getThemeById } from "../lib/themes";
 import ThemeSelector from "./ThemeSelector.jsx";
 import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
 import WhatsAppGroupButton from "./WhatsAppGroupButton.jsx";
+import { SkeletonList } from "./Skeleton.jsx";
 
 const APP_URL = "https://inelsonv.github.io/Finance/";
 
@@ -477,9 +478,7 @@ export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, 
 
             <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 10, paddingRight: 4 }}>
               {usuariosLista.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "24px 12px", color: "var(--ink-soft)", fontSize: 13 }}>
-                  Cargando usuarios registrados…
-                </div>
+                <SkeletonList count={3} />
               ) : (
                 usuariosLista.map((u) => {
                   const esEstePropietario = u.rol === "propietario" || u.email?.toLowerCase() === "iventuramena@gmail.com";

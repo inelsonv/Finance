@@ -43,6 +43,7 @@ import { procesarFacturaConCatalogo, aplicarFacturaACatalogoYMovimientos } from 
 import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
 import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
 import { analizarIntencionAccion, analizarIntencionGasto } from "../lib/asistenteGastoParser";
+import { SkeletonChat } from "./Skeleton";
 
 const SUGERENCIAS = [
   "💳 PT09 paga el total de este préstamo",
@@ -2115,7 +2116,7 @@ export default function Asistente({
         )}
 
         {cargandoMensajes && (
-          <div style={{ alignSelf: "center", padding: "1rem", color: "var(--ink-soft)", fontSize: 12.5 }}>Cargando conversación…</div>
+          <SkeletonChat bubbles={3} />
         )}
 
         {mensajes.length === 0 && !cargandoMensajes && (

@@ -535,6 +535,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         </button>
       </div>
 
+      <div key={`${periodo.year}-${periodo.month}-${periodo.quincena}`} className="fade-in-quick">
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
           <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Total a pagar</div>
@@ -1333,6 +1334,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         fuentesIngreso={fuentesIngreso}
         overridesLocales={overridesLocales}
       />
+      </div>
     </div>
   );
 }

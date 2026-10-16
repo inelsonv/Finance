@@ -1076,6 +1076,7 @@ export default function App() {
         </div>
 
         <ErrorBoundary key={tab} onGoHome={() => setTab("inicio")}>
+        <div key={tab} className="tab-content-enter">
         {!esPropietario && ADMIN_ONLY_TABS.has(tab) && (
           <div style={{ textAlign: "center", padding: "4rem 1.5rem" }}>
             <div style={{ fontSize: 44, marginBottom: 14 }}>🔒</div>
@@ -1382,6 +1383,7 @@ export default function App() {
           />
         )}
         {esPropietario && tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
+        </div>
         </ErrorBoundary>
       </main>
       {asistenteFlotanteActivo && tab !== "asistente" && (

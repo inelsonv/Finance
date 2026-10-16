@@ -10,6 +10,7 @@ import { confirm } from "../lib/confirm";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import { obtenerIconoYDetalleMeta } from "../lib/metaIconos";
+import { Skeleton } from "./Skeleton";
 
 function formatDateDisplay(dateStr) {
   if (!dateStr) return "";
@@ -1831,6 +1832,17 @@ function DolarCard() {
           <AlertTriangle size={15} />
           No se pudo obtener el tipo de cambio ahora.
         </div>
+      ) : status === "loading" && rates.USD == null ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "center" }}>
+          <div style={{ background: "var(--paper)", borderRadius: 8, padding: "8px 10px", border: "1px solid var(--line-soft)" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Dólar (USD)</div>
+            <Skeleton width="60%" height={26} borderRadius={5} />
+          </div>
+          <div style={{ background: "var(--paper)", borderRadius: 8, padding: "8px 10px", border: "1px solid var(--line-soft)" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Euro (EUR)</div>
+            <Skeleton width="60%" height={26} borderRadius={5} />
+          </div>
+        </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "center" }}>
           <div style={{ background: "var(--paper)", borderRadius: 8, padding: "8px 10px", border: "1px solid var(--line-soft)" }}>
@@ -1855,7 +1867,13 @@ function DolarCard() {
       )}
 
       <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 10 }}>
-        {updatedAt ? `Actualizado ${updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })} · Mercado de divisas` : "Cargando tasas de cambio…"}
+        {status === "loading" && !updatedAt ? (
+          <Skeleton width={140} height={11} borderRadius={3} />
+        ) : updatedAt ? (
+          `Actualizado ${updatedAt.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })} · Mercado de divisas`
+        ) : (
+          "Consultando tasas de cambio…"
+        )}
       </div>
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
