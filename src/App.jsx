@@ -1243,7 +1243,14 @@ export default function App() {
         {tab === "ingresos" && (
           <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} ingresosPuntuales={ingresosPuntuales} />
         )}
-        {tab === "presupuesto-categoria-gasto" && <CategoriaGasto movimientos={movimientos} categoriasPersonalizadas={categoriasGasto} />}
+        {tab === "presupuesto-categoria-gasto" && (
+          <CategoriaGasto
+            movimientos={movimientos}
+            categoriasPersonalizadas={categoriasGasto}
+            tarjetas={tarjetas}
+            cuentas={cuentas}
+          />
+        )}
         {(tab === "presupuesto-mensual" || tab === "presupuesto-metodologia" || tab === "presupuesto") && (
           <PresupuestoAnual
             presupuesto={presupuestoAnual}
