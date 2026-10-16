@@ -274,7 +274,9 @@ function QuincenaActualCard({ fechaInicio, fechaFin, presupuestado, gastado }) {
 
       <div style={{ fontSize: 11.5, color, marginTop: 6 }}>
         {excedido
-          ? `Te excediste por ${formatMoney(Math.abs(restante))} (${pct}% de lo presupuestado).`
+          ? `Superaste el presupuesto por ${formatMoney(Math.abs(restante))} (${pct}% de lo presupuestado).`
+          : restante === 0 && gastado > 0
+          ? `100% ejecutado — cumpliste tu presupuesto con exactitud.`
           : `${pct}% ejecutado — te quedan ${formatMoney(restante)} disponibles esta quincena.`}
       </div>
     </div>

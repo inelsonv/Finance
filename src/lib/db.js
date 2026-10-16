@@ -1148,13 +1148,26 @@ export function watchAjustesPresupuestoHistorial(onChange, onError) {
 // de la PRÓXIMA quincena a lo que realmente se gastó (sin pasar del tope).
 // Protegido contra doble-ejecución con un documento por periodo, igual que la
 // evaluación de cumplimiento general.
-export async function evaluarAjustesPresupuesto(periodoKey, gastoPorCategoria, presupuestoPorCategoria, topes, destino) {
+export async function evaluarAjustesPresupuesto(periodoKey, gastoPorCategoria, presupuestoPorCategoria, topes, destino, categoriasGasto = []) {
   const ref = doc(db, "presupuestoAjustesEvaluados", periodoKey);
   const snap = await getDoc(ref);
   if (snap.exists()) return;
   await setDoc(ref, { evaluado: true, evaluadoEn: serverTimestamp() });
 
+  const categoriasMap = {};
+  (categoriasGasto || []).forEach((c) => {
+    categoriasMap[c.nombre] = c;
+  });
+
   for (const categoria of Object.keys(topes || {})) {
+    // Los gastos fijos no tienen tope de ajuste; son obligaciones acordadas de monto fijo
+    const catObj = categoriasMap[categoria];
+    const esFijo =
+      catObj?.clasificacion === "Fijo" ||
+      catObj?.tipoGastoChecklist === "pago_unico" ||
+      /^(estacionamiento|parqueo|alquiler|renta|mantenimiento|colegiatura|universidad|colegio|gym|gimnasio|internet|telefono|celular|seguro|cuota|vivienda|servicios)/i.test(categoria);
+    if (esFijo) continue;
+
     const tope = Number(topes[categoria]);
     if (!Number.isFinite(tope) || tope <= 0) continue;
     const gastado = Number(gastoPorCategoria[categoria]) || 0;

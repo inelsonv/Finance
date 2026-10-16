@@ -4,7 +4,7 @@ import { useNotificaciones, etiquetaDias } from "./NotificationBell.jsx";
 
 function Fila({ n, yaLeida, onOpen, onWhatsapp }) {
   const Icon = n.icon;
-  const etiqueta = etiquetaDias(n.dias);
+  const etiqueta = etiquetaDias(n.dias, n.tipoNotif);
   return (
     <div
       role="button"
@@ -102,6 +102,7 @@ export default function NotificacionesPage({
   estrategiaDeudas,
   tipoCambio,
   isOwner = false,
+  checklistTodos,
 }) {
   const [leidas, setLeidas] = useState(() => {
     try {
@@ -136,6 +137,7 @@ export default function NotificacionesPage({
     estrategiaDeudas,
     tipoCambio,
     isOwner,
+    checklistTodos,
   });
 
   const codigoEmpleado = (fuentesIngreso || []).find((f) => f.estado === "Activo" && f.codigoEmpleado)?.codigoEmpleado || "";

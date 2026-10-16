@@ -811,7 +811,14 @@ export default function App() {
       if (typeof val === "number") presupuestoPorCategoria[c.nombre] = val;
     }
 
-    evaluarAjustesPresupuesto(periodoKey(periodoCerrado), gastoPorCategoria, presupuestoPorCategoria, topesAjuste, periodoActualConfigurado(diasCobro)).catch((err) =>
+    evaluarAjustesPresupuesto(
+      periodoKey(periodoCerrado),
+      gastoPorCategoria,
+      presupuestoPorCategoria,
+      topesAjuste,
+      periodoActualConfigurado(diasCobro),
+      categoriasGasto
+    ).catch((err) =>
       console.error("No se pudieron evaluar los ajustes automáticos de presupuesto:", err)
     );
   }, [authorized, presupuestoAnual, categoriasGasto, movimientos, presupuestoYear, topesAjuste, diasCobro]);
@@ -947,6 +954,7 @@ export default function App() {
         presupuesto={presupuestoAnual}
         presupuestoYear={presupuestoYear}
         seguros={seguros}
+        checklistTodos={checklistTodos}
       />
       <PullToRefresh />
       <main className={`despensa-main${tab === "asistente" ? " despensa-main--assistant" : ""}`}>
@@ -1054,6 +1062,7 @@ export default function App() {
                   estrategiaDeudas={estrategiaDeudas}
                   tipoCambio={tipoCambio}
                   isOwner={esPropietario}
+                  checklistTodos={checklistTodos}
                 />
               </div>
               <AccountMenu
@@ -1146,6 +1155,7 @@ export default function App() {
             estrategiaDeudas={estrategiaDeudas}
             tipoCambio={tipoCambio}
             isOwner={esPropietario}
+            checklistTodos={checklistTodos}
           />
         )}
         {tab === "puntos" && (

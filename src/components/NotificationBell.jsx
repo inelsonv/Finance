@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, AlertCircle, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, TrendingDown as TrendingDownIcon, Flame, ListTodo, Lightbulb, BookOpen, FileText } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, AlertCircle, CheckCircle2, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, TrendingDown as TrendingDownIcon, Flame, ListTodo, Lightbulb, BookOpen, FileText } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { periodoDeFecha } from "../lib/rachaHabito";
-import { consumoPresupuesto } from "../lib/presupuestoConsumo";
+import { consumoPresupuesto, quincenaDeFecha } from "../lib/presupuestoConsumo";
+import { GASTO_CATS_FIJO } from "../lib/categorias";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { obtenerConsejoDelDia } from "../lib/consejosFinancieros";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -94,7 +95,7 @@ function yaPagadoEsteMes(movimientos, category, idField, id, today) {
   return movimientos.some((m) => m.category === category && m[idField] === id && (m.date || "").startsWith(prefix));
 }
 
-export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, isOwner = false }) {
+export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, isOwner = false, checklistTodos }) {
   const [inflacionRD, setInflacionRD] = useState(null);
   useEffect(() => {
     let cancelado = false;
@@ -532,17 +533,34 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       }
     }
 
+    // Mapa de categorías para consulta rápida de clasificación y atributos
+    const nombresCategoriasGasto = new Set((categoriasGasto || []).map((c) => c.nombre));
+    const categoriasMap = {};
+    (categoriasGasto || []).forEach((c) => {
+      categoriasMap[c.nombre] = c;
+    });
+
     for (const aj of ajustesPresupuesto || []) {
       // Solo mostrar ajustes de los últimos 3 días, para no acumular ruido.
       const fechaAjuste = aj.createdAt?.toDate ? aj.createdAt.toDate() : null;
       if (!fechaAjuste) continue;
       const diasDesde = Math.floor((Date.now() - fechaAjuste.getTime()) / 86400000);
       if (diasDesde > 3) continue;
+
+      // Los gastos fijos no tienen tope de ajuste ni deben generar alerta de exceso
+      const catObj = categoriasMap[aj.categoria];
+      const esGastoFijo =
+        catObj?.clasificacion === "Fijo" ||
+        catObj?.tipoGastoChecklist === "pago_unico" ||
+        GASTO_CATS_FIJO.includes(aj.categoria) ||
+        /^(estacionamiento|parqueo|alquiler|renta|mantenimiento|colegiatura|universidad|colegio|gym|gimnasio|internet|telefono|celular|seguro|cuota|vivienda|servicios)/i.test(aj.categoria);
+      if (esGastoFijo) continue;
+
       list.push({
         id: `ajuste-presupuesto-${aj.id}`,
         icon: Gauge,
         titulo: `Ajustamos "${aj.categoria}" a ${formatMoneyNotif(aj.montoNuevo)}`,
-        subtitulo: `Te excediste la quincena pasada (gastaste ${formatMoneyNotif(aj.gastado)}) — ajustamos tu presupuesto de esta quincena.`,
+        subtitulo: `Ajustamos tu presupuesto para reflejar tu consumo real de ${formatMoneyNotif(aj.gastado)} en la quincena pasada.`,
         dias: -1,
         tab: "presupuesto-mensual",
       });
@@ -564,39 +582,145 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
 
     if (presupuesto && presupuestoYear) {
       const { year, month, quincena } = periodoActualConfigurado(diasCobro);
-      // Solo categorías de gasto reales (nunca préstamos u otras cosas que no
-      // sean gasto propiamente).
-      const nombresCategoriasGasto = new Set((categoriasGasto || []).map((c) => c.nombre));
+
+      // Obtener el checklist de la quincena actual buscando ambas variantes de key (con o sin padding de mes)
+      const pKeySinPad = `${year}-${month}-${quincena}`;
+      const pKeyConPad = `${year}-${String(month).padStart(2, "0")}-${quincena}`;
+      const checklistActual = {
+        ...(checklistTodos?.[pKeySinPad]?.items || {}),
+        ...(checklistTodos?.[pKeyConPad]?.items || {}),
+      };
+
       if (year === presupuestoYear) {
         for (const categoria of Object.keys(presupuesto)) {
           if (!nombresCategoriasGasto.has(categoria)) continue;
-          const resultado = consumoPresupuesto({ presupuesto, movimientos, categoria, year, month, quincena, diasCobro });
-          if (!resultado || resultado.pct < 80) continue;
-          const excedido = resultado.pct >= 100;
-          list.push({
-            id: `presupuesto-${categoria}`,
-            icon: excedido ? AlertCircle : Wallet,
-            titulo: `${categoria}: ${Math.round(resultado.pct)}% del presupuesto usado`,
-            subtitulo: excedido ? "¡Te excediste de lo presupuestado esta quincena!" : "Ya pasaste el 80% de lo presupuestado",
-            dias: excedido ? -1 : 0,
-            tab: "presupuesto-mensual",
+          const catObj = categoriasMap[categoria];
+
+          // Buscar el ítem en el checklist (exacto, trim o case-insensitive)
+          let itemCheck = checklistActual[categoria] || checklistActual[categoria.trim()];
+          if (!itemCheck) {
+            const normCat = categoria.trim().toLowerCase();
+            for (const [k, v] of Object.entries(checklistActual)) {
+              if (k.trim().toLowerCase() === normCat) {
+                itemCheck = v;
+                break;
+              }
+            }
+          }
+          const pagadoEnCheck = !!itemCheck?.pagado;
+
+          // Movimiento generado desde el checklist para esta categoría en la quincena
+          const tieneMovimientoChecklist = (movimientos || []).some((m) => {
+            if (m.type !== "Gasto") return false;
+            if (m.category !== categoria && m.category?.trim().toLowerCase() !== categoria.trim().toLowerCase()) return false;
+            const q = quincenaDeFecha(m.date, diasCobro);
+            if (!q || q.year !== year || q.month !== month || q.quincena !== quincena) return false;
+            return !!m.origenChecklist;
           });
+
+          // Determinar si es gasto fijo:
+          // 1) clasificacion explícita "Fijo"
+          // 2) tipoGastoChecklist "pago_unico"
+          // 3) pertenece a las categorías fijas por defecto (GASTO_CATS_FIJO)
+          // 4) clasificacion no es "Variable"
+          // 5) nombres comunes de gastos fijos (estacionamiento, parqueo, alquiler, servicios, etc.)
+          const esFijo =
+            catObj?.clasificacion === "Fijo" ||
+            catObj?.tipoGastoChecklist === "pago_unico" ||
+            GASTO_CATS_FIJO.includes(categoria) ||
+            catObj?.clasificacion !== "Variable" ||
+            /^(estacionamiento|parqueo|alquiler|renta|mantenimiento|colegiatura|universidad|colegio|gym|gimnasio|internet|telefono|celular|seguro|cuota|vivienda|servicios)/i.test(categoria);
+
+          const resultado = consumoPresupuesto({ presupuesto, movimientos, categoria, year, month, quincena, diasCobro });
+          if (!resultado) continue;
+
+          const gastado = Number(resultado.gastado) || 0;
+          const presupuestado = Number(resultado.presupuestado) || 0;
+          if (presupuestado <= 0 && gastado <= 0) continue;
+
+          // 1. CASO: GASTO FIJO O MARCADO EN EL CHECKLIST
+          // Los gastos fijos no tienen un "tope" como los variables; pagar lo presupuestado o marcar el check es cumplir la obligación.
+          if (esFijo || pagadoEnCheck || tieneMovimientoChecklist) {
+            if (pagadoEnCheck || tieneMovimientoChecklist || (gastado > 0 && gastado <= presupuestado + 1)) {
+              list.push({
+                id: `presupuesto-${categoria}`,
+                icon: CheckCircle2,
+                color: "var(--sage)",
+                tipoNotif: "exito",
+                titulo: `${categoria}: Completaste el pago`,
+                subtitulo: `Pagaste lo presupuestado (${formatMoneyNotif(gastado || presupuestado)}) para esta quincena.`,
+                dias: 0,
+                tab: "checklist-pagos",
+              });
+            } else if (gastado > presupuestado + 1) {
+              list.push({
+                id: `presupuesto-${categoria}`,
+                icon: CheckCircle2,
+                color: "var(--sage)",
+                tipoNotif: "exito",
+                titulo: `${categoria}: Completaste el pago`,
+                subtitulo: `Pagaste ${formatMoneyNotif(gastado)} (presupuestado: ${formatMoneyNotif(presupuestado)}) para esta quincena.`,
+                dias: 0,
+                tab: "checklist-pagos",
+              });
+            }
+            continue;
+          }
+
+          // 2. CASO GASTO VARIABLE (se va consumiendo gradualmente en la quincena)
+          if (resultado.pct < 80) continue;
+
+          const excedido = gastado > presupuestado + 1;
+          const cumplioExacto = !excedido && gastado >= presupuestado - 1;
+
+          if (cumplioExacto) {
+            list.push({
+              id: `presupuesto-${categoria}`,
+              icon: CheckCircle2,
+              color: "var(--sage)",
+              tipoNotif: "exito",
+              titulo: `${categoria}: Completaste el presupuesto`,
+              subtitulo: `Alcanzaste el 100% presupuestado (${formatMoneyNotif(gastado)}) sin excederte.`,
+              dias: 0,
+              tab: "presupuesto-mensual",
+            });
+          } else if (excedido) {
+            const diferencia = gastado - presupuestado;
+            list.push({
+              id: `presupuesto-${categoria}`,
+              icon: AlertCircle,
+              titulo: `${categoria}: Superaste el presupuesto`,
+              subtitulo: `Gastaste ${formatMoneyNotif(gastado)} — superó por ${formatMoneyNotif(diferencia)} los ${formatMoneyNotif(presupuestado)} presupuestados.`,
+              dias: -1,
+              tab: "presupuesto-mensual",
+            });
+          } else {
+            list.push({
+              id: `presupuesto-${categoria}`,
+              icon: Wallet,
+              titulo: `${categoria}: ${Math.round(resultado.pct)}% del presupuesto usado`,
+              subtitulo: `Has consumido ${formatMoneyNotif(gastado)} de ${formatMoneyNotif(presupuestado)}. Te quedan ${formatMoneyNotif(presupuestado - gastado)}.`,
+              dias: 0,
+              tab: "presupuesto-mensual",
+            });
+          }
         }
       }
     }
 
     return list.sort((a, b) => a.dias - b.dias);
-  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, inflacionRD, isOwner]);
+  }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, inflacionRD, isOwner, checklistTodos]);
 }
 
-export function etiquetaDias(dias) {
+export function etiquetaDias(dias, tipoNotif) {
+  if (tipoNotif === "exito") return { label: "Completado", color: "var(--sage)", bg: "var(--sage-bg)" };
   if (dias <= 0) return { label: "Hoy", color: "var(--stamp)", bg: "var(--stamp-bg)" };
   if (dias === 1) return { label: "Mañana", color: "var(--stamp)", bg: "var(--stamp-bg)" };
   if (dias <= 3) return { label: `En ${dias} días`, color: "var(--amber)", bg: "var(--amber-bg)" };
   return { label: `En ${dias} días`, color: "var(--ink-soft)", bg: "var(--line-soft)" };
 }
 
-export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, isOwner = false }) {
+export default function NotificationBell({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, fuentesIngreso, eventos, presupuesto, presupuestoYear, seguros, onNavigate, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, isOwner = false, checklistTodos }) {
   const [open, setOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [emailConfig, setEmailConfig] = useState(undefined);
@@ -610,7 +734,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
     }
   });
   const ref = useRef(null);
-  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, isOwner });
+  const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, isOwner, checklistTodos });
 
   const firma = (n) => `${n.id}:${n.dias}`;
   const noLeidas = notificaciones.filter((n) => !leidas.has(firma(n)));
@@ -785,7 +909,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
           ) : (
             notificaciones.map((n) => {
               const Icon = n.icon;
-              const etiqueta = etiquetaDias(n.dias);
+              const etiqueta = etiquetaDias(n.dias, n.tipoNotif);
               const yaLeida = leidas.has(firma(n));
               return (
                 <div

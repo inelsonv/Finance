@@ -46,6 +46,7 @@ export default function BottomNav({
   versiculoHoy,
   habitos,
   habitosRegistro,
+  checklistTodos,
 }) {
   const [showGasto, setShowGasto] = useState(false);
 
@@ -72,6 +73,7 @@ export default function BottomNav({
     habitos,
     habitosRegistro,
     isOwner,
+    checklistTodos,
   });
   const noLeidas = contarNoLeidas(notificaciones);
 

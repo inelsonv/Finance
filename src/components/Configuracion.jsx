@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bot, Palette, Heart, Sparkles, AlertTriangle, Trash2, Lock } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig, watchUsuariosRegistrados, eliminarCuentaUsuario } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import { GASTO_CATS_FIJO } from "../lib/categorias";
 import Switch from "./Switch.jsx";
 import ThemeSelector from "./ThemeSelector.jsx";
 import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
@@ -748,10 +749,9 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
 
       <Section icon={Gauge} title="Tope de ajuste automático de presupuesto">
         <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
-          Si te excedes del presupuesto de una categoría en una quincena, la app puede ajustar automáticamente el
-          presupuesto de la <strong>próxima</strong> quincena para reflejar lo que realmente gastas (ej. si tu
-          transporte diario cuesta más de lo presupuestado). El ajuste nunca pasa del tope que definas aquí. Deja el
-          campo vacío para desactivar el ajuste automático en esa categoría.
+          Si tienes un gasto variable que fluctúa (como combustible o supermercado), la app puede ajustar automáticamente el
+          presupuesto de la <strong>próxima</strong> quincena para reflejar lo que realmente gastas, sin pasar del tope que definas aquí.
+          Los <strong>gastos fijos</strong> (como alquiler, estacionamiento o cuotas) no tienen tope porque son obligaciones acordadas de monto fijo; pagar lo pactado es cumplir el compromiso.
         </div>
         {(categoriasGasto || []).length === 0 ? (
           <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
@@ -759,21 +759,42 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {categoriasGasto.map((c) => (
-              <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <span style={{ fontSize: 13 }}>{c.nombre}</span>
-                <input
-                  className="despensa-mono"
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="Sin tope"
-                  defaultValue={topesAjuste[c.nombre] || ""}
-                  onBlur={(e) => saveTopeAjuste(c.nombre, e.target.value)}
-                  style={{ width: 100, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5, textAlign: "right" }}
-                />
-              </div>
-            ))}
+            {categoriasGasto.map((c) => {
+              const esFijo =
+                c.clasificacion === "Fijo" ||
+                c.tipoGastoChecklist === "pago_unico" ||
+                GASTO_CATS_FIJO.includes(c.nombre) ||
+                /^(estacionamiento|parqueo|alquiler|renta|mantenimiento|colegiatura|universidad|colegio|gym|gimnasio|internet|telefono|celular|seguro|cuota|vivienda|servicios)/i.test(c.nombre);
+
+              return (
+                <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: esFijo ? 600 : 400 }}>{c.nombre}</span>
+                    {esFijo && (
+                      <span style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, background: "var(--stamp-bg)", color: "var(--stamp)", fontWeight: 600 }}>
+                        Gasto fijo (no aplica tope)
+                      </span>
+                    )}
+                  </div>
+                  {esFijo ? (
+                    <span style={{ fontSize: 11.5, color: "var(--ink-soft)", fontStyle: "italic" }}>
+                      Monto fijo pactado
+                    </span>
+                  ) : (
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="Sin tope"
+                      defaultValue={topesAjuste[c.nombre] || ""}
+                      onBlur={(e) => saveTopeAjuste(c.nombre, e.target.value)}
+                      style={{ width: 100, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5, textAlign: "right" }}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </Section>
