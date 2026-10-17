@@ -136,6 +136,7 @@ const ref = (storageInstance, path) => {
   return fsRef(storageInstance, `users/${current.uid}/${path}`);
 };
 import { rangoFechasQuincenaConfigurado } from "./quincenaConfig";
+import { unidadesRestantesProducto, todayStr } from "./inventario";
 import { httpsCallable } from "firebase/functions";
 
 export function watchConnectionStatus(onChange) {
@@ -1504,7 +1505,7 @@ function calcularQuincenasConsecutivas(fechaInicio, cantidad) {
 // (la última absorbe el redondeo) y suma cada cuota al presupuesto de la
 // categoría indicada, en quincenas consecutivas a partir de la fecha de
 // compra. Todo en una sola operación, para que quede reflejado de inmediato.
-export async function addCompraProrateada({ nombre, montoTotal, cuotas, categoria, fechaInicio }) {
+export async function addCompraProrateada({ nombre, montoTotal, cuotas, categoria, fechaInicio, productoId, paquetesInventario, unidadesInventario }) {
   const total = Math.round((Number(montoTotal) || 0) * 100) / 100;
   const numCuotas = Math.max(1, parseInt(cuotas, 10) || 1);
   if (total <= 0) throw new Error("El monto total debe ser mayor a cero");
@@ -1539,7 +1540,7 @@ export async function addCompraProrateada({ nombre, montoTotal, cuotas, categori
     await setDoc(doc(db, "presupuestos", year), merge, { merge: true });
   }
 
-  await addDoc(collection(db, "comprasProrateadas"), {
+  const docRef = await addDoc(collection(db, "comprasProrateadas"), {
     nombre: nombre || "Compra prorateada",
     montoTotal: total,
     cuotas: numCuotas,
@@ -1547,8 +1548,12 @@ export async function addCompraProrateada({ nombre, montoTotal, cuotas, categori
     categoria,
     fechaInicio,
     cuotasDetalle,
+    productoId: productoId || null,
+    paquetesInventario: paquetesInventario || null,
+    unidadesInventario: unidadesInventario || null,
     createdAt: serverTimestamp(),
   });
+  return docRef;
 }
 
 export function watchComprasProrateadas(onChange, onError) {
@@ -1581,6 +1586,27 @@ export async function deleteCompraProrateada(id, compra) {
     }
     await setDoc(doc(db, "presupuestos", year), merge, { merge: true });
   }
+
+  // Si la compra había sumado stock al inventario, descuenta esas unidades
+  if (compra.productoId && compra.unidadesInventario) {
+    try {
+      const prodRef = doc(db, "productos", compra.productoId);
+      const prodSnap = await getDoc(prodRef);
+      if (prodSnap.exists()) {
+        const prodData = prodSnap.data();
+        const unidadesCalculadas = unidadesRestantesProducto(prodData);
+        const disponiblesHoy = unidadesCalculadas != null ? unidadesCalculadas : (Number(prodData.unidadesDisponibles) || 0);
+        const nuevoDisponibles = Math.max(0, disponiblesHoy - compra.unidadesInventario);
+        await updateDoc(prodRef, {
+          fechaInicio: todayStr(),
+          unidadesDisponibles: nuevoDisponibles,
+        });
+      }
+    } catch (err) {
+      console.error("Error al revertir inventario de compra prorateada:", err);
+    }
+  }
+
   await deleteDoc(doc(db, "comprasProrateadas", id));
 }
 
