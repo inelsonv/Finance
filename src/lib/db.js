@@ -422,6 +422,28 @@ export async function updateProducto(id, fields) {
   await updateDoc(doc(db, "productos", id), fields);
 }
 
+export async function registrarDisparoPedidoAutomatico(productId, infoPedido) {
+  await updateDoc(doc(db, "productos", productId), {
+    ultimoPedidoAutomatico: infoPedido,
+  });
+}
+
+export async function registrarPedidoFarmacia({ productId, productName, entidadId, entidadName, telefono, cantidad, notas, automatico = false }) {
+  const docRef = await addDoc(collection(db, "pedidosFarmacia"), {
+    productId,
+    productName,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "Farmacia",
+    telefono: telefono || "",
+    cantidad: cantidad || 1,
+    notas: notas || "",
+    automatico: !!automatico,
+    estado: "solicitado",
+    createdAt: serverTimestamp(),
+  });
+  return docRef;
+}
+
 export async function deleteProduct(id) {
   await deleteDoc(doc(db, "productos", id));
 }
@@ -463,7 +485,7 @@ export function watchEntidades(onChange, onError) {
 }
 
 export async function addEntidad({ name, type, address, phone, notes }) {
-  await addDoc(collection(db, "entidades"), {
+  const docRef = await addDoc(collection(db, "entidades"), {
     name,
     type,
     address: address || "",
@@ -471,6 +493,7 @@ export async function addEntidad({ name, type, address, phone, notes }) {
     notes: notes || "",
     createdAt: serverTimestamp(),
   });
+  return docRef;
 }
 
 export async function updateEntidad(docId, fields) {

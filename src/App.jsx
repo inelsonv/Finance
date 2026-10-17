@@ -7,7 +7,8 @@ import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
 import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
 import { lanzarCoheteHaciaPuntos } from "./lib/coheteVolando";
 import { reproducirSonidoCofre } from "./lib/sonidos";
-import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas, watchEstrategiaDeudas, watchTipoCambioCache } from "./lib/db";
+import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas, watchEstrategiaDeudas, watchTipoCambioCache, registrarDisparoPedidoAutomatico, registrarPedidoFarmacia } from "./lib/db";
+import { evaluarPedidosAutomaticos } from "./lib/inventario";
 import { periodoDeFecha } from "./lib/rachaHabito";
 import { detectarRachaRota } from "./lib/rachaHabito";
 import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
@@ -252,6 +253,7 @@ export default function App() {
   const [showConsejoModal, setShowConsejoModal] = useState(false);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
+  const [focusProductId, setFocusProductId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
   const [presupuestoYear, setPresupuestoYear] = useState(() => new Date().getFullYear());
   const [loading, setLoading] = useState(true);
@@ -377,7 +379,7 @@ export default function App() {
     }
   }, [tab, authUser, esPropietario]);
 
-  const handleNavigate = (tabId, periodoObjetivo) => {
+  const handleNavigate = (tabId, periodoObjetivo, productId) => {
     if (tabId === "consejo-modal") {
       setShowConsejoModal(true);
       return;
@@ -401,6 +403,7 @@ export default function App() {
     }
     seleccionarTab(tabId);
     if (periodoObjetivo) setChecklistPeriodoInicial(periodoObjetivo);
+    if (productId) setFocusProductId(productId);
   };
   const handleSearchNavigate = (tabId, recordId) => {
     seleccionarTab(tabId);
@@ -823,6 +826,19 @@ export default function App() {
     );
   }, [authorized, presupuestoAnual, categoriasGasto, movimientos, presupuestoYear, topesAjuste, diasCobro]);
 
+  // Revisa productos de inventario con pedido automático activo (ej. medicamentos/pastillas)
+  // que hayan alcanzado su umbral de agotamiento (o <= 5 unidades) y solicita la orden
+  // automáticamente a Farmacia Los Hidalgos, notificando de inmediato al usuario.
+  useEffect(() => {
+    if (!authorized || !esPropietario || !products || products.length === 0) return;
+    evaluarPedidosAutomaticos(
+      products,
+      entidades,
+      registrarDisparoPedidoAutomatico,
+      registrarPedidoFarmacia
+    ).catch((err) => console.error("No se pudieron evaluar los pedidos automáticos de farmacia:", err));
+  }, [authorized, esPropietario, products, entidades]);
+
   // Al abrir la app, revisa cada tarjeta activa con TAE configurada: si su
   // ciclo de corte más reciente ya venció el plazo de gracia sin saldarse,
   // aplica automáticamente el interés (y la mora, si está configurada) al
@@ -1220,6 +1236,8 @@ export default function App() {
             onNavigate={setTab}
             categoriasGasto={categoriasGasto}
             comprasProrateadas={comprasProrateadas}
+            focusProductId={focusProductId}
+            onClearFocus={() => setFocusProductId(null)}
           />
         )}
         {esPropietario && tab === "recetas" && (

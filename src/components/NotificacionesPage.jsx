@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { AlertCircle, MessageCircle, Check, MoreHorizontal } from "lucide-react";
+import { AlertCircle, MessageCircle, Check, MoreHorizontal, Pill } from "lucide-react";
 import { useNotificaciones, etiquetaDias } from "./NotificationBell.jsx";
+import { formatWhatsappUrl, construirMensajePedidoFarmacia } from "../lib/inventario";
 
 function Fila({ n, yaLeida, onOpen, onWhatsapp }) {
   const Icon = n.icon;
@@ -62,7 +63,8 @@ function Fila({ n, yaLeida, onOpen, onWhatsapp }) {
               cursor: "pointer",
             }}
           >
-            <MessageCircle size={12} /> Pedir por WhatsApp
+            {n.whatsapp.esFarmacia ? <Pill size={12} /> : <MessageCircle size={12} />}
+            {n.whatsapp.esFarmacia ? "Pedir a la Farmacia por WhatsApp" : "Pedir por WhatsApp"}
           </button>
         )}
       </div>
@@ -172,10 +174,20 @@ export default function NotificacionesPage({
 
   const pedirPorWhatsapp = (n, e) => {
     e.stopPropagation();
-    const telefono = n.whatsapp.telefono.replace(/\D/g, "");
-    const partes = [`Hola, quisiera pedir: ${n.whatsapp.producto}.`];
-    if (codigoEmpleado) partes.push(`Código de empleado: ${codigoEmpleado}.`);
-    window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(partes.join(" "))}`, "_blank");
+    if (!n.whatsapp?.telefono) return;
+    const msg = n.whatsapp.esFarmacia
+      ? construirMensajePedidoFarmacia(
+          { name: n.whatsapp.producto, cantidadPedidoAuto: n.whatsapp.cantidad },
+          { name: n.whatsapp.entidadNombre },
+          { cantidad: n.whatsapp.cantidad, codigoEmpleado }
+        )
+      : (() => {
+          const partes = [`Hola, quisiera pedir: ${n.whatsapp.producto}.`];
+          if (codigoEmpleado) partes.push(`Código de empleado: ${codigoEmpleado}.`);
+          return partes.join(" ");
+        })();
+
+    window.open(formatWhatsappUrl(n.whatsapp.telefono, msg), "_blank");
   };
 
   const nuevas = notificaciones.filter((n) => !leidas.has(firma(n)));
@@ -183,7 +195,7 @@ export default function NotificacionesPage({
 
   const abrir = (n) => {
     marcarLeida(n);
-    onNavigate(n.tab, n.periodoObjetivo);
+    onNavigate(n.tab, n.periodoObjetivo, n.productId);
   };
 
   return (

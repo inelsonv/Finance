@@ -10,3 +10,4 @@ coverage/
 .tempmediaStorage/
 .dev.*
 *.traineddata
+*.bundle

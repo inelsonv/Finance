@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, AlertCircle, CheckCircle2, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, TrendingDown as TrendingDownIcon, Flame, ListTodo, Lightbulb, BookOpen, FileText } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, AlertCircle, CheckCircle2, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, TrendingDown as TrendingDownIcon, Flame, ListTodo, Lightbulb, BookOpen, FileText, Pill } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { periodoDeFecha } from "../lib/rachaHabito";
 import { consumoPresupuesto, quincenaDeFecha } from "../lib/presupuestoConsumo";
@@ -8,7 +8,7 @@ import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { obtenerConsejoDelDia } from "../lib/consejosFinancieros";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { fetchInflacionRD } from "../lib/inflacionRD";
-import { diasRestantesProducto } from "../lib/inventario";
+import { diasRestantesProducto, unidadesRestantesProducto, formatWhatsappUrl, construirMensajePedidoFarmacia } from "../lib/inventario";
 
 const UMBRAL_DIAS = 7;
 
@@ -344,17 +344,65 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
     if (isOwner) {
       for (const p of products || []) {
         const dias = diasRestantesProducto(p);
-        if (dias == null) continue;
-        if (dias <= (p.diasAviso ?? 5)) {
-          const entidad = p.entidadId ? (entidades || []).find((e) => e.docId === p.entidadId) : null;
+        const unidades = unidadesRestantesProducto(p);
+        const entidad = p.entidadId ? (entidades || []).find((e) => e.docId === p.entidadId) : null;
+        const esFarmacia = entidad?.type === "Farmacia" || /farmacia|hidalgos|medicament|pastilla|medicina|remedio|salud|dosis|tableta/i.test(`${p.name} ${p.category || ""} ${entidad?.name || ""}`);
+
+        // 1. Notificación si se disparó un Pedido Automático a la farmacia
+        if (p.ultimoPedidoAutomatico?.fecha) {
+          const fechaPedido = new Date(p.ultimoPedidoAutomatico.fecha);
+          const diasDesdePedido = Math.floor((Date.now() - fechaPedido.getTime()) / 86400000);
+          if (diasDesdePedido <= 4 && p.ultimoPedidoAutomatico.estado === "solicitado") {
+            const telefono = p.ultimoPedidoAutomatico.telefono || entidad?.phone || (esFarmacia ? "809-541-4141" : "");
+            const entNombre = p.ultimoPedidoAutomatico.entidadName || entidad?.name || "Farmacia Los Hidalgos";
+            list.push({
+              id: `prod-auto-${p.id}`,
+              icon: esFarmacia ? Pill : Package,
+              color: "var(--sage)",
+              tipoNotif: "exito",
+              titulo: `Pedido automático solicitado: ${p.name}`,
+              subtitulo: `Solicitado automáticamente a ${entNombre} (${p.ultimoPedidoAutomatico.cantidad || 1} paquete(s)). Toca para ver el producto o confirmar por WhatsApp.`,
+              dias: 0,
+              tab: "catalogo",
+              productId: p.id,
+              whatsapp: telefono ? {
+                telefono,
+                producto: p.name,
+                entidadNombre: entNombre,
+                cantidad: p.ultimoPedidoAutomatico.cantidad || 1,
+                esFarmacia,
+                esPedidoAutomatico: true,
+              } : null,
+            });
+          }
+        }
+
+        // 2. Alerta de stock bajo / por agotarse
+        if (dias != null && dias <= (p.diasAviso ?? 5)) {
+          const cantTxt = unidades != null ? ` (quedan ${unidades} unidad${unidades !== 1 ? "es" : ""})` : "";
+          const telefono = entidad?.phone || (esFarmacia ? "809-541-4141" : "");
+          const entNombre = entidad?.name || (esFarmacia ? "Farmacia Los Hidalgos" : "");
+          const subtitulo = entidad
+            ? `Pedir a ${entidad.name}${entidad.phone ? " · WhatsApp disponible" : ""}`
+            : (esFarmacia ? `Pedir a Farmacia Los Hidalgos (WhatsApp 809-541-4141)` : (p.category || "Producto de inventario"));
+
           list.push({
             id: `prod-${p.id}`,
-            icon: Package,
-            titulo: dias <= 0 ? `Se acabó: ${p.name}` : `Se acaba pronto: ${p.name}`,
-            subtitulo: entidad ? `Comprado en ${entidad.name}` : p.category || "Producto",
+            icon: esFarmacia ? Pill : Package,
+            titulo: dias <= 0 ? `Se acabó: ${p.name}` : `Se acaba pronto: ${p.name}${cantTxt}`,
+            subtitulo,
             dias,
             tab: "catalogo",
-            whatsapp: entidad?.phone ? { telefono: entidad.phone, producto: p.name, entidadNombre: entidad.name } : null,
+            productId: p.id,
+            entidad,
+            esFarmacia,
+            whatsapp: telefono ? {
+              telefono,
+              producto: p.name,
+              entidadNombre: entNombre || "Farmacia Los Hidalgos",
+              cantidad: p.cantidadPedidoAuto || p.unidadesPorPaquete || 1,
+              esFarmacia,
+            } : null,
           });
         }
       }
@@ -787,10 +835,20 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
 
   const pedirPorWhatsapp = (n, e) => {
     e.stopPropagation();
-    const telefono = n.whatsapp.telefono.replace(/\D/g, "");
-    const partes = [`Hola, quisiera pedir: ${n.whatsapp.producto}.`];
-    if (codigoEmpleado) partes.push(`Código de empleado: ${codigoEmpleado}.`);
-    window.open(`https://wa.me/${telefono}?text=${encodeURIComponent(partes.join(" "))}`, "_blank");
+    if (!n.whatsapp?.telefono) return;
+    const msg = n.whatsapp.esFarmacia
+      ? construirMensajePedidoFarmacia(
+          { name: n.whatsapp.producto, cantidadPedidoAuto: n.whatsapp.cantidad },
+          { name: n.whatsapp.entidadNombre },
+          { cantidad: n.whatsapp.cantidad, codigoEmpleado }
+        )
+      : (() => {
+          const partes = [`Hola, quisiera pedir: ${n.whatsapp.producto}.`];
+          if (codigoEmpleado) partes.push(`Código de empleado: ${codigoEmpleado}.`);
+          return partes.join(" ");
+        })();
+
+    window.open(formatWhatsappUrl(n.whatsapp.telefono, msg), "_blank");
   };
 
   useEffect(() => {
@@ -918,13 +976,13 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
                   tabIndex={0}
                   onClick={() => {
                     marcarLeida(n);
-                    onNavigate(n.tab, n.periodoObjetivo);
+                    onNavigate(n.tab, n.periodoObjetivo, n.productId);
                     setOpen(false);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       marcarLeida(n);
-                      onNavigate(n.tab, n.periodoObjetivo);
+                      onNavigate(n.tab, n.periodoObjetivo, n.productId);
                       setOpen(false);
                     }
                   }}

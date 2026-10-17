@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine, Link as LinkIcon, UtensilsCrossed } from "lucide-react";
+import { Plus, Trash2, Search, X, Image as ImageIcon, Camera, Package, Clock, Sparkles, ShoppingCart, Check, ScanLine, Link as LinkIcon, UtensilsCrossed, Pill, MessageCircle, Send } from "lucide-react";
 import {
   addProduct,
   deleteProduct,
@@ -14,8 +14,10 @@ import {
   extraerProductoDeUrl,
   buscarYExtraerProducto,
   setProductImageUrl,
+  addEntidad,
+  registrarPedidoFarmacia,
 } from "../lib/db";
-import { diasRestantesProducto, registrarReposicion } from "../lib/inventario";
+import { diasRestantesProducto, unidadesRestantesProducto, registrarReposicion, formatWhatsappUrl, construirMensajePedidoFarmacia, FARMACIA_LOS_HIDALGOS } from "../lib/inventario";
 import { calcularSugerenciasRecompra } from "../lib/recomendaciones";
 import { confirm } from "../lib/confirm";
 import BarcodeScanner from "./BarcodeScanner.jsx";
@@ -39,13 +41,28 @@ async function buscarProductoPorCodigo(codigo) {
   }
 }
 
-export default function Catalogo({ products, entidades, historialCompras, ordenesCompra, onNavigate, categoriasGasto, comprasProrateadas }) {
+export default function Catalogo({ products, entidades, historialCompras, ordenesCompra, onNavigate, categoriasGasto, comprasProrateadas, focusProductId, onClearFocus }) {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", category: CATEGORIES[0], unit: UNITS[0], price: "", codigoBarras: "" });
   const [productoUrl, setProductoUrl] = useState("");
   const [importandoUrl, setImportandoUrl] = useState(false);
   const [importarUrlMsg, setImportarUrlMsg] = useState(null);
+
+  // Si se abre desde una notificación de inventario, enfoca el producto y abre su panel
+  useEffect(() => {
+    if (!focusProductId) return;
+    const target = (products || []).find((p) => p.id === focusProductId);
+    if (target) {
+      openConfig(target);
+      setTimeout(() => {
+        const el = document.getElementById(`producto-card-${target.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 150);
+    }
+  }, [focusProductId, products]);
   const [imagenPendienteUrl, setImagenPendienteUrl] = useState(null);
   const [imagenesCandidatas, setImagenesCandidatas] = useState([]);
   const [urlReferenciaGuardada, setUrlReferenciaGuardada] = useState(null);
@@ -437,12 +454,63 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
       diasAviso: p.diasAviso != null ? String(p.diasAviso) : "5",
       cajasReponer: "",
       entidadId: p.entidadId || "",
+      pedidoAutomatico: !!p.pedidoAutomatico,
+      cantidadPedidoAuto: p.cantidadPedidoAuto != null ? String(p.cantidadPedidoAuto) : "1",
+      notasPedidoAuto: p.notasPedidoAuto || "",
+      direccionPedidoAuto: p.direccionPedidoAuto || "",
     });
   };
 
   const closeConfig = () => {
     setConfiguringId(null);
     setConfigForm(null);
+    if (onClearFocus) onClearFocus();
+  };
+
+  const asociarFarmaciaLosHidalgos = async () => {
+    let hidalgos = (entidades || []).find(
+      (e) => /los\s+hidalgos/i.test(e.name) || (e.type === "Farmacia" && /hidalgos/i.test(e.name))
+    );
+    if (!hidalgos) {
+      const docRef = await addEntidad(FARMACIA_LOS_HIDALGOS);
+      setConfigForm((prev) => ({ ...prev, entidadId: docRef.id }));
+    } else {
+      setConfigForm((prev) => ({ ...prev, entidadId: hidalgos.docId }));
+    }
+  };
+
+  const pedirAFarmaciaDirecto = async (producto, entidad, cantidad = 1) => {
+    const entidadFinal = entidad?.phone ? entidad : {
+      ...FARMACIA_LOS_HIDALGOS,
+      docId: entidad?.docId || null,
+      name: entidad?.name || FARMACIA_LOS_HIDALGOS.name,
+      phone: entidad?.phone || FARMACIA_LOS_HIDALGOS.phone,
+    };
+    const cant = cantidad || configForm?.cantidadPedidoAuto || producto.cantidadPedidoAuto || 1;
+    const msg = construirMensajePedidoFarmacia(producto, entidadFinal, {
+      cantidad: cant,
+      direccion: configForm?.direccionPedidoAuto || producto.direccionPedidoAuto || "",
+      notas: configForm?.notasPedidoAuto || producto.notasPedidoAuto || "",
+    });
+
+    try {
+      await registrarPedidoFarmacia({
+        productId: producto.id,
+        productName: producto.name,
+        entidadId: entidadFinal.docId,
+        entidadName: entidadFinal.name,
+        telefono: entidadFinal.phone,
+        cantidad: cant,
+        notas: configForm?.notasPedidoAuto || producto.notasPedidoAuto || "",
+        direccion: configForm?.direccionPedidoAuto || producto.direccionPedidoAuto || "",
+        automatico: false,
+      });
+    } catch (e) {
+      console.error("No se pudo registrar pedido manual:", e);
+    }
+
+    const url = formatWhatsappUrl(entidadFinal.phone, msg);
+    window.open(url, "_blank");
   };
 
   const saveConfig = async () => {
@@ -454,6 +522,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
       const consumoDiario = parseFloat(configForm.consumoDiario) || 1;
       const diasAviso = parseInt(configForm.diasAviso, 10) || 5;
       const cajas = parseFloat(configForm.cajasReponer);
+      const cantidadPedidoAuto = parseFloat(configForm.cantidadPedidoAuto) || 1;
 
       const fields = {
         seguimiento: configForm.seguimiento,
@@ -462,6 +531,10 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         diasAviso,
         entidadId: configForm.entidadId || null,
         entidadName: entidades.find((e) => e.docId === configForm.entidadId)?.name || "",
+        pedidoAutomatico: !!configForm.pedidoAutomatico,
+        cantidadPedidoAuto,
+        notasPedidoAuto: configForm.notasPedidoAuto || "",
+        direccionPedidoAuto: configForm.direccionPedidoAuto || "",
       };
 
       if (configForm.seguimiento && Number.isFinite(cajas) && cajas > 0) {
@@ -997,6 +1070,7 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
             return (
             <div
               key={p.id}
+              id={`producto-card-${p.id}`}
               data-record-id={p.id}
               onClick={(event) => {
                 if (!ordenesAbiertas.length || urlPickerId === p.id || event.target.closest("button, input, select, textarea, a")) return;
@@ -1005,8 +1079,9 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
               aria-disabled={!ordenesAbiertas.length}
               title={ordenesAbiertas.length ? "Haz clic para seleccionar este producto" : "Crea una orden de compra para habilitar la selección"}
               style={{
-                background: seleccionado || incluidoEnOrden ? "var(--sage-bg)" : "var(--card)",
-                border: seleccionado || incluidoEnOrden ? "2px solid var(--sage)" : "1px solid var(--line)",
+                background: configuringId === p.id ? "var(--sage-bg)" : (seleccionado || incluidoEnOrden ? "var(--sage-bg)" : "var(--card)"),
+                border: configuringId === p.id ? "2px solid var(--sage)" : (seleccionado || incluidoEnOrden ? "2px solid var(--sage)" : "1px solid var(--line)"),
+                boxShadow: configuringId === p.id ? "0 0 0 2px var(--sage), 0 4px 12px rgba(0,0,0,0.12)" : (seleccionado || incluidoEnOrden ? "0 0 0 2px var(--sage-bg)" : "none"),
                 borderRadius: 12,
                 overflow: "hidden",
                 display: "flex",
@@ -1321,21 +1396,63 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
                 </div>
                 {p.seguimiento && (() => {
                   const dias = diasRestantesProducto(p);
+                  const unidades = unidadesRestantesProducto(p);
                   if (dias == null) return null;
-                  const bajo = dias <= (p.diasAviso ?? 5);
+                  const bajo = dias <= (p.diasAviso ?? 5) || (unidades != null && unidades <= 5);
+                  const entidad = p.entidadId ? (entidades || []).find((e) => e.docId === p.entidadId) : null;
+                  const esFarmacia = entidad?.type === "Farmacia" || /farmacia|hidalgos|medicament|pastilla|medicina|remedio|salud|dosis|tableta/i.test(`${p.name} ${p.category || ""}`);
+
                   return (
-                    <div
-                      style={{
-                        marginTop: 6,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        fontSize: 10,
-                        color: bajo ? "var(--stamp)" : "var(--ink-soft)",
-                      }}
-                    >
-                      <Clock size={10} />
-                      {dias <= 0 ? "Se acabó" : `${dias} día${dias !== 1 ? "s" : ""} restantes`}
+                    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 3 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 4,
+                          fontSize: 10,
+                          color: bajo ? "var(--stamp)" : "var(--ink-soft)",
+                          fontWeight: bajo ? 600 : 400,
+                        }}
+                      >
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          {esFarmacia ? <Pill size={10} /> : <Clock size={10} />}
+                          {unidades != null ? `${unidades} un.` : ""} {dias <= 0 ? "Agotado" : `${dias}d rest.`}
+                        </span>
+                        {p.pedidoAutomatico && (
+                          <span title="Pedido automático a farmacia activo" style={{ fontSize: 8.5, padding: "1px 4px", borderRadius: 4, background: "var(--sage-bg)", color: "var(--sage)", fontWeight: 700 }}>
+                            Auto
+                          </span>
+                        )}
+                      </div>
+                      {bajo && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            pedirAFarmaciaDirecto(p, entidad);
+                          }}
+                          title="Pedir a farmacia por WhatsApp"
+                          style={{
+                            marginTop: 2,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 3,
+                            padding: "3px 6px",
+                            fontSize: 9.5,
+                            fontWeight: 600,
+                            borderRadius: 5,
+                            background: "var(--sage-bg)",
+                            color: "var(--sage)",
+                            border: "1px solid var(--sage)",
+                            cursor: "pointer",
+                            width: "100%",
+                          }}
+                        >
+                          <MessageCircle size={10} /> Pedir farmacia
+                        </button>
+                      )}
                     </div>
                   );
                 })()}
@@ -1345,129 +1462,321 @@ export default function Catalogo({ products, entidades, historialCompras, ordene
         </div>
       )}
 
-      {configuringId && configForm && (
-        <div style={{ background: "var(--card)", border: "1px solid var(--stamp)", borderRadius: 10, padding: 14, marginTop: 16 }}>
-          <div className="despensa-tab-font" style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
-            Seguimiento de inventario: {products.find((p) => p.id === configuringId)?.name}
-          </div>
+      {configuringId && configForm && (() => {
+        const producto = products.find((p) => p.id === configuringId);
+        const dias = producto ? diasRestantesProducto(producto) : null;
+        const unidades = producto ? unidadesRestantesProducto(producto) : null;
+        const entidadActual = entidades.find((e) => e.docId === configForm.entidadId);
+        const esFarmacia = entidadActual?.type === "Farmacia" || /farmacia|hidalgos|medicament|pastilla|medicina|remedio|salud|dosis|tableta/i.test(`${producto?.name || ""} ${producto?.category || ""} ${entidadActual?.name || ""}`);
+        const bajo = (dias != null && dias <= (parseInt(configForm.diasAviso, 10) || 5)) || (unidades != null && unidades <= 5);
 
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginBottom: 10, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={configForm.seguimiento}
-              onChange={(e) => setConfigForm({ ...configForm, seguimiento: e.target.checked })}
-            />
-            Avisarme cuando se esté por acabar
-          </label>
-
-          {configForm.seguimiento && (
-            <>
-              <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
-                <div>
-                  <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Unidades por paquete</div>
-                  <input
-                    className="despensa-mono"
-                    type="number"
-                    min="1"
-                    value={configForm.unidadesPorPaquete}
-                    onChange={(e) => setConfigForm({ ...configForm, unidadesPorPaquete: e.target.value })}
-                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-                  />
-                </div>
-                <div>
-                  <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Consumo diario</div>
-                  <input
-                    className="despensa-mono"
-                    type="number"
-                    min="1"
-                    value={configForm.consumoDiario}
-                    onChange={(e) => setConfigForm({ ...configForm, consumoDiario: e.target.value })}
-                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-                  />
-                </div>
-                <div>
-                  <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Avisar con (días)</div>
-                  <input
-                    className="despensa-mono"
-                    type="number"
-                    min="1"
-                    value={configForm.diasAviso}
-                    onChange={(e) => setConfigForm({ ...configForm, diasAviso: e.target.value })}
-                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-                  />
-                </div>
+        return (
+          <div style={{ background: "var(--card)", border: "1px solid var(--sage)", borderRadius: 12, padding: 16, marginTop: 16, boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8, flexWrap: "wrap" }}>
+              <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 7 }}>
+                {esFarmacia ? <Pill size={16} color="var(--sage)" /> : <Package size={16} color="var(--sage)" />}
+                Inventario & Pedido a Farmacia: {producto?.name}
               </div>
+              <button
+                type="button"
+                onClick={closeConfig}
+                style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer", padding: 4 }}
+              >
+                <X size={16} />
+              </button>
+            </div>
 
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>
-                  Comprado en (para poder pedir por WhatsApp desde la notificación)
-                </div>
-                <select
-                  value={configForm.entidadId}
-                  onChange={(e) => setConfigForm({ ...configForm, entidadId: e.target.value })}
-                  style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
-                >
-                  <option value="">Sin entidad (opcional)</option>
-                  {entidades.map((e) => (
-                    <option key={e.docId} value={e.docId}>{e.name}</option>
-                  ))}
-                </select>
-                {configForm.entidadId && !entidades.find((e) => e.docId === configForm.entidadId)?.phone && (
-                  <div style={{ fontSize: 11, color: "var(--stamp)", marginTop: 4 }}>
-                    Esa entidad no tiene teléfono registrado — agrégalo en Entidades para poder pedir por WhatsApp.
+            {/* Banner de estado de existencias actuales */}
+            {producto?.seguimiento && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: bajo ? "var(--stamp-bg)" : "var(--sage-bg)",
+                  border: bajo ? "1px solid var(--stamp)" : "1px solid var(--sage)",
+                  color: bajo ? "var(--stamp)" : "var(--sage)",
+                  marginBottom: 14,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {esFarmacia ? <Pill size={18} /> : <Clock size={18} />}
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>
+                      {unidades != null
+                        ? `Hoy quedan ${unidades} unidad${unidades !== 1 ? "es" : ""}${esFarmacia ? " (pastillas/dosis)" : ""}`
+                        : "Sin existencias registradas"}
+                    </div>
+                    <div style={{ fontSize: 11, opacity: 0.9 }}>
+                      {dias == null
+                        ? "Registra cuántos paquetes compraste abajo para iniciar el cálculo."
+                        : dias <= 0
+                        ? "¡Inventario agotado! Solicita reposición a la farmacia."
+                        : `Alcanza para aproximadamente ${dias} día${dias !== 1 ? "s" : ""} (consumo: ${configForm.consumoDiario || 1}/día).`}
+                    </div>
                   </div>
-                )}
-              </div>
-
-              {(() => {
-                const producto = products.find((p) => p.id === configuringId);
-                const dias = producto ? diasRestantesProducto(producto) : null;
-                return (
-                  <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 10 }}>
-                    {dias == null
-                      ? "Aún no has registrado ninguna compra — dile cuántos paquetes acabas de comprar abajo."
-                      : dias <= 0
-                      ? "Según lo registrado, ya se debería haber acabado."
-                      : `Quedan aproximadamente ${dias} día${dias !== 1 ? "s" : ""} de inventario.`}
-                  </div>
-                );
-              })()}
-
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>
-                  ¿Compraste paquetes ahora? Escribe cuántos para sumarlos al inventario
                 </div>
-                <input
-                  className="despensa-mono"
-                  type="number"
-                  min="0"
-                  step="1"
-                  placeholder="Ej. 2"
-                  value={configForm.cajasReponer}
-                  onChange={(e) => setConfigForm({ ...configForm, cajasReponer: e.target.value })}
-                  style={{ width: 120, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-                />
-              </div>
-            </>
-          )}
 
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              onClick={saveConfig}
-              disabled={configSaving}
-              style={{ padding: "7px 16px", fontSize: 13, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: configSaving ? "not-allowed" : "pointer" }}
-            >
-              {configSaving ? "Guardando…" : "Guardar"}
-            </button>
-            <button
-              onClick={closeConfig}
-              style={{ padding: "7px 16px", fontSize: 13, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
-            >
-              Cancelar
-            </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {bajo && (
+                    <span style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 6, background: "var(--stamp)", color: "#fff" }}>
+                      ¡Nivel Crítico!
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => pedirAFarmaciaDirecto(producto, entidadActual)}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 5,
+                      padding: "6px 12px",
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      background: "var(--sage)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 7,
+                      cursor: "pointer",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+                    }}
+                  >
+                    <MessageCircle size={13} /> Pedir por WhatsApp
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 12, cursor: "pointer", fontWeight: 600 }}>
+              <input
+                type="checkbox"
+                checked={configForm.seguimiento}
+                onChange={(e) => setConfigForm({ ...configForm, seguimiento: e.target.checked })}
+              />
+              Activar seguimiento de inventario para este producto
+            </label>
+
+            {configForm.seguimiento && (
+              <>
+                <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>Unidades por paquete/caja</div>
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      min="1"
+                      value={configForm.unidadesPorPaquete}
+                      onChange={(e) => setConfigForm({ ...configForm, unidadesPorPaquete: e.target.value })}
+                      style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>Consumo diario (pastillas)</div>
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      min="1"
+                      value={configForm.consumoDiario}
+                      onChange={(e) => setConfigForm({ ...configForm, consumoDiario: e.target.value })}
+                      style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>Avisar cuando queden (días)</div>
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      min="1"
+                      value={configForm.diasAviso}
+                      onChange={(e) => setConfigForm({ ...configForm, diasAviso: e.target.value })}
+                      style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    />
+                  </div>
+                </div>
+
+                {/* Sección de Asociación con Farmacia */}
+                <div style={{ marginBottom: 14, padding: "12px", background: "var(--paper)", borderRadius: 10, border: "1px solid var(--line)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, color: "var(--ink)" }}>
+                      <Pill size={14} color="var(--sage)" /> Farmacia / Proveedor asociado
+                    </div>
+                    {(!entidadActual || !/hidalgos/i.test(entidadActual.name)) && (
+                      <button
+                        type="button"
+                        onClick={asociarFarmaciaLosHidalgos}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "4px 10px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: "var(--sage)",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Pill size={12} /> Asociar Farmacia Los Hidalgos
+                      </button>
+                    )}
+                  </div>
+
+                  <select
+                    value={configForm.entidadId}
+                    onChange={(e) => setConfigForm({ ...configForm, entidadId: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
+                  >
+                    <option value="">Selecciona una entidad (o usa Farmacia Los Hidalgos)</option>
+                    {entidades.map((e) => (
+                      <option key={e.docId} value={e.docId}>
+                        {e.name} {e.phone ? `· WhatsApp: ${e.phone}` : "(sin teléfono)"}
+                      </option>
+                    ))}
+                  </select>
+
+                  {entidadActual && (
+                    <div style={{ marginTop: 8, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 11.5 }}>
+                      <div>
+                        WhatsApp: <strong style={{ color: "var(--ink)" }}>{entidadActual.phone || "No configurado"}</strong>
+                        {entidadActual.address && <span style={{ color: "var(--ink-soft)", marginLeft: 6 }}>({entidadActual.address})</span>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => pedirAFarmaciaDirecto(producto, entidadActual)}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "4px 10px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: "var(--sage-bg)",
+                          color: "var(--sage)",
+                          border: "1px solid var(--sage)",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <MessageCircle size={12} /> Probar mensaje WhatsApp
+                      </button>
+                    </div>
+                  )}
+
+                  {!entidadActual && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: "var(--ink-soft)" }}>
+                      💡 Haz clic en <strong>Asociar Farmacia Los Hidalgos</strong> para vincular automáticamente el servicio de Telefarmacia a domicilio (WhatsApp: 809-541-4141).
+                    </div>
+                  )}
+                </div>
+
+                {/* Sección de Pedido Automático */}
+                <div style={{ marginBottom: 14, padding: "12px", background: configForm.pedidoAutomatico ? "var(--sage-bg)" : "var(--paper)", borderRadius: 10, border: configForm.pedidoAutomatico ? "1px solid var(--sage)" : "1px solid var(--line)" }}>
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12.5, cursor: "pointer", fontWeight: 600 }}>
+                    <input
+                      type="checkbox"
+                      checked={configForm.pedidoAutomatico}
+                      onChange={(e) => setConfigForm({ ...configForm, pedidoAutomatico: e.target.checked })}
+                      style={{ marginTop: 2 }}
+                    />
+                    <div>
+                      <div>Pedir medicamento automáticamente cuando el inventario esté bajo</div>
+                      <div style={{ fontSize: 11, fontWeight: 400, color: "var(--ink-soft)", marginTop: 2, lineHeight: 1.4 }}>
+                        Cuando queden 5 o menos pastillas/unidades (o llegues a tu umbral de aviso), el sistema generará automáticamente la orden a Farmacia Los Hidalgos y te enviará una notificación inmediata con el enlace de WhatsApp listo para confirmar el envío a domicilio.
+                      </div>
+                    </div>
+                  </label>
+
+                  {configForm.pedidoAutomatico && (
+                    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 8 }}>
+                        <div>
+                          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Cantidad a pedir (paquetes/cajas)</div>
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            min="1"
+                            value={configForm.cantidadPedidoAuto}
+                            onChange={(e) => setConfigForm({ ...configForm, cantidadPedidoAuto: e.target.value })}
+                            style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
+                          />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Dirección de entrega a domicilio</div>
+                          <input
+                            type="text"
+                            placeholder="Ej. Calle Principal #12, Santo Domingo"
+                            value={configForm.direccionPedidoAuto}
+                            onChange={(e) => setConfigForm({ ...configForm, direccionPedidoAuto: e.target.value })}
+                            style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Notas para la farmacia (opcional)</div>
+                        <input
+                          type="text"
+                          placeholder="Ej. Código de cliente/empleado, o llamar al timbre"
+                          value={configForm.notasPedidoAuto}
+                          onChange={(e) => setConfigForm({ ...configForm, notasPedidoAuto: e.target.value })}
+                          style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
+                        />
+                      </div>
+
+                      {producto?.ultimoPedidoAutomatico && (
+                        <div style={{ fontSize: 11, padding: "6px 10px", borderRadius: 6, background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink)" }}>
+                          ℹ️ <strong>Último pedido automático:</strong> {new Date(producto.ultimoPedidoAutomatico.fecha).toLocaleDateString()} a {producto.ultimoPedidoAutomatico.entidadName || "Farmacia"} ({producto.ultimoPedidoAutomatico.cantidad || 1} paquete(s)) · Estado: <strong>{producto.ultimoPedidoAutomatico.estado}</strong>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Reposición manual de stock */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
+                    ¿Compraste paquetes ahora? Escribe cuántos para sumarlos de inmediato al inventario:
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="Ej. 1"
+                      value={configForm.cajasReponer}
+                      onChange={(e) => setConfigForm({ ...configForm, cajasReponer: e.target.value })}
+                      style={{ width: 120, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    />
+                    <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>paquete(s) o caja(s)</span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={saveConfig}
+                disabled={configSaving}
+                style={{ padding: "8px 18px", fontSize: 13, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: configSaving ? "not-allowed" : "pointer" }}
+              >
+                {configSaving ? "Guardando…" : "Guardar cambios"}
+              </button>
+              <button
+                onClick={closeConfig}
+                style={{ padding: "8px 16px", fontSize: 13, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
 
     </div>
