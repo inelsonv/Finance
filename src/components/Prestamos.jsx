@@ -62,7 +62,13 @@ const emptyForm = (numero) => ({
 
 export default function Prestamos({ prestamos, entidades, movimientos, activos, focusPrestamoId }) {
   const [showForm, setShowForm] = useState(false);
-  const [showHistorico, setShowHistorico] = useState(false);
+  const [showHistorico, setShowHistorico] = useState(() => {
+    try {
+      const saved = localStorage.getItem("smart-finance-prestamos-historico-open");
+      if (saved !== null) return saved === "1";
+    } catch {}
+    return true;
+  });
 
   const [form, setForm] = useState(() => emptyForm(nextNumero(prestamos)));
   const [formError, setFormError] = useState(null);
@@ -126,11 +132,6 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
   };
 
   const saveEdit = async () => {
-    const prestamoOriginal = prestamos.find((pr) => pr.id === editingId);
-    if (prestamoOriginal?.estado === "Pagado" && editForm.estado !== "Pagado") {
-      setEditError("Este préstamo ya está saldado y no se puede revertir su estado.");
-      return;
-    }
     const monto = parseFloat(editForm.montoAprobado);
     if (!editForm.entidadId) {
       setEditError("Selecciona la entidad prestamista");
@@ -157,7 +158,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         activoId: editForm.tipo === "Vehículo" ? editForm.activoId || null : null,
         activoNombre: editForm.tipo === "Vehículo" ? activoSel?.nombre || "" : "",
         esRevolvente: editForm.esRevolvente,
-        saldoActual: editForm.esRevolvente ? parseFloat(editForm.saldoActual) || null : null,
+        saldoActual: editForm.esRevolvente ? (editForm.estado === "Pagado" ? 0 : parseFloat(editForm.saldoActual) || null) : null,
         montoMinimoRetiro: editForm.esRevolvente ? parseFloat(editForm.montoMinimoRetiro) || null : null,
         montoAprobado: monto,
         plazo: Number.isFinite(plazo) ? plazo : null,
@@ -172,6 +173,12 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         cuotasPersonalizadas: normalizarCuotas(editForm.cuotasPersonalizadas),
         cuotasPersonalizadasOverrides: {},
       });
+      if (editForm.estado === "Pagado") {
+        setShowHistorico(true);
+        try {
+          localStorage.setItem("smart-finance-prestamos-historico-open", "1");
+        } catch {}
+      }
       cancelEdit();
     } catch (err) {
       setEditError(err.message || String(err));
@@ -889,7 +896,18 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                             {p.tipo}
                           </span>
                         )}
-                        <EstadoBadge estado={p.estado} onChange={(estado) => updatePrestamoEstado(p.id, estado)} />
+                        <EstadoBadge
+                          estado={p.estado}
+                          onChange={async (estado) => {
+                            if (estado === "Pagado") {
+                              setShowHistorico(true);
+                              try {
+                                localStorage.setItem("smart-finance-prestamos-historico-open", "1");
+                              } catch {}
+                            }
+                            await updatePrestamoEstado(p.id, estado);
+                          }}
+                        />
                         {p.notificarWhatsapp && (
                           <span
                             title={
@@ -1092,7 +1110,15 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       {prestamosPagados.length > 0 && (
         <div style={{ marginTop: 18 }}>
           <button
-            onClick={() => setShowHistorico((s) => !s)}
+            onClick={() => {
+              setShowHistorico((s) => {
+                const next = !s;
+                try {
+                  localStorage.setItem("smart-finance-prestamos-historico-open", next ? "1" : "0");
+                } catch {}
+                return next;
+              });
+            }}
             style={{
               display: "flex",
               alignItems: "center",
@@ -1143,6 +1169,10 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <EstadoBadge
+                      estado={p.estado}
+                      onChange={(nuevoEstado) => updatePrestamoEstado(p.id, nuevoEstado)}
+                    />
                     <div className="despensa-mono" style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
                       {formatMoney(p.montoAprobado)}
                     </div>
