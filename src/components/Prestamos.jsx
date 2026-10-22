@@ -1347,6 +1347,7 @@ function Field({ label, value }) {
 }
 
 function HistorialCuotasPagadas({ prestamo, movimientos }) {
+  const [abierto, setAbierto] = useState(false);
   const totalCuotasPlan = prestamo?.frecuenciaCuota === "Personalizado"
     ? (prestamo.cuotasPersonalizadas || []).length
     : prestamo?.plazo
