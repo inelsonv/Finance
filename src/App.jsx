@@ -1203,6 +1203,10 @@ export default function App() {
             cuentas={cuentas}
             activos={activos}
             seguros={seguros}
+            puntos={puntos}
+            recompensas={recompensas}
+            habitos={habitos}
+            habitosRegistro={habitosRegistro}
             onNavigate={setTab}
           />
         )}

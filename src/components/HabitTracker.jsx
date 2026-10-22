@@ -4,6 +4,8 @@ import {
   X,
   Check,
   Flame,
+  Crown,
+  Gem,
   Trash2,
   Droplet,
   Salad,
@@ -308,6 +310,22 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
     return map;
   }, [habitosRegistro]);
 
+  const rachaMaxima = useMemo(() => {
+    let max = 0;
+    const hoyStr = new Date().toISOString().slice(0, 10);
+    for (const h of habitos || []) {
+      const fechas = fechasPorHabito[h.id] || [];
+      const r = calcularRachaHabito(fechas, h.frecuencia || "Diaria", hoyStr);
+      if (r > max) max = r;
+    }
+    return max;
+  }, [habitos, fechasPorHabito]);
+
+  const habitosCumplidosHoy = useMemo(() => {
+    const hoyStr = new Date().toISOString().slice(0, 10);
+    return (habitos || []).filter((h) => (fechasPorHabito[h.id] || []).includes(hoyStr)).length;
+  }, [habitos, fechasPorHabito]);
+
   const handleAdd = async () => {
     if (!nombre.trim()) {
       setError("Ponle un nombre al hábito");
@@ -336,8 +354,59 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
 
   return (
     <div>
+      {/* Barra superior estilo Duolingo */}
+      <div
+        style={{
+          background: "var(--card, #ffffff)",
+          borderBottom: "2px solid var(--line, #e5e5e5)",
+          padding: "10px 14px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+          borderRadius: 16,
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ fontSize: 22, lineHeight: 1 }} title="Smart Finance">
+          🇩🇴
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }} title="Hábitos completados hoy">
+          <Crown size={22} style={{ color: "#ffc800", fill: "#ffc800" }} />
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#ffc800", fontFamily: "var(--font-mono, monospace)" }}>
+            {habitosCumplidosHoy}
+          </span>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            padding: "4px 10px",
+            borderRadius: 14,
+            background: "rgba(255,150,0,0.12)",
+            border: "1.5px solid rgba(255,150,0,0.35)",
+          }}
+          title={`Racha máxima de hábitos: ${rachaMaxima} días/semanas`}
+        >
+          <Flame size={24} style={{ color: "#ff9600", fill: "#ff9600" }} />
+          <span style={{ fontSize: 17, fontWeight: 900, color: "#ff9600", fontFamily: "var(--font-mono, monospace)" }}>
+            {rachaMaxima}
+          </span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }} title="Total de hábitos activos">
+          <Heart size={21} style={{ color: "#ff4b4b", fill: "#ff4b4b" }} />
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#ff4b4b", fontFamily: "var(--font-mono, monospace)" }}>
+            {habitos.length}
+          </span>
+        </div>
+      </div>
+
       <div style={{ marginBottom: 18 }}>
-        <span className="despensa-tab-font" style={{ fontSize: 17, fontWeight: 700 }}>Salud</span>
+        <span className="despensa-tab-font" style={{ fontSize: 17, fontWeight: 700 }}>Salud y Hábitos</span>
       </div>
 
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, marginBottom: 20, overflow: "hidden" }}>

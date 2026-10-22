@@ -136,7 +136,6 @@ const ref = (storageInstance, path) => {
   return fsRef(storageInstance, `users/${current.uid}/${path}`);
 };
 import { rangoFechasQuincenaConfigurado } from "./quincenaConfig";
-import { unidadesRestantesProducto, todayStr } from "./inventario";
 import { httpsCallable } from "firebase/functions";
 
 export function watchConnectionStatus(onChange) {
@@ -1505,7 +1504,7 @@ function calcularQuincenasConsecutivas(fechaInicio, cantidad) {
 // (la última absorbe el redondeo) y suma cada cuota al presupuesto de la
 // categoría indicada, en quincenas consecutivas a partir de la fecha de
 // compra. Todo en una sola operación, para que quede reflejado de inmediato.
-export async function addCompraProrateada({ nombre, montoTotal, cuotas, categoria, fechaInicio, productoId, paquetesInventario, unidadesInventario }) {
+export async function addCompraProrateada({ nombre, montoTotal, cuotas, categoria, fechaInicio }) {
   const total = Math.round((Number(montoTotal) || 0) * 100) / 100;
   const numCuotas = Math.max(1, parseInt(cuotas, 10) || 1);
   if (total <= 0) throw new Error("El monto total debe ser mayor a cero");
@@ -1540,7 +1539,7 @@ export async function addCompraProrateada({ nombre, montoTotal, cuotas, categori
     await setDoc(doc(db, "presupuestos", year), merge, { merge: true });
   }
 
-  const docRef = await addDoc(collection(db, "comprasProrateadas"), {
+  await addDoc(collection(db, "comprasProrateadas"), {
     nombre: nombre || "Compra prorateada",
     montoTotal: total,
     cuotas: numCuotas,
@@ -1548,12 +1547,8 @@ export async function addCompraProrateada({ nombre, montoTotal, cuotas, categori
     categoria,
     fechaInicio,
     cuotasDetalle,
-    productoId: productoId || null,
-    paquetesInventario: paquetesInventario || null,
-    unidadesInventario: unidadesInventario || null,
     createdAt: serverTimestamp(),
   });
-  return docRef;
 }
 
 export function watchComprasProrateadas(onChange, onError) {
@@ -1586,27 +1581,6 @@ export async function deleteCompraProrateada(id, compra) {
     }
     await setDoc(doc(db, "presupuestos", year), merge, { merge: true });
   }
-
-  // Si la compra había sumado stock al inventario, descuenta esas unidades
-  if (compra.productoId && compra.unidadesInventario) {
-    try {
-      const prodRef = doc(db, "productos", compra.productoId);
-      const prodSnap = await getDoc(prodRef);
-      if (prodSnap.exists()) {
-        const prodData = prodSnap.data();
-        const unidadesCalculadas = unidadesRestantesProducto(prodData);
-        const disponiblesHoy = unidadesCalculadas != null ? unidadesCalculadas : (Number(prodData.unidadesDisponibles) || 0);
-        const nuevoDisponibles = Math.max(0, disponiblesHoy - compra.unidadesInventario);
-        await updateDoc(prodRef, {
-          fechaInicio: todayStr(),
-          unidadesDisponibles: nuevoDisponibles,
-        });
-      }
-    } catch (err) {
-      console.error("Error al revertir inventario de compra prorateada:", err);
-    }
-  }
-
   await deleteDoc(doc(db, "comprasProrateadas", id));
 }
 
@@ -1723,11 +1697,6 @@ export async function deleteMovimiento(id, motivo) {
       const prestamoSnap = await getDoc(prestamoRef);
       if (prestamoSnap.exists() && prestamoSnap.data().estado === "Pagado") {
         const p = prestamoSnap.data();
-        // Si el préstamo fue marcado Pagado manualmente o saldado fuera de la app,
-        // no revertirlo al eliminar un movimiento
-        if (p.marcadoPagadoManual) {
-          return;
-        }
         let totalAPagar = 0;
         if (p.frecuenciaCuota === "Personalizado") {
           totalAPagar = (p.cuotasPersonalizadas || []).reduce((s, c) => s + (Number(c.monto) || 0), 0);
@@ -1776,22 +1745,16 @@ export async function deleteMovimiento(id, motivo) {
   await deleteDoc(doc(db, "movimientos", id));
 }
 
-// Recalcula el estado de un préstamo (marcando como "Pagado" si los pagos registrados
-// cubren o superan el total a pagar). Si un préstamo ya está marcado como "Pagado"
-// (o "En mora"), nunca se degrada automáticamente a "Activo" para respetar la decisión
-// del usuario y evitar que préstamos saldados fuera de la app o marcados manualmente
-// vuelvan a "Activo" al recargar la página.
+// Recalcula el estado real de un préstamo (Activo o Pagado) sumando sus
+// movimientos actuales, sin depender de lo que diga el campo "estado"
+// guardado — útil para corregir un préstamo que quedó marcado "Pagado" por
+// error (ej. tras eliminar el pago que lo saldaba antes de que existiera
+// esta corrección automática).
 export async function recalcularEstadoPrestamo(prestamoId) {
   const prestamoRef = doc(db, "prestamos", prestamoId);
   const prestamoSnap = await getDoc(prestamoRef);
   if (!prestamoSnap.exists()) throw new Error("No se encontró ese préstamo");
   const p = prestamoSnap.data();
-
-  // Si ya está marcado como Pagado o En mora, o marcado manualmente como Pagado,
-  // se respeta su estado y no se sobreescribe
-  if (p.estado === "Pagado" || p.marcadoPagadoManual || p.estado === "En mora") {
-    return { estadoAnterior: p.estado, estadoNuevo: p.estado, totalPagado: 0, totalAPagar: 0 };
-  }
 
   let totalAPagar = 0;
   if (p.frecuenciaCuota === "Personalizado") {
@@ -1804,26 +1767,22 @@ export async function recalcularEstadoPrestamo(prestamoId) {
   const pagosSnap = await getDocs(query(collection(db, "movimientos"), where("prestamoId", "==", prestamoId)));
   const totalPagado = pagosSnap.docs.reduce((s, d) => s + (Number(d.data().amount) || 0), 0);
 
-  // Solo se promueve a "Pagado" si los pagos registrados cubren o superan el total a pagar
-  if (totalAPagar > 0 && totalPagado >= totalAPagar) {
-    await updateDoc(prestamoRef, { estado: "Pagado" });
-    return { estadoAnterior: p.estado, estadoNuevo: "Pagado", totalPagado, totalAPagar };
+  const nuevoEstado = totalAPagar > 0 && totalPagado >= totalAPagar ? "Pagado" : "Activo";
+  if (nuevoEstado !== p.estado) {
+    await updateDoc(prestamoRef, { estado: nuevoEstado });
   }
-
-  return { estadoAnterior: p.estado, estadoNuevo: p.estado, totalPagado, totalAPagar };
+  return { estadoAnterior: p.estado, estadoNuevo: nuevoEstado, totalPagado, totalAPagar };
 }
 
-// Verifica el estado de los préstamos al iniciar la app para marcar automáticamente
-// como "Pagados" aquellos cuyas cuotas o pagos ya sumen el total adeudado.
-// Omite cualquier préstamo que ya esté en "Pagado", "En mora" o marcado manualmente.
+// Verifica y corrige el estado de TODOS los préstamos según sus movimientos
+// reales, cada vez que se abre la app — por ejemplo, si un préstamo quedó
+// marcado "Pagado" por un movimiento de prueba que luego se eliminó (o
+// nunca se limpió bien), esto lo vuelve a poner en "Activo" automáticamente.
+// Es la misma lógica de recalcularEstadoPrestamo, aplicada a todos.
 export async function verificarEstadoTodosPrestamos() {
   const prestamosSnap = await getDocs(collection(db, "prestamos"));
   for (const prestamoDoc of prestamosSnap.docs) {
     try {
-      const data = prestamoDoc.data();
-      if (data.estado === "Pagado" || data.estado === "En mora" || data.marcadoPagadoManual) {
-        continue;
-      }
       await recalcularEstadoPrestamo(prestamoDoc.id);
     } catch (err) {
       console.error(`No se pudo verificar el préstamo ${prestamoDoc.id}:`, err);
@@ -1908,27 +1867,11 @@ export async function addPrestamo({
 }
 
 export async function updatePrestamoEstado(id, estado) {
-  const updates = { estado };
-  if (estado === "Pagado") {
-    updates.marcadoPagadoManual = true;
-    updates.fechaSaldado = new Date().toISOString();
-  } else {
-    updates.marcadoPagadoManual = false;
-  }
-  await updateDoc(doc(db, "prestamos", id), updates);
+  await updateDoc(doc(db, "prestamos", id), { estado });
 }
 
 export async function updatePrestamo(id, fields) {
-  const updates = { ...fields };
-  if (fields.estado === "Pagado") {
-    updates.marcadoPagadoManual = true;
-    if (!updates.fechaSaldado) {
-      updates.fechaSaldado = new Date().toISOString();
-    }
-  } else if (fields.estado && fields.estado !== "Pagado") {
-    updates.marcadoPagadoManual = false;
-  }
-  await updateDoc(doc(db, "prestamos", id), updates);
+  await updateDoc(doc(db, "prestamos", id), fields);
 }
 
 // Mueve la cuota que naturalmente cae en (origenMonth, origenYear) hacia

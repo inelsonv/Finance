@@ -8,7 +8,7 @@
 // 4. Fecha proyectada = hoy + días restantes.
 export function calcularProyeccionPago(prestamo, movimientos, hoy = new Date()) {
   const pagos = (movimientos || [])
-    .filter((m) => (m.prestamoId === prestamo.id || (m.prestamoNumero && prestamo.numero && m.prestamoNumero === prestamo.numero)) && m.date)
+    .filter((m) => m.prestamoId === prestamo.id && m.date)
     .map((m) => ({ date: m.date, amount: Number(m.amount) || 0 }))
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 
