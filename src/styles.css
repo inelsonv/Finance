@@ -1152,3 +1152,16 @@ button:active {
     opacity: 1;
   }
 }
+
+/* Enfoque vertical móvil: previene desbordamientos o deformaciones al girar en dispositivos móviles */
+@media screen and (orientation: landscape) and (max-height: 550px) {
+  html, body {
+    overflow-x: hidden;
+  }
+}
+
+/* Nodos estilo Duolingo en el canvas de Flujo */
+.duolingo-flow-node:active {
+  transform: translateY(3px);
+  filter: brightness(0.96);
+}

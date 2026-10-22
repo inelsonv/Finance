@@ -21,7 +21,7 @@ export function unidadesRestantesProducto(p) {
   return Math.max(0, Math.round((p.unidadesDisponibles || 0) - unidadesConsumidas));
 }
 
-function todayStr() {
+export function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
@@ -73,14 +73,24 @@ export function construirMensajePedidoFarmacia(producto, entidad, opciones = {})
 }
 
 // Calcula el nuevo stock al registrar una reposición (compra) de "paquetes"
-// unidades adicionales, sumando lo que quedaba disponible al momento.
-export function registrarReposicion(p, paquetesComprados) {
-  const restantesActuales = diasRestantesProducto(p);
-  const unidadesActuales = restantesActuales != null ? Math.max(restantesActuales * (p.consumoDiario || 1), 0) : 0;
-  const unidadesNuevas = paquetesComprados * (p.unidadesPorPaquete || 1);
+// unidades adicionales, sumando exactamente lo que quedaba disponible hoy al momento.
+export function registrarReposicion(p, paquetesComprados, opciones = {}) {
+  const unidadesCalculadas = unidadesRestantesProducto(p);
+  const unidadesActuales = unidadesCalculadas != null
+    ? unidadesCalculadas
+    : Math.max(0, Number(p?.unidadesDisponibles) || 0);
+
+  const unidadesPorPaq = Number(opciones.unidadesPorPaquete) || Number(p?.unidadesPorPaquete) || 1;
+  const paquetes = Math.max(0, Number(paquetesComprados) || 0);
+  const unidadesNuevas = paquetes * unidadesPorPaq;
+  const fecha = opciones.fechaInicio || todayStr();
+
   return {
-    fechaInicio: todayStr(),
+    fechaInicio: fecha,
     unidadesDisponibles: unidadesActuales + unidadesNuevas,
+    seguimiento: true,
+    unidadesPorPaquete: unidadesPorPaq,
+    consumoDiario: Number(opciones.consumoDiario) || Number(p?.consumoDiario) || 1,
   };
 }
 

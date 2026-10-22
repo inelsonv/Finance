@@ -10,7 +10,7 @@ import ReactFlow, {
   MarkerType,
 } from "reactflow";
 import "reactflow/dist/style.css";
-import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt, Church, ListOrdered, Maximize2, Minimize2 } from "lucide-react";
+import { Plus, Save, Trash2, RotateCcw, Check, X, TrendingUp, PiggyBank, LineChart, Landmark, CreditCard, Ticket, Zap, Home, ShoppingBag, Utensils, Car, Fuel, HeartPulse, Film, Briefcase, DollarSign, Wallet, Coins, Receipt, Church, ListOrdered, Maximize2, Minimize2, Crown, Flame } from "lucide-react";
 import { saveFlujo } from "../lib/db";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -61,22 +61,24 @@ function IconoNodo({ nombre, size = 13 }) {
 
 // Anillo de progreso alrededor del ícono, usado en los nodos de préstamo
 // para mostrar cuánto se ha pagado del saldo total (0-100%).
-function AnilloProgreso({ pct, color, size = 28, children }) {
-  const r = (size - 4) / 2;
+// Anillo de progreso circular concéntrico idéntico al medidor de lecciones de Duolingo
+function AnilloProgreso({ pct, color, size = 44, children }) {
+  const strokeWidth = 3.5;
+  const r = (size - strokeWidth * 2) / 2;
   const c = size / 2;
   const circunferencia = 2 * Math.PI * r;
   const offset = circunferencia * (1 - Math.min(Math.max(pct, 0), 100) / 100);
   return (
     <div style={{ position: "relative", width: size, height: size, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
       <svg width={size} height={size} style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)", pointerEvents: "none" }}>
-        <circle cx={c} cy={c} r={r} fill="none" stroke="currentColor" opacity={0.15} strokeWidth={2.5} />
+        <circle cx={c} cy={c} r={r} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={strokeWidth} />
         <circle
           cx={c}
           cy={c}
           r={r}
           fill="none"
-          stroke={color || "currentColor"}
-          strokeWidth={2.5}
+          stroke={color || "#ffffff"}
+          strokeWidth={strokeWidth}
           strokeDasharray={circunferencia}
           strokeDashoffset={offset}
           strokeLinecap="round"
@@ -96,8 +98,151 @@ function ingresoMensualCalculado(fuentesIngreso) {
   return ingresoMensualNeto(fuentesIngreso);
 }
 
-function ActivityFlowNode({ data }) {
-  const color = data.color || PALETTE[0];
+// Paleta temática de colores y sombras 3D estilo Duolingo según el rol/categoría del nodo
+function getDuolingoColors(nodeData) {
+  if (nodeData.esPrioridadDeuda) {
+    return {
+      bg: "linear-gradient(180deg, #ffc800 0%, #f59e0b 100%)",
+      shadow: "#b45309",
+      text: "#ffffff",
+      handle: "#f59e0b",
+      tagBg: "#b45309",
+    };
+  }
+
+  if (nodeData.esMayorInteresDeuda) {
+    return {
+      bg: "linear-gradient(180deg, #ff5c5c 0%, #ef4444 100%)",
+      shadow: "#b91c1c",
+      text: "#ffffff",
+      handle: "#ef4444",
+      tagBg: "#991b1b",
+    };
+  }
+
+  const label = (nodeData.label || "").toLowerCase();
+  const icon = (nodeData.icon || "").toLowerCase();
+  const role = (nodeData.role || nodeData.tipo || "").toLowerCase();
+
+  // 1. Ingresos: verde clásico Duolingo (#58cc02)
+  if (role === "ingreso" || label.includes("ingreso") || icon === "trendingup") {
+    return {
+      bg: "linear-gradient(180deg, #58cc02 0%, #46a302 100%)",
+      shadow: "#337a01",
+      text: "#ffffff",
+      handle: "#58cc02",
+      tagBg: "#2d6a01",
+    };
+  }
+
+  // 2. Diezmo / Ahorro / Fondo de Emergencia: azul / cian Duolingo (#1cb0f6)
+  if (
+    label.includes("diezmo") ||
+    label.includes("ahorro") ||
+    label.includes("emergencia") ||
+    icon === "church" ||
+    icon === "piggybank"
+  ) {
+    return {
+      bg: "linear-gradient(180deg, #1cb0f6 0%, #0099e5 100%)",
+      shadow: "#0070a8",
+      text: "#ffffff",
+      handle: "#1cb0f6",
+      tagBg: "#005c8a",
+    };
+  }
+
+  // 3. Deudas / Préstamos / Tarjetas: morado vibrante Duolingo (#ce82ff)
+  if (
+    label.includes("préstamo") ||
+    label.includes("prestamo") ||
+    label.includes("tarjeta") ||
+    label.includes("deuda") ||
+    icon === "landmark" ||
+    icon === "creditcard"
+  ) {
+    return {
+      bg: "linear-gradient(180deg, #ce82ff 0%, #b356ff 100%)",
+      shadow: "#8624db",
+      text: "#ffffff",
+      handle: "#b356ff",
+      tagBg: "#6d1ab8",
+    };
+  }
+
+  // 4. Inversión: esmeralda / turquesa (#00cd9c)
+  if (label.includes("inversión") || label.includes("inversion") || icon === "linechart" || icon === "coins") {
+    return {
+      bg: "linear-gradient(180deg, #00cd9c 0%, #00a880 100%)",
+      shadow: "#007a5d",
+      text: "#ffffff",
+      handle: "#00cd9c",
+      tagBg: "#00664d",
+    };
+  }
+
+  // 5. Gastos fijos / Casa / Combustible / Gym / Lavado: naranja Duolingo (#ff9600)
+  if (
+    label.includes("fijo") ||
+    label.includes("combustible") ||
+    label.includes("gym") ||
+    label.includes("lavado") ||
+    icon === "home" ||
+    icon === "fuel" ||
+    icon === "car"
+  ) {
+    return {
+      bg: "linear-gradient(180deg, #ff9600 0%, #e67e00 100%)",
+      shadow: "#ad5f00",
+      text: "#ffffff",
+      handle: "#ff9600",
+      tagBg: "#8f4e00",
+    };
+  }
+
+  // 6. Gastos variables / Comida / Estacionamiento / Ocio: coral Duolingo (#ff4b4b)
+  if (
+    role === "gasto" ||
+    label.includes("gasto") ||
+    label.includes("almuerzo") ||
+    label.includes("cita") ||
+    label.includes("estacionamiento") ||
+    icon === "utensils" ||
+    icon === "shoppingbag"
+  ) {
+    return {
+      bg: "linear-gradient(180deg, #ff4b4b 0%, #e03535 100%)",
+      shadow: "#a82020",
+      text: "#ffffff",
+      handle: "#ff4b4b",
+      tagBg: "#8c1b1b",
+    };
+  }
+
+  // 7. Excedente: dorado Duolingo (#ffc800)
+  if (label.includes("excedente") || icon === "dollarsign" || icon === "wallet") {
+    return {
+      bg: "linear-gradient(180deg, #ffc800 0%, #e6b000 100%)",
+      shadow: "#ad8300",
+      text: "#ffffff",
+      handle: "#ffc800",
+      tagBg: "#8a6900",
+    };
+  }
+
+  // 8. Fallback
+  const baseCol = nodeData.color || PALETTE[0];
+  return {
+    bg: `linear-gradient(180deg, ${baseCol} 0%, ${baseCol} 100%)`,
+    shadow: "#223122",
+    text: "#ffffff",
+    handle: baseCol,
+    tagBg: "rgba(0,0,0,0.3)",
+  };
+}
+
+function ActivityFlowNode({ data, selected }) {
+  const theme = getDuolingoColors(data);
   const esIngreso = data.tipo === "ingreso" || data.role === "ingreso";
 
   const tooltipLineas = [data.label];
@@ -121,238 +266,282 @@ function ActivityFlowNode({ data }) {
   }
   const tooltip = tooltipLineas.join("\n");
 
-  let borderColor = "1px solid var(--line)";
-  let boxGlow = "0 1px 3px rgba(0,0,0,0.06)";
+  let boxShadow = `0 7px 0 ${theme.shadow}, 0 10px 24px rgba(0,0,0,0.22)`;
+  let outlineBorder = "2px solid rgba(255, 255, 255, 0.25)";
 
   if (data.limitadoEjecucion) {
-    borderColor = "2px solid #b83a2b";
+    boxShadow = `0 7px 0 #8b1818, 0 0 0 3px #ff4b4b, 0 12px 28px rgba(255,75,75,0.4)`;
+    outlineBorder = "2px solid #ff4b4b";
   } else if (data.activoEjecucion) {
-    borderColor = `2px solid ${color}`;
-    boxGlow = `0 0 0 3px ${color}33, 0 4px 12px rgba(0,0,0,0.12)`;
+    boxShadow = `0 7px 0 ${theme.shadow}, 0 0 0 4px #ffffff, 0 12px 30px rgba(255,255,255,0.45)`;
+    outlineBorder = "2px solid #ffffff";
+  } else if (selected) {
+    boxShadow = `0 7px 0 ${theme.shadow}, 0 0 0 3.5px #ffffff, 0 12px 30px rgba(255,255,255,0.35)`;
+    outlineBorder = "2px solid #ffffff";
   } else if (data.esPrioridadDeuda) {
-    borderColor = "2px solid #f59e0b";
-    boxGlow = "0 0 0 2px rgba(245, 158, 11, 0.25), 0 2px 8px rgba(245, 158, 11, 0.15)";
+    boxShadow = `0 7px 0 #b45309, 0 0 0 3px #ffc800, 0 12px 26px rgba(255, 200, 0, 0.35)`;
+    outlineBorder = "2px solid #ffc800";
   } else if (data.esMayorInteresDeuda) {
-    borderColor = "2px solid #dc2626";
-    boxGlow = "0 0 0 2px rgba(220, 38, 38, 0.25), 0 2px 8px rgba(220, 38, 38, 0.15)";
+    boxShadow = `0 7px 0 #991b1b, 0 0 0 3px #ff4b4b, 0 12px 26px rgba(255, 75, 75, 0.35)`;
+    outlineBorder = "2px solid #ff4b4b";
   }
 
   return (
     <div
       title={tooltip}
+      className="duolingo-flow-node"
       style={{
-        padding: "8px 12px",
-        borderRadius: 8,
-        background: "var(--card)",
-        border: borderColor,
-        boxShadow: boxGlow,
-        minWidth: 140,
-        maxWidth: 220,
+        padding: "12px 16px",
+        borderRadius: 22,
+        background: theme.bg,
+        color: "#ffffff",
+        border: outlineBorder,
+        borderTop: "2.5px solid rgba(255, 255, 255, 0.5)",
+        boxShadow: boxShadow,
+        minWidth: 200,
+        maxWidth: 260,
         position: "relative",
-        fontFamily: "Inter, sans-serif",
-        cursor: "pointer",
+        fontFamily: "'Inter', sans-serif",
+        cursor: "grab",
         userSelect: "none",
+        transition: "transform 0.12s ease, box-shadow 0.12s ease",
       }}
     >
-      <Handle type="target" position={Position.Top} style={{ background: color, width: 8, height: 8 }} />
+      {/* Handle superior de conexión */}
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{
+          background: "#ffffff",
+          width: 12,
+          height: 12,
+          border: `3px solid ${theme.handle}`,
+          boxShadow: "0 2px 5px rgba(0,0,0,0.25)",
+          top: -6,
+        }}
+      />
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {data.progresoPct != null ? (
-          <AnilloProgreso pct={data.progresoPct} color={color} size={28}>
+      {/* Badges superiores de estrategia estilo Duolingo */}
+      {data.esPrioridadDeuda && (
+        <div
+          style={{
+            position: "absolute",
+            top: -12,
+            right: 12,
+            background: "#ffc800",
+            color: "#784a00",
+            fontSize: 10,
+            fontWeight: 900,
+            padding: "2px 8px",
+            borderRadius: 10,
+            boxShadow: "0 2px 0 #cc9b00",
+            border: "1.5px solid #ffffff",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            letterSpacing: "0.02em",
+            zIndex: 10,
+          }}
+          title="Deuda prioritaria según tu estrategia de pagos"
+        >
+          <Crown size={11} style={{ fill: "#784a00" }} />
+          <span>Pagar siguiente</span>
+        </div>
+      )}
+
+      {data.esMayorInteresDeuda && !data.esPrioridadDeuda && (
+        <div
+          style={{
+            position: "absolute",
+            top: -12,
+            right: 12,
+            background: "#ff4b4b",
+            color: "#ffffff",
+            fontSize: 10,
+            fontWeight: 900,
+            padding: "2px 8px",
+            borderRadius: 10,
+            boxShadow: "0 2px 0 #b32424",
+            border: "1.5px solid #ffffff",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            letterSpacing: "0.02em",
+            zIndex: 10,
+          }}
+          title={`Mayor tasa de interés${data.tasaInteres ? ` (${data.tasaInteres}%)` : ""}`}
+        >
+          <Flame size={11} style={{ fill: "#ffffff" }} />
+          <span>Mayor interés {data.tasaInteres ? `(${data.tasaInteres}%)` : ""}</span>
+        </div>
+      )}
+
+      {/* Contenido principal del botón Duolingo */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {/* Emblema circular estilo Duolingo */}
+        <div style={{ position: "relative", width: 44, height: 44, flexShrink: 0 }}>
+          {data.progresoPct != null ? (
+            <AnilloProgreso pct={data.progresoPct} color="#ffffff" size={44}>
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: "50%",
+                  background: "rgba(255,255,255,0.22)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#ffffff",
+                  boxShadow: "inset 0 2px 4px rgba(0,0,0,0.15)",
+                }}
+              >
+                <IconoNodo nombre={data.icon} size={18} />
+              </div>
+            </AnilloProgreso>
+          ) : (
             <div
               style={{
-                width: 20,
-                height: 20,
-                borderRadius: 4,
-                background: color,
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.22)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "#fff",
+                color: "#ffffff",
+                border: "2px solid rgba(255,255,255,0.45)",
+                boxShadow: "inset 0 2px 4px rgba(0,0,0,0.15)",
               }}
             >
-              <IconoNodo nombre={data.icon} size={12} />
+              <IconoNodo nombre={data.icon} size={22} />
             </div>
-          </AnilloProgreso>
-        ) : (
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 6,
-              background: color,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#fff",
-              flexShrink: 0,
-            }}
-          >
-            <IconoNodo nombre={data.icon} size={13} />
-          </div>
-        )}
+          )}
+        </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Textos y monto */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
           <div
             style={{
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: "var(--ink)",
+              fontSize: 13.5,
+              fontWeight: 800,
+              color: "#ffffff",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
+              textShadow: "0 1px 2px rgba(0,0,0,0.2)",
+              letterSpacing: "-0.01em",
             }}
           >
             {data.label}
           </div>
 
-          {(data.esPrioridadDeuda || data.esMayorInteresDeuda) && (
-            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 2 }}>
-              {data.esPrioridadDeuda && (
-                <span
-                  style={{
-                    fontSize: 9.5,
-                    fontWeight: 700,
-                    padding: "1px 5px",
-                    borderRadius: 4,
-                    background: "rgba(245, 158, 11, 0.18)",
-                    color: "#b45309",
-                    border: "1px solid rgba(245, 158, 11, 0.4)",
-                  }}
-                  title="Deuda que sigue a pagar según tu estrategia activa"
-                >
-                  ★ Pagar siguiente
-                </span>
-              )}
-              {data.esMayorInteresDeuda && (
-                <span
-                  style={{
-                    fontSize: 9.5,
-                    fontWeight: 700,
-                    padding: "1px 5px",
-                    borderRadius: 4,
-                    background: "rgba(220, 38, 38, 0.15)",
-                    color: "#dc2626",
-                    border: "1px solid rgba(220, 38, 38, 0.4)",
-                  }}
-                  title={`Deuda con mayor tasa de interés${data.tasaInteres ? ` (${data.tasaInteres}%)` : ""} — es la que más intereses genera`}
-                >
-                  ⚠ Mayor interés{data.tasaInteres ? ` (${data.tasaInteres}%)` : ""}
-                </span>
-              )}
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            {data.amount != null ? (
+              <span
+                className="despensa-mono"
+                style={{
+                  fontSize: 11.5,
+                  fontWeight: 800,
+                  background: "rgba(0,0,0,0.25)",
+                  color: "#ffffff",
+                  padding: "2px 8px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(255,255,255,0.2)",
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {formatMoney(data.amount)}
+                {data.calculado && <span style={{ fontSize: 9.5, opacity: 0.9 }}> · 10% auto</span>}
+                {data.progresoPct != null && (
+                  <span style={{ fontSize: 9.5, opacity: 0.9 }}> · {Math.round(data.progresoPct)}%</span>
+                )}
+              </span>
+            ) : (
+              <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.85)" }}>
+                {esIngreso ? "Ingreso variable" : "Sin monto"}
+              </span>
+            )}
 
-          {esIngreso && (
-            <div
-              className="despensa-mono"
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: color,
-                marginTop: 2,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {data.amount != null ? formatMoney(data.amount) : "Sin monto"}
-            </div>
-          )}
-
-          {!esIngreso && data.amount != null && (
-            <div
-              className="despensa-mono"
-              style={{
-                fontSize: 11,
-                fontWeight: 600,
-                color: color,
-                marginTop: 2,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {formatMoney(data.amount)}
-              {data.calculado && (
-                <span style={{ fontSize: 9.5, fontWeight: 400, color: "var(--ink-soft)" }}> · 10% auto</span>
-              )}
-              {data.progresoPct != null && (
-                <span style={{ fontSize: 9.5, fontWeight: 400, color: "var(--ink-soft)" }}>
-                  {" "}· {Math.round(data.progresoPct)}%
-                </span>
-              )}
-            </div>
-          )}
-
-          {!esIngreso && data.categoriaGasto && (
-            <div
-              style={{
-                fontSize: 9.5,
-                color: "var(--ink-soft)",
-                marginTop: 1,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {data.categoriaGasto}
-            </div>
-          )}
-
-          {data.entidadName && (
-            <div
-              style={{
-                fontSize: 9,
-                color: "var(--ink-soft)",
-                marginTop: 1,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {data.entidadName}
-            </div>
-          )}
+            {data.entidadName && (
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: "rgba(255,255,255,0.9)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  maxWidth: 120,
+                  textShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                }}
+              >
+                {data.entidadName}
+              </span>
+            )}
+          </div>
         </div>
 
-        {data.advertencia && (
-          <span
-            title="Supera el 30% de tu ingreso — nivel de endeudamiento alto"
+        {/* Corona dorada si está completado al 100% */}
+        {data.progresoPct != null && data.progresoPct >= 100 && (
+          <div
             style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#e0a52e",
-              background: "rgba(224, 165, 46, 0.15)",
+              position: "absolute",
+              bottom: -5,
+              right: -5,
+              background: "#ffc800",
+              color: "#784a00",
               borderRadius: "50%",
-              width: 18,
-              height: 18,
+              width: 22,
+              height: 22,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              border: "2px solid #ffffff",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.25)",
+            }}
+            title="Totalmente pagado (100%)"
+          >
+            <Crown size={12} style={{ fill: "#784a00" }} />
+          </div>
+        )}
+
+        {/* Advertencia de nivel de endeudamiento */}
+        {data.advertencia && (
+          <div
+            title="Supera el 30% de tu ingreso — nivel de endeudamiento alto"
+            style={{
+              background: "#ffc800",
+              color: "#784a00",
+              borderRadius: "50%",
+              width: 20,
+              height: 20,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 900,
+              fontSize: 11,
               flexShrink: 0,
+              border: "1.5px solid #ffffff",
             }}
           >
             !
-          </span>
-        )}
-
-        {data.progresoPct != null && data.progresoPct >= 100 && (
-          <span
-            style={{
-              color: "var(--amber)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Check size={14} />
-          </span>
+          </div>
         )}
       </div>
 
-      <Handle type="source" position={Position.Bottom} style={{ background: color, width: 8, height: 8 }} />
+      {/* Handle inferior de conexión */}
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{
+          background: "#ffffff",
+          width: 12,
+          height: 12,
+          border: `3px solid ${theme.handle}`,
+          boxShadow: "0 2px 5px rgba(0,0,0,0.25)",
+          bottom: -6,
+        }}
+      />
     </div>
   );
 }

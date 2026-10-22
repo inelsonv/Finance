@@ -10,3 +10,5 @@ coverage/
 .tempmediaStorage/
 .dev.*
 *.traineddata
+*.bundle
+public/assets/aistudio/
