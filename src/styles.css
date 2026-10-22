@@ -1152,3 +1152,10 @@ button:active {
     opacity: 1;
   }
 }
+
+/* Enfoque vertical móvil: previene desbordamientos o deformaciones al girar en dispositivos móviles */
+@media screen and (orientation: landscape) and (max-height: 550px) {
+  html, body {
+    overflow-x: hidden;
+  }
+}
