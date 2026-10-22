@@ -39,6 +39,51 @@ function normalizarCuotas(lista) {
     .filter((c) => c.monto > 0);
 }
 
+export function obtenerInfoCuotasPrestamo(p, movimientos) {
+  if (!p) return { totalCuotas: null, cuotasPagadas: 0, cuotasPendientes: null, porcentaje: 0, pagos: [] };
+
+  const pagos = (movimientos || [])
+    .filter(
+      (m) =>
+        m.category === "Pago de préstamo" &&
+        (m.prestamoId === p.id || (m.prestamoNumero && p.numero && m.prestamoNumero === p.numero))
+    )
+    .sort(
+      (a, b) =>
+        String(a.date || "").localeCompare(String(b.date || "")) ||
+        String(a.createdAt || "").localeCompare(String(b.createdAt || ""))
+    );
+
+  let totalCuotas = null;
+  if (p.frecuenciaCuota === "Personalizado") {
+    totalCuotas = (p.cuotasPersonalizadas || []).length;
+  } else if (p.plazo) {
+    totalCuotas = p.plazoUnidad === "años" ? (Number(p.plazo) || 0) * 12 : Number(p.plazo) || 0;
+  }
+
+  const cuotasPagadas = pagos.length;
+  let cuotasPendientes = null;
+
+  if (p.estado === "Pagado") {
+    cuotasPendientes = 0;
+  } else if (totalCuotas != null && totalCuotas > 0) {
+    cuotasPendientes = Math.max(0, totalCuotas - cuotasPagadas);
+  }
+
+  const porcentaje =
+    totalCuotas && totalCuotas > 0
+      ? Math.min(100, Math.round((cuotasPagadas / totalCuotas) * 100))
+      : 0;
+
+  return {
+    totalCuotas,
+    cuotasPagadas,
+    cuotasPendientes,
+    porcentaje,
+    pagos,
+  };
+}
+
 const emptyForm = (numero) => ({
   numero,
   tipo: TIPOS_PRESTAMO[0],
@@ -199,12 +244,18 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
 
   const pagadoPorPrestamo = useMemo(() => {
     const map = {};
-    for (const m of movimientos) {
-      if (m.category !== "Pago de préstamo" || !m.prestamoId) continue;
-      map[m.prestamoId] = (map[m.prestamoId] || 0) + (Number(m.amount) || 0);
+    for (const p of prestamos) {
+      const total = (movimientos || [])
+        .filter(
+          (m) =>
+            m.category === "Pago de préstamo" &&
+            (m.prestamoId === p.id || (m.prestamoNumero && p.numero && m.prestamoNumero === p.numero))
+        )
+        .reduce((s, m) => s + (Number(m.amount) || 0), 0);
+      map[p.id] = total;
     }
     return map;
-  }, [movimientos]);
+  }, [prestamos, movimientos]);
 
   const totalesGenerales = useMemo(() => {
     let pagado = 0;
@@ -213,6 +264,21 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
     }
     return { pagado, pendiente: totals.aprobado - pagado };
   }, [prestamos, pagadoPorPrestamo, totals.aprobado]);
+
+  const cuotasTotalesResumen = useMemo(() => {
+    let pagadas = 0;
+    let pendientes = 0;
+    let totalPlan = 0;
+    for (const p of prestamosActivos) {
+      const info = obtenerInfoCuotasPrestamo(p, movimientos);
+      if (info.totalCuotas != null && info.totalCuotas > 0) {
+        pagadas += info.cuotasPagadas;
+        pendientes += info.cuotasPendientes ?? 0;
+        totalPlan += info.totalCuotas;
+      }
+    }
+    return { pagadas, pendientes, totalPlan };
+  }, [prestamosActivos, movimientos]);
 
   const handleAdd = async () => {
     const monto = parseFloat(form.montoAprobado);
@@ -264,12 +330,20 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, marginBottom: 18 }}>
         <SummaryCard label="Préstamos" value={totals.total} mono={false} />
         <SummaryCard label="Activos" value={totals.activos} mono={false} />
         <SummaryCard label="Monto aprobado total" value={formatMoney(totals.aprobado)} mono />
         <SummaryCard label="Total pagado" value={formatMoney(totalesGenerales.pagado)} mono color="var(--sage)" />
         <SummaryCard label="Falta por pagar" value={formatMoney(totalesGenerales.pendiente)} mono color={totalesGenerales.pendiente > 0 ? "var(--stamp)" : "var(--sage)"} />
+        {cuotasTotalesResumen.totalPlan > 0 && (
+          <SummaryCard
+            label="Cuotas pendientes"
+            value={`${cuotasTotalesResumen.pendientes} de ${cuotasTotalesResumen.totalPlan}`}
+            mono
+            color={cuotasTotalesResumen.pendientes > 0 ? "var(--stamp)" : "var(--sage)"}
+          />
+        )}
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
@@ -974,58 +1048,105 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
-                    <Field label="Monto aprobado" value={formatMoney(p.montoAprobado)} />
-                    <Field label="Cuota mensual" value={p.cuota != null ? formatMoney(p.cuota) : "—"} />
-                    <Field label="Plazo" value={p.plazo ? `${p.plazo} ${p.plazoUnidad || "meses"}` : "—"} />
-                    <Field label="Tasa interés" value={p.tasaInteres != null ? `${p.tasaInteres}%` : "—"} />
-                    <Field
-                      label="Inicio"
-                      value={
-                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <Calendar size={11} /> {formatDateDisplay(p.fechaInicio)}
-                        </span>
-                      }
-                    />
-                  </div>
-
                   {(() => {
+                    const cuotasInfo = obtenerInfoCuotasPrestamo(p, movimientos);
                     const pagado = pagadoPorPrestamo[p.id] || 0;
                     const pendiente = Math.max((Number(p.montoAprobado) || 0) - pagado, 0);
                     const pct = p.montoAprobado ? Math.min(100, Math.round((pagado / p.montoAprobado) * 100)) : 0;
                     return (
-                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 6 }}>
-                          <Field label="Pagado" value={<span style={{ color: "var(--sage)" }}>{formatMoney(pagado)}</span>} />
-                          <Field label="Falta por pagar" value={<span style={{ color: pendiente > 0 ? "var(--stamp)" : "var(--sage)" }}>{formatMoney(pendiente)}</span>} />
-                        </div>
-                        <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${pct}%`, background: "var(--sage)", borderRadius: 4 }} />
-                        </div>
-                        {(() => {
-                          const proyeccion = calcularProyeccionPago(p, movimientos);
-                          if (!proyeccion || proyeccion.yaSaldado) return null;
-                          const fechaTexto = proyeccion.fechaProyectada.toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" });
-                          let comparacion = null;
-                          if (proyeccion.diasDiferencia != null) {
-                            if (proyeccion.diasDiferencia > 15) {
-                              comparacion = { texto: `${Math.round(proyeccion.diasDiferencia / 30)} meses más tarde de lo planeado`, color: "var(--stamp)" };
-                            } else if (proyeccion.diasDiferencia < -15) {
-                              comparacion = { texto: `${Math.round(Math.abs(proyeccion.diasDiferencia) / 30)} meses antes de lo planeado`, color: "var(--sage)" };
-                            } else {
-                              comparacion = { texto: "según lo planeado", color: "var(--ink-soft)" };
+                      <>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10 }}>
+                          <Field label="Monto aprobado" value={formatMoney(p.montoAprobado)} />
+                          <Field label="Cuota mensual" value={p.cuota != null ? formatMoney(p.cuota) : "—"} />
+                          <Field label="Plazo" value={p.plazo ? `${p.plazo} ${p.plazoUnidad || "meses"}` : "—"} />
+                          {cuotasInfo.totalCuotas != null && (
+                            <Field
+                              label="Cuotas pendientes"
+                              value={
+                                <span>
+                                  <strong style={{ color: cuotasInfo.cuotasPendientes > 0 ? "var(--stamp)" : "var(--sage)" }}>
+                                    {cuotasInfo.cuotasPendientes} restantes
+                                  </strong>
+                                  <span style={{ fontSize: 10.5, fontWeight: 400, color: "var(--ink-soft)", display: "block" }}>
+                                    ({cuotasInfo.cuotasPagadas} de {cuotasInfo.totalCuotas} pagadas)
+                                  </span>
+                                </span>
+                              }
+                            />
+                          )}
+                          <Field label="Tasa interés" value={p.tasaInteres != null ? `${p.tasaInteres}%` : "—"} />
+                          <Field
+                            label="Inicio"
+                            value={
+                              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                <Calendar size={11} /> {formatDateDisplay(p.fechaInicio)}
+                              </span>
                             }
-                          }
-                          return (
-                            <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-                              📈 A tu ritmo actual, quedaría saldado el <strong style={{ color: "var(--ink)" }}>{fechaTexto}</strong>
-                              {comparacion && (
-                                <span style={{ color: comparacion.color }}> — {comparacion.texto}</span>
-                              )}
+                          />
+                        </div>
+
+                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: cuotasInfo.totalCuotas != null ? "repeat(auto-fit, minmax(110px, 1fr))" : "1fr 1fr", gap: 10, marginBottom: 8 }}>
+                            <Field label="Pagado" value={<span style={{ color: "var(--sage)" }}>{formatMoney(pagado)}</span>} />
+                            <Field label="Falta por pagar" value={<span style={{ color: pendiente > 0 ? "var(--stamp)" : "var(--sage)" }}>{formatMoney(pendiente)}</span>} />
+                            {cuotasInfo.totalCuotas != null && (
+                              <Field
+                                label="Cuotas restantes"
+                                value={
+                                  <span>
+                                    <strong style={{ color: cuotasInfo.cuotasPendientes > 0 ? "var(--stamp)" : "var(--sage)" }}>
+                                      {cuotasInfo.cuotasPendientes} de {cuotasInfo.totalCuotas}
+                                    </strong>
+                                    <span style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block" }}>
+                                      {cuotasInfo.cuotasPagadas} pagadas
+                                    </span>
+                                  </span>
+                                }
+                              />
+                            )}
+                          </div>
+
+                          {cuotasInfo.totalCuotas != null && (
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, fontSize: 11.5 }}>
+                              <span style={{ color: "var(--ink-soft)" }}>
+                                <strong style={{ color: "var(--sage)" }}>{cuotasInfo.cuotasPagadas}</strong> cuotas pagadas de <strong style={{ color: "var(--ink)" }}>{cuotasInfo.totalCuotas}</strong>
+                                {" "}• Quedan <strong style={{ color: cuotasInfo.cuotasPendientes > 0 ? "var(--stamp)" : "var(--sage)" }}>{cuotasInfo.cuotasPendientes} {cuotasInfo.cuotasPendientes === 1 ? "cuota" : "cuotas"}</strong>
+                              </span>
+                              <span className="despensa-mono" style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-soft)" }}>
+                                {cuotasInfo.porcentaje}% de cuotas
+                              </span>
                             </div>
-                          );
-                        })()}
-                      </div>
+                          )}
+
+                          <div style={{ height: 6, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
+                            <div style={{ height: "100%", width: `${pct}%`, background: "var(--sage)", borderRadius: 4 }} />
+                          </div>
+
+                          {(() => {
+                            const proyeccion = calcularProyeccionPago(p, movimientos);
+                            if (!proyeccion || proyeccion.yaSaldado) return null;
+                            const fechaTexto = proyeccion.fechaProyectada.toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" });
+                            let comparacion = null;
+                            if (proyeccion.diasDiferencia != null) {
+                              if (proyeccion.diasDiferencia > 15) {
+                                comparacion = { texto: `${Math.round(proyeccion.diasDiferencia / 30)} meses más tarde de lo planeado`, color: "var(--stamp)" };
+                              } else if (proyeccion.diasDiferencia < -15) {
+                                comparacion = { texto: `${Math.round(Math.abs(proyeccion.diasDiferencia) / 30)} meses antes de lo planeado`, color: "var(--sage)" };
+                              } else {
+                                comparacion = { texto: "según lo planeado", color: "var(--ink-soft)" };
+                              }
+                            }
+                            return (
+                              <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+                                📈 A tu ritmo actual, quedaría saldado el <strong style={{ color: "var(--ink)" }}>{fechaTexto}</strong>
+                                {comparacion && (
+                                  <span style={{ color: comparacion.color }}> — {comparacion.texto}</span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </>
                     );
                   })()}
 
@@ -1166,6 +1287,15 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 500 }}>{p.numero}</div>
                       <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>{p.entidadName || "Sin entidad"}</div>
+                      {(() => {
+                        const info = obtenerInfoCuotasPrestamo(p, movimientos);
+                        if (!info.totalCuotas) return null;
+                        return (
+                          <div style={{ fontSize: 11, color: "var(--sage)", marginTop: 2, fontWeight: 500 }}>
+                            {info.totalCuotas} de {info.totalCuotas} cuotas saldadas (0 pendientes)
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -1217,18 +1347,17 @@ function Field({ label, value }) {
 }
 
 function HistorialCuotasPagadas({ prestamo, movimientos }) {
-  const [abierto, setAbierto] = useState(false);
+  const totalCuotasPlan = prestamo?.frecuenciaCuota === "Personalizado"
+    ? (prestamo.cuotasPersonalizadas || []).length
+    : prestamo?.plazo
+    ? (prestamo.plazoUnidad === "años" ? (Number(prestamo.plazo) || 0) * 12 : Number(prestamo.plazo) || 0)
+    : null;
+
   const pagos = useMemo(() => {
     // Obtenemos los pagos ordenados cronológicamente (más antiguo primero) para numerar las cuotas
     const pagosCronologicos = (movimientos || [])
       .filter((m) => m.category === "Pago de préstamo" && (m.prestamoId === prestamo.id || (m.prestamoNumero && m.prestamoNumero === prestamo.numero)))
       .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
-
-    const totalCuotasPlan = prestamo?.frecuenciaCuota === "Personalizado"
-      ? (prestamo.cuotasPersonalizadas || []).length
-      : prestamo?.plazo
-      ? (prestamo.plazoUnidad === "años" ? (Number(prestamo.plazo) || 0) * 12 : Number(prestamo.plazo) || 0)
-      : null;
 
     // Asignamos el número de cuota ordinal a cada pago
     const mapeados = pagosCronologicos.map((p, idx) => ({
@@ -1239,7 +1368,9 @@ function HistorialCuotasPagadas({ prestamo, movimientos }) {
 
     // Mostramos el listado ordenado del más reciente al más antiguo
     return mapeados.reverse();
-  }, [movimientos, prestamo]);
+  }, [movimientos, prestamo, totalCuotasPlan]);
+
+  const cuotasPendientes = totalCuotasPlan != null ? Math.max(0, totalCuotasPlan - pagos.length) : null;
 
   return (
     <div style={{ borderTop: "1px solid var(--line-soft)", paddingTop: 7 }}>
@@ -1248,7 +1379,16 @@ function HistorialCuotasPagadas({ prestamo, movimientos }) {
         onClick={() => setAbierto((value) => !value)}
         style={{ display: "flex", alignItems: "center", gap: 6, padding: 0, border: "none", background: "transparent", color: "var(--sage)", fontSize: 11.5, cursor: "pointer" }}
       >
-        <Check size={12} /> Cuotas pagadas ({pagos.length})
+        <Check size={12} />
+        {prestamo.estado === "Pagado" ? (
+          <>Cuotas saldadas ({pagos.length}{totalCuotasPlan ? ` de ${totalCuotasPlan}` : ""})</>
+        ) : totalCuotasPlan ? (
+          <>
+            Cuotas pagadas ({pagos.length} de {totalCuotasPlan} · quedan <strong style={{ color: cuotasPendientes > 0 ? "var(--stamp)" : "var(--sage)" }}>{cuotasPendientes}</strong>)
+          </>
+        ) : (
+          <>Cuotas pagadas ({pagos.length})</>
+        )}
         {abierto ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
       </button>
       {abierto && (
