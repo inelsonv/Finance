@@ -991,8 +991,14 @@ button:active {
 }
 
 .checklist-item-card--pagado {
-  border-color: var(--sage) !important;
-  opacity: 0.72;
+  background: rgba(16, 185, 129, 0.16) !important;
+  border-color: rgba(16, 185, 129, 0.55) !important;
+  opacity: 1 !important;
+}
+
+.checklist-item-card--pagado .checklist-item-monto-btn {
+  color: var(--ink) !important;
+  font-weight: 700 !important;
 }
 
 .checklist-item-main {
