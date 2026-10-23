@@ -891,20 +891,20 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 className={`checklist-item-card ${estado.pagado ? "checklist-item-card--pagado" : ""} ${it.esPrestamo ? "checklist-item-card--prestamo" : ""}`}
                 style={{
                   background: estado.pagado
-                    ? "rgba(16, 185, 129, 0.16)"
+                    ? "rgba(16, 185, 129, 0.22)"
                     : it.esPrestamo
                       ? "var(--amber-bg)"
                       : "var(--card)",
                   border: `1px solid ${
                     estado.pagado
-                      ? "rgba(16, 185, 129, 0.55)"
+                      ? "#10b981"
                       : it.esPrestamo
                         ? "var(--amber)"
                         : "var(--line)"
                   }`,
                   borderRadius: 10,
                   opacity: 1,
-                  boxShadow: estado.pagado ? "0 1px 4px rgba(16, 185, 129, 0.15)" : "none",
+                  boxShadow: estado.pagado ? "0 2px 8px rgba(16, 185, 129, 0.2)" : "none",
                   transition: "background 0.2s ease, border-color 0.2s ease",
                 }}
               >
@@ -941,21 +941,31 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                       border: modoSeleccion
                         ? seleccionados.has(it.key)
                           ? "2px solid #10b981"
-                          : "2px solid var(--line)"
+                          : it.esPrestamo
+                            ? "2px solid var(--amber, #f59e0b)"
+                            : "2px solid var(--ink-soft, #94a3b8)"
                         : estado.pagado
                           ? "2px solid #059669"
-                          : "2px solid var(--line)",
+                          : it.esPrestamo
+                            ? "2px solid var(--amber, #f59e0b)"
+                            : "2px solid var(--ink-soft, #94a3b8)",
                       background: modoSeleccion
                         ? seleccionados.has(it.key)
                           ? "#10b981"
-                          : "transparent"
+                          : it.esPrestamo
+                            ? "rgba(245, 158, 11, 0.16)"
+                            : "rgba(148, 163, 184, 0.15)"
                         : estado.pagado
                           ? "#10b981"
-                          : "transparent",
+                          : it.esPrestamo
+                            ? "rgba(245, 158, 11, 0.16)"
+                            : "rgba(148, 163, 184, 0.15)",
                       color: "#ffffff",
                       boxShadow: (modoSeleccion ? seleccionados.has(it.key) : estado.pagado)
                         ? "0 2px 6px rgba(16, 185, 129, 0.45)"
-                        : "none",
+                        : it.esPrestamo
+                          ? "0 0 0 1px rgba(245, 158, 11, 0.25)"
+                          : "none",
                       cursor: it.bloqueadoPagado || (modoSeleccion && estado.pagado) ? "not-allowed" : confirmandoKey === it.key ? "wait" : "pointer",
                       flexShrink: 0,
                       opacity: modoSeleccion && estado.pagado ? 0.4 : 1,
@@ -963,7 +973,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     }}
                   >
                     {(modoSeleccion ? seleccionados.has(it.key) : estado.pagado) && (
-                      <Check size={16} strokeWidth={3} style={{ color: "#ffffff" }} />
+                      <Check size={16} strokeWidth={3.5} style={{ color: "#ffffff" }} />
                     )}
                   </button>
 

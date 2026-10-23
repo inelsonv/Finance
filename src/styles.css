@@ -991,8 +991,8 @@ button:active {
 }
 
 .checklist-item-card--pagado {
-  background: rgba(16, 185, 129, 0.16) !important;
-  border-color: rgba(16, 185, 129, 0.55) !important;
+  background: rgba(16, 185, 129, 0.22) !important;
+  border-color: #10b981 !important;
   opacity: 1 !important;
 }
 
