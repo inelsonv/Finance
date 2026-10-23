@@ -42,6 +42,7 @@ export default function ConfirmDialogHost() {
   };
 
   const { message, options } = pending;
+  const textoMensaje = typeof message === "string" ? message : (message?.message || message?.title || "");
   const danger = options.danger !== false; // por defecto, tono de "eliminar"
   const confirmLabel = options.confirmLabel || (danger ? "Eliminar" : "Confirmar");
   const cancelLabel = options.cancelLabel || "Cancelar";
@@ -89,7 +90,7 @@ export default function ConfirmDialogHost() {
           >
             <AlertTriangle size={16} />
           </div>
-          <div style={{ fontSize: 13.5, color: "var(--ink)", lineHeight: 1.5, paddingTop: 5 }}>{message}</div>
+          <div style={{ fontSize: 13.5, color: "var(--ink)", lineHeight: 1.5, paddingTop: 5 }}>{textoMensaje}</div>
         </div>
         {options.requireReason && (
           <div style={{ marginBottom: 16 }}>

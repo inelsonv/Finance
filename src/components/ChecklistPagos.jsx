@@ -267,12 +267,10 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     const quincenaLabel = periodo.quincena === "Q1" ? "1ra" : "2da";
     const periodoTxt = `${quincenaLabel} quincena de ${MESES[periodo.month - 1]} ${periodo.year}`;
 
-    const ok = await confirm({
-      title: "¿Eliminar gasto de esta quincena?",
-      message: `¿Estás seguro de eliminar el monto presupuestado de ${formatMoney(it.monto)} para "${nombre}" en la ${periodoTxt}?\n\nEl monto quedará en $0 en el presupuesto de esta quincena y desaparecerá del checklist.`,
-      confirmText: "Eliminar gasto",
-      danger: true,
-    });
+    const ok = await confirm(
+      `¿Estás seguro de eliminar el monto presupuestado de ${formatMoney(it.monto)} para "${nombre}" en la ${periodoTxt}? El monto quedará en $0 en el presupuesto de esta quincena.`,
+      { confirmLabel: "Eliminar", danger: true }
+    );
     if (!ok) return;
 
     setEliminandoGastoKey(it.key);
@@ -883,57 +881,6 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                   <div style={{ height: 6, background: "var(--line-soft)", borderRadius: 4, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${pct}%`, background: excedido ? "var(--stamp)" : "var(--sage)", borderRadius: 4 }} />
                   </div>
-
-                  {/* Acciones para mover o eliminar este gasto presupuestado */}
-                  <div style={{ marginTop: 8, paddingTop: 6, borderTop: "1px solid var(--line-soft)" }}>
-                    {moviendoGastoKey === it.key ? (
-                      renderPanelMoverGasto(it)
-                    ) : (
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <button
-                          type="button"
-                          onClick={() => abrirMoverGasto(it)}
-                          title="Mover este monto presupuestado a otra quincena"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            padding: "3px 8px",
-                            fontSize: 11,
-                            color: "var(--sage)",
-                            background: "var(--sage-bg)",
-                            border: "1px solid var(--sage)",
-                            borderRadius: 6,
-                            cursor: "pointer",
-                            fontWeight: 600,
-                          }}
-                        >
-                          <ArrowLeftRight size={11} /> Mover quincena
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => eliminarGastoQuincena(it)}
-                          disabled={eliminandoGastoKey === it.key}
-                          title="Eliminar este gasto presupuestado de esta quincena"
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            padding: "3px 8px",
-                            fontSize: 11,
-                            color: "var(--stamp)",
-                            background: "var(--stamp-bg)",
-                            border: "1px solid var(--stamp)",
-                            borderRadius: 6,
-                            cursor: eliminandoGastoKey === it.key ? "wait" : "pointer",
-                            fontWeight: 600,
-                          }}
-                        >
-                          <Trash2 size={11} /> {eliminandoGastoKey === it.key ? "Eliminando…" : "Eliminar gasto"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
                 </div>
               );
             }
@@ -1214,7 +1161,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                                       fontWeight: 600,
                                     }}
                                   >
-                                    <Trash2 size={11} /> {eliminandoGastoKey === it.key ? "Eliminando…" : "Eliminar gasto"}
+                                    <Trash2 size={11} /> {eliminandoGastoKey === it.key ? "Eliminando…" : "Eliminar"}
                                   </button>
                                 </div>
                               )}
@@ -1441,7 +1388,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                                     fontWeight: 600,
                                   }}
                                 >
-                                  <Trash2 size={11} /> {eliminandoGastoKey === it.key ? "Eliminando…" : "Eliminar gasto"}
+                                  <Trash2 size={11} /> {eliminandoGastoKey === it.key ? "Eliminando…" : "Eliminar"}
                                 </button>
                                 {it.esVariable && !it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
                                   <button
