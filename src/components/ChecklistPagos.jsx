@@ -1047,39 +1047,53 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     padding: "10px 12px",
                   }}
                 >
-                  <div className="checklist-variable-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
-                      <Icon size={14} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
-                      <span style={{ fontSize: 13.5, fontWeight: 500, flex: 1, minWidth: 0, overflowWrap: "break-word", wordBreak: "normal" }}>{it.nombre}</span>
-                      <button
-                        type="button"
-                        onClick={() => toggleModoChecklist(it)}
-                        title="Cambiar este gasto a pago único (para marcarlo con casilla como un gasto puntual)"
-                        style={{
-                          fontSize: 10,
-                          padding: "2px 7px",
-                          borderRadius: 6,
-                          border: "1px solid var(--line)",
-                          background: "var(--paper)",
-                          color: "var(--ink-soft)",
-                          cursor: "pointer",
-                          whiteSpace: "nowrap",
-                          flexShrink: 0,
-                        }}
-                      >
-                        Cambiar a pago único
-                      </button>
+                  {/* Fila superior: Icono y Nombre a la izquierda, Monto a la derecha */}
+                  <div className="checklist-variable-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 7 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
+                      <Icon size={15} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {it.nombre}
+                      </span>
                     </div>
                     <span
                       title="Se calcula solo según lo registrado en Movimientos durante la quincena"
                       className="despensa-mono"
-                      style={{ fontSize: 12, fontWeight: 600, color: excedido ? "var(--stamp)" : "var(--ink)", flexShrink: 0, whiteSpace: "nowrap" }}
+                      style={{ fontSize: 12.5, fontWeight: 600, color: excedido ? "var(--stamp)" : "var(--ink)", flexShrink: 0, whiteSpace: "nowrap" }}
                     >
                       {formatMoney(it.gastadoReal)} / {formatMoney(it.monto)}
                     </span>
                   </div>
+
+                  {/* Barra de progreso de consumo continuo */}
                   <div style={{ height: 6, background: "var(--line-soft)", borderRadius: 4, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${pct}%`, background: excedido ? "var(--stamp)" : "var(--sage)", borderRadius: 4 }} />
+                  </div>
+
+                  {/* Fila inferior: Indicador de consumo gradual y botón para cambiar de modo */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 7 }}>
+                    <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+                      Consumo gradual ({pct.toFixed(0)}%{excedido ? " — ¡Excedido!" : ""})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => toggleModoChecklist(it)}
+                      title="Cambiar este gasto a pago único (para marcarlo con casilla como un gasto puntual)"
+                      style={{
+                        fontSize: 10.5,
+                        fontWeight: 500,
+                        padding: "2px 8px",
+                        borderRadius: 6,
+                        border: "1px solid var(--line)",
+                        background: "var(--paper)",
+                        color: "var(--ink-soft)",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      Cambiar a pago único
+                    </button>
                   </div>
                 </div>
               );
