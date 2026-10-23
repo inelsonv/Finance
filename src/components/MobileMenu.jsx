@@ -1,5 +1,5 @@
 import React from "react";
-import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Bot, Map as MapIcon, UtensilsCrossed } from "lucide-react";
+import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Bot, Map as MapIcon, UtensilsCrossed, CheckSquare } from "lucide-react";
 import { confirm } from "../lib/confirm";
 import SmartFinanceLogo from "./SmartFinanceLogo.jsx";
 import WhatsAppGroupButton from "./WhatsAppGroupButton.jsx";
@@ -8,6 +8,7 @@ const OPCIONES = [
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "dinero-cuentas", label: "Finanzas", icon: Coins },
   { id: "presupuesto-mensual", label: "Presupuesto", icon: Wallet },
+  { id: "checklist-pagos", label: "Checklist de pagos", icon: CheckSquare },
   { id: "recetas", label: "Sugeridor de platos", icon: UtensilsCrossed },
   { id: "deudas-pagos", label: "Pagos fijos", icon: Banknote },
   { id: "activos", label: "Activos", icon: Car },

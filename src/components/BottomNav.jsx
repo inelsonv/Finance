@@ -1,5 +1,15 @@
 import React, { useState } from "react";
-import { Home, CalendarDays, TrendingDown, ShoppingCart, Bell, ArrowLeftRight } from "lucide-react";
+import {
+  Home,
+  CalendarDays,
+  TrendingDown,
+  ShoppingCart,
+  Bell,
+  ArrowLeftRight,
+  CheckSquare,
+  X,
+  ChevronRight,
+} from "lucide-react";
 import QuickGasto from "./QuickGasto.jsx";
 import { useNotificaciones } from "./NotificationBell.jsx";
 
@@ -49,6 +59,7 @@ export default function BottomNav({
   checklistTodos,
 }) {
   const [showGasto, setShowGasto] = useState(false);
+  const [showOpciones, setShowOpciones] = useState(false);
 
   const notificaciones = useNotificaciones({
     prestamos,
@@ -91,12 +102,13 @@ export default function BottomNav({
         </button>
 
         <button
-          onClick={() => setShowGasto(true)}
+          onClick={() => setShowOpciones(true)}
           className="despensa-bottomnav-item"
-          title="Registrar gasto"
-          style={{ color: "var(--ink-soft)" }}
+          title="Registrar gasto o Checklist de pagos"
+          style={{ color: tab === "checklist-pagos" ? "var(--sage)" : "var(--ink-soft)" }}
         >
           <TrendingDown size={22} />
+          {tab === "checklist-pagos" && <span className="despensa-bottomnav-dot" />}
         </button>
 
         <button
@@ -165,6 +177,201 @@ export default function BottomNav({
           {tab === "notificaciones" && <span className="despensa-bottomnav-dot" />}
         </button>
       </nav>
+
+      {showOpciones && (
+        <div
+          onClick={() => setShowOpciones(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(2px)",
+            WebkitBackdropFilter: "blur(2px)",
+            zIndex: 300,
+            display: "flex",
+            alignItems: "flex-end",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              background: "var(--card)",
+              borderTop: "1px solid var(--line)",
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: "12px 16px calc(env(safe-area-inset-bottom, 0px) + 20px)",
+              boxShadow: "0 -10px 40px rgba(0,0,0,0.35)",
+            }}
+          >
+            {/* Handle bar */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+              <div style={{ width: 40, height: 4, borderRadius: 4, background: "var(--line)" }} />
+            </div>
+
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div>
+                <div className="despensa-tab-font" style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
+                  Acciones rápidas
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2 }}>
+                  ¿Qué deseas realizar en este momento?
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowOpciones(false)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  background: "var(--paper)",
+                  border: "1px solid var(--line)",
+                  color: "var(--ink-soft)",
+                  cursor: "pointer",
+                }}
+                aria-label="Cerrar opciones"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Opciones */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* Opción 1: Registrar gasto rápido */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOpciones(false);
+                  setShowGasto(true);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "14px 14px",
+                  borderRadius: 14,
+                  border: "1px solid var(--line)",
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: "rgba(239, 68, 68, 0.12)",
+                    color: "var(--stamp, #ef4444)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <TrendingDown size={22} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", marginBottom: 2 }}>
+                    Registrar gasto rápido
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.35 }}>
+                    Compras pequeñas, combustible, salidas o gastos cotidianos
+                  </div>
+                </div>
+                <ChevronRight size={18} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
+              </button>
+
+              {/* Opción 2: Ir al Checklist de pagos */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOpciones(false);
+                  setTab("checklist-pagos");
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "14px 14px",
+                  borderRadius: 14,
+                  border: "1.5px solid rgba(16, 185, 129, 0.4)",
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: "rgba(16, 185, 129, 0.14)",
+                    color: "var(--sage, #10b981)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <CheckSquare size={22} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", marginBottom: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span>Ir al Checklist de pagos</span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "1px 6px",
+                        borderRadius: 6,
+                        background: "var(--sage-bg)",
+                        color: "var(--sage)",
+                        border: "1px solid rgba(16, 185, 129, 0.25)",
+                      }}
+                    >
+                      Préstamos
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.35 }}>
+                    Pagar préstamos (PT01, etc.), tarjetas y obligaciones quincenales
+                  </div>
+                </div>
+                <ChevronRight size={18} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
+              </button>
+            </div>
+
+            {/* Botón cancelar */}
+            <button
+              type="button"
+              onClick={() => setShowOpciones(false)}
+              style={{
+                width: "100%",
+                marginTop: 14,
+                padding: "12px",
+                borderRadius: 12,
+                border: "1px solid var(--line)",
+                background: "transparent",
+                color: "var(--ink-soft)",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
       {showGasto && (
         <QuickGasto
