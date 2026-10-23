@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bot, Palette, Heart, Sparkles, AlertTriangle, Trash2, Lock } from "lucide-react";
-import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig, watchUsuariosRegistrados, eliminarCuentaUsuario } from "../lib/db";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bot, Palette, Heart, Sparkles, AlertTriangle, Trash2, Lock, Phone, Landmark, MessageSquare } from "lucide-react";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig, watchUsuariosRegistrados, eliminarCuentaUsuario, watchWhatsappNotifConfig, saveWhatsappNotifConfig, updateEntidad, updatePrestamo } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { GASTO_CATS_FIJO } from "../lib/categorias";
 import Switch from "./Switch.jsx";
@@ -8,7 +8,7 @@ import ThemeSelector from "./ThemeSelector.jsx";
 import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
 import WhatsAppGroupButton, { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
 
-export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante, planActual, isOwner }) {
+export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante, planActual, isOwner, entidades = [], prestamos = [] }) {
   const [showPlanesModal, setShowPlanesModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
@@ -52,6 +52,11 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
   const [tarjetasHabilitadasInput, setTarjetasHabilitadasInput] = useState("");
   const [savingIntegracionCorreo, setSavingIntegracionCorreo] = useState(false);
   const [reportesEmailConfig, setReportesEmailConfig] = useState({ email: "iventuramena@gmail.com", activoDiasCobro: true, ultimoEnvio: null });
+  const [whatsappConfig, setWhatsappConfig] = useState({ activo: true });
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
+  const [telefonosEntidad, setTelefonosEntidad] = useState({});
+  const [guardandoTelId, setGuardandoTelId] = useState(null);
+  const [guardadoTelId, setGuardadoTelId] = useState(null);
 
   useEffect(() => {
     const unsub1 = watchNotifConfig(setEmailConfig, () => {});
@@ -72,6 +77,7 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
     }, () => {});
     const unsub11 = watchActualizacionPreciosAutoConfig(setActualizacionPreciosConfig, () => {});
     const unsub12 = watchReportesQuincenaConfig(setReportesEmailConfig, () => {});
+    const unsub13 = watchWhatsappNotifConfig(setWhatsappConfig, () => {});
     return () => {
       unsub1();
       unsub2();
@@ -85,6 +91,7 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
       unsub10();
       unsub11();
       unsub12();
+      unsub13();
     };
   }, []);
 
@@ -137,6 +144,41 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
       setReportesEmailConfig((prev) => ({ ...prev, activoDiasCobro: nuevoValor }));
     } catch (e) {
       console.error("Error al actualizar configuración de reportes:", e);
+    }
+  };
+
+  const handleToggleWhatsapp = async () => {
+    setSavingWhatsapp(true);
+    try {
+      const nuevoActivo = !(whatsappConfig?.activo !== false);
+      await saveWhatsappNotifConfig({ activo: nuevoActivo });
+      setWhatsappConfig((prev) => ({ ...(prev || {}), activo: nuevoActivo }));
+    } catch (e) {
+      console.error("Error al actualizar configuración de WhatsApp:", e);
+    } finally {
+      setSavingWhatsapp(false);
+    }
+  };
+
+  const handleGuardarTelefonoEntidad = async (entidad) => {
+    const valor = telefonosEntidad[entidad.docId] !== undefined ? telefonosEntidad[entidad.docId] : (entidad.phone || "");
+    setGuardandoTelId(entidad.docId);
+    try {
+      await updateEntidad(entidad.docId, { phone: valor.trim() });
+      setGuardadoTelId(entidad.docId);
+      setTimeout(() => setGuardadoTelId(null), 2500);
+    } catch (e) {
+      console.error("Error al guardar teléfono de entidad:", e);
+    } finally {
+      setGuardandoTelId(null);
+    }
+  };
+
+  const handleTogglePrestamoWhatsapp = async (prestamo) => {
+    try {
+      await updatePrestamo(prestamo.id, { notificarWhatsapp: !prestamo.notificarWhatsapp });
+    } catch (e) {
+      console.error("Error al cambiar notificación de préstamo:", e);
     }
   };
 
@@ -560,6 +602,183 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
           </div>
           <Switch checked={reportesEmailConfig?.activoDiasCobro !== false} onChange={handleToggleReportesEmail} />
         </div>
+      </Section>
+
+      <Section icon={WhatsAppIcon} title="Notificaciones de Pago por WhatsApp">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Al marcar el pago de una cuota de préstamo en el <strong>Checklist</strong> (por ejemplo PT01 para Ochoa Finauto),
+          se genera y abre automáticamente una notificación de WhatsApp con el comprobante detallado para enviarlo al número configurado de la entidad.
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Notificar pagos vía WhatsApp</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+              {whatsappConfig?.activo !== false ? "Activado — se notificará por WhatsApp al marcar en el Checklist" : "Desactivado"}
+            </div>
+          </div>
+          <Switch checked={whatsappConfig?.activo !== false} onChange={handleToggleWhatsapp} disabled={savingWhatsapp} />
+        </div>
+
+        {whatsappConfig?.activo !== false && (
+          <div style={{ marginTop: 14, borderTop: "1px solid var(--line-soft)", paddingTop: 14 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <Landmark size={14} style={{ color: "var(--amber)" }} />
+              <span>Número de WhatsApp asignado a cada entidad de préstamo:</span>
+            </div>
+
+            {entidades.length === 0 ? (
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", fontStyle: "italic" }}>
+                Aún no tienes entidades registradas. Ve a la sección Entidades para agregarlas.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {entidades
+                  .filter((e) => {
+                    const tienePrestamo = (prestamos || []).some(
+                      (p) => p.entidadId === e.docId || (p.entidadName && p.entidadName.toLowerCase() === e.name.toLowerCase())
+                    );
+                    return tienePrestamo || entidades.length <= 8;
+                  })
+                  .map((e) => {
+                    const prestamosAsociados = (prestamos || []).filter(
+                      (p) => p.entidadId === e.docId || (p.entidadName && p.entidadName.toLowerCase() === e.name.toLowerCase())
+                    );
+                    const telActual = telefonosEntidad[e.docId] !== undefined ? telefonosEntidad[e.docId] : (e.phone || "");
+                    const guardando = guardandoTelId === e.docId;
+                    const guardado = guardadoTelId === e.docId;
+
+                    return (
+                      <div
+                        key={e.docId}
+                        style={{
+                          background: "var(--card-subtle, rgba(0,0,0,0.02))",
+                          border: "1px solid var(--line)",
+                          borderRadius: 9,
+                          padding: "10px 12px",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{e.name}</div>
+                            <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+                              {prestamosAsociados.length > 0 ? (
+                                <span style={{ color: "var(--amber)", fontWeight: 500 }}>
+                                  Asociada a {prestamosAsociados.map((p) => `Préstamo ${p.numero || ""}`).join(", ")}
+                                </span>
+                              ) : (
+                                <span>{e.type || "Entidad financiera"}</span>
+                              )}
+                            </div>
+                          </div>
+                          {e.phone ? (
+                            <span
+                              style={{
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                padding: "2px 7px",
+                                borderRadius: 10,
+                                background: "rgba(16, 185, 129, 0.15)",
+                                color: "#10b981",
+                                border: "1px solid rgba(16, 185, 129, 0.35)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <WhatsAppIcon size={11} color="#10b981" /> Listo
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                padding: "2px 7px",
+                                borderRadius: 10,
+                                background: "var(--stamp-bg)",
+                                color: "var(--stamp)",
+                              }}
+                            >
+                              Sin número
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <div style={{ position: "relative", flex: 1 }}>
+                            <input
+                              type="tel"
+                              placeholder="Ej. 809-555-1234"
+                              value={telActual}
+                              onChange={(ev) =>
+                                setTelefonosEntidad((prev) => ({ ...prev, [e.docId]: ev.target.value }))
+                              }
+                              style={{
+                                width: "100%",
+                                padding: "6px 8px 6px 26px",
+                                border: "1px solid var(--line)",
+                                borderRadius: 7,
+                                fontSize: 12.5,
+                                background: "var(--card)",
+                              }}
+                            />
+                            <Phone
+                              size={12}
+                              style={{
+                                position: "absolute",
+                                left: 8,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                color: "var(--ink-soft)",
+                              }}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleGuardarTelefonoEntidad(e)}
+                            disabled={guardando}
+                            style={{
+                              padding: "6px 12px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              background: guardado ? "var(--sage)" : "var(--ink)",
+                              color: guardado ? "#fff" : "var(--paper)",
+                              border: "none",
+                              borderRadius: 7,
+                              cursor: guardando ? "wait" : "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {guardando ? "…" : guardado ? "✓ Guardado" : "Guardar"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: 12,
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: "rgba(37, 211, 102, 0.08)",
+                border: "1px solid rgba(37, 211, 102, 0.25)",
+                fontSize: 11.5,
+                color: "var(--ink)",
+                lineHeight: 1.45,
+              }}
+            >
+              <div style={{ fontWeight: 600, color: "#10b981", marginBottom: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                <WhatsAppIcon size={12} color="#10b981" /> Mensaje automático generado:
+              </div>
+              <div style={{ fontStyle: "italic", color: "var(--ink-soft)" }}>
+                "Hola *[Entidad]*, le notificamos que se ha registrado el pago de la cuota del préstamo *[PT01]* por un monto de *RD$ [Monto]* en fecha [Día/Mes/Año]. ¡Muchas gracias!"
+              </div>
+            </div>
+          </div>
+        )}
       </Section>
 
       <Section icon={LineChart} title="Precios de acciones">

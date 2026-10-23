@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2 } from "lucide-react";
 import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
-import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto } from "../lib/db";
+import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto, watchWhatsappNotifConfig } from "../lib/db";
+import { abrirNotificacionWhatsapp } from "../lib/whatsappNotif";
+import { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
@@ -78,10 +80,12 @@ function periodoAdyacente(periodo, dir) {
   }
 }
 
-export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos, estrategiaDeudas, tipoCambio, onOpenPrestamo, userEmail }) {
+export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos, estrategiaDeudas, tipoCambio, onOpenPrestamo, userEmail, entidades = [] }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
   const [overridesLocales, setOverridesLocales] = useState({});
+  const [whatsappConfig, setWhatsappConfig] = useState({ activo: true });
+  const [whatsappToast, setWhatsappToast] = useState(null);
 
   const guardarOverrideLocal = (prestamoId, tipo, origenKey, valor) => {
     setOverridesLocales((actuales) => ({
@@ -118,6 +122,11 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
 
   useEffect(() => {
     const unsub = watchPagoRapido(setPagoRapido, () => setPagoRapido({}));
+    return () => unsub && unsub();
+  }, []);
+
+  useEffect(() => {
+    const unsub = watchWhatsappNotifConfig(setWhatsappConfig, () => {});
     return () => unsub && unsub();
   }, []);
 
@@ -577,6 +586,43 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         prestamoNumero: it.prestamoNumero || "",
         origenChecklist: { periodoKey, itemKey: it.key },
       });
+
+      // Notificación vía WhatsApp si está activada en Configuración
+      if (whatsappConfig?.activo !== false) {
+        const prestamo = (prestamos || []).find((p) => p.id === it.prestamoId || p.numero === it.prestamoNumero);
+        const entidadId = it.entidadId || prestamo?.entidadId;
+        const entidad = (entidades || []).find(
+          (e) => (entidadId && e.docId === entidadId) ||
+                 (it.entidadName && e.name && e.name.toLowerCase() === it.entidadName.toLowerCase()) ||
+                 (prestamo?.entidadName && e.name && e.name.toLowerCase() === prestamo.entidadName.toLowerCase())
+        );
+        const telefono = (entidad?.phone || prestamo?.telefono || "").trim();
+
+        if (telefono) {
+          const res = abrirNotificacionWhatsapp({
+            telefono,
+            entidadNombre: entidad?.name || it.entidadName || "Entidad",
+            prestamoNumero: prestamo?.numero || it.prestamoNumero || it.nombre,
+            monto: it.monto,
+            fecha: todayStr(),
+            metodoPago,
+          });
+          setWhatsappToast({
+            tipo: "exito",
+            entidadNombre: entidad?.name || it.entidadName || "Entidad",
+            prestamoNumero: prestamo?.numero || it.prestamoNumero || "Préstamo",
+            telefono,
+            url: res.url,
+            abierto: res.abierto,
+          });
+        } else {
+          setWhatsappToast({
+            tipo: "sin_telefono",
+            entidadNombre: entidad?.name || it.entidadName || "la entidad",
+            prestamoNumero: prestamo?.numero || it.prestamoNumero || "Préstamo",
+          });
+        }
+      }
     } else if (it.esTarjeta) {
       lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round((Number(it.monto) || 0) * 0.05) });
       await addMovimiento({
@@ -718,6 +764,90 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       </div>
 
       <div key={`${periodo.year}-${periodo.month}-${periodo.quincena}`} className="fade-in-quick">
+      {whatsappToast && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "12px 14px",
+            background: whatsappToast.tipo === "exito" ? "rgba(37, 211, 102, 0.14)" : "var(--amber-bg)",
+            border: `1px solid ${whatsappToast.tipo === "exito" ? "#25D366" : "var(--amber)"}`,
+            borderRadius: 10,
+            marginBottom: 14,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+            <WhatsAppIcon size={20} color={whatsappToast.tipo === "exito" ? "#25D366" : "var(--amber)"} />
+            <div style={{ fontSize: 13, minWidth: 0 }}>
+              {whatsappToast.tipo === "exito" ? (
+                <>
+                  <div style={{ fontWeight: 600, color: "var(--ink)" }}>
+                    Pago registrado y notificación de WhatsApp preparada
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                    {whatsappToast.abierto ? "Se abrió una pestaña de WhatsApp para enviar a " : "Lista para enviar a "}
+                    <strong style={{ color: "var(--ink)" }}>{whatsappToast.entidadNombre}</strong> ({whatsappToast.telefono})
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontWeight: 600, color: "var(--amber)" }}>
+                    Pago registrado sin notificación por WhatsApp
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                    {whatsappToast.entidadNombre} no tiene número de teléfono asignado. Puedes asignarlo en <strong>Configuración</strong> para notificar automáticamente.
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            {whatsappToast.tipo === "exito" && (
+              <a
+                href={whatsappToast.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: "#25D366",
+                  color: "#ffffff",
+                  borderRadius: 7,
+                  textDecoration: "none",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 3px rgba(37,211,102,0.4)",
+                }}
+              >
+                <Send size={13} />
+                <span>{whatsappToast.abierto ? "Reabrir WhatsApp" : "Abrir WhatsApp"}</span>
+              </a>
+            )}
+            <button
+              onClick={() => setWhatsappToast(null)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "var(--ink-soft)",
+                cursor: "pointer",
+                padding: 4,
+                display: "flex",
+                alignItems: "center",
+              }}
+              title="Cerrar aviso"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
           <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Total a pagar</div>

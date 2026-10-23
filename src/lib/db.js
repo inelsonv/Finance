@@ -2699,6 +2699,18 @@ export async function saveNotifConfig(email) {
   await setDoc(doc(db, "config", "notificaciones"), { email });
 }
 
+export function watchWhatsappNotifConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "whatsappNotif"),
+    (snap) => onChange(snap.exists() ? snap.data() : { activo: true }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveWhatsappNotifConfig(data) {
+  await setDoc(doc(db, "config", "whatsappNotif"), data, { merge: true });
+}
+
 // Estrategia de pago de deudas activa (avalancha o bola de nieve) — se
 // guarda para poder mencionarla en las notificaciones cuando la deuda
 // prioritaria según ese plan esté atrasada.

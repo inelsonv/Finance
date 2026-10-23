@@ -1365,6 +1365,7 @@ export default function App() {
             tipoCambio={tipoCambio}
             onOpenPrestamo={(prestamoId) => handleSearchNavigate("prestamos", prestamoId)}
             userEmail={authUser?.email || ""}
+            entidades={entidades}
           />
         )}
         {(tab === "vacaciones" || tab === "vuelos") && (
@@ -1412,6 +1413,8 @@ export default function App() {
             onToggleAsistenteFlotante={cambiarAsistenteFlotante}
             planActual={planActual}
             isOwner={esPropietario}
+            entidades={entidades}
+            prestamos={prestamos}
           />
         )}
         {esPropietario && tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
