@@ -888,10 +888,10 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
             return (
               <div
                 key={`${periodoKey}:${it.key}`}
-                className={`checklist-item-card ${estado.pagado ? "checklist-item-card--pagado" : ""}`}
+                className={`checklist-item-card ${estado.pagado ? "checklist-item-card--pagado" : ""} ${it.esPrestamo ? "checklist-item-card--prestamo" : ""}`}
                 style={{
-                  background: "var(--card)",
-                  border: `1px solid ${estado.pagado ? "var(--sage)" : "var(--line)"}`,
+                  background: it.esPrestamo ? "var(--amber-bg)" : "var(--card)",
+                  border: `1px solid ${estado.pagado ? "var(--sage)" : it.esPrestamo ? "var(--amber)" : "var(--line)"}`,
                   borderRadius: 10,
                   opacity: estado.pagado ? 0.72 : 1,
                 }}
@@ -937,7 +937,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     {(modoSeleccion ? seleccionados.has(it.key) : estado.pagado) && <Check size={15} />}
                   </button>
 
-                  <Icon size={15} style={{ color: "var(--ink-soft)", flexShrink: 0, marginTop: 2 }} />
+                  <Icon size={15} style={{ color: it.esPrestamo ? "var(--amber)" : "var(--ink-soft)", flexShrink: 0, marginTop: 2 }} />
 
                   <div className="checklist-item-text">
                     <div
