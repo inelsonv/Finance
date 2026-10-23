@@ -3,6 +3,7 @@ import { Plus, Trash2, Search, X, MapPin, Phone, Pencil, Check } from "lucide-re
 import { addEntidad, deleteEntidad, updateEntidad, addTipoEntidad } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Pagination from "./Pagination.jsx";
+import { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
 
 const PAGE_SIZE = 10;
 
@@ -28,7 +29,7 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", type: TYPES_BASE[0], address: "", phone: "", notes: "" });
+  const [form, setForm] = useState({ name: "", type: TYPES_BASE[0], address: "", phone: "", notes: "", notificarWhatsapp: true });
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -85,7 +86,7 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
     setFormError(null);
     try {
       await addEntidad({ ...form, name });
-      setForm({ name: "", type: TYPES_BASE[0], address: "", phone: "", notes: "" });
+      setForm({ name: "", type: TYPES_BASE[0], address: "", phone: "", notes: "", notificarWhatsapp: true });
       setShowForm(false);
     } catch (err) {
       setFormError(err.message || String(err));
@@ -96,7 +97,14 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
 
   const startEdit = (e) => {
     setEditingId(e.docId);
-    setEditForm({ name: e.name || "", type: e.type || TYPES[0], address: e.address || "", phone: e.phone || "", notes: e.notes || "" });
+    setEditForm({
+      name: e.name || "",
+      type: e.type || TYPES[0],
+      address: e.address || "",
+      phone: e.phone || "",
+      notes: e.notes || "",
+      notificarWhatsapp: e.notificarWhatsapp !== false,
+    });
     setEditError(null);
   };
 
@@ -240,6 +248,22 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
           />
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginBottom: 10, cursor: "pointer", color: "var(--ink)" }}>
+            <input
+              type="checkbox"
+              checked={form.notificarWhatsapp}
+              onChange={(e) => setForm({ ...form, notificarWhatsapp: e.target.checked })}
+            />
+            <WhatsAppIcon size={14} color="#25D366" />
+            <span>Notificar pagos de préstamos vía WhatsApp</span>
+          </label>
+          {form.notificarWhatsapp && !form.phone && (
+            <div style={{ fontSize: 11, color: "var(--amber)", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}>
+              ⚠️ Recuerda ingresar el teléfono con código de área para que WhatsApp pueda abrirse al pagar en el Checklist.
+            </div>
+          )}
+
           <button
             onClick={handleAdd}
             disabled={!form.name.trim() || saving}
@@ -347,6 +371,22 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
                     onChange={(ev) => setEditForm({ ...editForm, notes: ev.target.value })}
                     style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
                   />
+
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginBottom: 10, cursor: "pointer", color: "var(--ink)" }}>
+                    <input
+                      type="checkbox"
+                      checked={editForm.notificarWhatsapp}
+                      onChange={(ev) => setEditForm({ ...editForm, notificarWhatsapp: ev.target.checked })}
+                    />
+                    <WhatsAppIcon size={14} color="#25D366" />
+                    <span>Notificar pagos de préstamos vía WhatsApp</span>
+                  </label>
+                  {editForm.notificarWhatsapp && !editForm.phone && (
+                    <div style={{ fontSize: 11, color: "var(--amber)", marginBottom: 10, display: "flex", alignItems: "center", gap: 4 }}>
+                      ⚠️ Recuerda ingresar el teléfono con código de área para que WhatsApp pueda abrirse al pagar en el Checklist.
+                    </div>
+                  )}
+
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       onClick={saveEdit}
@@ -373,8 +413,29 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
                     #{e.num}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>{e.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 14, fontWeight: 500 }}>{e.name}</span>
+                      {e.notificarWhatsapp !== false && e.phone && (
+                        <span
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: 600,
+                            padding: "2px 7px",
+                            borderRadius: 10,
+                            background: "rgba(37, 211, 102, 0.14)",
+                            color: "#10b981",
+                            border: "1px solid rgba(37, 211, 102, 0.35)",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                          }}
+                          title={`Notificaciones vía WhatsApp activadas para ${e.phone}`}
+                        >
+                          <WhatsAppIcon size={11} color="#10b981" /> WhatsApp activo
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                       <span>{e.type}</span>
                       {e.address && (
                         <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
@@ -386,6 +447,34 @@ export default function Entidades({ entidades, tiposPersonalizados }) {
                           <Phone size={11} /> {e.phone}
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const nuevoValor = !(e.notificarWhatsapp !== false);
+                          await updateEntidad(e.docId, { notificarWhatsapp: nuevoValor });
+                        }}
+                        title={
+                          e.notificarWhatsapp !== false
+                            ? "WhatsApp activo: toca para pausar notificaciones de pago"
+                            : "WhatsApp inactivo: toca para activar notificaciones de pago"
+                        }
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "2px 8px",
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: e.notificarWhatsapp !== false ? "rgba(37, 211, 102, 0.12)" : "var(--line-soft)",
+                          color: e.notificarWhatsapp !== false ? "#10b981" : "var(--ink-soft)",
+                          border: `1px solid ${e.notificarWhatsapp !== false ? "rgba(37, 211, 102, 0.3)" : "var(--line)"}`,
+                          borderRadius: 6,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <WhatsAppIcon size={12} color={e.notificarWhatsapp !== false ? "#25D366" : "var(--ink-soft)"} />
+                        <span>{e.notificarWhatsapp !== false ? "WS Activado" : "WS Desactivado"}</span>
+                      </button>
                     </div>
                   </div>
                   <button

@@ -587,7 +587,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         origenChecklist: { periodoKey, itemKey: it.key },
       });
 
-      // Notificación vía WhatsApp si está activada en Configuración
+      // Notificación vía WhatsApp si está activada en la entidad (módulo Entidades)
       if (whatsappConfig?.activo !== false) {
         const prestamo = (prestamos || []).find((p) => p.id === it.prestamoId || p.numero === it.prestamoNumero);
         const entidadId = it.entidadId || prestamo?.entidadId;
@@ -596,31 +596,34 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                  (it.entidadName && e.name && e.name.toLowerCase() === it.entidadName.toLowerCase()) ||
                  (prestamo?.entidadName && e.name && e.name.toLowerCase() === prestamo.entidadName.toLowerCase())
         );
+        const entidadNotificaWs = entidad ? (entidad.notificarWhatsapp !== false) : true;
         const telefono = (entidad?.phone || prestamo?.telefono || "").trim();
 
-        if (telefono) {
-          const res = abrirNotificacionWhatsapp({
-            telefono,
-            entidadNombre: entidad?.name || it.entidadName || "Entidad",
-            prestamoNumero: prestamo?.numero || it.prestamoNumero || it.nombre,
-            monto: it.monto,
-            fecha: todayStr(),
-            metodoPago,
-          });
-          setWhatsappToast({
-            tipo: "exito",
-            entidadNombre: entidad?.name || it.entidadName || "Entidad",
-            prestamoNumero: prestamo?.numero || it.prestamoNumero || "Préstamo",
-            telefono,
-            url: res.url,
-            abierto: res.abierto,
-          });
-        } else {
-          setWhatsappToast({
-            tipo: "sin_telefono",
-            entidadNombre: entidad?.name || it.entidadName || "la entidad",
-            prestamoNumero: prestamo?.numero || it.prestamoNumero || "Préstamo",
-          });
+        if (entidadNotificaWs) {
+          if (telefono) {
+            const res = abrirNotificacionWhatsapp({
+              telefono,
+              entidadNombre: entidad?.name || it.entidadName || "Entidad",
+              prestamoNumero: prestamo?.numero || it.prestamoNumero || it.nombre,
+              monto: it.monto,
+              fecha: todayStr(),
+              metodoPago,
+            });
+            setWhatsappToast({
+              tipo: "exito",
+              entidadNombre: entidad?.name || it.entidadName || "Entidad",
+              prestamoNumero: prestamo?.numero || it.prestamoNumero || "Préstamo",
+              telefono,
+              url: res.url,
+              abierto: res.abierto,
+            });
+          } else {
+            setWhatsappToast({
+              tipo: "sin_telefono",
+              entidadNombre: entidad?.name || it.entidadName || "la entidad",
+              prestamoNumero: prestamo?.numero || it.prestamoNumero || "Préstamo",
+            });
+          }
         }
       }
     } else if (it.esTarjeta) {

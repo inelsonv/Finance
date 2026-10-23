@@ -1415,6 +1415,7 @@ export default function App() {
             isOwner={esPropietario}
             entidades={entidades}
             prestamos={prestamos}
+            onNavigate={setTab}
           />
         )}
         {esPropietario && tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}

@@ -8,7 +8,7 @@ import ThemeSelector from "./ThemeSelector.jsx";
 import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
 import WhatsAppGroupButton, { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
 
-export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante, planActual, isOwner, entidades = [], prestamos = [] }) {
+export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante, planActual, isOwner, entidades = [], prestamos = [], onNavigate }) {
   const [showPlanesModal, setShowPlanesModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
@@ -618,6 +618,34 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
             </div>
           </div>
           <Switch checked={whatsappConfig?.activo !== false} onChange={handleToggleWhatsapp} disabled={savingWhatsapp} />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, padding: "8px 10px", background: "var(--card-subtle, rgba(0,0,0,0.02))", border: "1px solid var(--line)", borderRadius: 8, marginBottom: 12 }}>
+          <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+            💡 También puedes activar o desactivar la notificación individualmente en cada entidad desde el módulo <strong>Entidades</strong>.
+          </div>
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate("entidades")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "4px 10px",
+                fontSize: 11.5,
+                fontWeight: 600,
+                background: "var(--sage-bg)",
+                color: "var(--sage)",
+                border: "1px solid var(--sage)",
+                borderRadius: 6,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Ir a Entidades →
+            </button>
+          )}
         </div>
 
         {whatsappConfig?.activo !== false && (
