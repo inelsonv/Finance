@@ -974,8 +974,8 @@ export default function App() {
       />
       <PullToRefresh />
       <main className={`despensa-main${tab === "asistente" ? " despensa-main--assistant" : ""}`}>
-        <div className="despensa-header" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
-          <div className={`despensa-header-left${searchOpen ? " despensa-header-left--search-open" : ""}`} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="despensa-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "nowrap", gap: 8, minWidth: 0 }}>
+          <div className={`despensa-header-left${searchOpen ? " despensa-header-left--search-open" : ""}`} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, overflow: "hidden" }}>
             <button
               onClick={() => setShowMobileMenu(true)}
               className="despensa-hamburger"
@@ -983,12 +983,12 @@ export default function App() {
             >
               <Menu size={22} />
             </button>
-            <h1 className="despensa-tab-font" style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.01em" }}>
+            <h1 className="despensa-tab-font" style={{ fontSize: "clamp(15px, 4.2vw, 22px)", fontWeight: 700, margin: 0, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {TITLES[tab]}
             </h1>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", flexShrink: 0 }}>
               <button
                 type="button"
                 className="despensa-sidebar-visibility-toggle despensa-desktop-only"
@@ -1094,7 +1094,7 @@ export default function App() {
                 planActual={planActual}
               />
             </div>
-            <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+            <span className="despensa-mono despensa-desktop-only" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
               {fechaHoy}
             </span>
           </div>

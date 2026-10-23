@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3 } from "lucide-react";
 import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto, watchWhatsappNotifConfig } from "../lib/db";
@@ -181,6 +181,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   const [moviendoKey, setMoviendoKey] = useState(null);
   const [moviendoAbiertoKey, setMoviendoAbiertoKey] = useState(null);
   const [destinoFecha, setDestinoFecha] = useState("");
+  const [resumenAbierto, setResumenAbierto] = useState(false);
 
   const [transferenciasPresupuesto, setTransferenciasPresupuesto] = useState([]);
   useEffect(() => {
@@ -851,46 +852,55 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           </div>
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
-          <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Total a pagar</div>
-          <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700 }}>{formatMoney(totales.total)}</div>
-        </div>
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
-          <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Ya pagado</div>
-          <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700, color: "var(--sage)" }}>{formatMoney(totales.pagado)}</div>
-        </div>
-        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
-          <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Pendiente</div>
-          <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700, color: totales.pendiente > 0 ? "var(--stamp)" : "var(--sage)" }}>{formatMoney(totales.pendiente)}</div>
-        </div>
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 12 }}>
+      {/* Barra de control: Botón para desplegar resumen y selección múltiple */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
         <button
-          onClick={() => setShowEmailModal(true)}
+          type="button"
+          onClick={() => setResumenAbierto((prev) => !prev)}
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 8,
-            padding: "8px 14px",
+            gap: 7,
+            padding: "8px 13px",
             fontSize: 12.5,
-            fontWeight: 700,
-            background: "linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(59, 130, 246, 0.25) 100%)",
-            color: "var(--accent, #3b82f6)",
-            border: "1px solid rgba(59, 130, 246, 0.4)",
-            borderRadius: 10,
+            fontWeight: 600,
+            borderRadius: 9,
+            border: resumenAbierto ? "1px solid var(--sage)" : "1px solid var(--line)",
+            background: resumenAbierto ? "var(--sage-bg)" : "var(--card)",
+            color: resumenAbierto ? "var(--sage)" : "var(--ink)",
             cursor: "pointer",
-            boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
+            transition: "all 0.15s ease",
           }}
+          aria-expanded={resumenAbierto}
+          title={resumenAbierto ? "Ocultar resumen de montos" : "Desplegar totales y desglose"}
         >
-          <Mail size={16} />
-          <span>Enviar dashboard por email{userEmail ? ` a ${userEmail}` : ""}</span>
+          <BarChart3 size={15} style={{ color: resumenAbierto ? "var(--sage)" : "var(--ink-soft)" }} />
+          <span>{resumenAbierto ? "Ocultar totales" : "Ver totales y resumen"}</span>
+          {!resumenAbierto && (
+            <span
+              className="despensa-mono"
+              style={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                color: totales.pendiente > 0 ? "var(--stamp)" : "var(--sage)",
+                marginLeft: 4,
+                padding: "1px 6px",
+                borderRadius: 6,
+                background: "var(--paper)",
+                border: "1px solid var(--line)",
+              }}
+            >
+              {formatMoney(totales.pendiente)} pend.
+            </span>
+          )}
+          {resumenAbierto ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
         </button>
 
         <div>
           {modoSeleccion ? (
             <button
+              type="button"
               onClick={salirModoSeleccion}
               disabled={confirmandoLote}
               style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
@@ -899,6 +909,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
             </button>
           ) : (
             <button
+              type="button"
               onClick={() => setModoSeleccion(true)}
               style={{ padding: "6px 12px", fontSize: 12, fontWeight: 600, background: "var(--sage-bg)", color: "var(--sage)", border: "none", borderRadius: 8, cursor: "pointer" }}
             >
@@ -908,41 +919,97 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         </div>
       </div>
 
-      {resumenPorMetodo.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>
-            Qué hacer con lo pendiente
+      {/* Sección desplegable con totales, dashboard y qué hacer con lo pendiente */}
+      {resumenAbierto && (
+        <div
+          className="fade-in-quick"
+          style={{
+            marginBottom: 16,
+            padding: "12px",
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 12,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+          }}
+        >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 12 }}>
+            <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Total a pagar</div>
+              <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700 }}>{formatMoney(totales.total)}</div>
+            </div>
+            <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Ya pagado</div>
+              <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700, color: "var(--sage)" }}>{formatMoney(totales.pagado)}</div>
+            </div>
+            <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>Pendiente</div>
+              <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700, color: totales.pendiente > 0 ? "var(--stamp)" : "var(--sage)" }}>{formatMoney(totales.pendiente)}</div>
+            </div>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {resumenPorMetodo.map(([metodo, monto]) => {
-              const Icon = METODO_ICONS[metodo] || HelpCircle;
-              return (
-                <div
-                  key={metodo}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 7,
-                    background: metodo === "Sin definir" ? "var(--amber-bg)" : "var(--sage-bg)",
-                    border: `1px solid ${metodo === "Sin definir" ? "var(--amber)" : "var(--sage)"}`,
-                    borderRadius: 10,
-                    padding: "8px 12px",
-                  }}
-                >
-                  <Icon size={14} style={{ color: metodo === "Sin definir" ? "var(--amber)" : "var(--sage)", flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: metodo === "Sin definir" ? "var(--amber)" : "var(--ink)" }}>
-                    {metodo === "Sin definir" ? "Sin definir aún" : metodo}
-                  </span>
-                  <span className="despensa-mono" style={{ fontSize: 13, fontWeight: 700, color: metodo === "Sin definir" ? "var(--amber)" : "var(--sage)" }}>
-                    {formatMoney(monto)}
-                  </span>
+
+          <div style={{ marginBottom: 12 }}>
+            <button
+              type="button"
+              onClick={() => setShowEmailModal(true)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 14px",
+                fontSize: 12,
+                fontWeight: 700,
+                background: "linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(59, 130, 246, 0.25) 100%)",
+                color: "var(--accent, #3b82f6)",
+                border: "1px solid rgba(59, 130, 246, 0.4)",
+                borderRadius: 10,
+                cursor: "pointer",
+                boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
+                width: "100%",
+                justifyContent: "center",
+              }}
+            >
+              <Mail size={15} />
+              <span>Enviar dashboard por email{userEmail ? ` a ${userEmail}` : ""}</span>
+            </button>
+          </div>
+
+          {resumenPorMetodo.length > 0 && (
+            <div>
+              <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>
+                Qué hacer con lo pendiente
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {resumenPorMetodo.map(([metodo, monto]) => {
+                  const Icon = METODO_ICONS[metodo] || HelpCircle;
+                  return (
+                    <div
+                      key={metodo}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 7,
+                        background: metodo === "Sin definir" ? "var(--amber-bg)" : "var(--sage-bg)",
+                        border: `1px solid ${metodo === "Sin definir" ? "var(--amber)" : "var(--sage)"}`,
+                        borderRadius: 10,
+                        padding: "7px 11px",
+                      }}
+                    >
+                      <Icon size={14} style={{ color: metodo === "Sin definir" ? "var(--amber)" : "var(--sage)", flexShrink: 0 }} />
+                      <span style={{ fontSize: 12, color: metodo === "Sin definir" ? "var(--amber)" : "var(--ink)" }}>
+                        {metodo === "Sin definir" ? "Sin definir aún" : metodo}
+                      </span>
+                      <span className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 700, color: metodo === "Sin definir" ? "var(--amber)" : "var(--sage)" }}>
+                        {formatMoney(monto)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              {resumenPorMetodo.some(([m]) => m === "Sin definir") && (
+                <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
+                  Define un método de pago habitual en cada categoría (Presupuesto → Categoría de gasto) para que esto se calcule solo.
                 </div>
-              );
-            })}
-          </div>
-          {resumenPorMetodo.some(([m]) => m === "Sin definir") && (
-            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
-              Define un método de pago habitual en cada categoría (Presupuesto → Categoría de gasto) para que esto se calcule solo.
+              )}
             </div>
           )}
         </div>

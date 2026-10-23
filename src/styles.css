@@ -665,6 +665,9 @@ button:active {
     padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.75rem;
     margin: -1.25rem -1rem 10px;
     border-bottom: 1px solid var(--line);
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
   }
   .despensa-hamburger {
     display: flex !important;
