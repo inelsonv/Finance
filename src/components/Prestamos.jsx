@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw, ChevronDown, ChevronUp, Copy, ArrowLeftRight, CreditCard } from "lucide-react";
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { calcularProyeccionPago } from "../lib/proyeccionPrestamo";
@@ -7,6 +7,8 @@ import { calcularProyeccionPago } from "../lib/proyeccionPrestamo";
 const PLAZO_UNIDADES = ["meses", "años"];
 const TIPOS_PRESTAMO = ["Vehículo", "Hipotecario / Vivienda", "Personal", "Estudiantil", "Consolidación de deuda", "Negocio", "Otro"];
 const ESTADOS = ["Activo", "Pagado", "En mora"];
+const METODOS_PAGO_PRESTAMO = ["Transferencia", "Efectivo", "Tarjeta de Débito", "Cheque", "Descuento Nómina", "Otro"];
+const TIPOS_CUENTA_DESTINO = ["Cuentas de Terceros", "Cuenta de Ahorros", "Cuenta Corriente", "Préstamo Directo", "Otro"];
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -84,28 +86,37 @@ export function obtenerInfoCuotasPrestamo(p, movimientos) {
   };
 }
 
-const emptyForm = (numero) => ({
-  numero,
-  tipo: TIPOS_PRESTAMO[0],
-  entidadId: "",
-  activoId: "",
-  montoAprobado: "",
-  plazo: "",
-  plazoUnidad: "meses",
-  tasaInteres: "",
-  cuota: "",
-  fechaInicio: todayStr(),
-  estado: "Activo",
-  notas: "",
-  notificarWhatsapp: false,
-  esRevolvente: false,
-  saldoActual: "",
-  montoMinimoRetiro: "",
-  frecuenciaCuota: "Mensual",
-  cuotasPersonalizadas: [],
-});
+const emptyForm = (numero) => {
+  const esPT01 = numero === "PT01";
+  return {
+    numero,
+    tipo: TIPOS_PRESTAMO[0],
+    entidadId: "",
+    activoId: "",
+    montoAprobado: "",
+    plazo: "",
+    plazoUnidad: "meses",
+    tasaInteres: "",
+    cuota: "",
+    fechaInicio: todayStr(),
+    estado: "Activo",
+    notas: "",
+    notificarWhatsapp: false,
+    esRevolvente: false,
+    saldoActual: "",
+    montoMinimoRetiro: "",
+    frecuenciaCuota: "Mensual",
+    cuotasPersonalizadas: [],
+    metodoPago: "Transferencia",
+    cuentaDestinoId: "",
+    cuentaDestinoBanco: esPT01 ? "Banco Popular" : "Banco Popular",
+    cuentaDestinoNumero: esPT01 ? "0002804611" : "",
+    cuentaDestinoBeneficiario: esPT01 ? "Julian Ochoa" : "",
+    cuentaDestinoTipo: esPT01 ? "Cuentas de Terceros" : "Cuentas de Terceros",
+  };
+};
 
-export default function Prestamos({ prestamos, entidades, movimientos, activos, focusPrestamoId }) {
+export default function Prestamos({ prestamos, entidades, movimientos, activos, cuentas = [], focusPrestamoId }) {
   const [showForm, setShowForm] = useState(false);
   const [showHistorico, setShowHistorico] = useState(() => {
     try {
@@ -123,6 +134,27 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   const [revolventeAbiertoId, setRevolventeAbiertoId] = useState(null);
+  const [copiadoId, setCopiadoId] = useState(null);
+
+  const copiarCuenta = async (texto, id) => {
+    if (!texto) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(texto);
+      } else {
+        const t = document.createElement("textarea");
+        t.value = texto;
+        document.body.appendChild(t);
+        t.select();
+        document.execCommand("copy");
+        document.body.removeChild(t);
+      }
+      setCopiadoId(id);
+      setTimeout(() => setCopiadoId(null), 2000);
+    } catch (e) {
+      console.error("Error al copiar cuenta:", e);
+    }
+  };
 
   const prestamosActivos = useMemo(() => prestamos.filter((p) => p.estado !== "Pagado" || p.id === editingId), [prestamos, editingId]);
   const prestamosPagados = useMemo(() => prestamos.filter((p) => p.estado === "Pagado" && p.id !== editingId), [prestamos, editingId]);
@@ -143,6 +175,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
     setEditingId(p.id);
     setEditError(null);
     const fechasOverride = p.cuotasPersonalizadasOverrides || {};
+    const esPT01 = p.numero === "PT01";
     setEditForm({
       tipo: p.tipo || TIPOS_PRESTAMO[0],
       entidadId: p.entidadId || "",
@@ -160,6 +193,12 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       notas: p.notas || "",
       notificarWhatsapp: !!p.notificarWhatsapp,
       frecuenciaCuota: p.frecuenciaCuota || "Mensual",
+      metodoPago: p.metodoPago || "Transferencia",
+      cuentaDestinoId: p.cuentaDestinoId || "",
+      cuentaDestinoBanco: p.cuentaDestinoBanco || (esPT01 ? "Banco Popular" : (p.entidadName || "Banco Popular")),
+      cuentaDestinoNumero: p.cuentaDestinoNumero || (esPT01 ? "0002804611" : ""),
+      cuentaDestinoBeneficiario: p.cuentaDestinoBeneficiario || (esPT01 ? "Julian Ochoa" : ""),
+      cuentaDestinoTipo: p.cuentaDestinoTipo || (esPT01 ? "Cuentas de Terceros" : "Cuentas de Terceros"),
       cuotasPersonalizadas: p.cuotasPersonalizadas ? p.cuotasPersonalizadas.map((c) => {
         const override = fechasOverride[c.fecha];
         return {
@@ -194,8 +233,6 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       const plazo = parseFloat(editForm.plazo);
       const tasa = parseFloat(editForm.tasaInteres);
       const cuota = parseFloat(editForm.cuota);
-      console.log("[saveEdit] cuotasPersonalizadas en editForm (antes de normalizar):", editForm.cuotasPersonalizadas);
-      console.log("[saveEdit] cuotasPersonalizadas normalizadas (lo que se va a guardar):", normalizarCuotas(editForm.cuotasPersonalizadas));
       await updatePrestamo(editingId, {
         tipo: editForm.tipo,
         entidadId: editForm.entidadId,
@@ -215,6 +252,12 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         notas: editForm.notas.trim(),
         notificarWhatsapp: editForm.notificarWhatsapp,
         frecuenciaCuota: editForm.frecuenciaCuota,
+        metodoPago: editForm.metodoPago || "Transferencia",
+        cuentaDestinoId: editForm.cuentaDestinoId || null,
+        cuentaDestinoBanco: editForm.cuentaDestinoBanco || "",
+        cuentaDestinoNumero: editForm.cuentaDestinoNumero || "",
+        cuentaDestinoBeneficiario: editForm.cuentaDestinoBeneficiario || "",
+        cuentaDestinoTipo: editForm.cuentaDestinoTipo || "",
         cuotasPersonalizadas: normalizarCuotas(editForm.cuotasPersonalizadas),
         cuotasPersonalizadasOverrides: {},
       });
@@ -318,6 +361,12 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         notas: form.notas.trim(),
         notificarWhatsapp: form.notificarWhatsapp,
         frecuenciaCuota: form.frecuenciaCuota,
+        metodoPago: form.metodoPago || "Transferencia",
+        cuentaDestinoId: form.cuentaDestinoId || null,
+        cuentaDestinoBanco: form.cuentaDestinoBanco || "",
+        cuentaDestinoNumero: form.cuentaDestinoNumero || "",
+        cuentaDestinoBeneficiario: form.cuentaDestinoBeneficiario || "",
+        cuentaDestinoTipo: form.cuentaDestinoTipo || "",
         cuotasPersonalizadas: normalizarCuotas(form.cuotasPersonalizadas),
       });
       setShowForm(false);
@@ -601,6 +650,8 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
               </button>
             </div>
           )}
+
+          <SeccionCuentaDestino formState={form} setFormState={setForm} cuentas={cuentas} entidades={entidades} />
 
           <input
             placeholder="Notas (opcional)"
@@ -891,6 +942,8 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                     </div>
                   )}
 
+                  <SeccionCuentaDestino formState={editForm} setFormState={setEditForm} cuentas={cuentas} entidades={entidades} />
+
                   <input
                     placeholder="Notas (opcional)"
                     value={editForm.notas}
@@ -1005,6 +1058,84 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                           {p.activoNombre}
                         </div>
                       )}
+
+                      {(() => {
+                        const esPT01 = p.numero === "PT01";
+                        const metodo = p.metodoPago || "Transferencia";
+                        const numCuenta = p.cuentaDestinoNumero || (esPT01 ? "0002804611" : "");
+                        const banco = p.cuentaDestinoBanco || (esPT01 ? "Banco Popular" : (p.entidadName || "Banco"));
+                        const beneficiario = p.cuentaDestinoBeneficiario || (esPT01 ? "Julian Ochoa" : "");
+                        const tipoCuenta = p.cuentaDestinoTipo || (esPT01 ? "Cuentas de Terceros" : "");
+
+                        return (
+                          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+                            <span
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                fontSize: 11,
+                                padding: "2px 7px",
+                                borderRadius: 6,
+                                background: "var(--paper)",
+                                border: "1px solid var(--line)",
+                                color: "var(--ink)",
+                                fontWeight: 500,
+                              }}
+                            >
+                              <ArrowLeftRight size={11} style={{ color: "var(--sage)" }} />
+                              {metodo}
+                            </span>
+
+                            {numCuenta && (
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 6,
+                                  fontSize: 11,
+                                  padding: "2px 8px",
+                                  borderRadius: 6,
+                                  background: "rgba(59, 130, 246, 0.08)",
+                                  border: "1px solid rgba(59, 130, 246, 0.25)",
+                                  color: "var(--ink)",
+                                }}
+                              >
+                                <Landmark size={11} style={{ color: "#2563eb" }} />
+                                <span>
+                                  <strong>{banco}:</strong> <span className="despensa-mono">{numCuenta}</span>
+                                  {beneficiario ? ` (${beneficiario})` : ""}
+                                  {tipoCuenta ? ` · ${tipoCuenta}` : ""}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    copiarCuenta(numCuenta, p.id);
+                                  }}
+                                  title="Copiar número de cuenta destino"
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 3,
+                                    background: "transparent",
+                                    border: "none",
+                                    color: copiadoId === p.id ? "var(--sage)" : "#2563eb",
+                                    fontSize: 10.5,
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    padding: "1px 4px",
+                                    borderRadius: 4,
+                                  }}
+                                >
+                                  {copiadoId === p.id ? <Check size={11} /> : <Copy size={11} />}
+                                  {copiadoId === p.id ? "Copiado" : "Copiar"}
+                                </button>
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
                       <button
@@ -1331,6 +1462,142 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
               ))}
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SeccionCuentaDestino({ formState, setFormState, cuentas, entidades }) {
+  const handleSeleccionarCuentaRegistrada = (cuentaId) => {
+    if (!cuentaId) {
+      setFormState((prev) => ({ ...prev, cuentaDestinoId: "" }));
+      return;
+    }
+    const c = (cuentas || []).find((cta) => cta.id === cuentaId);
+    if (c) {
+      setFormState((prev) => ({
+        ...prev,
+        cuentaDestinoId: c.id,
+        cuentaDestinoBanco: c.entidadName || prev.cuentaDestinoBanco || "",
+        cuentaDestinoNumero: c.numeroCuenta || prev.cuentaDestinoNumero || "",
+        cuentaDestinoBeneficiario: c.nombre || prev.cuentaDestinoBeneficiario || "",
+        cuentaDestinoTipo: c.tipo ? `Cuenta de ${c.tipo}` : prev.cuentaDestinoTipo || "Cuentas de Terceros",
+      }));
+    }
+  };
+
+  return (
+    <div
+      style={{
+        border: "1px solid var(--line)",
+        borderRadius: 8,
+        padding: "10px 12px",
+        marginBottom: 10,
+        background: "var(--paper)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+        <CreditCard size={14} style={{ color: "var(--ink-soft)" }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
+          Método de pago y cuenta destino
+        </span>
+      </div>
+
+      <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+        <div>
+          <label style={{ display: "block", fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>
+            Método de pago
+          </label>
+          <select
+            value={formState.metodoPago || "Transferencia"}
+            onChange={(e) => setFormState((prev) => ({ ...prev, metodoPago: e.target.value }))}
+            style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5, background: "var(--card)" }}
+          >
+            {METODOS_PAGO_PRESTAMO.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ display: "block", fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>
+            Cuenta registrada (opcional)
+          </label>
+          <select
+            value={formState.cuentaDestinoId || ""}
+            onChange={(e) => handleSeleccionarCuentaRegistrada(e.target.value)}
+            style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5, background: "var(--card)" }}
+          >
+            <option value="">Seleccionar cuenta guardada…</option>
+            {(cuentas || []).map((cta) => (
+              <option key={cta.id} value={cta.id}>
+                {cta.nombre} · {cta.entidadName || "Banco"} {cta.numeroCuenta ? `(${cta.numeroCuenta})` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {formState.metodoPago === "Transferencia" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 2 }}>
+            Datos para la transferencia (se mostrarán como aviso al marcar el pago en el Checklist):
+          </div>
+
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 2 }}>
+                Entidad Bancaria
+              </label>
+              <input
+                placeholder="Ej. Banco Popular"
+                value={formState.cuentaDestinoBanco || ""}
+                onChange={(e) => setFormState((prev) => ({ ...prev, cuentaDestinoBanco: e.target.value }))}
+                style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12 }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 2 }}>
+                Tipo de producto
+              </label>
+              <select
+                value={formState.cuentaDestinoTipo || TIPOS_CUENTA_DESTINO[0]}
+                onChange={(e) => setFormState((prev) => ({ ...prev, cuentaDestinoTipo: e.target.value }))}
+                style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12, background: "var(--card)" }}
+              >
+                {TIPOS_CUENTA_DESTINO.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 8 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 2 }}>
+                Número de cuenta / producto
+              </label>
+              <input
+                className="despensa-mono"
+                placeholder="Ej. 0002804611"
+                value={formState.cuentaDestinoNumero || ""}
+                onChange={(e) => setFormState((prev) => ({ ...prev, cuentaDestinoNumero: e.target.value }))}
+                style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12, fontWeight: 600 }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 2 }}>
+                Nombre del beneficiario
+              </label>
+              <input
+                placeholder="Ej. Julian Ochoa"
+                value={formState.cuentaDestinoBeneficiario || ""}
+                onChange={(e) => setFormState((prev) => ({ ...prev, cuentaDestinoBeneficiario: e.target.value }))}
+                style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12 }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1881,6 +1881,12 @@ export async function addPrestamo({
   montoMinimoRetiro,
   frecuenciaCuota,
   cuotasPersonalizadas,
+  metodoPago,
+  cuentaDestinoId,
+  cuentaDestinoBanco,
+  cuentaDestinoNumero,
+  cuentaDestinoBeneficiario,
+  cuentaDestinoTipo,
 }) {
   await addDoc(collection(db, "prestamos"), {
     numero,
@@ -1903,6 +1909,12 @@ export async function addPrestamo({
     notificarWhatsapp: !!notificarWhatsapp,
     frecuenciaCuota: frecuenciaCuota || "Mensual",
     cuotasPersonalizadas: cuotasPersonalizadas || [],
+    metodoPago: metodoPago || "Transferencia",
+    cuentaDestinoId: cuentaDestinoId || null,
+    cuentaDestinoBanco: cuentaDestinoBanco || "",
+    cuentaDestinoNumero: cuentaDestinoNumero || "",
+    cuentaDestinoBeneficiario: cuentaDestinoBeneficiario || "",
+    cuentaDestinoTipo: cuentaDestinoTipo || "",
     createdAt: serverTimestamp(),
   });
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3, Copy } from "lucide-react";
 import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto, watchWhatsappNotifConfig } from "../lib/db";
@@ -182,6 +182,28 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   const [moviendoAbiertoKey, setMoviendoAbiertoKey] = useState(null);
   const [destinoFecha, setDestinoFecha] = useState("");
   const [resumenAbierto, setResumenAbierto] = useState(false);
+  const [modalTransferencia, setModalTransferencia] = useState(null);
+  const [copiadoCampo, setCopiadoCampo] = useState(null);
+
+  const copiarTexto = async (texto, campo) => {
+    if (!texto) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(texto);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = texto;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      setCopiadoCampo(campo);
+      setTimeout(() => setCopiadoCampo(null), 2000);
+    } catch (e) {
+      console.error("Error al copiar texto:", e);
+    }
+  };
 
   const [transferenciasPresupuesto, setTransferenciasPresupuesto] = useState([]);
   useEffect(() => {
@@ -672,6 +694,13 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
       // Desmarcar no requiere confirmación ni registra nada (el movimiento ya
       // creado, si lo hay, se puede editar/eliminar desde Movimientos).
       setChecklistItem(periodoKey, it.key, { ...actual, pagado: false });
+      return;
+    }
+
+    const metodo = actual.metodoPago || it.metodoDefault || "Transferencia";
+    const esTransferencia = metodo === "Transferencia" || it.cuentaDestinoNumero || it.prestamoNumero === "PT01";
+    if (it.esPrestamo && esTransferencia) {
+      setModalTransferencia({ item: it });
       return;
     }
 
@@ -1297,6 +1326,14 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                           <Landmark size={10} /> Pagar a: {it.entidadName}
                         </div>
                       )}
+                      {it.esPrestamo && (it.cuentaDestinoNumero || it.prestamoNumero === "PT01") && (
+                        <div style={{ fontSize: 11, color: "var(--ink)", display: "inline-flex", alignItems: "center", gap: 5, marginTop: 2, background: "rgba(59, 130, 246, 0.08)", padding: "2px 7px", borderRadius: 6, border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                          <Landmark size={11} style={{ color: "#2563eb" }} />
+                          <span>
+                            <strong>{it.cuentaDestinoBanco || (it.prestamoNumero === "PT01" ? "Banco Popular" : "Banco Popular")}:</strong> <span className="despensa-mono">{it.cuentaDestinoNumero || (it.prestamoNumero === "PT01" ? "0002804611" : "")}</span> ({it.cuentaDestinoBeneficiario || (it.prestamoNumero === "PT01" ? "Julian Ochoa" : "")})
+                          </span>
+                        </div>
+                      )}
                       {it.esPagoRapido && (
                         <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", alignItems: "center", gap: 3, marginTop: 1, fontWeight: 600 }}>
                           🚀 Monto aumentado por Pago rápido
@@ -1530,6 +1567,12 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     {(it.esPrestamo || it.esTarjeta) && it.entidadName && (
                       <span style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" }}>
                         <Landmark size={10} /> {it.entidadName}
+                      </span>
+                    )}
+                    {it.esPrestamo && (it.cuentaDestinoNumero || it.prestamoNumero === "PT01") && (
+                      <span style={{ fontSize: 10.5, color: "var(--ink)", display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(59, 130, 246, 0.08)", padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(59, 130, 246, 0.2)", whiteSpace: "nowrap" }}>
+                        <Landmark size={9} style={{ color: "#2563eb" }} />
+                        <span><strong>{it.cuentaDestinoBanco || (it.prestamoNumero === "PT01" ? "Banco Popular" : "Banco Popular")}:</strong> <span className="despensa-mono">{it.cuentaDestinoNumero || (it.prestamoNumero === "PT01" ? "0002804611" : "")}</span></span>
                       </span>
                     )}
                     {it.esPagoRapido && (
@@ -1817,6 +1860,250 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           </button>
         </div>
       )}
+
+      {modalTransferencia && (() => {
+        const it = modalTransferencia.item;
+        const esPT01 = it.prestamoNumero === "PT01";
+        const banco = it.cuentaDestinoBanco || it.prestamo?.cuentaDestinoBanco || (esPT01 ? "Banco Popular" : (it.entidadName || "Banco Popular"));
+        const tipoProducto = it.cuentaDestinoTipo || it.prestamo?.cuentaDestinoTipo || (esPT01 ? "Cuentas de Terceros" : "Cuentas de Terceros");
+        const numeroCuenta = it.cuentaDestinoNumero || it.prestamo?.cuentaDestinoNumero || (esPT01 ? "0002804611" : "");
+        const beneficiario = it.cuentaDestinoBeneficiario || it.prestamo?.cuentaDestinoBeneficiario || (esPT01 ? "Julian Ochoa" : "");
+
+        return (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0, 0, 0, 0.65)",
+              backdropFilter: "blur(4px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 9999,
+              padding: 16,
+            }}
+            onClick={() => setModalTransferencia(null)}
+          >
+            <div
+              style={{
+                background: "var(--card)",
+                color: "var(--ink)",
+                border: "1px solid var(--line)",
+                borderRadius: 14,
+                padding: "20px 22px",
+                maxWidth: 480,
+                width: "100%",
+                boxShadow: "0 20px 40px rgba(0, 0, 0, 0.35)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ArrowLeftRight size={18} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--ink)" }}>
+                      Transferencia para pago de préstamo
+                    </h3>
+                    <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                      {it.nombre}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalTransferencia(null)}
+                  style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer", padding: 4 }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Monto a transferir */}
+              <div
+                style={{
+                  background: "var(--paper)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                  textAlign: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <div style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 600 }}>
+                  Monto a transferir
+                </div>
+                <div className="despensa-mono" style={{ fontSize: 26, fontWeight: 800, color: "var(--ink)", marginTop: 2 }}>
+                  {formatMoney(it.monto)}
+                </div>
+              </div>
+
+              {/* Datos de cuenta destino */}
+              <div
+                style={{
+                  background: "rgba(59, 130, 246, 0.05)",
+                  border: "1.5px solid rgba(59, 130, 246, 0.25)",
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                  marginBottom: 16,
+                }}
+              >
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: "#2563eb", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Landmark size={14} /> Datos de la cuenta destino
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Entidad Bancaria:</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{banco}</span>
+                  </div>
+
+                  {tipoProducto && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Tipo de producto:</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)" }}>{tipoProducto}</span>
+                    </div>
+                  )}
+
+                  {/* Número de cuenta con botón copiar */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 10px",
+                      background: "var(--card)",
+                      borderRadius: 8,
+                      border: "1px solid var(--line)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>No. de cuenta / producto:</div>
+                      <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", letterSpacing: "0.03em" }}>
+                        {numeroCuenta || "No registrado"}
+                      </div>
+                    </div>
+                    {numeroCuenta && (
+                      <button
+                        type="button"
+                        onClick={() => copiarTexto(numeroCuenta, "cuenta")}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "6px 12px",
+                          background: copiadoCampo === "cuenta" ? "var(--sage)" : "#2563eb",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 6,
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        {copiadoCampo === "cuenta" ? <Check size={13} /> : <Copy size={13} />}
+                        {copiadoCampo === "cuenta" ? "Copiado" : "Copiar"}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Beneficiario con botón copiar */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 10px",
+                      background: "var(--card)",
+                      borderRadius: 8,
+                      border: "1px solid var(--line)",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Beneficiario:</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>
+                        {beneficiario || "No registrado"}
+                      </div>
+                    </div>
+                    {beneficiario && (
+                      <button
+                        type="button"
+                        onClick={() => copiarTexto(beneficiario, "beneficiario")}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                          padding: "6px 12px",
+                          background: copiadoCampo === "beneficiario" ? "var(--sage)" : "var(--paper)",
+                          color: copiadoCampo === "beneficiario" ? "#fff" : "var(--ink)",
+                          border: "1px solid var(--line)",
+                          borderRadius: 6,
+                          fontSize: 11.5,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {copiadoCampo === "beneficiario" ? <Check size={13} /> : <Copy size={13} />}
+                        {copiadoCampo === "beneficiario" ? "Copiado" : "Copiar"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 18, lineHeight: 1.45 }}>
+                💡 Realiza la transferencia desde la app de tu banco con estos datos. Cuando termines, pulsa <strong>Confirmar pago realizado</strong> para asentar el movimiento y notificar el pago.
+              </div>
+
+              {/* Botones de acción */}
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => setModalTransferencia(null)}
+                  style={{
+                    padding: "9px 16px",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    background: "var(--card)",
+                    color: "var(--ink-soft)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const item = modalTransferencia.item;
+                    setModalTransferencia(null);
+                    await confirmarPagoItem(item);
+                  }}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "9px 18px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    background: "var(--sage)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    boxShadow: "0 2px 8px rgba(16, 185, 129, 0.35)",
+                  }}
+                >
+                  <Check size={15} /> Confirmar pago realizado
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       <ModalEnviarReporteEmail
         isOpen={showEmailModal}

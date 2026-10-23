@@ -1268,7 +1268,7 @@ export default function App() {
             diasCobro={diasCobro}
           />
         )}
-        {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} activos={activos} focusPrestamoId={highlightId} />}
+        {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} activos={activos} cuentas={cuentas} focusPrestamoId={highlightId} />}
         {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
         {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} categoriasGasto={categoriasGasto} />}
         {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
@@ -1366,6 +1366,7 @@ export default function App() {
             onOpenPrestamo={(prestamoId) => handleSearchNavigate("prestamos", prestamoId)}
             userEmail={authUser?.email || ""}
             entidades={entidades}
+            cuentas={cuentas}
           />
         )}
         {(tab === "vacaciones" || tab === "vuelos") && (
