@@ -1308,7 +1308,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                               border: "none",
                               cursor: "pointer",
                               padding: 0,
-                              textDecoration: "underline",
+                              textDecorationLine: "underline",
                               textDecorationStyle: "dotted",
                             }}
                           >
@@ -1544,7 +1544,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                           padding: estado.pagado ? "2px 7px" : 0,
                           color: "var(--ink)",
                           cursor: it.bloqueadoPagado ? "default" : "pointer",
-                          textDecoration: it.bloqueadoPagado || estado.pagado ? "none" : "underline",
+                          textDecorationLine: it.bloqueadoPagado || estado.pagado ? "none" : "underline",
                           textDecorationStyle: "dotted",
                           textDecorationColor: "var(--line)",
                           textUnderlineOffset: 3,
@@ -1710,7 +1710,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                                       background: "transparent",
                                       border: "none",
                                       cursor: "pointer",
-                                      textDecoration: "underline",
+                                      textDecorationLine: "underline",
                                       textDecorationStyle: "dotted",
                                       marginLeft: 6,
                                     }}
