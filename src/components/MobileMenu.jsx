@@ -1,5 +1,5 @@
 import React from "react";
-import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Bot, Map as MapIcon, UtensilsCrossed, CheckSquare } from "lucide-react";
+import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Bot, Map as MapIcon, UtensilsCrossed, CheckSquare, Target } from "lucide-react";
 import { confirm } from "../lib/confirm";
 import SmartFinanceLogo from "./SmartFinanceLogo.jsx";
 import WhatsAppGroupButton from "./WhatsAppGroupButton.jsx";
@@ -9,6 +9,8 @@ const OPCIONES = [
   { id: "dinero-cuentas", label: "Finanzas", icon: Coins },
   { id: "presupuesto-mensual", label: "Presupuesto", icon: Wallet },
   { id: "checklist-pagos", label: "Checklist de pagos", icon: CheckSquare },
+  { id: "prestamos", label: "Préstamos", icon: Landmark },
+  { id: "estrategia-deudas", label: "Estrategia de pagos", icon: Target },
   { id: "recetas", label: "Sugeridor de platos", icon: UtensilsCrossed },
   { id: "deudas-pagos", label: "Pagos fijos", icon: Banknote },
   { id: "activos", label: "Activos", icon: Car },
@@ -24,9 +26,9 @@ function activoEnGrupo(tab, grupoId) {
   if (tab === grupoId) return true;
   const prefijosPorGrupo = {
     "dinero-cuentas": ["cuentas", "ahorro", "inversion", "ingresos"],
-    "deudas-pagos": ["prestamos", "tarjetas", "membresias", "contratos"],
+    "deudas-pagos": ["tarjetas", "membresias", "contratos"],
     activos: ["activos", "seguros"],
-    presupuesto: ["presupuesto-categoria-gasto", "presupuesto-mensual", "presupuesto-metodologia", "presupuesto-flujo", "estrategia-deudas", "checklist-pagos", "vacaciones", "vuelos"],
+    presupuesto: ["presupuesto-categoria-gasto", "presupuesto-mensual", "presupuesto-metodologia", "presupuesto-flujo", "vacaciones", "vuelos"],
   };
   return (prefijosPorGrupo[grupoId] || []).includes(tab);
 }

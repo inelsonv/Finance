@@ -9,6 +9,8 @@ import {
   CheckSquare,
   X,
   ChevronRight,
+  Landmark,
+  Target,
 } from "lucide-react";
 import QuickGasto from "./QuickGasto.jsx";
 import { useNotificaciones } from "./NotificationBell.jsx";
@@ -60,6 +62,8 @@ export default function BottomNav({
 }) {
   const [showGasto, setShowGasto] = useState(false);
   const [showOpciones, setShowOpciones] = useState(false);
+
+  const prestamosActivosCount = (prestamos || []).filter((p) => p.estado === "Activo").length;
 
   const notificaciones = useNotificaciones({
     prestamos,
@@ -350,6 +354,115 @@ export default function BottomNav({
                   </div>
                   <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.35 }}>
                     Pagar préstamos (PT01, etc.), tarjetas y obligaciones quincenales
+                  </div>
+                </div>
+                <ChevronRight size={18} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
+              </button>
+
+              {/* Opción 3: Préstamos */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOpciones(false);
+                  setTab("prestamos");
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "14px 14px",
+                  borderRadius: 14,
+                  border: "1px solid var(--line)",
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: "rgba(245, 158, 11, 0.14)",
+                    color: "var(--amber, #f59e0b)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Landmark size={22} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", marginBottom: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span>Préstamos</span>
+                    {prestamosActivosCount > 0 && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: "1px 6px",
+                          borderRadius: 6,
+                          background: "var(--amber-bg)",
+                          color: "var(--amber)",
+                          border: "1px solid rgba(245, 158, 11, 0.3)",
+                        }}
+                      >
+                        {prestamosActivosCount} activo{prestamosActivosCount !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.35 }}>
+                    Gestionar préstamos, cuotas, cuenta destino e historial de amortización
+                  </div>
+                </div>
+                <ChevronRight size={18} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
+              </button>
+
+              {/* Opción 4: Estrategia de pagos */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOpciones(false);
+                  setTab("estrategia-deudas");
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "14px 14px",
+                  borderRadius: 14,
+                  border: "1px solid var(--line)",
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: "rgba(59, 130, 246, 0.14)",
+                    color: "var(--blue, #3b82f6)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Target size={22} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", marginBottom: 2 }}>
+                    Estrategia de pagos
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.35 }}>
+                    Plan de bola de nieve, avalancha y aceleración para saldar deudas
                   </div>
                 </div>
                 <ChevronRight size={18} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
