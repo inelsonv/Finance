@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3, Copy } from "lucide-react";
 import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
@@ -1914,18 +1915,25 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         const numeroCuenta = it.cuentaDestinoNumero || it.prestamo?.cuentaDestinoNumero || (esPT01 ? "0002804611" : "");
         const beneficiario = it.cuentaDestinoBeneficiario || it.prestamo?.cuentaDestinoBeneficiario || (esPT01 ? "Julian Ochoa" : "");
 
-        return (
+        const modalContent = (
           <div
             style={{
               position: "fixed",
               inset: 0,
-              background: "rgba(0, 0, 0, 0.65)",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: "100vw",
+              height: "100vh",
+              background: "rgba(0, 0, 0, 0.7)",
               backdropFilter: "blur(4px)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              zIndex: 9999,
-              padding: "12px",
+              zIndex: 99999,
+              padding: "16px",
+              boxSizing: "border-box",
               touchAction: "none",
               overscrollBehavior: "contain",
               overflow: "hidden",
@@ -1946,15 +1954,17 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 color: "var(--ink)",
                 border: "1px solid var(--line)",
                 borderRadius: 14,
-                padding: "14px 16px",
-                maxWidth: 440,
+                padding: "16px 18px",
+                maxWidth: 430,
                 width: "100%",
+                margin: "auto",
                 overflow: "hidden",
                 touchAction: "none",
                 overscrollBehavior: "contain",
                 display: "flex",
                 flexDirection: "column",
-                boxShadow: "0 20px 40px rgba(0, 0, 0, 0.35)",
+                boxShadow: "0 20px 40px rgba(0, 0, 0, 0.45)",
+                boxSizing: "border-box",
               }}
               onTouchMove={(e) => e.stopPropagation()}
               onWheel={(e) => e.stopPropagation()}
@@ -2097,24 +2107,27 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
               </div>
 
               {/* Mensaje breve */}
-              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.35 }}>
+              {/* Mensaje breve centrado */}
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 14, lineHeight: 1.35, textAlign: "center" }}>
                 💡 Transfiere desde la app de tu banco y confirma al terminar para registrar el pago.
               </div>
 
-              {/* Acciones compactas */}
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              {/* Acciones compactas centralizadas */}
+              <div style={{ display: "flex", gap: 10, justifyContent: "center", alignItems: "center", width: "100%" }}>
                 <button
                   type="button"
                   onClick={() => setModalTransferencia(null)}
                   style={{
-                    padding: "7px 14px",
-                    fontSize: 12,
+                    flex: 1,
+                    padding: "9px 16px",
+                    fontSize: 12.5,
                     fontWeight: 500,
                     background: "var(--card)",
                     color: "var(--ink-soft)",
                     border: "1px solid var(--line)",
-                    borderRadius: 7,
+                    borderRadius: 8,
                     cursor: "pointer",
+                    textAlign: "center",
                   }}
                 >
                   Cancelar
@@ -2127,18 +2140,21 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                     await confirmarPagoItem(item);
                   }}
                   style={{
+                    flex: 2,
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 5,
-                    padding: "7px 15px",
-                    fontSize: 12,
+                    justifyContent: "center",
+                    gap: 6,
+                    padding: "9px 18px",
+                    fontSize: 12.5,
                     fontWeight: 600,
                     background: "var(--sage)",
                     color: "#fff",
                     border: "none",
-                    borderRadius: 7,
+                    borderRadius: 8,
                     cursor: "pointer",
-                    boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
+                    boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+                    textAlign: "center",
                   }}
                 >
                   <Check size={14} /> Confirmar pago realizado
@@ -2147,6 +2163,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
             </div>
           </div>
         );
+
+        return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
       })()}
 
       <ModalEnviarReporteEmail
