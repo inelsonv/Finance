@@ -878,30 +878,36 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
           cursor: "pointer",
         }}
       >
-        <Bell size={16} />
-        {noLeidas.length > 0 && (
-          <span
-            className="despensa-mono"
-            style={{
-              position: "absolute",
-              top: -4,
-              right: -4,
-              minWidth: 16,
-              height: 16,
-              padding: "0 3px",
-              borderRadius: 10,
-              background: "#e53935",
-              color: "#fff",
-              fontSize: 9.5,
-              fontWeight: 700,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {noLeidas.length}
-          </span>
-        )}
+        <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+          <Bell size={16} />
+          {noLeidas.length > 0 && (
+            <span
+              className="despensa-mono"
+              style={{
+                position: "absolute",
+                top: -5,
+                right: -7,
+                minWidth: 15,
+                height: 15,
+                padding: "0 3px",
+                borderRadius: 10,
+                background: "var(--stamp)",
+                color: "#fff",
+                fontSize: 9,
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1.5px solid var(--card)",
+                lineHeight: 1,
+                pointerEvents: "none",
+                boxShadow: "0 1px 3px rgba(0, 0, 0, 0.35)",
+              }}
+            >
+              {noLeidas.length > 99 ? "99+" : noLeidas.length}
+            </span>
+          )}
+        </div>
       </button>
 
       {open && (

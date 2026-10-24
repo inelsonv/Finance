@@ -147,33 +147,39 @@ export default function BottomNav({
           onClick={() => setTab("notificaciones")}
           className="despensa-bottomnav-item"
           title="Notificaciones"
-          style={{ color: tab === "notificaciones" ? "var(--sage)" : "var(--ink-soft)", position: "relative" }}
+          style={{ color: tab === "notificaciones" ? "var(--sage)" : "var(--ink-soft)" }}
         >
-          <Bell size={22} />
-          {noLeidas > 0 && (
-            <span
-              className="despensa-mono"
-              style={{
-                position: "absolute",
-                top: 0,
-                right: 6,
-                minWidth: 15,
-                height: 15,
-                borderRadius: 8,
-                background: "var(--stamp)",
-                color: "#fff",
-                fontSize: 9,
-                fontWeight: 700,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "0 3px",
-                border: "1.5px solid var(--card)",
-              }}
-            >
-              {noLeidas > 9 ? "9+" : noLeidas}
-            </span>
-          )}
+          <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            <Bell size={22} />
+            {noLeidas > 0 && (
+              <span
+                className="despensa-mono"
+                style={{
+                  position: "absolute",
+                  top: -4,
+                  right: -7,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 10,
+                  background: "var(--stamp)",
+                  color: "#fff",
+                  fontSize: 9.5,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "0 3.5px",
+                  border: "1.5px solid var(--card)",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.35)",
+                  lineHeight: 1,
+                  pointerEvents: "none",
+                  zIndex: 2,
+                }}
+              >
+                {noLeidas > 99 ? "99+" : noLeidas}
+              </span>
+            )}
+          </div>
           {tab === "notificaciones" && <span className="despensa-bottomnav-dot" />}
         </button>
       </nav>
