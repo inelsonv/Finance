@@ -18,12 +18,24 @@ export default function ConfirmDialogHost() {
 
   useEffect(() => {
     if (!pending) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevOverscroll = document.body.style.overscrollBehavior;
+    const prevTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.body.style.touchAction = "none";
+
     const onKeyDown = (e) => {
       if (e.key === "Escape") resolver(false);
       if (e.key === "Enter" && !pending.options.requireReason) resolver(true);
     };
     document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.overscrollBehavior = prevOverscroll;
+      document.body.style.touchAction = prevTouchAction;
+      document.removeEventListener("keydown", onKeyDown);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pending]);
 
@@ -51,6 +63,14 @@ export default function ConfirmDialogHost() {
   return (
     <div
       onClick={() => resolver(false)}
+      onTouchMove={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onWheel={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -60,10 +80,15 @@ export default function ConfirmDialogHost() {
         justifyContent: "center",
         zIndex: 1000,
         padding: 20,
+        touchAction: "none",
+        overscrollBehavior: "contain",
+        overflow: "hidden",
       }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
         style={{
           background: "var(--card)",
           border: "1px solid var(--line)",
@@ -71,6 +96,9 @@ export default function ConfirmDialogHost() {
           padding: 20,
           maxWidth: 360,
           width: "100%",
+          overflow: "hidden",
+          touchAction: "none",
+          overscrollBehavior: "contain",
           boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
         }}
       >

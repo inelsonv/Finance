@@ -185,6 +185,23 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   const [modalTransferencia, setModalTransferencia] = useState(null);
   const [copiadoCampo, setCopiadoCampo] = useState(null);
 
+  // Bloquear el scroll del fondo y de la pantalla mientras el messagebox de pago/transferencia esté abierto
+  useEffect(() => {
+    if (modalTransferencia) {
+      const prevOverflow = document.body.style.overflow;
+      const prevOverscroll = document.body.style.overscrollBehavior;
+      const prevTouchAction = document.body.style.touchAction;
+      document.body.style.overflow = "hidden";
+      document.body.style.overscrollBehavior = "none";
+      document.body.style.touchAction = "none";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+        document.body.style.overscrollBehavior = prevOverscroll;
+        document.body.style.touchAction = prevTouchAction;
+      };
+    }
+  }, [modalTransferencia]);
+
   const copiarTexto = async (texto, campo) => {
     if (!texto) return;
     try {
@@ -1881,6 +1898,17 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
               justifyContent: "center",
               zIndex: 9999,
               padding: "12px",
+              touchAction: "none",
+              overscrollBehavior: "contain",
+              overflow: "hidden",
+            }}
+            onTouchMove={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onWheel={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
             }}
             onClick={() => setModalTransferencia(null)}
           >
@@ -1893,11 +1921,15 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 padding: "14px 16px",
                 maxWidth: 440,
                 width: "100%",
-                maxHeight: "94vh",
+                overflow: "hidden",
+                touchAction: "none",
+                overscrollBehavior: "contain",
                 display: "flex",
                 flexDirection: "column",
                 boxShadow: "0 20px 40px rgba(0, 0, 0, 0.35)",
               }}
+              onTouchMove={(e) => e.stopPropagation()}
+              onWheel={(e) => e.stopPropagation()}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Encabezado compacto */}
