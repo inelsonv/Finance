@@ -1880,7 +1880,7 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
               alignItems: "center",
               justifyContent: "center",
               zIndex: 9999,
-              padding: 16,
+              padding: "12px",
             }}
             onClick={() => setModalTransferencia(null)}
           >
@@ -1890,23 +1890,27 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 color: "var(--ink)",
                 border: "1px solid var(--line)",
                 borderRadius: 14,
-                padding: "20px 22px",
-                maxWidth: 480,
+                padding: "14px 16px",
+                maxWidth: 440,
                 width: "100%",
+                maxHeight: "94vh",
+                display: "flex",
+                flexDirection: "column",
                 boxShadow: "0 20px 40px rgba(0, 0, 0, 0.35)",
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <ArrowLeftRight size={18} />
+              {/* Encabezado compacto */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ArrowLeftRight size={15} />
                   </div>
-                  <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--ink)" }}>
-                      Transferencia para pago de préstamo
+                  <div style={{ minWidth: 0 }}>
+                    <h3 style={{ fontSize: 14.5, fontWeight: 700, margin: 0, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      Transferencia para pago
                     </h3>
-                    <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {it.nombre}
                     </div>
                   </div>
@@ -1914,162 +1918,142 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 <button
                   type="button"
                   onClick={() => setModalTransferencia(null)}
-                  style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer", padding: 4 }}
+                  style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer", padding: 3 }}
                 >
-                  <X size={18} />
+                  <X size={16} />
                 </button>
               </div>
 
-              {/* Monto a transferir */}
+              {/* Monto a transferir compacto */}
               <div
                 style={{
                   background: "var(--paper)",
                   border: "1px solid var(--line)",
-                  borderRadius: 10,
-                  padding: "12px 14px",
-                  textAlign: "center",
-                  marginBottom: 16,
+                  borderRadius: 8,
+                  padding: "8px 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 10,
                 }}
               >
-                <div style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 600 }}>
-                  Monto a transferir
-                </div>
-                <div className="despensa-mono" style={{ fontSize: 26, fontWeight: 800, color: "var(--ink)", marginTop: 2 }}>
+                <span style={{ fontSize: 11, color: "var(--ink-soft)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                  Monto a transferir:
+                </span>
+                <span className="despensa-mono" style={{ fontSize: 19, fontWeight: 800, color: "var(--ink)" }}>
                   {formatMoney(it.monto)}
-                </div>
+                </span>
               </div>
 
-              {/* Datos de cuenta destino */}
+              {/* Tarjeta de datos bancarios con botones copiar integrados */}
               <div
                 style={{
                   background: "rgba(59, 130, 246, 0.05)",
-                  border: "1.5px solid rgba(59, 130, 246, 0.25)",
-                  borderRadius: 12,
-                  padding: "14px 16px",
-                  marginBottom: 16,
+                  border: "1px solid rgba(59, 130, 246, 0.25)",
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                  marginBottom: 10,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 7,
                 }}
               >
-                <div style={{ fontSize: 11.5, fontWeight: 700, color: "#2563eb", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Landmark size={14} /> Datos de la cuenta destino
+                {/* Banco y tipo */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, paddingBottom: 4, borderBottom: "1px solid rgba(59, 130, 246, 0.12)" }}>
+                  <span style={{ color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4 }}>
+                    <Landmark size={12} style={{ color: "#2563eb" }} /> Banco:
+                  </span>
+                  <span style={{ fontWeight: 600, color: "var(--ink)" }}>
+                    {banco} {tipoProducto ? `· ${tipoProducto}` : ""}
+                  </span>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Entidad Bancaria:</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{banco}</span>
-                  </div>
-
-                  {tipoProducto && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Tipo de producto:</span>
-                      <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)" }}>{tipoProducto}</span>
+                {/* Cuenta */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>No. de cuenta:</div>
+                    <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", letterSpacing: "0.02em" }}>
+                      {numeroCuenta || "No registrado"}
                     </div>
+                  </div>
+                  {numeroCuenta && (
+                    <button
+                      type="button"
+                      onClick={() => copiarTexto(numeroCuenta, "cuenta")}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "4px 9px",
+                        background: copiadoCampo === "cuenta" ? "var(--sage)" : "#2563eb",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        transition: "all 0.15s ease",
+                      }}
+                    >
+                      {copiadoCampo === "cuenta" ? <Check size={11} /> : <Copy size={11} />}
+                      {copiadoCampo === "cuenta" ? "Copiado" : "Copiar"}
+                    </button>
                   )}
+                </div>
 
-                  {/* Número de cuenta con botón copiar */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 10px",
-                      background: "var(--card)",
-                      borderRadius: 8,
-                      border: "1px solid var(--line)",
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>No. de cuenta / producto:</div>
-                      <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", letterSpacing: "0.03em" }}>
-                        {numeroCuenta || "No registrado"}
-                      </div>
+                {/* Beneficiario */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>Beneficiario:</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {beneficiario || "No registrado"}
                     </div>
-                    {numeroCuenta && (
-                      <button
-                        type="button"
-                        onClick={() => copiarTexto(numeroCuenta, "cuenta")}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                          padding: "6px 12px",
-                          background: copiadoCampo === "cuenta" ? "var(--sage)" : "#2563eb",
-                          color: "#fff",
-                          border: "none",
-                          borderRadius: 6,
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          transition: "all 0.15s ease",
-                        }}
-                      >
-                        {copiadoCampo === "cuenta" ? <Check size={13} /> : <Copy size={13} />}
-                        {copiadoCampo === "cuenta" ? "Copiado" : "Copiar"}
-                      </button>
-                    )}
                   </div>
-
-                  {/* Beneficiario con botón copiar */}
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      padding: "8px 10px",
-                      background: "var(--card)",
-                      borderRadius: 8,
-                      border: "1px solid var(--line)",
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Beneficiario:</div>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>
-                        {beneficiario || "No registrado"}
-                      </div>
-                    </div>
-                    {beneficiario && (
-                      <button
-                        type="button"
-                        onClick={() => copiarTexto(beneficiario, "beneficiario")}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                          padding: "6px 12px",
-                          background: copiadoCampo === "beneficiario" ? "var(--sage)" : "var(--paper)",
-                          color: copiadoCampo === "beneficiario" ? "#fff" : "var(--ink)",
-                          border: "1px solid var(--line)",
-                          borderRadius: 6,
-                          fontSize: 11.5,
-                          fontWeight: 500,
-                          cursor: "pointer",
-                        }}
-                      >
-                        {copiadoCampo === "beneficiario" ? <Check size={13} /> : <Copy size={13} />}
-                        {copiadoCampo === "beneficiario" ? "Copiado" : "Copiar"}
-                      </button>
-                    )}
-                  </div>
+                  {beneficiario && (
+                    <button
+                      type="button"
+                      onClick={() => copiarTexto(beneficiario, "beneficiario")}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        padding: "4px 9px",
+                        background: copiadoCampo === "beneficiario" ? "var(--sage)" : "var(--paper)",
+                        color: copiadoCampo === "beneficiario" ? "#fff" : "var(--ink)",
+                        border: "1px solid var(--line)",
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {copiadoCampo === "beneficiario" ? <Check size={11} /> : <Copy size={11} />}
+                      {copiadoCampo === "beneficiario" ? "Copiado" : "Copiar"}
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 18, lineHeight: 1.45 }}>
-                💡 Realiza la transferencia desde la app de tu banco con estos datos. Cuando termines, pulsa <strong>Confirmar pago realizado</strong> para asentar el movimiento y notificar el pago.
+              {/* Mensaje breve */}
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.35 }}>
+                💡 Transfiere desde la app de tu banco y confirma al terminar para registrar el pago.
               </div>
 
-              {/* Botones de acción */}
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              {/* Acciones compactas */}
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                 <button
                   type="button"
                   onClick={() => setModalTransferencia(null)}
                   style={{
-                    padding: "9px 16px",
-                    fontSize: 13,
+                    padding: "7px 14px",
+                    fontSize: 12,
                     fontWeight: 500,
                     background: "var(--card)",
                     color: "var(--ink-soft)",
                     border: "1px solid var(--line)",
-                    borderRadius: 8,
+                    borderRadius: 7,
                     cursor: "pointer",
                   }}
                 >
@@ -2085,19 +2069,19 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: 6,
-                    padding: "9px 18px",
-                    fontSize: 13,
+                    gap: 5,
+                    padding: "7px 15px",
+                    fontSize: 12,
                     fontWeight: 600,
                     background: "var(--sage)",
                     color: "#fff",
                     border: "none",
-                    borderRadius: 8,
+                    borderRadius: 7,
                     cursor: "pointer",
-                    boxShadow: "0 2px 8px rgba(16, 185, 129, 0.35)",
+                    boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
                   }}
                 >
-                  <Check size={15} /> Confirmar pago realizado
+                  <Check size={14} /> Confirmar pago realizado
                 </button>
               </div>
             </div>

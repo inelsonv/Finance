@@ -135,6 +135,8 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
   const [editSaving, setEditSaving] = useState(false);
   const [revolventeAbiertoId, setRevolventeAbiertoId] = useState(null);
   const [copiadoId, setCopiadoId] = useState(null);
+  const [detallesAbiertos, setDetallesAbiertos] = useState({});
+  const toggleDetalles = (id) => setDetallesAbiertos((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const copiarCuenta = async (texto, id) => {
     if (!texto) return;
@@ -160,8 +162,11 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
   const prestamosPagados = useMemo(() => prestamos.filter((p) => p.estado === "Pagado" && p.id !== editingId), [prestamos, editingId]);
 
   useEffect(() => {
-    if (focusPrestamoId && prestamos.some((p) => p.id === focusPrestamoId && p.estado === "Pagado")) {
-      setShowHistorico(true);
+    if (focusPrestamoId) {
+      setDetallesAbiertos((prev) => ({ ...prev, [focusPrestamoId]: true }));
+      if (prestamos.some((p) => p.id === focusPrestamoId && p.estado === "Pagado")) {
+        setShowHistorico(true);
+      }
     }
   }, [focusPrestamoId, prestamos]);
 
@@ -1009,135 +1014,63 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                 </div>
               ) : (
                 <>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span className="despensa-mono" style={{ fontSize: 12, fontWeight: 600, color: "var(--stamp)" }}>
-                          {p.numero}
-                        </span>
-                        {p.tipo && (
-                          <span
-                            className="despensa-tab-font"
-                            style={{ fontSize: 10.5, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: "var(--sage-bg)", color: "var(--sage)" }}
-                          >
-                            {p.tipo}
-                          </span>
-                        )}
-                        <EstadoBadge
-                          estado={p.estado}
-                          onChange={async (estado) => {
-                            if (estado === "Pagado") {
-                              setShowHistorico(true);
-                              try {
-                                localStorage.setItem("smart-finance-prestamos-historico-open", "1");
-                              } catch {}
-                            }
-                            await updatePrestamoEstado(p.id, estado);
-                          }}
-                        />
-                        {p.notificarWhatsapp && (
-                          <span
-                            title={
-                              entidades.find((e) => e.docId === p.entidadId)?.phone
-                                ? `Notifica pagos a ${entidades.find((e) => e.docId === p.entidadId).phone}`
-                                : "Notificación activa, pero la entidad no tiene teléfono registrado"
-                            }
-                            style={{ display: "flex", alignItems: "center", color: entidades.find((e) => e.docId === p.entidadId)?.phone ? "var(--sage)" : "var(--stamp)" }}
-                          >
-                            <MessageCircle size={13} />
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 500, marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                      <span className="despensa-mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--stamp)" }}>
+                        {p.numero}
+                      </span>
+                      <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)", display: "inline-flex", alignItems: "center", gap: 4 }}>
                         <Landmark size={13} style={{ color: "var(--ink-soft)" }} />
                         {p.entidadName || "Entidad no especificada"}
-                      </div>
-                      {p.activoNombre && (
-                        <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>
-                          <Car size={12} />
-                          {p.activoNombre}
-                        </div>
+                      </span>
+                      {p.tipo && (
+                        <span
+                          className="despensa-tab-font"
+                          style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 12, background: "var(--sage-bg)", color: "var(--sage)" }}
+                        >
+                          {p.tipo}
+                        </span>
                       )}
-
-                      {(() => {
-                        const esPT01 = p.numero === "PT01";
-                        const metodo = p.metodoPago || "Transferencia";
-                        const numCuenta = p.cuentaDestinoNumero || (esPT01 ? "0002804611" : "");
-                        const banco = p.cuentaDestinoBanco || (esPT01 ? "Banco Popular" : (p.entidadName || "Banco"));
-                        const beneficiario = p.cuentaDestinoBeneficiario || (esPT01 ? "Julian Ochoa" : "");
-                        const tipoCuenta = p.cuentaDestinoTipo || (esPT01 ? "Cuentas de Terceros" : "");
-
-                        return (
-                          <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                fontSize: 11,
-                                padding: "2px 7px",
-                                borderRadius: 6,
-                                background: "var(--paper)",
-                                border: "1px solid var(--line)",
-                                color: "var(--ink)",
-                                fontWeight: 500,
-                              }}
-                            >
-                              <ArrowLeftRight size={11} style={{ color: "var(--sage)" }} />
-                              {metodo}
-                            </span>
-
-                            {numCuenta && (
-                              <span
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: 6,
-                                  fontSize: 11,
-                                  padding: "2px 8px",
-                                  borderRadius: 6,
-                                  background: "rgba(59, 130, 246, 0.08)",
-                                  border: "1px solid rgba(59, 130, 246, 0.25)",
-                                  color: "var(--ink)",
-                                }}
-                              >
-                                <Landmark size={11} style={{ color: "#2563eb" }} />
-                                <span>
-                                  <strong>{banco}:</strong> <span className="despensa-mono">{numCuenta}</span>
-                                  {beneficiario ? ` (${beneficiario})` : ""}
-                                  {tipoCuenta ? ` · ${tipoCuenta}` : ""}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    copiarCuenta(numCuenta, p.id);
-                                  }}
-                                  title="Copiar número de cuenta destino"
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 3,
-                                    background: "transparent",
-                                    border: "none",
-                                    color: copiadoId === p.id ? "var(--sage)" : "#2563eb",
-                                    fontSize: 10.5,
-                                    fontWeight: 600,
-                                    cursor: "pointer",
-                                    padding: "1px 4px",
-                                    borderRadius: 4,
-                                  }}
-                                >
-                                  {copiadoId === p.id ? <Check size={11} /> : <Copy size={11} />}
-                                  {copiadoId === p.id ? "Copiado" : "Copiar"}
-                                </button>
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
+                      <EstadoBadge
+                        estado={p.estado}
+                        onChange={async (estado) => {
+                          if (estado === "Pagado") {
+                            setShowHistorico(true);
+                            try {
+                              localStorage.setItem("smart-finance-prestamos-historico-open", "1");
+                            } catch {}
+                          }
+                          await updatePrestamoEstado(p.id, estado);
+                        }}
+                      />
+                      {p.activoNombre && (
+                        <span style={{ fontSize: 11, color: "var(--ink-soft)", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <Car size={11} />
+                          {p.activoNombre}
+                        </span>
+                      )}
                     </div>
-                    <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                      <button
+                        onClick={() => toggleDetalles(p.id)}
+                        title={detallesAbiertos[p.id] ? "Ocultar detalles secundarios" : "Ver detalles (plazo, tasa, proyección e historial)"}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                          padding: "3px 8px",
+                          background: detallesAbiertos[p.id] ? "var(--line-soft)" : "transparent",
+                          border: "1px solid var(--line)",
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 500,
+                          color: "var(--ink-soft)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        {detallesAbiertos[p.id] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                        {detallesAbiertos[p.id] ? "Menos" : "Detalles"}
+                      </button>
                       <button
                         onClick={() => startEdit(p)}
                         title="Editar préstamo"
@@ -1145,16 +1078,16 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          width: 28,
-                          height: 28,
+                          width: 26,
+                          height: 26,
                           background: "transparent",
                           color: "var(--ink-soft)",
-                          border: "none",
+                          border: "1px solid var(--line)",
                           borderRadius: 6,
                           cursor: "pointer",
                         }}
                       >
-                        <Pencil size={14} />
+                        <Pencil size={12} />
                       </button>
                       <button
                         onClick={async () => {
@@ -1165,8 +1098,8 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          width: 28,
-                          height: 28,
+                          width: 26,
+                          height: 26,
                           background: "transparent",
                           color: "var(--stamp)",
                           border: "none",
@@ -1174,184 +1107,262 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                           cursor: "pointer",
                         }}
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                       </button>
                     </div>
                   </div>
 
+                  {/* Fila compacta de cuenta destino */}
+                  {(() => {
+                    const esPT01 = p.numero === "PT01";
+                    const metodo = p.metodoPago || "Transferencia";
+                    const numCuenta = p.cuentaDestinoNumero || (esPT01 ? "0002804611" : "");
+                    const banco = p.cuentaDestinoBanco || (esPT01 ? "Banco Popular" : (p.entidadName || "Banco"));
+                    const beneficiario = p.cuentaDestinoBeneficiario || (esPT01 ? "Julian Ochoa" : "");
+
+                    return (
+                      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                            fontSize: 10.5,
+                            padding: "1px 6px",
+                            borderRadius: 5,
+                            background: "var(--paper)",
+                            border: "1px solid var(--line)",
+                            color: "var(--ink)",
+                            fontWeight: 500,
+                          }}
+                        >
+                          <ArrowLeftRight size={10} style={{ color: "var(--sage)" }} />
+                          {metodo}
+                        </span>
+
+                        {numCuenta && (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 5,
+                              fontSize: 11,
+                              padding: "1px 7px",
+                              borderRadius: 5,
+                              background: "rgba(59, 130, 246, 0.08)",
+                              border: "1px solid rgba(59, 130, 246, 0.2)",
+                              color: "var(--ink)",
+                            }}
+                          >
+                            <Landmark size={10} style={{ color: "#2563eb" }} />
+                            <span>
+                              <strong>{banco}:</strong> <span className="despensa-mono">{numCuenta}</span>
+                              {beneficiario ? ` (${beneficiario})` : ""}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copiarCuenta(numCuenta, p.id);
+                              }}
+                              title="Copiar número de cuenta destino"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 2,
+                                background: "transparent",
+                                border: "none",
+                                color: copiadoId === p.id ? "var(--sage)" : "#2563eb",
+                                fontSize: 10,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                padding: "0 2px",
+                              }}
+                            >
+                              {copiadoId === p.id ? <Check size={10} /> : <Copy size={10} />}
+                              {copiadoId === p.id ? "Copiado" : "Copiar"}
+                            </button>
+                          </span>
+                        )}
+
+                        {p.notificarWhatsapp && (
+                          <span
+                            title={
+                              entidades.find((e) => e.docId === p.entidadId)?.phone
+                                ? `Notifica pagos a ${entidades.find((e) => e.docId === p.entidadId).phone}`
+                                : "Notificación activa, pero la entidad no tiene teléfono registrado"
+                            }
+                            style={{ display: "inline-flex", alignItems: "center", color: entidades.find((e) => e.docId === p.entidadId)?.phone ? "var(--sage)" : "var(--stamp)" }}
+                          >
+                            <MessageCircle size={12} />
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Métricas esenciales siempre visibles en una sola fila compacta */}
                   {(() => {
                     const cuotasInfo = obtenerInfoCuotasPrestamo(p, movimientos);
                     const pagado = pagadoPorPrestamo[p.id] || 0;
                     const pendiente = Math.max((Number(p.montoAprobado) || 0) - pagado, 0);
                     const pct = p.montoAprobado ? Math.min(100, Math.round((pagado / p.montoAprobado) * 100)) : 0;
+                    const expandido = !!detallesAbiertos[p.id];
+
                     return (
                       <>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10 }}>
-                          <Field label="Monto aprobado" value={formatMoney(p.montoAprobado)} />
-                          <Field label="Cuota mensual" value={p.cuota != null ? formatMoney(p.cuota) : "—"} />
-                          <Field label="Plazo" value={p.plazo ? `${p.plazo} ${p.plazoUnidad || "meses"}` : "—"} />
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(95px, 1fr))", gap: 8, alignItems: "center" }}>
+                          <div>
+                            <div style={{ fontSize: 9.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Cuota mensual</div>
+                            <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", marginTop: 1 }}>
+                              {p.cuota != null ? formatMoney(p.cuota) : "—"}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 9.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Falta por pagar</div>
+                            <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 700, color: pendiente > 0 ? "var(--stamp)" : "var(--sage)", marginTop: 1 }}>
+                              {formatMoney(pendiente)}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 9.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Aprobado</div>
+                            <div className="despensa-mono" style={{ fontSize: 13, fontWeight: 500, color: "var(--ink-soft)", marginTop: 1 }}>
+                              {formatMoney(p.montoAprobado)}
+                            </div>
+                          </div>
                           {cuotasInfo.totalCuotas != null && (
-                            <Field
-                              label="Cuotas pendientes"
-                              value={
-                                <span>
-                                  <strong style={{ color: cuotasInfo.cuotasPendientes > 0 ? "var(--stamp)" : "var(--sage)" }}>
-                                    {cuotasInfo.cuotasPendientes} restantes
-                                  </strong>
-                                  <span style={{ fontSize: 10.5, fontWeight: 400, color: "var(--ink-soft)", display: "block" }}>
-                                    ({cuotasInfo.cuotasPagadas} de {cuotasInfo.totalCuotas} pagadas)
-                                  </span>
-                                </span>
-                              }
-                            />
+                            <div>
+                              <div style={{ fontSize: 9.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Progreso cuotas</div>
+                              <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginTop: 1 }}>
+                                <strong style={{ color: "var(--sage)" }}>{cuotasInfo.cuotasPagadas}</strong> de {cuotasInfo.totalCuotas} <span style={{ fontSize: 10.5, fontWeight: 400, color: "var(--ink-soft)" }}>({pct}%)</span>
+                              </div>
+                            </div>
                           )}
-                          <Field label="Tasa interés" value={p.tasaInteres != null ? `${p.tasaInteres}%` : "—"} />
-                          <Field
-                            label="Inicio"
-                            value={
-                              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                <Calendar size={11} /> {formatDateDisplay(p.fechaInicio)}
-                              </span>
-                            }
-                          />
                         </div>
 
-                        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
-                          <div style={{ display: "grid", gridTemplateColumns: cuotasInfo.totalCuotas != null ? "repeat(auto-fit, minmax(110px, 1fr))" : "1fr 1fr", gap: 10, marginBottom: 8 }}>
-                            <Field label="Pagado" value={<span style={{ color: "var(--sage)" }}>{formatMoney(pagado)}</span>} />
-                            <Field label="Falta por pagar" value={<span style={{ color: pendiente > 0 ? "var(--stamp)" : "var(--sage)" }}>{formatMoney(pendiente)}</span>} />
-                            {cuotasInfo.totalCuotas != null && (
+                        {/* Barra delgada de progreso */}
+                        <div style={{ height: 4, borderRadius: 2, background: "var(--line-soft)", overflow: "hidden", marginTop: 7 }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: "var(--sage)", borderRadius: 2 }} />
+                        </div>
+
+                        {/* Detalles secundarios plegables */}
+                        {expandido && (
+                          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8, marginBottom: 8 }}>
+                              <Field label="Plazo" value={p.plazo ? `${p.plazo} ${p.plazoUnidad || "meses"}` : "—"} />
+                              <Field label="Tasa interés" value={p.tasaInteres != null ? `${p.tasaInteres}%` : "—"} />
                               <Field
-                                label="Cuotas restantes"
+                                label="Inicio"
                                 value={
-                                  <span>
-                                    <strong style={{ color: cuotasInfo.cuotasPendientes > 0 ? "var(--stamp)" : "var(--sage)" }}>
-                                      {cuotasInfo.cuotasPendientes} de {cuotasInfo.totalCuotas}
-                                    </strong>
-                                    <span style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block" }}>
-                                      {cuotasInfo.cuotasPagadas} pagadas
-                                    </span>
+                                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    <Calendar size={11} /> {formatDateDisplay(p.fechaInicio)}
                                   </span>
                                 }
                               />
+                              <Field label="Total pagado" value={<span style={{ color: "var(--sage)" }}>{formatMoney(pagado)}</span>} />
+                            </div>
+
+                            {(() => {
+                              const proyeccion = calcularProyeccionPago(p, movimientos);
+                              if (!proyeccion || proyeccion.yaSaldado) return null;
+                              const fechaTexto = proyeccion.fechaProyectada.toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" });
+                              let comparacion = null;
+                              if (proyeccion.diasDiferencia != null) {
+                                if (proyeccion.diasDiferencia > 15) {
+                                  comparacion = { texto: `${Math.round(proyeccion.diasDiferencia / 30)} meses más tarde de lo planeado`, color: "var(--stamp)" };
+                                } else if (proyeccion.diasDiferencia < -15) {
+                                  comparacion = { texto: `${Math.round(Math.abs(proyeccion.diasDiferencia) / 30)} meses antes de lo planeado`, color: "var(--sage)" };
+                                } else {
+                                  comparacion = { texto: "según lo planeado", color: "var(--ink-soft)" };
+                                }
+                              }
+                              return (
+                                <div style={{ fontSize: 11, color: "var(--ink-soft)", lineHeight: 1.4, marginBottom: 8 }}>
+                                  📈 A tu ritmo actual, quedaría saldado el <strong style={{ color: "var(--ink)" }}>{fechaTexto}</strong>
+                                  {comparacion && (
+                                    <span style={{ color: comparacion.color }}> — {comparacion.texto}</span>
+                                  )}
+                                </div>
+                              );
+                            })()}
+
+                            <HistorialCuotasPagadas prestamo={p} movimientos={movimientos} />
+
+                            {p.esRevolvente && (() => {
+                              const limite = Number(p.montoAprobado) || 0;
+                              const usado = Number(p.saldoActual) || 0;
+                              const disponible = Math.max(limite - usado, 0);
+                              const pctUsado = limite ? Math.min(100, Math.round((usado / limite) * 100)) : 0;
+                              const minimoRetiro = p.montoMinimoRetiro;
+                              const puedeRetirar = minimoRetiro != null ? disponible >= minimoRetiro : disponible > 0;
+                              const barColor = pctUsado >= 90 ? "var(--stamp)" : pctUsado >= 60 ? "var(--amber)" : "var(--sage)";
+                              const abierto = revolventeAbiertoId === p.id;
+                              return (
+                                <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--line-soft)" }}>
+                                  <button
+                                    onClick={() => setRevolventeAbiertoId(abierto ? null : p.id)}
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 5,
+                                      fontSize: 10.5,
+                                      color: "var(--ink-soft)",
+                                      background: "transparent",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      padding: 0,
+                                      textTransform: "uppercase",
+                                      letterSpacing: "0.03em",
+                                    }}
+                                  >
+                                    <RotateCcw size={11} />
+                                    Línea revolvente
+                                    {abierto ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                  </button>
+
+                                  {abierto && (
+                                    <div style={{ marginTop: 6 }}>
+                                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 4 }}>
+                                        <Field label="Disponible para retirar" value={<span style={{ color: puedeRetirar ? "var(--sage)" : "var(--stamp)" }}>{formatMoney(disponible)}</span>} />
+                                        <Field label="Saldo utilizado" value={formatMoney(usado)} />
+                                      </div>
+                                      <div style={{ height: 4, borderRadius: 2, background: "var(--line-soft)", overflow: "hidden", marginBottom: 5 }}>
+                                        <div style={{ height: "100%", width: `${pctUsado}%`, background: barColor, borderRadius: 2 }} />
+                                      </div>
+                                      <div
+                                        className="despensa-tab-font"
+                                        style={{
+                                          fontSize: 10.5,
+                                          fontWeight: 600,
+                                          display: "inline-block",
+                                          padding: "1px 7px",
+                                          borderRadius: 10,
+                                          background: puedeRetirar ? "var(--sage-bg)" : "var(--stamp-bg)",
+                                          color: puedeRetirar ? "var(--sage)" : "var(--stamp)",
+                                        }}
+                                      >
+                                        {puedeRetirar
+                                          ? "Puedes volver a retirar"
+                                          : minimoRetiro != null
+                                          ? `Necesitas pagar más (mínimo ${formatMoney(minimoRetiro)} disponible)`
+                                          : "Sin disponible para retirar"}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+
+                            {p.notas && (
+                              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 6, borderTop: "1px solid var(--line-soft)", paddingTop: 6 }}>
+                                {p.notas}
+                              </div>
                             )}
                           </div>
-
-                          {cuotasInfo.totalCuotas != null && (
-                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, fontSize: 11.5 }}>
-                              <span style={{ color: "var(--ink-soft)" }}>
-                                <strong style={{ color: "var(--sage)" }}>{cuotasInfo.cuotasPagadas}</strong> cuotas pagadas de <strong style={{ color: "var(--ink)" }}>{cuotasInfo.totalCuotas}</strong>
-                                {" "}• Quedan <strong style={{ color: cuotasInfo.cuotasPendientes > 0 ? "var(--stamp)" : "var(--sage)" }}>{cuotasInfo.cuotasPendientes} {cuotasInfo.cuotasPendientes === 1 ? "cuota" : "cuotas"}</strong>
-                              </span>
-                              <span className="despensa-mono" style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-soft)" }}>
-                                {cuotasInfo.porcentaje}% de cuotas
-                              </span>
-                            </div>
-                          )}
-
-                          <div style={{ height: 6, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${pct}%`, background: "var(--sage)", borderRadius: 4 }} />
-                          </div>
-
-                          {(() => {
-                            const proyeccion = calcularProyeccionPago(p, movimientos);
-                            if (!proyeccion || proyeccion.yaSaldado) return null;
-                            const fechaTexto = proyeccion.fechaProyectada.toLocaleDateString("es", { day: "numeric", month: "long", year: "numeric" });
-                            let comparacion = null;
-                            if (proyeccion.diasDiferencia != null) {
-                              if (proyeccion.diasDiferencia > 15) {
-                                comparacion = { texto: `${Math.round(proyeccion.diasDiferencia / 30)} meses más tarde de lo planeado`, color: "var(--stamp)" };
-                              } else if (proyeccion.diasDiferencia < -15) {
-                                comparacion = { texto: `${Math.round(Math.abs(proyeccion.diasDiferencia) / 30)} meses antes de lo planeado`, color: "var(--sage)" };
-                              } else {
-                                comparacion = { texto: "según lo planeado", color: "var(--ink-soft)" };
-                              }
-                            }
-                            return (
-                              <div style={{ marginTop: 10, fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-                                📈 A tu ritmo actual, quedaría saldado el <strong style={{ color: "var(--ink)" }}>{fechaTexto}</strong>
-                                {comparacion && (
-                                  <span style={{ color: comparacion.color }}> — {comparacion.texto}</span>
-                                )}
-                              </div>
-                            );
-                          })()}
-                        </div>
+                        )}
                       </>
                     );
                   })()}
-
-                  <HistorialCuotasPagadas prestamo={p} movimientos={movimientos} />
-
-                  {p.esRevolvente && (() => {
-                    const limite = Number(p.montoAprobado) || 0;
-                    const usado = Number(p.saldoActual) || 0;
-                    const disponible = Math.max(limite - usado, 0);
-                    const pctUsado = limite ? Math.min(100, Math.round((usado / limite) * 100)) : 0;
-                    const minimoRetiro = p.montoMinimoRetiro;
-                    const puedeRetirar = minimoRetiro != null ? disponible >= minimoRetiro : disponible > 0;
-                    const barColor = pctUsado >= 90 ? "var(--stamp)" : pctUsado >= 60 ? "var(--amber)" : "var(--sage)";
-                    const abierto = revolventeAbiertoId === p.id;
-                    return (
-                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
-                        <button
-                          onClick={() => setRevolventeAbiertoId(abierto ? null : p.id)}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            fontSize: 11,
-                            color: "var(--ink-soft)",
-                            background: "transparent",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: 0,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.03em",
-                          }}
-                        >
-                          <RotateCcw size={11} />
-                          Línea revolvente
-                          {abierto ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                        </button>
-
-                        {abierto && (
-                          <div style={{ marginTop: 8 }}>
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 6 }}>
-                              <Field label="Disponible para retirar" value={<span style={{ color: puedeRetirar ? "var(--sage)" : "var(--stamp)" }}>{formatMoney(disponible)}</span>} />
-                              <Field label="Saldo utilizado" value={formatMoney(usado)} />
-                            </div>
-                            <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden", marginBottom: 6 }}>
-                              <div style={{ height: "100%", width: `${pctUsado}%`, background: barColor, borderRadius: 4 }} />
-                            </div>
-                            <div
-                              className="despensa-tab-font"
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                display: "inline-block",
-                                padding: "2px 8px",
-                                borderRadius: 12,
-                                background: puedeRetirar ? "var(--sage-bg)" : "var(--stamp-bg)",
-                                color: puedeRetirar ? "var(--sage)" : "var(--stamp)",
-                              }}
-                            >
-                              {puedeRetirar
-                                ? "Puedes volver a retirar"
-                                : minimoRetiro != null
-                                ? `Necesitas pagar más (mínimo ${formatMoney(minimoRetiro)} disponible)`
-                                : "Sin disponible para retirar"}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {p.notas && (
-                    <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 8, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
-                      {p.notas}
-                    </div>
-                  )}
                 </>
               )}
             </div>
