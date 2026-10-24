@@ -1008,18 +1008,46 @@ export default function Calendario({
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 14 }}>
         <button
           onClick={irMesAnterior}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
+          title="Mes anterior"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            background: "var(--blue-bg)",
+            color: "var(--blue)",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+            boxShadow: "var(--shadow-sm)",
+          }}
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={18} strokeWidth={2.5} />
         </button>
         <div className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 600, minWidth: 170, textAlign: "center" }}>
           {MESES[viewDate.getMonth()]} {viewDate.getFullYear()}
         </div>
         <button
           onClick={irMesSiguiente}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
+          title="Mes siguiente"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            background: "var(--blue-bg)",
+            color: "var(--blue)",
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+            boxShadow: "var(--shadow-sm)",
+          }}
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={18} strokeWidth={2.5} />
         </button>
         <button
           onClick={irHoy}

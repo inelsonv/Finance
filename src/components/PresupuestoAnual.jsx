@@ -1318,12 +1318,14 @@ export default function PresupuestoAnual({
             height: 32,
             borderRadius: 8,
             border: "1px solid var(--line)",
-            background: "var(--card)",
-            color: "var(--ink-soft)",
+            background: "var(--blue-bg)",
+            color: "var(--blue)",
             cursor: onChangeYear ? "pointer" : "default",
+            boxShadow: "var(--shadow-sm)",
+            transition: "all 0.15s ease",
           }}
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={18} strokeWidth={2.5} />
         </button>
         <span className="despensa-tab-font" style={{ fontSize: 17, fontWeight: 700, minWidth: 56, textAlign: "center" }}>
           {year}
@@ -1340,12 +1342,14 @@ export default function PresupuestoAnual({
             height: 32,
             borderRadius: 8,
             border: "1px solid var(--line)",
-            background: "var(--card)",
-            color: "var(--ink-soft)",
+            background: "var(--blue-bg)",
+            color: "var(--blue)",
             cursor: onChangeYear ? "pointer" : "default",
+            boxShadow: "var(--shadow-sm)",
+            transition: "all 0.15s ease",
           }}
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={18} strokeWidth={2.5} />
         </button>
       </div>
 

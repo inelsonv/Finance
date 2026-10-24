@@ -797,9 +797,23 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         <button
           onClick={() => navegarPeriodo(-1)}
           disabled={!!moviendoKey}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
+          title="Periodo anterior"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            background: "var(--blue-bg)",
+            color: "var(--blue)",
+            cursor: moviendoKey ? "not-allowed" : "pointer",
+            transition: "all 0.15s ease",
+            boxShadow: "var(--shadow-sm)",
+          }}
         >
-          <ChevronLeft size={16} />
+          <ChevronLeft size={18} strokeWidth={2.5} />
         </button>
         <div className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 600, minWidth: 200, textAlign: "center" }}>
           {MESES[periodo.month - 1]} {periodo.year} · {periodo.quincena === "Q1" ? "1ra quincena" : "2da quincena"}
@@ -807,9 +821,23 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
         <button
           onClick={() => navegarPeriodo(1)}
           disabled={!!moviendoKey}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "1px solid var(--line)", borderRadius: 8, background: "var(--card)", color: "var(--ink-soft)", cursor: "pointer" }}
+          title="Periodo siguiente"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 32,
+            height: 32,
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            background: "var(--blue-bg)",
+            color: "var(--blue)",
+            cursor: moviendoKey ? "not-allowed" : "pointer",
+            transition: "all 0.15s ease",
+            boxShadow: "var(--shadow-sm)",
+          }}
         >
-          <ChevronRight size={16} />
+          <ChevronRight size={18} strokeWidth={2.5} />
         </button>
       </div>
 
