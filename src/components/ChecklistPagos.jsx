@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3, Copy, Target } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3, Copy } from "lucide-react";
 import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto, watchWhatsappNotifConfig } from "../lib/db";
@@ -185,22 +185,6 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
   const [resumenAbierto, setResumenAbierto] = useState(false);
   const [modalTransferencia, setModalTransferencia] = useState(null);
   const [copiadoCampo, setCopiadoCampo] = useState(null);
-  const [historicoPagadosAbierto, setHistoricoPagadosAbierto] = useState(false);
-
-  // Dividir ítems pendientes de los pagados (histórico)
-  const { itemsPendientes, itemsPagados } = useMemo(() => {
-    const pendientes = [];
-    const pagados = [];
-    for (const it of items) {
-      const estaPagado = Boolean(it.bloqueadoPagado || checklist?.items?.[it.key]?.pagado);
-      if (estaPagado && !it.esConsumoGradual) {
-        pagados.push(it);
-      } else {
-        pendientes.push(it);
-      }
-    }
-    return { itemsPendientes: pendientes, itemsPagados: pagados };
-  }, [items, checklist]);
 
   // Bloquear el scroll del fondo y de la pantalla mientras el messagebox de pago/transferencia esté abierto
   useEffect(() => {
@@ -805,7 +789,6 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
     setMoviendoGastoKey(null);
     setModoSeleccion(false);
     setSeleccionados(new Set());
-    setHistoricoPagadosAbierto(false);
     setPeriodo((actual) => periodoAdyacente(actual, direccion));
   };
 
@@ -858,53 +841,6 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           <ChevronRight size={18} strokeWidth={2.5} />
         </button>
       </div>
-
-      {onNavigate && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={() => onNavigate("prestamos")}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              padding: "5px 12px",
-              fontSize: 11.5,
-              fontWeight: 600,
-              background: "var(--card)",
-              border: "1px solid var(--line)",
-              borderRadius: 20,
-              color: "var(--ink)",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}
-          >
-            <Landmark size={12} style={{ color: "var(--amber)" }} />
-            Préstamos
-          </button>
-          <button
-            type="button"
-            onClick={() => onNavigate("estrategia-deudas")}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 5,
-              padding: "5px 12px",
-              fontSize: 11.5,
-              fontWeight: 600,
-              background: "var(--card)",
-              border: "1px solid var(--line)",
-              borderRadius: 20,
-              color: "var(--ink)",
-              cursor: "pointer",
-              transition: "all 0.15s ease",
-            }}
-          >
-            <Target size={12} style={{ color: "var(--blue)" }} />
-            Estrategia de pagos
-          </button>
-        </div>
-      )}
 
       <div key={`${periodo.year}-${periodo.month}-${periodo.quincena}`} className="fade-in-quick">
       {whatsappToast && (
@@ -1167,8 +1103,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           montos de cada categoría, o revisa que tengas préstamos activos.
         </div>
       ) : (
-        (() => {
-          const renderChecklistItem = (it) => {
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {items.map((it) => {
             const estado = it.bloqueadoPagado ? { pagado: true } : checklist?.items?.[it.key] || {};
             const Icon = it.icon;
 
@@ -1860,94 +1796,8 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
                 </div>
               </div>
             );
-          };
-
-          return (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {/* Si todos los pagos fueron completados */}
-              {itemsPendientes.length === 0 && itemsPagados.length > 0 && (
-                <div
-                  style={{
-                    padding: "20px 16px",
-                    textAlign: "center",
-                    background: "var(--sage-bg)",
-                    border: "1px solid rgba(16, 185, 129, 0.3)",
-                    borderRadius: 10,
-                    color: "var(--ink)",
-                  }}
-                >
-                  <div style={{ fontSize: 24, marginBottom: 4 }}>🎉</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--sage)" }}>
-                    ¡Todos los pagos de esta quincena están al día!
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2 }}>
-                    Has completado los {itemsPagados.length} pagos correspondientes a este periodo.
-                  </div>
-                </div>
-              )}
-
-              {/* Pagos pendientes */}
-              {itemsPendientes.map((it) => renderChecklistItem(it))}
-
-              {/* Pagos completados / Histórico colapsable al final */}
-              {itemsPagados.length > 0 && (
-                <div style={{ marginTop: itemsPendientes.length > 0 ? 8 : 4 }}>
-                  <button
-                    type="button"
-                    onClick={() => setHistoricoPagadosAbierto((prev) => !prev)}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "10px 14px",
-                      background: "var(--card)",
-                      border: "1px solid var(--line)",
-                      borderRadius: 10,
-                      color: "var(--ink)",
-                      fontSize: 12.5,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      transition: "all 0.15s ease",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div
-                        style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: 6,
-                          background: "var(--sage-bg)",
-                          color: "var(--sage)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 11,
-                        }}
-                      >
-                        <Check size={13} strokeWidth={2.5} />
-                      </div>
-                      <span>Pagados / Histórico ({itemsPagados.length})</span>
-                      <span className="despensa-mono" style={{ fontSize: 11.5, color: "var(--sage)", fontWeight: 700 }}>
-                        · {formatMoney(itemsPagados.reduce((s, it) => s + (Number(it.monto) || 0), 0))}
-                      </span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--ink-soft)", fontSize: 11.5 }}>
-                      <span>{historicoPagadosAbierto ? "Ocultar" : "Ver pagados"}</span>
-                      {historicoPagadosAbierto ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-                    </div>
-                  </button>
-
-                  {historicoPagadosAbierto && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                      {itemsPagados.map((it) => renderChecklistItem(it))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })()
+          })}
+        </div>
       )}
 
       {transferenciasDesdePeriodo.length > 0 && (
