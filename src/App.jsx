@@ -1364,6 +1364,7 @@ export default function App() {
             estrategiaDeudas={estrategiaDeudas}
             tipoCambio={tipoCambio}
             onOpenPrestamo={(prestamoId) => handleSearchNavigate("prestamos", prestamoId)}
+            onNavigate={setTab}
             userEmail={authUser?.email || ""}
             entidades={entidades}
             cuentas={cuentas}

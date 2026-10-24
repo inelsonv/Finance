@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3, Copy, Target } from "lucide-react";
 import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto, watchWhatsappNotifConfig } from "../lib/db";
@@ -81,7 +81,7 @@ function periodoAdyacente(periodo, dir) {
   }
 }
 
-export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos, estrategiaDeudas, tipoCambio, onOpenPrestamo, userEmail, entidades = [] }) {
+export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos, tarjetas, presupuestoYear, periodoInicial, onConsumePeriodoInicial, fuentesIngreso, diasCobro, movimientos, estrategiaDeudas, tipoCambio, onOpenPrestamo, onNavigate, userEmail, entidades = [] }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
   const [overridesLocales, setOverridesLocales] = useState({});
@@ -858,6 +858,53 @@ export default function ChecklistPagos({ categoriasGasto, presupuesto, prestamos
           <ChevronRight size={18} strokeWidth={2.5} />
         </button>
       </div>
+
+      {onNavigate && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={() => onNavigate("prestamos")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "5px 12px",
+              fontSize: 11.5,
+              fontWeight: 600,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 20,
+              color: "var(--ink)",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Landmark size={12} style={{ color: "var(--amber)" }} />
+            Préstamos
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("estrategia-deudas")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "5px 12px",
+              fontSize: 11.5,
+              fontWeight: 600,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 20,
+              color: "var(--ink)",
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Target size={12} style={{ color: "var(--blue)" }} />
+            Estrategia de pagos
+          </button>
+        </div>
+      )}
 
       <div key={`${periodo.year}-${periodo.month}-${periodo.quincena}`} className="fade-in-quick">
       {whatsappToast && (

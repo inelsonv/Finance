@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Banknote, CreditCard, Ticket, Zap, ArrowRight, AlertTriangle } from "lucide-react";
+import { Banknote, CreditCard, Ticket, Zap, ArrowRight, AlertTriangle, Target } from "lucide-react";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -63,6 +63,7 @@ export default function PagosFijos({ prestamos, tarjetas, membresias, contratos,
         <NavButton onClick={() => onNavigate("tarjetas")} icon={CreditCard} label="Ir a Tarjetas" />
         <NavButton onClick={() => onNavigate("membresias")} icon={Ticket} label="Ir a Membresías" />
         <NavButton onClick={() => onNavigate("contratos")} icon={Zap} label="Ir a Contratos" />
+        <NavButton onClick={() => onNavigate("estrategia-deudas")} icon={Target} label="Estrategia de pagos" />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
