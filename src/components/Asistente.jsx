@@ -25,6 +25,13 @@ import {
   Package,
   Mic,
   MicOff,
+  Shield,
+  ShieldAlert,
+  Scissors,
+  Gift,
+  TrendingDown,
+  Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import {
   crearAsistenteChat,
@@ -46,6 +53,10 @@ import { analizarIntencionAccion, analizarIntencionGasto } from "../lib/asistent
 import { SkeletonChat } from "./Skeleton";
 
 const SUGERENCIAS = [
+  "🚨 ¿Cuál es mi plan de choque para salir de deudas y sobregiro?",
+  "✂️ Ayúdame a recortar gastos innecesarios este mes",
+  "🎄 ¿Cómo uso mi Salario de Navidad para liquidar deudas?",
+  "🛡️ ¿Puedo permitirme una salida a cenar o compra extra?",
   "💳 PT09 paga el total de este préstamo",
   "📊 ¿Cuánto me falta para saldar mi préstamo PT09?",
   "🛒 Agrega leche a la orden de compra abierta",
@@ -1160,6 +1171,706 @@ function TarjetaOrdenCompraChat({
   );
 }
 
+function BannerGuardianFinanciero({ tarjetas = [], prestamos = [], onPreguntar, onNavigate, onClose }) {
+  const [colapsado, setColapsado] = useState(false);
+
+  const tarjetasAlerta = (tarjetas || []).filter((t) => {
+    const sRD = Number(t.saldoActual) || 0;
+    const lRD = Number(t.limiteCredito ?? t.limite) || 0;
+    const sUSD = Number(t.saldoActualUSD) || 0;
+    const lUSD = Number(t.limiteCreditoUSD) || 0;
+    return (lRD > 0 && sRD > lRD) || (lUSD > 0 && sUSD > lUSD) || Number(t.cuotasVencidasUSD) > 0;
+  });
+
+  const haySobregiro = tarjetasAlerta.length > 0;
+  const tarjeta6011 = (tarjetas || []).find((t) => (t.ultimos4 || "").includes("6011") || (t.nombre || "").includes("6011")) || tarjetasAlerta[0];
+
+  return (
+    <div
+      style={{
+        padding: "10px 12px",
+        borderRadius: 14,
+        background: haySobregiro
+          ? "linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(245, 158, 11, 0.08))"
+          : "linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(59, 130, 246, 0.05))",
+        border: haySobregiro ? "1.5px solid rgba(239, 68, 68, 0.45)" : "1.5px solid rgba(16, 185, 129, 0.3)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+        marginBottom: 8,
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <div
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: 8,
+              background: haySobregiro ? "rgba(239, 68, 68, 0.2)" : "rgba(16, 185, 129, 0.2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: haySobregiro ? "#dc2626" : "#059669",
+            }}
+          >
+            {haySobregiro ? <ShieldAlert size={16} /> : <Shield size={16} />}
+          </div>
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: 6 }}>
+              <span>Guardián Financiero Activo</span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  padding: "2px 6px",
+                  borderRadius: 999,
+                  background: haySobregiro ? "#dc2626" : "#059669",
+                  color: "#fff",
+                }}
+              >
+                {haySobregiro ? "🚨 SOBREGIRO DETECTADO" : "🛡️ PROTECCIÓN ACTIVA"}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+              {haySobregiro
+                ? "Sobregiro en tarjeta detectado. Modo choque anti-deuda encendido."
+                : "Vigilando gastos innecesarios y guiando tu libertad financiera."}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setColapsado(!colapsado)}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--ink-soft)",
+            padding: "4px",
+            display: "flex",
+            alignItems: "center",
+          }}
+          title={colapsado ? "Expandir guardián" : "Minimizar"}
+        >
+          {colapsado ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+        </button>
+      </div>
+
+      {!colapsado && (
+        <>
+          {tarjeta6011 && (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 6,
+                padding: "8px 10px",
+                borderRadius: 10,
+                background: "var(--card)",
+                border: "1px solid var(--line-soft)",
+                fontSize: 11.5,
+              }}
+            >
+              <div>
+                <span style={{ color: "var(--ink-soft)", display: "block", fontSize: 10.5 }}>Tarjeta Local 6011 (RD$)</span>
+                <strong style={{ color: Number(tarjeta6011.saldoActual) > Number(tarjeta6011.limiteCredito) ? "#dc2626" : "var(--ink)", fontFamily: "monospace", fontSize: 12 }}>
+                  RD$ {(Number(tarjeta6011.saldoActual) || 0).toLocaleString("es", { minimumFractionDigits: 2 })}
+                </strong>
+                <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 700 }}>
+                  Límite RD$ {(Number(tarjeta6011.limiteCredito) || 0).toLocaleString("es")} (Sobregiro: -RD$ 1,688.32)
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <span style={{ color: "var(--ink-soft)", display: "block", fontSize: 10.5 }}>Balance USD (6011)</span>
+                <strong style={{ color: Number(tarjeta6011.cuotasVencidasUSD) > 0 ? "#dc2626" : "var(--ink)", fontFamily: "monospace", fontSize: 12 }}>
+                  US$ {(Number(tarjeta6011.saldoActualUSD) || 0).toLocaleString("es", { minimumFractionDigits: 2 })}
+                </strong>
+                <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 700 }}>
+                  1 cuota vencida: US$ 79.17
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", paddingTop: 2 }}>
+            <button
+              type="button"
+              onClick={() => onPreguntar?.("¿Cuál es mi plan de choque para salir de deudas y sobregiro?")}
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "5px 9px",
+                borderRadius: 7,
+                background: "#dc2626",
+                color: "#fff",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              🚨 Plan de Choque
+            </button>
+            <button
+              type="button"
+              onClick={() => onPreguntar?.("Ayúdame a recortar gastos innecesarios este mes para pagar deudas")}
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "5px 9px",
+                borderRadius: 7,
+                background: "var(--card)",
+                border: "1px solid var(--line)",
+                color: "var(--ink)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Scissors size={12} style={{ color: "#f59e0b" }} /> Recortar Gastos
+            </button>
+            <button
+              type="button"
+              onClick={() => onPreguntar?.("¿Cómo uso mi Salario de Navidad (Ley 16-92) para liquidar mis deudas?")}
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "5px 9px",
+                borderRadius: 7,
+                background: "var(--card)",
+                border: "1px solid var(--line)",
+                color: "var(--ink)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Gift size={12} style={{ color: "#10b981" }} /> Salario Navidad
+            </button>
+            <button
+              type="button"
+              onClick={() => onPreguntar?.("¿Puedo gastar en una salida o compra no esencial en este momento?")}
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "5px 9px",
+                borderRadius: 7,
+                background: "var(--card)",
+                border: "1px solid var(--line)",
+                color: "var(--ink)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              <Shield size={12} style={{ color: "var(--sage)" }} /> ¿Puedo gastar?
+            </button>
+            {onNavigate && (
+              <button
+                type="button"
+                onClick={() => {
+                  onNavigate("estrategia-deudas");
+                  onClose?.();
+                }}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "5px 9px",
+                  borderRadius: 7,
+                  background: "none",
+                  border: "none",
+                  color: "var(--sage)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                Estrategia Deudas <ArrowRight size={11} />
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TarjetaPlanDeudasChat({ tarjetas = [], prestamos = [], onNavigate, onClose, onEnviarMensaje }) {
+  const tarjeta6011 = (tarjetas || []).find((t) => (t.ultimos4 || "").includes("6011") || (t.nombre || "").includes("6011"));
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: "12px 14px",
+        borderRadius: 14,
+        background: "rgba(239, 68, 68, 0.05)",
+        border: "1.5px solid rgba(239, 68, 68, 0.35)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.05)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        maxWidth: "100%",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(239, 68, 68, 0.2)", paddingBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, color: "#dc2626", fontWeight: 800, fontSize: 13.5 }}>
+          <ShieldAlert size={18} />
+          <span>Plan de Choque Anti-Deuda del Guardián</span>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "rgba(239, 68, 68, 0.15)", color: "#dc2626" }}>
+          🚨 Nivel Crítico
+        </span>
+      </div>
+
+      {/* Tarjeta 6011 Detalle */}
+      <div style={{ background: "var(--card)", borderRadius: 10, padding: "10px 12px", border: "1px solid var(--line-soft)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontWeight: 700, fontSize: 12 }}>
+          <span style={{ color: "var(--ink)" }}>Tarjeta Local ************6011</span>
+          <span style={{ color: "#dc2626", fontFamily: "monospace" }}>Corte: 26/10 | Pago: 20/11</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11.5 }}>
+          <div style={{ background: "rgba(239, 68, 68, 0.05)", padding: "6px 8px", borderRadius: 7 }}>
+            <span style={{ color: "var(--ink-soft)", display: "block" }}>Pesos Dominicanos</span>
+            <strong style={{ color: "#dc2626", fontSize: 12.5 }}>RD$ 50,888.32</strong>
+            <div style={{ fontSize: 10.5, color: "#dc2626" }}>Límite RD$ 41,000 (Sobregiro: -RD$ 1,688.32)</div>
+            <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>Pago Mínimo: RD$ 5,461.69</div>
+          </div>
+          <div style={{ background: "rgba(239, 68, 68, 0.05)", padding: "6px 8px", borderRadius: 7 }}>
+            <span style={{ color: "var(--ink-soft)", display: "block" }}>Dólares Americanos</span>
+            <strong style={{ color: "#dc2626", fontSize: 12.5 }}>US$ 397.70</strong>
+            <div style={{ fontSize: 10.5, color: "#dc2626", fontWeight: 700 }}>1 cuota vencida: US$ 79.17</div>
+            <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>Límite: US$ 500.00</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pasos del Guardián */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+          <div style={{ minWidth: 20, height: 20, borderRadius: "50%", background: "#dc2626", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>1</div>
+          <div style={{ color: "var(--ink)" }}>
+            <strong>Urgencia Inmediata:</strong> Pagar la cuota vencida en USD (<strong>US$ 79.17</strong>) y cubrir el sobregiro (<strong>RD$ 1,688.32</strong> + mínimo RD$ 5,461.69) para frenar comisiones por mora y proteger tu historial de crédito.
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+          <div style={{ minWidth: 20, height: 20, borderRadius: "50%", background: "#f59e0b", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>2</div>
+          <div style={{ color: "var(--ink)" }}>
+            <strong>Congelar Tarjetas:</strong> No realizar consumos nuevos con la tarjeta de crédito. Usar solo efectivo o débito estrictamente dentro de presupuesto.
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+          <div style={{ minWidth: 20, height: 20, borderRadius: "50%", background: "#10b981", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>3</div>
+          <div style={{ color: "var(--ink)" }}>
+            <strong>Método Avalancha:</strong> Tras cubrir mínimos de tus préstamos, inyectar cada recorte a la Tarjeta 6011 (tasa del ~60% anual) para parar la sangría financiera.
+          </div>
+        </div>
+      </div>
+
+      {/* Botones de acción rápida */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px solid rgba(239, 68, 68, 0.2)", paddingTop: 8 }}>
+        {onNavigate && (
+          <button
+            type="button"
+            onClick={() => {
+              onNavigate("estrategia-deudas");
+              onClose?.();
+            }}
+            style={{
+              padding: "6px 11px",
+              borderRadius: 8,
+              background: "#dc2626",
+              color: "#fff",
+              border: "none",
+              fontSize: 11.5,
+              fontWeight: 700,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+            }}
+          >
+            🎯 Ver Estrategia de Deudas
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onEnviarMensaje?.("Ayúdame a recortar gastos innecesarios este mes")}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            color: "var(--ink)",
+            fontSize: 11.5,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <Scissors size={12} style={{ color: "#f59e0b" }} /> Recortar Gastos
+        </button>
+        <button
+          type="button"
+          onClick={() => onEnviarMensaje?.("¿Cómo uso mi Salario de Navidad (Ley 16-92) para liquidar deudas?")}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            color: "var(--ink)",
+            fontSize: 11.5,
+            fontWeight: 600,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+          }}
+        >
+          <Gift size={12} style={{ color: "#10b981" }} /> Plan Salario Navidad
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TarjetaRecorteGastosChat({ data, movimientos = [], onEnviarMensaje, onNavigate, onClose }) {
+  const [nivelRecorte, setNivelRecorte] = useState(30);
+
+  // Calcular gastos variables reales
+  const hoy = new Date();
+  const yAct = hoy.getFullYear();
+  const mAct = hoy.getMonth() + 1;
+  let totalVar = 0;
+  for (const m of movimientos || []) {
+    if (!m.date || m.type !== "Gasto" || m.clasificacion === "Fijo") continue;
+    const [y, mo] = m.date.split("-").map(Number);
+    if (y === yAct && mo === mAct) {
+      totalVar += Number(m.amount) || 0;
+    }
+  }
+  if (totalVar === 0) totalVar = 28500; // Estimación base quincenal/mensual representativa
+
+  const ahorroMensual = Math.round(totalVar * (nivelRecorte / 100));
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: "12px 14px",
+        borderRadius: 14,
+        background: "rgba(245, 158, 11, 0.08)",
+        border: "1.5px solid rgba(245, 158, 11, 0.4)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.05)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        maxWidth: "100%",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(245, 158, 11, 0.25)", paddingBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, color: "#d97706", fontWeight: 800, fontSize: 13.5 }}>
+          <Scissors size={18} />
+          <span>Simulador de Recorte de Gastos Innecesarios</span>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "rgba(245, 158, 11, 0.2)", color: "#b45309" }}>
+          ✂️ Modo Ahorro
+        </span>
+      </div>
+
+      <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+        El Guardián identificó tus gastos variables prescindibles (delivery, salidas no programadas, compras impulsivas). Selecciona un nivel de recorte:
+      </div>
+
+      {/* Selectores de nivel */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+        {[
+          { pct: 20, label: "20% Moderado" },
+          { pct: 30, label: "30% Guardián ⭐" },
+          { pct: 50, label: "50% Guerra Anti-Deuda" },
+        ].map((item) => (
+          <button
+            key={item.pct}
+            type="button"
+            onClick={() => setNivelRecorte(item.pct)}
+            style={{
+              padding: "7px 6px",
+              borderRadius: 8,
+              border: nivelRecorte === item.pct ? "2px solid #d97706" : "1px solid var(--line)",
+              background: nivelRecorte === item.pct ? "#fef3c7" : "var(--card)",
+              color: nivelRecorte === item.pct ? "#b45309" : "var(--ink)",
+              fontWeight: nivelRecorte === item.pct ? 800 : 600,
+              fontSize: 11,
+              cursor: "pointer",
+              textAlign: "center",
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Resultado del ahorro */}
+      <div style={{ background: "var(--card)", borderRadius: 10, padding: "10px 12px", border: "1px solid var(--line-soft)", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Ahorro mensual recuperado:</span>
+          <strong style={{ fontSize: 15, color: "#059669", fontFamily: "monospace" }}>
+            RD$ {ahorroMensual.toLocaleString("es", { minimumFractionDigits: 2 })}
+          </strong>
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--ink)", borderTop: "1px dashed var(--line-soft)", paddingTop: 6 }}>
+          🚀 <strong>Impacto directo en tus deudas:</strong> Con este recorte de {nivelRecorte}%, saldas el sobregiro de <strong>RD$ -1,688.32</strong> de la Tarjeta 6011 en menos de una quincena y aceleras tu libertad financiera en meses.
+        </div>
+      </div>
+
+      {/* Consejos del Guardián */}
+      <div style={{ fontSize: 11.5, color: "var(--ink-soft)", display: "flex", flexDirection: "column", gap: 4 }}>
+        <div>🛑 <strong>Regla de las 48 horas:</strong> Si no es comida básica o medicina, espera 48 horas antes de comprar.</div>
+        <div>🍲 <strong>Cero delivery esta quincena:</strong> Aprovecha el inventario y catálogo para cocinar en casa.</div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px solid rgba(245, 158, 11, 0.25)", paddingTop: 8 }}>
+        <button
+          type="button"
+          onClick={() => onEnviarMensaje?.(`Quiero aplicar un recorte de gastos de RD$ ${ahorroMensual.toLocaleString("es")} directo a amortizar mi tarjeta 6011`)}
+          style={{
+            padding: "6px 11px",
+            borderRadius: 8,
+            background: "#d97706",
+            color: "#fff",
+            border: "none",
+            fontSize: 11.5,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          Aplicar Ahorro a Deuda
+        </button>
+        <button
+          type="button"
+          onClick={() => onEnviarMensaje?.("¿Puedo gastar en una salida o capricho hoy?")}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 8,
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            color: "var(--ink)",
+            fontSize: 11.5,
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          🛡️ Consultar al Guardián antes de gastar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TarjetaPlanNavidadChat({ data, fuentesIngreso = [], tarjetas = [], onEnviarMensaje, onNavigate, onClose }) {
+  // Salario de Navidad proyectado (Doble Sueldo / Ley 16-92)
+  const salarioBase = (fuentesIngreso || [])
+    .filter((f) => f.estado === "Activo" || !f.estado)
+    .reduce((s, f) => {
+      const val = Number(f.salario ?? f.montoNeto ?? f.montoEsperado ?? f.montoMensual ?? (Number(f.montoQuincenal) * 2) ?? f.monto) || 0;
+      return s + val;
+    }, 0) || 55000; // Valor de referencia si no hay registrado
+
+  const bombaAntiDeuda = Math.round(salarioBase * 0.75);
+  const fondoNavidadEfectivo = Math.round(salarioBase * 0.25);
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: "12px 14px",
+        borderRadius: 14,
+        background: "rgba(16, 185, 129, 0.08)",
+        border: "1.5px solid rgba(16, 185, 129, 0.35)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.05)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        maxWidth: "100%",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(16, 185, 129, 0.2)", paddingBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, color: "#059669", fontWeight: 800, fontSize: 13.5 }}>
+          <Gift size={18} />
+          <span>Estrategia Salario de Navidad (Ley 16-92)</span>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "rgba(16, 185, 129, 0.2)", color: "#047857" }}>
+          🎄 Doble Sueldo
+        </span>
+      </div>
+
+      <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.4 }}>
+        En República Dominicana, el <strong>Salario de Navidad (Sueldo 13)</strong> se paga antes del 20 de diciembre. Es <strong>100% inembargable y libre de retenciones TSS e ISR</strong>.
+      </div>
+
+      <div style={{ background: "var(--card)", borderRadius: 10, padding: "10px 12px", border: "1px solid var(--line-soft)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Salario de Navidad estimado:</span>
+          <strong style={{ fontSize: 15, color: "#059669", fontFamily: "monospace" }}>
+            RD$ {salarioBase.toLocaleString("es", { minimumFractionDigits: 2 })}
+          </strong>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11.5 }}>
+          <div style={{ background: "rgba(239, 68, 68, 0.08)", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(239, 68, 68, 0.25)" }}>
+            <span style={{ color: "#dc2626", fontWeight: 800, display: "block" }}>💥 75% Bomba Anti-Deuda</span>
+            <strong style={{ color: "var(--ink)", fontSize: 13, fontFamily: "monospace" }}>
+              RD$ {bombaAntiDeuda.toLocaleString("es")}
+            </strong>
+            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 4 }}>
+              Liquida por completo el sobregiro de la Tarjeta 6011 y amortiza masivo a préstamos con intereses altos.
+            </div>
+          </div>
+          <div style={{ background: "rgba(16, 185, 129, 0.08)", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(16, 185, 129, 0.25)" }}>
+            <span style={{ color: "#059669", fontWeight: 800, display: "block" }}>🍗 25% Cena & Fiesta Efectivo</span>
+            <strong style={{ color: "var(--ink)", fontSize: 13, fontFamily: "monospace" }}>
+              RD$ {fondoNavidadEfectivo.toLocaleString("es")}
+            </strong>
+            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 4 }}>
+              Cena de Nochebuena y regalos familiares pagados 100% en efectivo, sin usar la tarjeta de crédito.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px solid rgba(16, 185, 129, 0.2)", paddingTop: 8 }}>
+        <button
+          type="button"
+          onClick={() => onEnviarMensaje?.(`¿Cuánto me ahorro de intereses si aplico los RD$ ${bombaAntiDeuda.toLocaleString("es")} del Salario de Navidad a la Tarjeta 6011?`)}
+          style={{
+            padding: "6px 11px",
+            borderRadius: 8,
+            background: "#059669",
+            color: "#fff",
+            border: "none",
+            fontSize: 11.5,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          Calcular impacto anti-intereses
+        </button>
+        {onNavigate && (
+          <button
+            type="button"
+            onClick={() => {
+              onNavigate("estrategia-deudas");
+              onClose?.();
+            }}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              color: "var(--ink)",
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Ver Calendario de Amortización
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TarjetaEvaluadorGastoChat({ data, onEnviarMensaje }) {
+  const [montoTest, setMontoTest] = useState(data?.monto || 3000);
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: "12px 14px",
+        borderRadius: 14,
+        background: "rgba(239, 68, 68, 0.06)",
+        border: "1.5px solid rgba(239, 68, 68, 0.4)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.05)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        maxWidth: "100%",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(239, 68, 68, 0.25)", paddingBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, color: "#dc2626", fontWeight: 800, fontSize: 13.5 }}>
+          <ShieldAlert size={18} />
+          <span>Veredicto del Guardián: ¿Puedo hacer este gasto?</span>
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999, background: "#dc2626", color: "#fff" }}>
+          🛑 DENEGADO
+        </span>
+      </div>
+
+      <div style={{ background: "var(--card)", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line-soft)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Monto que deseas evaluar:</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 700 }}>RD$</span>
+            <input
+              type="number"
+              value={montoTest}
+              onChange={(e) => setMontoTest(Number(e.target.value) || 0)}
+              style={{
+                width: 90,
+                padding: "3px 6px",
+                borderRadius: 6,
+                border: "1px solid var(--line)",
+                fontWeight: 700,
+                fontSize: 12,
+                fontFamily: "monospace",
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ fontSize: 12, color: "#dc2626", lineHeight: 1.4, fontWeight: 600 }}>
+          ⚠️ <strong>Alerta:</strong> Con un sobregiro activo en tu Tarjeta 6011 (<strong>RD$ -1,688.32</strong>) y una cuota vencida en USD (<strong>US$ 79.17</strong>), gastar RD$ {Number(montoTest).toLocaleString("es")} en compras o salidas no esenciales atrasará tu recuperación y te sumará hasta 60% de intereses anuales.
+        </div>
+      </div>
+
+      <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+        💡 <strong>Recomendación del Guardián:</strong> Suspende este consumo. Si depositas estos RD$ {Number(montoTest).toLocaleString("es")} a la tarjeta hoy mismo, ¡eliminas el sobregiro de inmediato y respiras con alivio!
+      </div>
+
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px solid rgba(239, 68, 68, 0.2)", paddingTop: 8 }}>
+        <button
+          type="button"
+          onClick={() => onEnviarMensaje?.(`Prefiero abonar RD$ ${Number(montoTest).toLocaleString("es")} a la tarjeta 6011 para eliminar el sobregiro`)}
+          style={{
+            padding: "6px 11px",
+            borderRadius: 8,
+            background: "#059669",
+            color: "#fff",
+            border: "none",
+            fontSize: 11.5,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          ✅ Destinar a pagar la tarjeta
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Asistente({
   movimientos,
   presupuesto,
@@ -1185,6 +1896,8 @@ export default function Asistente({
   products = [],
   ordenesCompra = [],
   entidades = [],
+  estrategiaDeudas,
+  tipoCambio,
 }) {
   const [mensajes, setMensajes] = useState([]);
   const [chats, setChats] = useState([]);
@@ -1699,12 +2412,72 @@ export default function Asistente({
         }
       }
 
+      let planDeudasCardData = null;
+      let recorteGastosCardData = null;
+      let planNavidadCardData = null;
+      let evaluadorGastoCardData = null;
+
+      const actResp = resAsistente?.tipoAccion || analisisLocal?.tipoAccion;
+      const lowerPreg = pregunta.toLowerCase();
+
+      if (
+        actResp === "plan_deudas" ||
+        lowerPreg.includes("plan de choque") ||
+        lowerPreg.includes("salir de deudas") ||
+        lowerPreg.includes("endeudamiento") ||
+        lowerPreg.includes("sobregiro")
+      ) {
+        planDeudasCardData = {
+          resumenGuardian: resumen?.guardianDiagnostico,
+          tarjetas,
+          prestamos,
+        };
+      } else if (
+        actResp === "recorte_gastos" ||
+        lowerPreg.includes("recortar gastos") ||
+        lowerPreg.includes("gastos innecesarios") ||
+        lowerPreg.includes("recorte") ||
+        lowerPreg.includes("fuga")
+      ) {
+        recorteGastosCardData = {
+          resumenGuardian: resumen?.guardianDiagnostico,
+          movimientos,
+        };
+      } else if (
+        actResp === "plan_navidad" ||
+        lowerPreg.includes("salario de navidad") ||
+        lowerPreg.includes("doble sueldo") ||
+        lowerPreg.includes("sueldo 13") ||
+        lowerPreg.includes("regalia")
+      ) {
+        planNavidadCardData = {
+          resumenGuardian: resumen?.guardianDiagnostico,
+          fuentesIngreso,
+          tarjetas,
+        };
+      } else if (
+        actResp === "guardian_evaluar_gasto" ||
+        lowerPreg.includes("puedo gastar") ||
+        lowerPreg.includes("puedo comprar") ||
+        lowerPreg.includes("me puedo permitir") ||
+        lowerPreg.includes("debo gastar")
+      ) {
+        evaluadorGastoCardData = {
+          resumenGuardian: resumen?.guardianDiagnostico,
+          monto: accionFinal?.monto || analisisLocal?.monto || 3000,
+        };
+      }
+
       const mensajeAsistente = {
         role: "assistant",
         content: textoRespuesta || resAsistente?.respuesta || "Respuesta procesada.",
         ...(prestamoCardData ? { prestamoData: prestamoCardData } : {}),
         ...(ordenCompraCardData ? { ordenCompraData: ordenCompraCardData } : {}),
         ...(gastoCardData ? { gastoData: gastoCardData } : {}),
+        ...(planDeudasCardData ? { planDeudasData: planDeudasCardData } : {}),
+        ...(recorteGastosCardData ? { recorteGastosData: recorteGastosCardData } : {}),
+        ...(planNavidadCardData ? { planNavidadData: planNavidadCardData } : {}),
+        ...(evaluadorGastoCardData ? { evaluadorGastoData: evaluadorGastoCardData } : {}),
       };
 
       const mensajesCompletos = [...nuevosMensajes, mensajeAsistente];
@@ -2007,9 +2780,16 @@ export default function Asistente({
 
   return (
       <div className="despensa-asistente" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)", maxHeight: 640 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <Bot size={17} style={{ color: "var(--sage)" }} />
-        <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Consultor Financiero</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(16, 185, 129, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#059669" }}>
+          <Shield size={16} />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+          <span className="despensa-tab-font" style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)" }}>Guardián & Asesor</span>
+          <span style={{ fontSize: 9.5, padding: "2px 6px", borderRadius: 999, background: "rgba(16, 185, 129, 0.18)", color: "#059669", fontWeight: 800 }}>
+            🛡️ Activo
+          </span>
+        </div>
         <button
           onClick={async () => {
             if (enviando) return;
@@ -2040,6 +2820,14 @@ export default function Asistente({
           </button>
         )}
       </div>
+
+      <BannerGuardianFinanciero
+        tarjetas={tarjetas}
+        prestamos={prestamos}
+        onPreguntar={enviarPregunta}
+        onNavigate={onNavigate}
+        onClose={onClose}
+      />
 
       {chats.length > 0 && (
         <select
@@ -2149,7 +2937,7 @@ export default function Asistente({
             key={i}
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              maxWidth: m.facturaData || m.gastoData || m.prestamoData || m.ordenCompraData ? "96%" : "82%",
+              maxWidth: m.facturaData || m.gastoData || m.prestamoData || m.ordenCompraData || m.planDeudasData || m.recorteGastosData || m.planNavidadData || m.evaluadorGastoData ? "96%" : "82%",
               padding: "9px 13px",
               borderRadius: 14,
               fontSize: 13.5,
@@ -2224,6 +3012,44 @@ export default function Asistente({
                 onDeshacer={(ordenId, prodNombre) => handleDeshacerOrdenCompra(i, ordenId, prodNombre)}
                 onNavigate={onNavigate}
                 onClose={onClose}
+              />
+            )}
+
+            {m.planDeudasData && (
+              <TarjetaPlanDeudasChat
+                tarjetas={tarjetas}
+                prestamos={prestamos}
+                onNavigate={onNavigate}
+                onClose={onClose}
+                onEnviarMensaje={enviarPregunta}
+              />
+            )}
+
+            {m.recorteGastosData && (
+              <TarjetaRecorteGastosChat
+                data={m.recorteGastosData}
+                movimientos={movimientos}
+                onNavigate={onNavigate}
+                onClose={onClose}
+                onEnviarMensaje={enviarPregunta}
+              />
+            )}
+
+            {m.planNavidadData && (
+              <TarjetaPlanNavidadChat
+                data={m.planNavidadData}
+                fuentesIngreso={fuentesIngreso}
+                tarjetas={tarjetas}
+                onNavigate={onNavigate}
+                onClose={onClose}
+                onEnviarMensaje={enviarPregunta}
+              />
+            )}
+
+            {m.evaluadorGastoData && (
+              <TarjetaEvaluadorGastoChat
+                data={m.evaluadorGastoData}
+                onEnviarMensaje={enviarPregunta}
               />
             )}
           </div>

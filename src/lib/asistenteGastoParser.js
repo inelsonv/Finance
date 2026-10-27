@@ -393,7 +393,75 @@ export function analizarIntencionAccion(texto, { prestamos = [], tarjetas = [], 
     }
   }
 
-  // 5. DETECCIÓN GENERAL DE GASTOS (Combustible, Alimentos, Salud, Servicios, etc.)
+  // 5. DETECCIÓN DE GUARDIÁN FINANCIERO: PLAN DE CHOQUE Y SALIR DE DEUDAS
+  const esPlanDeudas =
+    n.includes("plan de choque") ||
+    n.includes("salir de deudas") ||
+    n.includes("salir del sobregiro") ||
+    n.includes("nivel de endeudamiento") ||
+    n.includes("como salgo de deudas") ||
+    n.includes("estrategia contra deudas") ||
+    n.includes("liquidar mis deudas") ||
+    (n.includes("deuda") && (n.includes("salir") || n.includes("plan") || n.includes("ayuda") || n.includes("guardian")));
+
+  if (esPlanDeudas) {
+    return {
+      tipoAccion: "plan_deudas",
+      respuestaDirecta: `🛡️ **Plan de Choque Anti-Deuda del Guardián:**\n\n1. **Urgencia 0 - Tarjeta 6011:** Tu tarjeta local está sobregirada con RD$ 50,888.32 vs límite de RD$ 41,000 (sobregiro de **RD$ -1,688.32**) y tiene 1 cuota vencida en USD (**US$ 79.17**). Esto genera recargos por mora y sobregiro.\n2. **Regla de ORO:** Congela de inmediato compras no esenciales con tarjeta. Todo gasto debe ser en efectivo o débito estrictamente dentro de presupuesto.\n3. **Amortización:** Cumple los mínimos y aplica cada peso ahorrado en recortes al saldo más caro (Avalancha) o al más pequeño (Bola de Nieve).`,
+    };
+  }
+
+  // 6. DETECCIÓN DE GUARDIÁN: RECORTAR GASTOS INNECESARIOS
+  const esRecorteGastos =
+    n.includes("recortar gastos") ||
+    n.includes("gastos innecesarios") ||
+    n.includes("recorte de gastos") ||
+    n.includes("fuga de dinero") ||
+    n.includes("donde recorto") ||
+    n.includes("como recortar") ||
+    n.includes("reducir gastos");
+
+  if (esRecorteGastos) {
+    return {
+      tipoAccion: "recorte_gastos",
+      respuestaDirecta: `✂️ **Auditoría del Guardián contra Gastos Innecesarios:**\n\n- **Identificación:** Delivery frecuente, salidas no programadas, compras impulsivas y membresías duplicadas son las principales fugas de capital.\n- **Potencial de Ahorro:** Un recorte del 30% en gastos variables libera flujo de caja mensual para amortizar directo a capital.\n- **Regla de las 48 horas:** Antes de cualquier compra no esencial, espera 48 horas. Si no es comida básica o servicio esencial, se suspende hasta saldar el sobregiro.`,
+    };
+  }
+
+  // 7. DETECCIÓN DE GUARDIÁN: SALARIO DE NAVIDAD / INGRESOS EXTRAORDINARIOS
+  const esPlanNavidad =
+    n.includes("salario de navidad") ||
+    n.includes("doble sueldo") ||
+    n.includes("sueldo 13") ||
+    n.includes("ingresos extraordinarios") ||
+    n.includes("regalia pascual") ||
+    (n.includes("navidad") && (n.includes("dinero") || n.includes("salario") || n.includes("bono")));
+
+  if (esPlanNavidad) {
+    return {
+      tipoAccion: "plan_navidad",
+      respuestaDirecta: `🎄 **Estrategia del Guardián para el Salario de Navidad (Ley 16-92):**\n\nEn República Dominicana, el Salario de Navidad (sueldo 13) se paga antes del 20 de diciembre y es 100% inembargable y libre de TSS e ISR.\n\n**Fórmula de Victoria 75/25:**\n- **75% a Deudas:** Liquidar el sobregiro de la Tarjeta 6011 y amortizar a capital de tu deuda más cara. Esto detiene el pago de intereses en 2027.\n- **25% a Celebración en Efectivo:** Reserva en efectivo para la cena familiar navideña sin deslizar la tarjeta de crédito ni una sola vez.`,
+    };
+  }
+
+  // 8. DETECCIÓN DE GUARDIÁN: ¿PUEDO GASTAR EN ESTO?
+  const esConsultaPuedoGastar =
+    n.includes("puedo gastar") ||
+    n.includes("puedo comprar") ||
+    n.includes("me puedo permitir") ||
+    n.includes("debo gastar") ||
+    n.includes("puedo darme el gusto");
+
+  if (esConsultaPuedoGastar) {
+    const montoGasto = extraerMonto(n);
+    return {
+      tipoAccion: "guardian_evaluar_gasto",
+      monto: montoGasto,
+      respuestaDirecta: `🛡️ **Alerta del Guardián Financiero:**\n\nCon un sobregiro activo en tu Tarjeta 6011 (RD$ -1,688.32) y cuota pendiente en USD, ${montoGasto ? `un gasto de **RD$ ${montoGasto.toLocaleString("es")}**` : "este gasto extra"} representa un riesgo directo de alargar tu deuda.\n\n**Veredicto:** 🛑 **Pospón este gasto no esencial.** Cada peso extra debe usarse para salir del sobregiro y blindar tu tranquilidad financiera.`,
+    };
+  }
+
+  // 9. DETECCIÓN GENERAL DE GASTOS (Combustible, Alimentos, Salud, Servicios, etc.)
   const gastoRes = parsearGastoGeneral(limpio, n, { categoriasGasto, tarjetas });
   if (gastoRes) {
     return {

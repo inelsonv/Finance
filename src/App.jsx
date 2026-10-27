@@ -984,6 +984,8 @@ export default function App() {
     products,
     ordenesCompra,
     entidades,
+    estrategiaDeudas,
+    tipoCambio,
   };
 
   return (

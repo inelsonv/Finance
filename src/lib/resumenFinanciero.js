@@ -184,24 +184,80 @@ export function construirResumenFinanciero({
       tipo: "Préstamo",
       id: p.id,
       numero: p.numero || "",
-      nombre: p.numero ? `${p.numero} - ${p.entidad}` : p.entidad,
+      nombre: p.numero ? `Préstamo ${p.numero} (${p.entidad})` : p.entidad,
       saldo: p.saldoPendienteNumero,
       tasaInteres: Number(parseFloat(p.tasaInteres) || 0),
       cuota: p.cuotaMensualNumero,
     })),
-    ...(tarjetas || []).filter((t) => t.estado === "Activa" && Number(t.saldoActual) > 0).map((t) => ({
-      tipo: "Tarjeta de crédito",
-      nombre: t.nombre,
-      saldo: Number(t.saldoActual) || 0,
-      tasaInteres: Number(t.tasaInteres) || 28,
-      cuota: Number(t.pagoMinimo) || 0,
-    })),
+    ...(tarjetas || [])
+      .filter((t) => t.estado === "Activa" && (Number(t.saldoActual) > 0 || Number(t.saldoActualUSD) > 0))
+      .map((t) => {
+        const saldoRD = Number(t.saldoActual) || 0;
+        const limiteRD = Number(t.limiteCredito) || 0;
+        const saldoUSD = Number(t.saldoActualUSD) || 0;
+        const limiteUSD = Number(t.limiteCreditoUSD) || 0;
+        const sobregiroRD = Math.max(saldoRD - limiteRD, 0);
+        const sobregiroUSD = Math.max(saldoUSD - limiteUSD, 0);
+        return {
+          tipo: "Tarjeta de crédito",
+          id: t.id,
+          nombre: t.nombre || `Tarjeta ${t.ultimos4 || ""}`,
+          ultimos4: t.ultimos4 || "",
+          saldo: saldoRD,
+          saldoRD,
+          limiteRD,
+          sobregiroRD,
+          saldoUSD,
+          limiteUSD,
+          sobregiroUSD,
+          pagoMinimoRD: Number(t.pagoMinimo) || 0,
+          pagoMinimoUSD: Number(t.pagoMinimoUSD) || 0,
+          diaCorte: t.fechaCorte,
+          diaPago: t.fechaPago,
+          cuotasVencidasUSD: t.cuotasVencidasUSD || 0,
+          tasaInteres: Number(t.tasaInteres) || 60,
+          cuota: Number(t.pagoMinimo) || 0,
+        };
+      }),
   ];
 
   const totalDeudaPendiente = todasDeudasActivas.reduce((acc, d) => acc + d.saldo, 0);
   const totalCuotasMensuales = todasDeudasActivas.reduce((acc, d) => acc + d.cuota, 0);
   const prioridadesBolaDeNieve = [...todasDeudasActivas].sort((a, b) => a.saldo - b.saldo);
   const prioridadesAvalancha = [...todasDeudasActivas].sort((a, b) => b.tasaInteres - a.tasaInteres);
+
+  // Detección de tarjetas sobregiradas o en situación crítica
+  const tarjetasEnAlerta = (tarjetas || []).filter((t) => {
+    const sRD = Number(t.saldoActual) || 0;
+    const lRD = Number(t.limiteCredito) || 0;
+    const sUSD = Number(t.saldoActualUSD) || 0;
+    const lUSD = Number(t.limiteCreditoUSD) || 0;
+    return (lRD > 0 && sRD > lRD) || (lUSD > 0 && sUSD > lUSD) || Number(t.cuotasVencidasUSD) > 0;
+  });
+
+  // Gastos Variables y Potencialmente Recortables (no esenciales)
+  const gastosVariablesMes = {};
+  let totalGastosVariablesMes = 0;
+  for (const m of movimientos || []) {
+    if (!m.date) continue;
+    const [y, mo] = m.date.split("-").map(Number);
+    if (y !== yearActual || mo !== mesActual) continue;
+    if (m.type === "Gasto" && m.clasificacion !== "Fijo") {
+      gastosVariablesMes[m.category] = (gastosVariablesMes[m.category] || 0) + (Number(m.amount) || 0);
+      totalGastosVariablesMes += Number(m.amount) || 0;
+    }
+  }
+
+  // Estimación Salario de Navidad / Doble Sueldo (Ley 16-92 en República Dominicana)
+  const salarioBaseMensual = (fuentesIngreso || [])
+    .filter((f) => f.estado === "Activo" || !f.estado)
+    .reduce((s, f) => {
+      const val = Number(f.salario ?? f.montoNeto ?? f.montoEsperado ?? f.montoMensual ?? (Number(f.montoQuincenal) * 2) ?? f.monto) || 0;
+      return s + val;
+    }, 0);
+  const salarioNavidadProyectado = salarioBaseMensual > 0 ? salarioBaseMensual : 0;
+  const salarioNavidadPropuestaAntiDeuda = Math.round(salarioNavidadProyectado * 0.75);
+  const salarioNavidadPropuestaCena = Math.round(salarioNavidadProyectado * 0.25);
 
   const estrategiaDeudasResumen = {
     totalDeudaPendiente: formatMoney(totalDeudaPendiente),
@@ -219,10 +275,49 @@ export function construirResumenFinanciero({
   const tarjetasResumen = (tarjetas || [])
     .filter((t) => t.estado === "Activa")
     .map((t) => ({
+      id: t.id,
       nombre: t.nombre,
-      saldoActual: formatMoney(t.saldoActual),
-      limite: formatMoney(t.limite),
+      ultimos4: t.ultimos4,
+      saldoActualRD: Number(t.saldoActual) || 0,
+      limiteRD: Number(t.limiteCredito ?? t.limite) || 0,
+      sobregiroRD: Math.max((Number(t.saldoActual) || 0) - (Number(t.limiteCredito ?? t.limite) || 0), 0),
+      saldoActualUSD: Number(t.saldoActualUSD) || 0,
+      limiteUSD: Number(t.limiteCreditoUSD) || 0,
+      pagoMinimoRD: Number(t.pagoMinimo) || 0,
+      pagoMinimoUSD: Number(t.pagoMinimoUSD) || 0,
+      diaCorte: t.fechaCorte,
+      diaPago: t.fechaPago,
+      cuotasVencidasUSD: t.cuotasVencidasUSD || 0,
     }));
+
+  const guardianDiagnostico = {
+    alertaSobregiroActiva: tarjetasEnAlerta.length > 0,
+    nivelRiesgo: tarjetasEnAlerta.length > 0 ? "Crítico (Sobregiro detectado)" : totalDeudaPendiente > 100000 ? "Alto" : "Moderado",
+    tarjetasEnAlerta: tarjetasEnAlerta.map((t) => ({
+      nombre: t.nombre,
+      ultimos4: t.ultimos4,
+      saldoRD: Number(t.saldoActual) || 0,
+      limiteRD: Number(t.limiteCredito) || 0,
+      sobregiroRD: Math.max((Number(t.saldoActual) || 0) - (Number(t.limiteCredito) || 0), 0),
+      saldoUSD: Number(t.saldoActualUSD) || 0,
+      limiteUSD: Number(t.limiteCreditoUSD) || 0,
+      pagoMinimoRD: Number(t.pagoMinimo) || 0,
+      pagoMinimoUSD: Number(t.pagoMinimoUSD) || 0,
+      diaPago: t.fechaPago,
+      diaCorte: t.fechaCorte,
+      cuotasVencidasUSD: t.cuotasVencidasUSD || 0,
+    })),
+    totalDeudaRD: totalDeudaPendiente,
+    totalCuotasMinimasRD: totalCuotasMensuales,
+    gastosVariablesMesTotal: formatMoney(totalGastosVariablesMes),
+    gastosVariablesPorCategoria: gastosVariablesMes,
+    potencialAhorroRecorte20Pct: formatMoney(totalGastosVariablesMes * 0.2),
+    potencialAhorroRecorte30Pct: formatMoney(totalGastosVariablesMes * 0.3),
+    potencialAhorroRecorte50Pct: formatMoney(totalGastosVariablesMes * 0.5),
+    salarioNavidadProyectado: formatMoney(salarioNavidadProyectado),
+    salarioNavidadPropuestaAntiDeuda: formatMoney(salarioNavidadPropuestaAntiDeuda),
+    salarioNavidadPropuestaCena: formatMoney(salarioNavidadPropuestaCena),
+  };
 
   const cuentasResumen = (cuentas || []).map((c) => ({ nombre: c.nombre, saldo: formatMoney(c.saldo) }));
 
@@ -332,6 +427,7 @@ export function construirResumenFinanciero({
     cuentasBancarias: cuentasResumen,
     puntosAcumulados: typeof puntos === "number" ? puntos : puntos?.total || 0,
     estrategiaDeudas: estrategiaDeudasResumen,
+    guardianDiagnostico,
     ultimosPagosDeuda,
     otrosDatosFinancieros: {
       membresiasActivas: (membresias || []).filter((x) => x.estado === "Activa" || x.estado === "Activo").map((x) => ({ nombre: x.nombre, costo: formatMoney(x.costo), frecuencia: x.frecuencia, diaPago: x.diaPago })),
