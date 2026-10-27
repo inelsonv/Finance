@@ -155,24 +155,24 @@ const emptyForm = () => ({
   tipoTarjeta: "Crédito",
   entidadId: "",
   ultimos4: "6011",
-  limiteCredito: "",
+  limiteCredito: "41000",
   tasaInteres: "",
-  pagoMinimo: "",
-  fechaCorte: "",
-  fechaPago: "",
+  pagoMinimo: "5461.69",
+  fechaCorte: "26",
+  fechaPago: "20",
   estado: "Activa",
   notas: "",
   color: "azul",
   marca: "Visa",
-  saldoActual: "56741.60",
+  saldoActual: "50888.32",
   tieneMonedaSecundaria: true,
-  limiteCreditoUSD: "",
-  pagoMinimoUSD: "",
+  limiteCreditoUSD: "500",
+  pagoMinimoUSD: "79.17",
   saldoActualUSD: "397.70",
   tasaTAE: "",
   montoMora: "",
   diasGracia: "22",
-  fechaVencimientoPlastico: "",
+  fechaVencimientoPlastico: "2029-01",
   restringirCategorias: false,
   categoriasHabilitadas: [],
 });
@@ -996,10 +996,12 @@ export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasG
                       </div>
 
                       {t.limiteCredito != null && t.limiteCredito > 0 && (() => {
-                        const consumido = Math.max((compradoPorTarjeta[t.id] || 0) - (pagadoPorTarjeta[t.id] || 0), 0);
-                        const disponible = Math.max(t.limiteCredito - consumido, 0);
+                        const movConsumo = Math.max((compradoPorTarjeta[t.id] || 0) - (pagadoPorTarjeta[t.id] || 0), 0);
+                        const consumido = t.saldoActual != null ? Number(t.saldoActual) : movConsumo;
+                        const disponible = t.limiteCredito - consumido;
+                        const excedido = disponible < 0;
                         const pct = Math.min(100, Math.round((consumido / t.limiteCredito) * 100));
-                        const barColor = pct >= 90 ? "var(--stamp)" : pct >= 60 ? "var(--amber)" : "var(--sage)";
+                        const barColor = excedido || pct >= 90 ? "var(--stamp)" : pct >= 60 ? "var(--amber)" : "var(--sage)";
                         return (
                           <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
@@ -1011,10 +1013,12 @@ export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasG
                               </span>
                             </div>
                             <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
-                              <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 4 }} />
+                              <div style={{ height: "100%", width: `${Math.min(100, Math.max(0, pct))}%`, background: barColor, borderRadius: 4 }} />
                             </div>
-                            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 4 }}>
-                              Disponible: {formatMoney(disponible)}
+                            <div style={{ fontSize: 10.5, color: excedido ? "var(--stamp)" : "var(--ink-soft)", marginTop: 4 }}>
+                              {excedido
+                                ? `Sobregiro: RD$ -${Math.abs(disponible).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                : `Disponible: ${formatMoney(disponible)}`}
                             </div>
                           </div>
                         );
@@ -1026,7 +1030,7 @@ export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasG
                         const pctUSD = limiteUSD > 0 ? Math.min(100, Math.round((saldoUSD / limiteUSD) * 100)) : null;
                         const excedidoUSD = limiteUSD > 0 && saldoUSD > limiteUSD;
                         const barColorUSD = pctUSD != null && (excedidoUSD ? "var(--stamp)" : pctUSD >= 90 ? "var(--stamp)" : pctUSD >= 60 ? "var(--amber)" : "var(--sage)");
-                        const disponibleUSD = limiteUSD > 0 ? Math.max(limiteUSD - saldoUSD, 0) : null;
+                        const disponibleUSD = limiteUSD > 0 ? limiteUSD - saldoUSD : null;
                         return (
                           <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
@@ -1043,7 +1047,11 @@ export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasG
                               </div>
                             )}
                             <div style={{ fontSize: 10.5, color: excedidoUSD ? "var(--stamp)" : "var(--ink-soft)", marginTop: 4 }}>
-                              {disponibleUSD != null && `Disponible: US$${disponibleUSD.toLocaleString("es", { minimumFractionDigits: 2 })}`}
+                              {disponibleUSD != null && (
+                                disponibleUSD < 0
+                                  ? `Sobregiro: US$ -${Math.abs(disponibleUSD).toLocaleString("es", { minimumFractionDigits: 2 })}`
+                                  : `Disponible: US$${disponibleUSD.toLocaleString("es", { minimumFractionDigits: 2 })}`
+                              )}
                               {t.pagoMinimoUSD != null && ` · Pago mínimo: US$${Number(t.pagoMinimoUSD).toLocaleString("es", { minimumFractionDigits: 2 })}`}
                             </div>
                           </div>

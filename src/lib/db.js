@@ -2091,6 +2091,23 @@ export async function sincronizarTarjetaCreditoLocal() {
   const tarjetasSnap = await getDocs(collection(db, "tarjetas"));
   let encontrada = false;
 
+  const camposActualizados = {
+    nombre: "Tarjeta de Credito Local",
+    tipoTarjeta: "Crédito",
+    ultimos4: "6011",
+    estado: "Activa",
+    limiteCredito: 41000,
+    saldoActual: 50888.32,
+    pagoMinimo: 5461.69,
+    fechaCorte: 26,
+    fechaPago: 20,
+    fechaVencimientoPlastico: "2029-01",
+    tieneMonedaSecundaria: true,
+    limiteCreditoUSD: 500,
+    saldoActualUSD: 397.70,
+    pagoMinimoUSD: 79.17,
+  };
+
   for (const docSnap of tarjetasSnap.docs) {
     const data = docSnap.data();
     const u4 = (data.ultimos4 || "").trim();
@@ -2100,19 +2117,20 @@ export async function sincronizarTarjetaCreditoLocal() {
     if (coincide) {
       encontrada = true;
       const necesitaActualizar =
-        Number(data.saldoActual) !== 56741.60 ||
+        Number(data.saldoActual) !== 50888.32 ||
         Number(data.saldoActualUSD) !== 397.70 ||
+        Number(data.limiteCredito) !== 41000 ||
+        Number(data.limiteCreditoUSD) !== 500 ||
+        Number(data.pagoMinimo) !== 5461.69 ||
+        Number(data.pagoMinimoUSD) !== 79.17 ||
+        Number(data.fechaCorte) !== 26 ||
+        Number(data.fechaPago) !== 20 ||
+        data.fechaVencimientoPlastico !== "2029-01" ||
         !data.tieneMonedaSecundaria ||
         u4 !== "6011";
 
       if (necesitaActualizar) {
-        await updateDoc(docSnap.ref, {
-          saldoActual: 56741.60,
-          saldoActualUSD: 397.70,
-          tieneMonedaSecundaria: true,
-          ultimos4: "6011",
-          ...(data.nombre ? {} : { nombre: "Tarjeta de Credito Local" }),
-        });
+        await updateDoc(docSnap.ref, camposActualizados);
       }
       break;
     }
@@ -2121,25 +2139,13 @@ export async function sincronizarTarjetaCreditoLocal() {
   // Si no había ninguna tarjeta registrada en la base de datos, crearla directamente
   if (!encontrada && tarjetasSnap.empty) {
     await addDoc(collection(db, "tarjetas"), {
-      nombre: "Tarjeta de Credito Local",
-      tipoTarjeta: "Crédito",
+      ...camposActualizados,
       entidadId: null,
       entidadName: "Banco",
-      ultimos4: "6011",
-      limiteCredito: 100000,
       tasaInteres: null,
-      pagoMinimo: 2800,
-      fechaCorte: null,
-      fechaPago: null,
-      estado: "Activa",
-      notas: "Resumen de sus tarjetas",
+      notas: "Detalle de tarjeta de crédito 6011",
       color: "azul",
       marca: "Visa",
-      saldoActual: 56741.60,
-      tieneMonedaSecundaria: true,
-      limiteCreditoUSD: 2000,
-      pagoMinimoUSD: 20,
-      saldoActualUSD: 397.70,
       diasGracia: 22,
       createdAt: serverTimestamp(),
     });

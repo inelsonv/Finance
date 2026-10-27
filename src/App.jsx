@@ -878,12 +878,35 @@ export default function App() {
       const nom = (t.nombre || "").toLowerCase();
       const match = u4 === "6011" || nom.includes("local");
       if (match) {
-        const diffPesos = Math.abs((Number(t.saldoActual) || 0) - 56741.60) > 0.001;
+        const diffPesos = Math.abs((Number(t.saldoActual) || 0) - 50888.32) > 0.001;
         const diffDolares = Math.abs((Number(t.saldoActualUSD) || 0) - 397.70) > 0.001;
-        if (diffPesos || diffDolares || !t.tieneMonedaSecundaria || u4 !== "6011") {
+        const diffLimiteRD = Math.abs((Number(t.limiteCredito) || 0) - 41000) > 0.001;
+        const diffLimiteUSD = Math.abs((Number(t.limiteCreditoUSD) || 0) - 500) > 0.001;
+        const diffPagoMinRD = Math.abs((Number(t.pagoMinimo) || 0) - 5461.69) > 0.001;
+        const diffPagoMinUSD = Math.abs((Number(t.pagoMinimoUSD) || 0) - 79.17) > 0.001;
+        if (
+          diffPesos ||
+          diffDolares ||
+          diffLimiteRD ||
+          diffLimiteUSD ||
+          diffPagoMinRD ||
+          diffPagoMinUSD ||
+          !t.tieneMonedaSecundaria ||
+          u4 !== "6011" ||
+          Number(t.fechaCorte) !== 26 ||
+          Number(t.fechaPago) !== 20 ||
+          t.fechaVencimientoPlastico !== "2029-01"
+        ) {
           updateTarjeta(t.id, {
-            saldoActual: 56741.60,
+            saldoActual: 50888.32,
             saldoActualUSD: 397.70,
+            limiteCredito: 41000,
+            limiteCreditoUSD: 500,
+            pagoMinimo: 5461.69,
+            pagoMinimoUSD: 79.17,
+            fechaCorte: 26,
+            fechaPago: 20,
+            fechaVencimientoPlastico: "2029-01",
             tieneMonedaSecundaria: true,
             ultimos4: "6011",
           }).catch((err) => console.error("Error al actualizar montos de tarjeta 6011:", err));
