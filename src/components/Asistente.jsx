@@ -51,6 +51,7 @@ import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
 import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
 import { analizarIntencionAccion, analizarIntencionGasto } from "../lib/asistenteGastoParser";
 import { SkeletonChat } from "./Skeleton";
+import AgenteAvatar from "./AgenteAvatar.jsx";
 
 const SUGERENCIAS = [
   "🚨 ¿Cuál es mi plan de choque para salir de deudas y sobregiro?",
@@ -1202,21 +1203,8 @@ function BannerGuardianFinanciero({ tarjetas = [], prestamos = [], onPreguntar, 
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-          <div
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: 8,
-              background: haySobregiro ? "rgba(239, 68, 68, 0.2)" : "rgba(16, 185, 129, 0.2)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: haySobregiro ? "#dc2626" : "#059669",
-            }}
-          >
-            {haySobregiro ? <ShieldAlert size={16} /> : <Shield size={16} />}
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <AgenteAvatar tarjetas={tarjetas} prestamos={prestamos} size={34} showBadge={false} />
           <div>
             <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: 6 }}>
               <span>Guardián Financiero Activo</span>
@@ -2781,9 +2769,14 @@ export default function Asistente({
   return (
       <div className="despensa-asistente" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)", maxHeight: 640 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(16, 185, 129, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#059669" }}>
-          <Shield size={16} />
-        </div>
+        <AgenteAvatar
+          tarjetas={tarjetas}
+          prestamos={prestamos}
+          movimientos={movimientos}
+          pagoDeudaDetectado={pagoDeudaDetectado}
+          size={32}
+          showBadge={true}
+        />
         <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
           <span className="despensa-tab-font" style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)" }}>Guardián & Asesor</span>
           <span style={{ fontSize: 9.5, padding: "2px 6px", borderRadius: 999, background: "rgba(16, 185, 129, 0.18)", color: "#059669", fontWeight: 800 }}>
@@ -2962,6 +2955,28 @@ export default function Asistente({
                   border: "1px solid rgba(255,255,255,0.3)",
                 }}
               />
+            )}
+            {m.role === "assistant" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <AgenteAvatar
+                  tarjetas={tarjetas}
+                  prestamos={prestamos}
+                  movimientos={movimientos}
+                  pagoDeudaDetectado={pagoDeudaDetectado}
+                  estado={
+                    m.prestamoData?.guardado
+                      ? "celebrando"
+                      : m.planDeudasData
+                      ? "preocupado"
+                      : m.recorteGastosData
+                      ? "enfocado"
+                      : null
+                  }
+                  size={20}
+                  showBadge={false}
+                />
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)" }}>Guardián Financiero</span>
+              </div>
             )}
             <div>{m.content}</div>
 

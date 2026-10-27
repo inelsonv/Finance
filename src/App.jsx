@@ -58,6 +58,7 @@ import Puntos from "./components/Puntos.jsx";
 import HabitTracker from "./components/HabitTracker.jsx";
 import Wallet from "./components/Wallet.jsx";
 import Asistente from "./components/Asistente.jsx";
+import AgenteAvatar from "./components/AgenteAvatar.jsx";
 import MapaProgreso from "./components/MapaProgreso.jsx";
 import FondosSostenibles from "./components/FondosSostenibles.jsx";
 import Sidebar from "./components/Sidebar.jsx";
@@ -1514,9 +1515,9 @@ export default function App() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: 5 }}>
-                  <Bot size={13} style={{ color: "var(--sage)" }} />
-                  Asesor Financiero
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <AgenteAvatar size={22} estado="celebrando" showBadge={false} />
+                  Guardián Financiero
                 </span>
                 <button
                   type="button"
@@ -1552,7 +1553,7 @@ export default function App() {
                   marginTop: 2,
                 }}
               >
-                Consultar asesor 💬
+                Consultar guardián 💬
               </button>
             </div>
           )}
@@ -1560,14 +1561,29 @@ export default function App() {
             type="button"
             className="despensa-asistente-boton"
             onClick={() => setShowAsistenteFlotante((abierto) => !abierto)}
-            aria-label={showAsistenteFlotante ? "Cerrar asistente" : "Abrir consultor financiero"}
+            aria-label={showAsistenteFlotante ? "Cerrar asistente" : "Abrir guardián financiero"}
             aria-expanded={showAsistenteFlotante}
-            title="Consultor financiero"
+            title={
+              (tarjetas || []).some((t) => (Number(t.saldoActual) > Number(t.limiteCredito ?? t.limite)) || Number(t.cuotasVencidasUSD) > 0)
+                ? "Guardián Preocupado: Sobregiro activo en tarjeta y deuda crítica"
+                : "Guardián Financiero"
+            }
             style={notificacionAgentePago && !showAsistenteFlotante ? {
-              boxShadow: "0 0 0 3px rgba(245, 158, 11, 0.4), 0 8px 24px rgba(245, 158, 11, 0.35)",
+              boxShadow: "0 0 0 3px rgba(16, 185, 129, 0.4), 0 8px 24px rgba(16, 185, 129, 0.35)",
             } : undefined}
           >
-            {showAsistenteFlotante ? <X size={21} /> : <Bot size={22} />}
+            {showAsistenteFlotante ? (
+              <X size={21} />
+            ) : (
+              <AgenteAvatar
+                tarjetas={tarjetas}
+                prestamos={prestamos}
+                movimientos={movimientos}
+                pagoDeudaDetectado={notificacionAgentePago}
+                size={46}
+                showBadge={true}
+              />
+            )}
           </button>
         </div>
       )}
