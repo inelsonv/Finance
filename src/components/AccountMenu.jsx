@@ -1,0 +1,636 @@
+import React, { useEffect, useRef, useState } from "react";
+import { LogOut, Settings, Smartphone, X, PiggyBank, TrendingDown, User as UserIcon, Users, ShieldCheck, Clock, RotateCw, Palette, Heart, Sparkles } from "lucide-react";
+import { confirm } from "../lib/confirm";
+import { watchUsuariosRegistrados } from "../lib/db";
+import { getThemeById } from "../lib/themes";
+import ThemeSelector from "./ThemeSelector.jsx";
+import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
+import WhatsAppGroupButton from "./WhatsAppGroupButton.jsx";
+import { SkeletonList } from "./Skeleton.jsx";
+
+const APP_URL = "https://inelsonv.github.io/Finance/";
+
+export default function AccountMenu({ user, isOwner, onSignOut, onOpenSettings, synced, ahorroActivo, estrategiaDeudas, theme, onSelectTheme, planActual }) {
+  const [open, setOpen] = useState(false);
+  const [showQr, setShowQr] = useState(false);
+  const [showUsuarios, setShowUsuarios] = useState(false);
+  const [showPlanesModal, setShowPlanesModal] = useState(false);
+  const [showThemeModal, setShowThemeModal] = useState(false);
+  const [usuariosLista, setUsuariosLista] = useState([]);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (showUsuarios || showPlanesModal) {
+      const unsub = watchUsuariosRegistrados(setUsuariosLista, (err) => console.error("Error cargando usuarios:", err));
+      return () => unsub();
+    }
+  }, [showUsuarios, showPlanesModal]);
+  const modosActivos = [
+    ...(ahorroActivo ? [{ id: "ahorro", label: "Modo Ahorro", Icon: PiggyBank, color: "var(--sage)" }] : []),
+    ...(estrategiaDeudas?.activo ? [{ id: "deuda", label: `Pago de deuda · ${estrategiaDeudas.metodo === "bola" ? "Bola de nieve" : "Avalancha"}`, Icon: TrendingDown, color: "var(--amber)" }] : []),
+  ];
+
+  useEffect(() => {
+    const onClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  if (!user) return null;
+
+  const inicial = (user.displayName || user.email || "U").charAt(0).toUpperCase();
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title={user.displayName || user.email}
+        style={{ padding: 0, border: "none", background: "transparent", cursor: "pointer", display: "flex", position: "relative" }}
+      >
+        {user.photoURL ? (
+          <img
+            src={user.photoURL}
+            alt={user.displayName || user.email}
+            referrerPolicy="no-referrer"
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: "50%",
+              border: open ? "2px solid var(--sage)" : "1px solid var(--line)",
+              objectFit: "cover",
+              flexShrink: 0,
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: "50%",
+              background: "var(--sage-bg)",
+              color: "var(--sage)",
+              border: open ? "2px solid var(--sage)" : "1px solid var(--line)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 12,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            {inicial}
+          </div>
+        )}
+        {modosActivos.map(({ id, label, Icon, color }, index) => (
+          <span
+            key={id}
+            title={label}
+            aria-label={label}
+            style={{
+              position: "absolute",
+              top: index === 0 ? -5 : 12,
+              left: -7,
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
+            }}
+          >
+            <Icon size={10} strokeWidth={2.5} />
+          </span>
+        ))}
+        <span
+          title={synced === null ? "Conectando…" : synced ? "Sincronizado" : "Sin conexión"}
+          style={{
+            position: "absolute",
+            bottom: -1,
+            right: -1,
+            width: 9,
+            height: 9,
+            borderRadius: "50%",
+            background: synced === null ? "var(--amber)" : synced ? "var(--sage)" : "var(--stamp)",
+            border: "2px solid var(--paper)",
+          }}
+        />
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            right: 0,
+            width: "min(220px, calc(100vw - 24px))",
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+            zIndex: 50,
+            overflow: "hidden",
+          }}
+        >
+          <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--line-soft)" }}>
+            {user.displayName && (
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {user.displayName}
+              </div>
+            )}
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {user.email}
+            </div>
+            <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: isOwner ? "var(--amber-bg)" : "var(--sage-bg)",
+                  color: isOwner ? "var(--amber)" : "var(--sage)",
+                  border: `1px solid ${isOwner ? "var(--amber)" : "var(--sage)"}`,
+                  display: "inline-block",
+                }}
+              >
+                {isOwner ? "👑 Propietario / Admin" : "👤 Cuenta"}
+              </span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: planActual?.planId === "duo" ? "rgba(139, 92, 246, 0.16)" : planActual?.planId === "familiar" ? "rgba(14, 165, 233, 0.16)" : "var(--paper)",
+                  color: planActual?.planId === "duo" ? "#8b5cf6" : planActual?.planId === "familiar" ? "#0ea5e9" : "var(--ink-soft)",
+                  border: `1px solid ${planActual?.planId === "duo" ? "#8b5cf6" : planActual?.planId === "familiar" ? "#0ea5e9" : "var(--line)"}`,
+                  display: "inline-block",
+                }}
+              >
+                {planActual?.planId === "duo" ? "👫 Plan Dúo" : planActual?.planId === "familiar" ? "👨‍👩‍👧‍👦 Familiar" : "👤 Individual"}
+              </span>
+            </div>
+          </div>
+          {modosActivos.length > 0 && (
+            <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--line-soft)", display: "flex", flexDirection: "column", gap: 6 }}>
+              {modosActivos.map(({ id, label, Icon, color }) => (
+                <div key={id} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: "var(--ink)" }}>
+                  <Icon size={13} style={{ color, flexShrink: 0 }} /> {label}
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={() => {
+              setOpen(false);
+              setShowPlanesModal(true);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "10px 12px",
+              background: planActual?.planId === "duo" ? "rgba(139, 92, 246, 0.08)" : "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12.5,
+              fontWeight: planActual?.planId === "duo" ? 600 : 500,
+              color: planActual?.planId === "duo" ? "#8b5cf6" : "var(--ink)",
+              textAlign: "left",
+              borderBottom: "1px solid var(--line-soft)",
+            }}
+          >
+            <Heart size={14} style={{ color: "#8b5cf6" }} fill={planActual?.planId === "duo" ? "#8b5cf6" : "none"} />
+            <span>{planActual?.planId === "duo" ? "Plan Dúo & Pareja" : "Planes & Plan Dúo"}</span>
+          </button>
+          {isOwner && (
+            <button
+              onClick={() => {
+                setOpen(false);
+                setShowUsuarios(true);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                width: "100%",
+                padding: "10px 12px",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                fontSize: 12.5,
+                color: "var(--ink)",
+                textAlign: "left",
+                borderBottom: "1px solid var(--line-soft)",
+              }}
+            >
+              <Users size={14} /> Directorio de Usuarios
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setOpen(false);
+              onOpenSettings();
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "10px 12px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12.5,
+              color: "var(--ink)",
+              textAlign: "left",
+              borderBottom: "1px solid var(--line-soft)",
+            }}
+          >
+            <Settings size={14} /> Configuración
+          </button>
+          <button
+            onClick={() => {
+              setOpen(false);
+              setShowThemeModal(true);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+              padding: "10px 12px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12.5,
+              color: "var(--ink)",
+              textAlign: "left",
+              borderBottom: "1px solid var(--line-soft)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Palette size={14} /> Temas y Apariencia
+            </div>
+            <span style={{ fontSize: 11, color: "var(--sage)", fontWeight: 600 }}>
+              {getThemeById(theme)?.nombre || "Tema"}
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              setOpen(false);
+              setShowQr(true);
+            }}
+            className="despensa-desktop-only"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "10px 12px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12.5,
+              color: "var(--ink)",
+              textAlign: "left",
+              borderBottom: "1px solid var(--line-soft)",
+            }}
+          >
+            <Smartphone size={14} /> Vincular dispositivo
+          </button>
+          <WhatsAppGroupButton variant="menu-item" onClick={() => setOpen(false)} />
+          <button
+            onClick={async () => {
+              setOpen(false);
+              try {
+                if ("serviceWorker" in navigator) {
+                  const regs = await navigator.serviceWorker.getRegistrations();
+                  for (const r of regs) await r.unregister();
+                }
+                if ("caches" in window) {
+                  const keys = await caches.keys();
+                  for (const k of keys) await caches.delete(k);
+                }
+              } catch (e) {
+                console.error("Error limpiando cache:", e);
+              }
+              window.location.reload();
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "10px 12px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12.5,
+              color: "var(--ink)",
+              textAlign: "left",
+              borderBottom: "1px solid var(--line-soft)",
+            }}
+          >
+            <RotateCw size={14} /> Actualizar app
+          </button>
+          <button
+            onClick={async () => {
+              setOpen(false);
+              if (await confirm("¿Cerrar sesión?", { confirmLabel: "Cerrar sesión", danger: false })) onSignOut();
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              width: "100%",
+              padding: "10px 12px",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12.5,
+              color: "var(--stamp)",
+              textAlign: "left",
+            }}
+          >
+            <LogOut size={14} /> Cerrar sesión
+          </button>
+        </div>
+      )}
+
+      {showQr && (
+        <div
+          onClick={() => setShowQr(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 200,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 14,
+              padding: 24,
+              maxWidth: 320,
+              width: "100%",
+              textAlign: "center",
+              position: "relative",
+            }}
+          >
+            <button
+              onClick={() => setShowQr(false)}
+              style={{ position: "absolute", top: 10, right: 10, display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: "50%", background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              <X size={16} />
+            </button>
+
+            <Smartphone size={22} style={{ color: "var(--sage)", marginBottom: 8 }} />
+            <div style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 4 }}>Vincula tu celular</div>
+            <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 16, lineHeight: 1.5 }}>
+              Escanea este código con la cámara de tu celular para abrir Smart Finance en el móvil, y luego inicia
+              sesión con la misma cuenta de Google. Todo se sincroniza automáticamente.
+            </div>
+
+            <div style={{ display: "inline-block", padding: 10, background: "#fff", borderRadius: 10 }}>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(APP_URL)}`}
+                alt="Código QR para abrir Smart Finance"
+                width={200}
+                height={200}
+                style={{ display: "block" }}
+              />
+            </div>
+
+            <div className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 12, wordBreak: "break-all" }}>
+              {APP_URL}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showUsuarios && isOwner && (
+        <div
+          onClick={() => setShowUsuarios(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 200,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 14,
+              padding: 24,
+              maxWidth: 520,
+              width: "100%",
+              position: "relative",
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Users size={20} style={{ color: "var(--sage)" }} />
+                <span style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
+                  Directorio Multi-Usuario
+                </span>
+              </div>
+              <button
+                onClick={() => setShowUsuarios(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--ink-soft)",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "0 0 16px", lineHeight: 1.5 }}>
+              Cada usuario tiene su propio espacio de datos totalmente aislado (cuentas, gastos, presupuestos, préstamos y puntos propios). Aquí puedes ver los usuarios registrados en Smart Finance.
+            </p>
+
+            <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 10, paddingRight: 4 }}>
+              {usuariosLista.length === 0 ? (
+                <SkeletonList count={3} />
+              ) : (
+                usuariosLista.map((u) => {
+                  const esEstePropietario = u.rol === "propietario" || u.email?.toLowerCase() === "iventuramena@gmail.com";
+                  return (
+                    <div
+                      key={u.id || u.uid}
+                      style={{
+                        padding: "12px 14px",
+                        borderRadius: 10,
+                        border: "1px solid var(--line)",
+                        background: esEstePropietario ? "var(--amber-bg)" : "var(--paper)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                      }}
+                    >
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+                            {u.displayName || "Usuario"}
+                          </span>
+                          {esEstePropietario ? (
+                            <span style={{ fontSize: 10, fontWeight: 700, background: "var(--amber)", color: "#fff", padding: "1px 6px", borderRadius: 4 }}>
+                              Propietario
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 10, fontWeight: 600, background: "var(--sage-bg)", color: "var(--sage)", padding: "1px 6px", borderRadius: 4, border: "1px solid var(--sage)" }}>
+                              Usuario Individual
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {u.email}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right", fontSize: 11, color: "var(--ink-soft)", flexShrink: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end", color: "var(--sage)" }}>
+                          <ShieldCheck size={13} /> Activo
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--line-soft)", textAlign: "right" }}>
+              <button
+                onClick={() => setShowUsuarios(false)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  background: "var(--ink)",
+                  color: "var(--paper)",
+                  border: "none",
+                  fontSize: 12.5,
+                  cursor: "pointer",
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showThemeModal && (
+        <div
+          onClick={() => setShowThemeModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.65)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 250,
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              padding: "20px 22px",
+              maxWidth: 820,
+              width: "100%",
+              maxHeight: "88vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 16px 40px rgba(0,0,0,0.35)",
+              position: "relative",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Palette size={20} style={{ color: "var(--sage)" }} />
+                <span style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
+                  Personalizar Apariencia y Temas
+                </span>
+              </div>
+              <button
+                onClick={() => setShowThemeModal(false)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--ink-soft)",
+                  display: "flex",
+                  alignItems: "center",
+                  padding: 4,
+                  borderRadius: 6,
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, paddingRight: 4 }}>
+              <ThemeSelector currentTheme={theme} onSelectTheme={onSelectTheme} />
+            </div>
+            <div style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--line-soft)", textAlign: "right" }}>
+              <button
+                onClick={() => setShowThemeModal(false)}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: 8,
+                  background: "var(--sage)",
+                  color: "#ffffff",
+                  border: "none",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Listo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ModalPlanesSuscripcion
+        isOpen={showPlanesModal}
+        onClose={() => setShowPlanesModal(false)}
+        user={user}
+        isOwner={isOwner}
+        planActual={planActual}
+        usuariosRegistrados={usuariosLista}
+      />
+    </div>
+  );
+}

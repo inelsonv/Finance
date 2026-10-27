@@ -1,0 +1,1103 @@
+import React, { useMemo, useState } from "react";
+import { Plus, Trash2, X, Landmark, Pencil, Check, Layers, List } from "lucide-react";
+import { addTarjeta, deleteTarjeta, updateTarjetaEstado, updateTarjeta } from "../lib/db";
+import { confirm } from "../lib/confirm";
+import Switch from "./Switch.jsx";
+import TarjetasApiladas from "./TarjetasApiladas.jsx";
+
+const ESTADOS = ["Activa", "Bloqueada", "Cancelada"];
+const TIPOS_TARJETA = ["Crédito", "Débito"];
+const MARCAS = ["Visa", "Mastercard", "Amex", "Otra"];
+
+const COLORES = {
+  gold: { label: "Oro", bg: "linear-gradient(135deg, #ecd49a 0%, #c9a256 45%, #8a6a1f 100%)", text: "#3d2b05" },
+  platino: { label: "Platino", bg: "linear-gradient(135deg, #eef1f3 0%, #b7bec4 50%, #8b929a 100%)", text: "#2a2e33" },
+  negro: { label: "Negro", bg: "linear-gradient(135deg, #3a3a3a 0%, #141414 100%)", text: "#f2f2f2" },
+  azul: { label: "Azul", bg: "linear-gradient(135deg, #4a7fb5 0%, #1f3a5c 100%)", text: "#f2f6fa" },
+  rojo: { label: "Rojo", bg: "linear-gradient(135deg, #c1594a 0%, #7a2418 100%)", text: "#fbf0ee" },
+  verde: { label: "Verde", bg: "linear-gradient(135deg, #7a9d6f 0%, #3e5a35 100%)", text: "#f2f7ef" },
+};
+
+export function CardVisual({ tarjeta }) {
+  const c = COLORES[tarjeta.color] || COLORES.azul;
+  return (
+    <div
+      style={{
+        width: "100%",
+        maxWidth: 300,
+        aspectRatio: "1.586 / 1",
+        borderRadius: 14,
+        background: c.bg,
+        color: c.text,
+        padding: "16px 18px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        boxShadow: "0 6px 16px rgba(0,0,0,0.18)",
+        flexShrink: 0,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", opacity: 0.85 }}>
+          {tarjeta.entidadName || "Banco"}
+        </span>
+        <div style={{ width: 30, height: 22, borderRadius: 4, background: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.4)" }} />
+      </div>
+      <div>
+        <div className="despensa-mono" style={{ fontSize: 14.5, letterSpacing: "0.1em", marginBottom: 6 }}>
+          •••• •••• •••• {tarjeta.ultimos4 || "••••"}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+          {tarjeta.nombre}
+        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        <div style={{ fontSize: 10, lineHeight: 1.35, opacity: 0.9 }}>
+          {tarjeta.saldoActual != null && (
+            <div className="despensa-mono" style={{ fontWeight: 600 }}>
+              RD$ {Number(tarjeta.saldoActual).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          )}
+          {tarjeta.tieneMonedaSecundaria && tarjeta.saldoActualUSD != null && (
+            <div className="despensa-mono" style={{ fontWeight: 600 }}>
+              US$ {Number(tarjeta.saldoActualUSD).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          )}
+        </div>
+        <MarcaLogo marca={tarjeta.marca} />
+      </div>
+    </div>
+  );
+}
+
+function MarcaLogo({ marca }) {
+  if (marca === "Mastercard") {
+    return (
+      <div style={{ display: "flex" }}>
+        <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#eb5b2d", opacity: 0.92 }} />
+        <div style={{ width: 22, height: 22, borderRadius: "50%", background: "#f2a900", opacity: 0.92, marginLeft: -9 }} />
+      </div>
+    );
+  }
+  if (marca === "Visa") {
+    return <span style={{ fontStyle: "italic", fontWeight: 700, fontSize: 17 }}>VISA</span>;
+  }
+  if (marca === "Amex") {
+    return <span style={{ fontWeight: 700, fontSize: 12, letterSpacing: "0.03em" }}>AMEX</span>;
+  }
+  return null;
+}
+
+function formatMoney(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function CategoriasToggleList({ f, setF, categoriasGasto }) {
+  const nombres = (categoriasGasto || []).map((c) => c.nombre);
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Habilitar categorías de gasto</span>
+        <Switch
+          checked={f.restringirCategorias}
+          onChange={() => setF({ ...f, restringirCategorias: !f.restringirCategorias })}
+        />
+      </div>
+      {f.restringirCategorias && (
+        <>
+          {nombres.length === 0 ? (
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>No tienes categorías de gasto creadas todavía.</div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {nombres.map((n) => {
+                const activa = f.categoriasHabilitadas.includes(n);
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() =>
+                      setF({
+                        ...f,
+                        categoriasHabilitadas: activa
+                          ? f.categoriasHabilitadas.filter((c) => c !== n)
+                          : [...f.categoriasHabilitadas, n],
+                      })
+                    }
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      borderRadius: 20,
+                      border: `1px solid ${activa ? "var(--sage)" : "var(--line)"}`,
+                      background: activa ? "var(--sage-bg)" : "var(--paper)",
+                      color: activa ? "var(--sage)" : "var(--ink-soft)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6 }}>
+            Solo se podrán registrar gastos con esta tarjeta en las categorías activas.
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+const emptyForm = () => ({
+  nombre: "Tarjeta de Credito Local",
+  tipoTarjeta: "Crédito",
+  entidadId: "",
+  ultimos4: "6011",
+  limiteCredito: "",
+  tasaInteres: "",
+  pagoMinimo: "",
+  fechaCorte: "",
+  fechaPago: "",
+  estado: "Activa",
+  notas: "",
+  color: "azul",
+  marca: "Visa",
+  saldoActual: "56741.60",
+  tieneMonedaSecundaria: true,
+  limiteCreditoUSD: "",
+  pagoMinimoUSD: "",
+  saldoActualUSD: "397.70",
+  tasaTAE: "",
+  montoMora: "",
+  diasGracia: "22",
+  fechaVencimientoPlastico: "",
+  restringirCategorias: false,
+  categoriasHabilitadas: [],
+});
+
+function toEditForm(t) {
+  return {
+    nombre: t.nombre || "",
+    tipoTarjeta: t.tipoTarjeta || "Crédito",
+    entidadId: t.entidadId || "",
+    ultimos4: t.ultimos4 || "",
+    limiteCredito: t.limiteCredito != null ? String(t.limiteCredito) : "",
+    tasaInteres: t.tasaInteres != null ? String(t.tasaInteres) : "",
+    pagoMinimo: t.pagoMinimo != null ? String(t.pagoMinimo) : "",
+    fechaCorte: t.fechaCorte != null ? String(t.fechaCorte) : "",
+    fechaPago: t.fechaPago != null ? String(t.fechaPago) : "",
+    estado: t.estado || "Activa",
+    notas: t.notas || "",
+    color: t.color || "azul",
+    marca: t.marca || "Visa",
+    saldoActual: t.saldoActual != null ? String(t.saldoActual) : "",
+    tieneMonedaSecundaria: !!t.tieneMonedaSecundaria,
+    limiteCreditoUSD: t.limiteCreditoUSD != null ? String(t.limiteCreditoUSD) : "",
+    pagoMinimoUSD: t.pagoMinimoUSD != null ? String(t.pagoMinimoUSD) : "",
+    saldoActualUSD: t.saldoActualUSD != null ? String(t.saldoActualUSD) : "",
+    tasaTAE: t.tasaTAE != null ? String(t.tasaTAE) : "",
+    montoMora: t.montoMora != null ? String(t.montoMora) : "",
+    diasGracia: t.diasGracia != null ? String(t.diasGracia) : "22",
+    fechaVencimientoPlastico: t.fechaVencimientoPlastico || "",
+    restringirCategorias: Array.isArray(t.categoriasHabilitadas),
+    categoriasHabilitadas: Array.isArray(t.categoriasHabilitadas) ? t.categoriasHabilitadas : [],
+  };
+}
+
+export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasGasto }) {
+  const [showForm, setShowForm] = useState(false);
+  const [vistaApilada, setVistaApilada] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [editError, setEditError] = useState(null);
+  const [editSaving, setEditSaving] = useState(false);
+
+  const pagadoPorTarjeta = useMemo(() => {
+    const map = {};
+    for (const m of movimientos) {
+      if (m.category !== "Pago de tarjeta" || !m.tarjetaId) continue;
+      map[m.tarjetaId] = (map[m.tarjetaId] || 0) + (Number(m.amount) || 0);
+    }
+    return map;
+  }, [movimientos]);
+
+  const compradoPorTarjeta = useMemo(() => {
+    const map = {};
+    for (const m of movimientos) {
+      if (m.metodoPago !== "Tarjeta de crédito" || !m.tarjetaId) continue;
+      map[m.tarjetaId] = (map[m.tarjetaId] || 0) + (Number(m.amount) || 0);
+    }
+    return map;
+  }, [movimientos]);
+
+  const startEdit = (t) => {
+    setEditingId(t.id);
+    setEditForm(toEditForm(t));
+    setEditError(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm(null);
+    setEditError(null);
+  };
+
+  const handleAdd = async () => {
+    const nombre = form.nombre.trim();
+    if (!nombre) {
+      setFormError("Ingresa un nombre para la tarjeta");
+      return;
+    }
+    if (!form.entidadId) {
+      setFormError("Selecciona la entidad emisora");
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      const entidad = entidades.find((e) => e.docId === form.entidadId);
+      await addTarjeta({
+        nombre,
+        tipoTarjeta: form.tipoTarjeta,
+        entidadId: form.entidadId,
+        entidadName: entidad ? entidad.name : "",
+        ultimos4: form.ultimos4.trim(),
+        limiteCredito: parseFloat(form.limiteCredito) || null,
+        tasaInteres: parseFloat(form.tasaInteres) || null,
+        pagoMinimo: parseFloat(form.pagoMinimo) || null,
+        fechaCorte: parseInt(form.fechaCorte, 10) || null,
+        fechaPago: parseInt(form.fechaPago, 10) || null,
+        estado: form.estado,
+        notas: form.notas.trim(),
+        color: form.color,
+        marca: form.marca,
+        saldoActual: parseFloat(form.saldoActual) || null,
+        tieneMonedaSecundaria: !!form.tieneMonedaSecundaria,
+        limiteCreditoUSD: form.tieneMonedaSecundaria ? parseFloat(form.limiteCreditoUSD) || null : null,
+        pagoMinimoUSD: form.tieneMonedaSecundaria ? parseFloat(form.pagoMinimoUSD) || null : null,
+        saldoActualUSD: form.tieneMonedaSecundaria ? parseFloat(form.saldoActualUSD) || null : null,
+        tasaTAE: parseFloat(form.tasaTAE) || null,
+        montoMora: parseFloat(form.montoMora) || null,
+        diasGracia: parseInt(form.diasGracia, 10) || 22,
+        fechaVencimientoPlastico: form.fechaVencimientoPlastico || null,
+        categoriasHabilitadas: form.restringirCategorias ? form.categoriasHabilitadas : null,
+      });
+      setForm(emptyForm());
+      setShowForm(false);
+    } catch (err) {
+      setFormError(err.message || String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editForm.entidadId) {
+      setEditError("Selecciona la entidad emisora");
+      return;
+    }
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const entidad = entidades.find((e) => e.docId === editForm.entidadId);
+      await updateTarjeta(editingId, {
+        tipoTarjeta: editForm.tipoTarjeta,
+        entidadId: editForm.entidadId,
+        entidadName: entidad ? entidad.name : "",
+        ultimos4: editForm.ultimos4.trim(),
+        limiteCredito: parseFloat(editForm.limiteCredito) || null,
+        tasaInteres: parseFloat(editForm.tasaInteres) || null,
+        pagoMinimo: parseFloat(editForm.pagoMinimo) || null,
+        fechaCorte: parseInt(editForm.fechaCorte, 10) || null,
+        fechaPago: parseInt(editForm.fechaPago, 10) || null,
+        estado: editForm.estado,
+        notas: editForm.notas.trim(),
+        color: editForm.color,
+        marca: editForm.marca,
+        saldoActual: parseFloat(editForm.saldoActual) || null,
+        tieneMonedaSecundaria: !!editForm.tieneMonedaSecundaria,
+        limiteCreditoUSD: editForm.tieneMonedaSecundaria ? parseFloat(editForm.limiteCreditoUSD) || null : null,
+        pagoMinimoUSD: editForm.tieneMonedaSecundaria ? parseFloat(editForm.pagoMinimoUSD) || null : null,
+        saldoActualUSD: editForm.tieneMonedaSecundaria ? parseFloat(editForm.saldoActualUSD) || null : null,
+        tasaTAE: parseFloat(editForm.tasaTAE) || null,
+        montoMora: parseFloat(editForm.montoMora) || null,
+        diasGracia: parseInt(editForm.diasGracia, 10) || 22,
+        fechaVencimientoPlastico: editForm.fechaVencimientoPlastico || null,
+        categoriasHabilitadas: editForm.restringirCategorias ? editForm.categoriasHabilitadas : null,
+      });
+      cancelEdit();
+    } catch (err) {
+      setEditError(err.message || String(err));
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+        <button
+          onClick={() => setVistaApilada((v) => !v)}
+          title={vistaApilada ? "Ver como lista" : "Ver tarjetas apiladas"}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 12px",
+            fontSize: 13,
+            fontWeight: 500,
+            background: "var(--card)",
+            color: "var(--ink)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            cursor: "pointer",
+          }}
+        >
+          {vistaApilada ? <List size={14} /> : <Layers size={14} />}
+          {vistaApilada ? "Ver como lista" : "Ver apiladas"}
+        </button>
+        <button
+          onClick={() => setShowForm((s) => !s)}
+          disabled={!showForm && entidades.length === 0}
+          title={entidades.length === 0 ? "Primero registra una entidad en la sección Entidades" : undefined}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 14px",
+            fontSize: 13,
+            fontWeight: 500,
+            background: !showForm && entidades.length === 0 ? "var(--line)" : "var(--ink)",
+            color: "var(--paper)",
+            border: "none",
+            borderRadius: 8,
+            cursor: !showForm && entidades.length === 0 ? "not-allowed" : "pointer",
+          }}
+        >
+          {showForm ? <X size={14} /> : <Plus size={14} />}
+          {showForm ? "Cancelar" : "Agregar tarjeta"}
+        </button>
+      </div>
+
+      {entidades.length === 0 && !showForm && (
+        <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 12 }}>
+          Primero registra al menos una entidad (banco emisor) en la sección Entidades.
+        </div>
+      )}
+
+      {showForm && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 0.7fr", gap: 8, marginBottom: 8 }}>
+            <input
+              autoFocus
+              placeholder="Nombre, ej. Visa Platinum"
+              value={form.nombre}
+              onChange={(e) => setForm({ ...form, nombre: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+            <select
+              value={form.entidadId}
+              onChange={(e) => setForm({ ...form, entidadId: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              <option value="">Entidad emisora…</option>
+              {entidades.map((e) => (
+                <option key={e.docId} value={e.docId}>{e.name}</option>
+              ))}
+            </select>
+            <input
+              className="despensa-mono"
+              placeholder="****1234"
+              maxLength={4}
+              value={form.ultimos4}
+              onChange={(e) => setForm({ ...form, ultimos4: e.target.value.replace(/\D/g, "") })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <select
+              value={form.tipoTarjeta}
+              onChange={(e) => setForm({ ...form, tipoTarjeta: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              {TIPOS_TARJETA.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <select
+              value={form.estado}
+              onChange={(e) => setForm({ ...form, estado: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              {ESTADOS.map((e) => (
+                <option key={e} value={e}>{e}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+            <select
+              value={form.color}
+              onChange={(e) => setForm({ ...form, color: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              {Object.entries(COLORES).map(([key, c]) => (
+                <option key={key} value={key}>{c.label}</option>
+              ))}
+            </select>
+            <select
+              value={form.marca}
+              onChange={(e) => setForm({ ...form, marca: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              {MARCAS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
+          {form.tipoTarjeta === "Crédito" && (
+            <>
+              <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                <input
+                  className="despensa-mono"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Límite de crédito"
+                  value={form.limiteCredito}
+                  onChange={(e) => setForm({ ...form, limiteCredito: e.target.value })}
+                  style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
+                <input
+                  className="despensa-mono"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Tasa interés %"
+                  value={form.tasaInteres}
+                  onChange={(e) => setForm({ ...form, tasaInteres: e.target.value })}
+                  style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
+                <input
+                  className="despensa-mono"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Pago mínimo"
+                  value={form.pagoMinimo}
+                  onChange={(e) => setForm({ ...form, pagoMinimo: e.target.value })}
+                  style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
+              </div>
+
+              <div style={{ marginBottom: 8 }}>
+                <input
+                  className="despensa-mono"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Saldo actual (lo que debes hoy, opcional)"
+                  value={form.saldoActual}
+                  onChange={(e) => setForm({ ...form, saldoActual: e.target.value })}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
+              </div>
+
+              <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8, cursor: "pointer" }}>
+                <span style={{ fontSize: 12.5 }}>Esta tarjeta también tiene saldo en USD</span>
+                <Switch checked={form.tieneMonedaSecundaria} onChange={() => setForm({ ...form, tieneMonedaSecundaria: !form.tieneMonedaSecundaria })} />
+              </label>
+
+              {form.tieneMonedaSecundaria && (
+                <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Saldo en USD</div>
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Límite (USD)"
+                      value={form.limiteCreditoUSD}
+                      onChange={(e) => setForm({ ...form, limiteCreditoUSD: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Pago mínimo (USD)"
+                      value={form.pagoMinimoUSD}
+                      onChange={(e) => setForm({ ...form, pagoMinimoUSD: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                  </div>
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Saldo actual (USD)"
+                    value={form.saldoActualUSD}
+                    onChange={(e) => setForm({ ...form, saldoActualUSD: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                </div>
+              )}
+
+              <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+                  Interés y mora por atraso (si no pagas dentro del plazo de gracia, se suma automáticamente al saldo)
+                </div>
+                <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="TAE %"
+                    value={form.tasaTAE}
+                    onChange={(e) => setForm({ ...form, tasaTAE: e.target.value })}
+                    style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Mora RD$ (opcional)"
+                    value={form.montoMora}
+                    onChange={(e) => setForm({ ...form, montoMora: e.target.value })}
+                    style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="1"
+                    min="0"
+                    placeholder="Días de gracia"
+                    value={form.diasGracia}
+                    onChange={(e) => setForm({ ...form, diasGracia: e.target.value })}
+                    style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
+                  Vencimiento del plástico (se refleja en el Calendario)
+                </div>
+                <input
+                  className="despensa-mono"
+                  type="month"
+                  value={form.fechaVencimientoPlastico}
+                  onChange={(e) => setForm({ ...form, fechaVencimientoPlastico: e.target.value })}
+                  style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
+              </div>
+
+              <CategoriasToggleList f={form} setF={setForm} categoriasGasto={categoriasGasto} />
+              <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                <input
+                  className="despensa-mono"
+                  type="number"
+                  step="1"
+                  min="1"
+                  max="31"
+                  placeholder="Día de corte"
+                  value={form.fechaCorte}
+                  onChange={(e) => setForm({ ...form, fechaCorte: e.target.value })}
+                  style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
+                <input
+                  className="despensa-mono"
+                  type="number"
+                  step="1"
+                  min="1"
+                  max="31"
+                  placeholder="Día de pago"
+                  value={form.fechaPago}
+                  onChange={(e) => setForm({ ...form, fechaPago: e.target.value })}
+                  style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                />
+              </div>
+            </>
+          )}
+
+          <input
+            placeholder="Notas (opcional)"
+            value={form.notas}
+            onChange={(e) => setForm({ ...form, notas: e.target.value })}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
+          />
+
+          <button
+            onClick={handleAdd}
+            disabled={saving}
+            style={{
+              padding: "7px 16px",
+              fontSize: 13,
+              fontWeight: 500,
+              background: "var(--sage)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              cursor: saving ? "not-allowed" : "pointer",
+            }}
+          >
+            {saving ? "Guardando…" : "Guardar tarjeta"}
+          </button>
+          {formError && (
+            <div style={{ marginTop: 10, fontSize: 12, color: "var(--stamp)" }}>{formError}</div>
+          )}
+        </div>
+      )}
+
+      {tarjetas.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
+          Todavía no registraste ninguna tarjeta de crédito.
+        </div>
+      ) : vistaApilada ? (
+        <div style={{ padding: "10px 0 30px" }}>
+          <TarjetasApiladas tarjetas={tarjetas} onTapFrente={(t) => startEdit(t)} />
+          <div style={{ textAlign: "center", fontSize: 11, color: "var(--ink-soft)", marginTop: 20 }}>
+            Arrastra la tarjeta de enfrente hacia abajo para pasar a la siguiente · Tócala para editarla
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {tarjetas.map((t) => (
+            <div key={t.id} data-record-id={t.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
+              {editingId === t.id ? (
+                <div>
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 0.7fr", gap: 8, marginBottom: 8 }}>
+                    <select
+                      value={editForm.entidadId}
+                      onChange={(e) => setEditForm({ ...editForm, entidadId: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      <option value="">Entidad emisora…</option>
+                      {entidades.map((e) => (
+                        <option key={e.docId} value={e.docId}>{e.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      className="despensa-mono"
+                      placeholder="****1234"
+                      maxLength={4}
+                      value={editForm.ultimos4}
+                      onChange={(e) => setEditForm({ ...editForm, ultimos4: e.target.value.replace(/\D/g, "") })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                    />
+                  </div>
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <select
+                      value={editForm.tipoTarjeta}
+                      onChange={(e) => setEditForm({ ...editForm, tipoTarjeta: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      {TIPOS_TARJETA.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={editForm.estado}
+                      onChange={(e) => setEditForm({ ...editForm, estado: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      {ESTADOS.map((e) => (
+                        <option key={e} value={e}>{e}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                    <select
+                      value={editForm.color}
+                      onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      {Object.entries(COLORES).map(([key, c]) => (
+                        <option key={key} value={key}>{c.label}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={editForm.marca}
+                      onChange={(e) => setEditForm({ ...editForm, marca: e.target.value })}
+                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                    >
+                      {MARCAS.map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {editForm.tipoTarjeta === "Crédito" && (
+                    <>
+                      <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                        <input
+                          className="despensa-mono"
+                          type="number"
+                          step="0.01"
+                          placeholder="Límite de crédito"
+                          value={editForm.limiteCredito}
+                          onChange={(e) => setEditForm({ ...editForm, limiteCredito: e.target.value })}
+                          style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        />
+                        <input
+                          className="despensa-mono"
+                          type="number"
+                          step="0.01"
+                          placeholder="Tasa interés %"
+                          value={editForm.tasaInteres}
+                          onChange={(e) => setEditForm({ ...editForm, tasaInteres: e.target.value })}
+                          style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        />
+                        <input
+                          className="despensa-mono"
+                          type="number"
+                          step="0.01"
+                          placeholder="Pago mínimo"
+                          value={editForm.pagoMinimo}
+                          onChange={(e) => setEditForm({ ...editForm, pagoMinimo: e.target.value })}
+                          style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        />
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        <input
+                          className="despensa-mono"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Saldo actual (lo que debes hoy, opcional)"
+                          value={editForm.saldoActual}
+                          onChange={(e) => setEditForm({ ...editForm, saldoActual: e.target.value })}
+                          style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        />
+                      </div>
+
+                      <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8, cursor: "pointer" }}>
+                        <span style={{ fontSize: 12.5 }}>Esta tarjeta también tiene saldo en USD</span>
+                        <Switch
+                          checked={editForm.tieneMonedaSecundaria}
+                          onChange={() => setEditForm({ ...editForm, tieneMonedaSecundaria: !editForm.tieneMonedaSecundaria })}
+                        />
+                      </label>
+
+                      {editForm.tieneMonedaSecundaria && (
+                        <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Saldo en USD</div>
+                          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                            <input
+                              className="despensa-mono"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Límite (USD)"
+                              value={editForm.limiteCreditoUSD}
+                              onChange={(e) => setEditForm({ ...editForm, limiteCreditoUSD: e.target.value })}
+                              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                            />
+                            <input
+                              className="despensa-mono"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              placeholder="Pago mínimo (USD)"
+                              value={editForm.pagoMinimoUSD}
+                              onChange={(e) => setEditForm({ ...editForm, pagoMinimoUSD: e.target.value })}
+                              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                            />
+                          </div>
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Saldo actual (USD)"
+                            value={editForm.saldoActualUSD}
+                            onChange={(e) => setEditForm({ ...editForm, saldoActualUSD: e.target.value })}
+                            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                          />
+                        </div>
+                      )}
+
+                      <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+                          Interés y mora por atraso
+                        </div>
+                        <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="TAE %"
+                            value={editForm.tasaTAE}
+                            onChange={(e) => setEditForm({ ...editForm, tasaTAE: e.target.value })}
+                            style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                          />
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="Mora RD$ (opcional)"
+                            value={editForm.montoMora}
+                            onChange={(e) => setEditForm({ ...editForm, montoMora: e.target.value })}
+                            style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                          />
+                          <input
+                            className="despensa-mono"
+                            type="number"
+                            step="1"
+                            min="0"
+                            placeholder="Días de gracia"
+                            value={editForm.diasGracia}
+                            onChange={(e) => setEditForm({ ...editForm, diasGracia: e.target.value })}
+                            style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
+                          Vencimiento del plástico (se refleja en el Calendario)
+                        </div>
+                        <input
+                          className="despensa-mono"
+                          type="month"
+                          value={editForm.fechaVencimientoPlastico}
+                          onChange={(e) => setEditForm({ ...editForm, fechaVencimientoPlastico: e.target.value })}
+                          style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        />
+                      </div>
+                      <CategoriasToggleList f={editForm} setF={setEditForm} categoriasGasto={categoriasGasto} />
+                      <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                        <input
+                          className="despensa-mono"
+                          type="number"
+                          min="1"
+                          max="31"
+                          placeholder="Día de corte"
+                          value={editForm.fechaCorte}
+                          onChange={(e) => setEditForm({ ...editForm, fechaCorte: e.target.value })}
+                          style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        />
+                        <input
+                          className="despensa-mono"
+                          type="number"
+                          min="1"
+                          max="31"
+                          placeholder="Día de pago"
+                          value={editForm.fechaPago}
+                          onChange={(e) => setEditForm({ ...editForm, fechaPago: e.target.value })}
+                          style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        />
+                      </div>
+                    </>
+                  )}
+                  <input
+                    placeholder="Notas (opcional)"
+                    value={editForm.notas}
+                    onChange={(e) => setEditForm({ ...editForm, notas: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={saveEdit}
+                      disabled={editSaving}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", fontSize: 13, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: editSaving ? "not-allowed" : "pointer" }}
+                    >
+                      <Check size={14} /> {editSaving ? "Guardando…" : "Guardar cambios"}
+                    </button>
+                    <button
+                      onClick={cancelEdit}
+                      style={{ padding: "7px 14px", fontSize: 13, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                  {editError && <div style={{ marginTop: 10, fontSize: 12, color: "var(--stamp)" }}>{editError}</div>}
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap", marginBottom: 12 }}>
+                    <CardVisual tarjeta={t} />
+                    <div style={{ flex: 1, minWidth: 160 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 14, fontWeight: 500 }}>{t.nombre}</span>
+                        <span
+                          className="despensa-tab-font"
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: 600,
+                            padding: "1px 8px",
+                            borderRadius: 20,
+                            background: (t.tipoTarjeta || "Crédito") === "Crédito" ? "var(--sage-bg)" : "var(--line-soft)",
+                            color: (t.tipoTarjeta || "Crédito") === "Crédito" ? "var(--sage)" : "var(--ink-soft)",
+                          }}
+                        >
+                          {t.tipoTarjeta || "Crédito"}
+                        </span>
+                        <EstadoBadge estado={t.estado} onChange={(estado) => updateTarjetaEstado(t.id, estado)} />
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
+                        <Landmark size={11} />
+                        {t.entidadName || "Entidad no especificada"}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                        <button
+                          onClick={() => startEdit(t)}
+                          title="Editar tarjeta"
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "var(--paper)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            if (await confirm("¿Eliminar esta tarjeta?")) deleteTarjeta(t.id);
+                          }}
+                          title="Eliminar tarjeta"
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "var(--paper)", color: "var(--stamp)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(t.tipoTarjeta || "Crédito") === "Crédito" ? (
+                    <>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
+                        <Field label="Límite de crédito" value={t.limiteCredito != null ? formatMoney(t.limiteCredito) : "—"} />
+                        <Field label={t.tieneMonedaSecundaria ? "Saldo RD$" : "Saldo actual"} value={t.saldoActual != null ? <span style={{ color: "var(--stamp)" }}>{formatMoney(t.saldoActual)}</span> : "—"} />
+                        {t.tieneMonedaSecundaria && (
+                          <Field
+                            label="Saldo US$"
+                            value={
+                              t.saldoActualUSD != null ? (
+                                <span style={{ color: "var(--stamp)" }}>
+                                  US${Number(t.saldoActualUSD).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              ) : "—"
+                            }
+                          />
+                        )}
+                        <Field label="Pago mínimo" value={t.pagoMinimo != null ? formatMoney(t.pagoMinimo) : "—"} />
+                        <Field label="Tasa interés" value={t.tasaInteres != null ? `${t.tasaInteres}%` : "—"} />
+                        <Field label="Corte / Pago" value={t.fechaCorte || t.fechaPago ? `${t.fechaCorte || "—"} / ${t.fechaPago || "—"}` : "—"} />
+                      </div>
+
+                      {t.limiteCredito != null && t.limiteCredito > 0 && (() => {
+                        const consumido = Math.max((compradoPorTarjeta[t.id] || 0) - (pagadoPorTarjeta[t.id] || 0), 0);
+                        const disponible = Math.max(t.limiteCredito - consumido, 0);
+                        const pct = Math.min(100, Math.round((consumido / t.limiteCredito) * 100));
+                        const barColor = pct >= 90 ? "var(--stamp)" : pct >= 60 ? "var(--amber)" : "var(--sage)";
+                        return (
+                          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                              <span style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                Nivel de consumo (RD$)
+                              </span>
+                              <span className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 600, color: barColor }}>
+                                {pct}% · {formatMoney(consumido)}
+                              </span>
+                            </div>
+                            <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 4 }} />
+                            </div>
+                            <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 4 }}>
+                              Disponible: {formatMoney(disponible)}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {t.tieneMonedaSecundaria && (t.saldoActualUSD != null || (t.limiteCreditoUSD != null && t.limiteCreditoUSD > 0)) && (() => {
+                        const saldoUSD = Number(t.saldoActualUSD) || 0;
+                        const limiteUSD = Number(t.limiteCreditoUSD) || 0;
+                        const pctUSD = limiteUSD > 0 ? Math.min(100, Math.round((saldoUSD / limiteUSD) * 100)) : null;
+                        const excedidoUSD = limiteUSD > 0 && saldoUSD > limiteUSD;
+                        const barColorUSD = pctUSD != null && (excedidoUSD ? "var(--stamp)" : pctUSD >= 90 ? "var(--stamp)" : pctUSD >= 60 ? "var(--amber)" : "var(--sage)");
+                        const disponibleUSD = limiteUSD > 0 ? Math.max(limiteUSD - saldoUSD, 0) : null;
+                        return (
+                          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                              <span style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                                Balance en Dólares (US$)
+                              </span>
+                              <span className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 600, color: barColorUSD || "var(--stamp)" }}>
+                                {pctUSD != null ? `${pctUSD}% · ` : ""}US${saldoUSD.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </div>
+                            {pctUSD != null && (
+                              <div style={{ height: 5, borderRadius: 4, background: "var(--line-soft)", overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${pctUSD}%`, background: barColorUSD, borderRadius: 4 }} />
+                              </div>
+                            )}
+                            <div style={{ fontSize: 10.5, color: excedidoUSD ? "var(--stamp)" : "var(--ink-soft)", marginTop: 4 }}>
+                              {disponibleUSD != null && `Disponible: US$${disponibleUSD.toLocaleString("es", { minimumFractionDigits: 2 })}`}
+                              {t.pagoMinimoUSD != null && ` · Pago mínimo: US$${Number(t.pagoMinimoUSD).toLocaleString("es", { minimumFractionDigits: 2 })}`}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>Tarjeta de débito · no acumula deuda ni intereses.</div>
+                  )}
+
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+                    <Field label="Total pagado (histórico)" value={<span style={{ color: "var(--sage)" }}>{formatMoney(pagadoPorTarjeta[t.id] || 0)}</span>} />
+                  </div>
+
+                  {t.notas && (
+                    <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 8, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
+                      {t.notas}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>{label}</div>
+      <div className="despensa-mono" style={{ fontSize: 13, marginTop: 2 }}>{value}</div>
+    </div>
+  );
+}
+
+function EstadoBadge({ estado, onChange }) {
+  const colors = {
+    Activa: { bg: "var(--sage-bg)", color: "var(--sage)" },
+    Bloqueada: { bg: "var(--stamp-bg)", color: "var(--stamp)" },
+    Cancelada: { bg: "var(--line-soft)", color: "var(--ink-soft)" },
+  };
+  const c = colors[estado] || colors.Activa;
+  return (
+    <select
+      value={estado}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ fontSize: 11, fontWeight: 500, padding: "2px 6px", borderRadius: 20, border: "none", background: c.bg, color: c.color, cursor: "pointer" }}
+    >
+      {ESTADOS.map((e) => (
+        <option key={e} value={e}>{e}</option>
+      ))}
+    </select>
+  );
+}

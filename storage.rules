@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function esPropietario() {
+      return request.auth != null && (
+        request.auth.token.email == "iventuramena@gmail.com" ||
+        request.auth.token.email.lower() == "iventuramena@gmail.com" ||
+        request.auth.token.email == "inelsonv@bellon.com.do" ||
+        request.auth.token.email.lower() == "inelsonv@bellon.com.do"
+      );
+    }
+
+    function esMiembroDuo() {
+      return request.auth != null && (
+        firestore.exists(/databases/(default)/documents/duoMembers/$(request.auth.uid)) ||
+        (request.auth.token.email != null && firestore.exists(/databases/(default)/documents/duoMembersByEmail/$(request.auth.token.email.lower())))
+      );
+    }
+
+    function tieneAccesoCompartido() {
+      return esPropietario() || esMiembroDuo();
+    }
+
+    // Almacenamiento aislado para cada usuario individual
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && (request.auth.uid == userId || tieneAccesoCompartido());
+    }
+
+    // Acceso general para la cuenta propietaria y miembros Dúo
+    match /{allPaths=**} {
+      allow read, write: if tieneAccesoCompartido();
+    }
+  }
+}

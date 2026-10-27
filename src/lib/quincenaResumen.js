@@ -1,0 +1,82 @@
+// Calcula cuánto se presupuestó y cuánto se gastó realmente en un rango de
+// fechas de una quincena específica (year, month, quincena). Reutilizado por
+// la tarjeta "Quincena actual" y por la evaluación de cumplimiento de puntos.
+import { rangoFechasQuincenaConfigurado } from "./quincenaConfig";
+
+export function rangoFechasQuincena(year, month, quincena, diasCobro) {
+  return rangoFechasQuincenaConfigurado(year, month, quincena, diasCobro);
+}
+
+export function calcularResumenQuincena({ year, month, quincena, presupuesto, categoriasGasto, prestamos, movimientos, diasCobro, eventos }) {
+  const { fechaInicio, fechaFin } = rangoFechasQuincena(year, month, quincena, diasCobro);
+
+  let presupuestado = 0;
+  for (const c of categoriasGasto || []) {
+    const val = presupuesto?.[c.nombre]?.[String(month)]?.[quincena];
+    if (typeof val === "number") presupuestado += val;
+  }
+  for (const e of eventos || []) {
+    if (e.estado === "Cancelado" || !e.montoEstimado || !e.fecha) continue;
+    if (e.fecha >= fechaInicio && e.fecha <= fechaFin) {
+      presupuestado += Number(e.montoEstimado) || 0;
+    }
+  }
+  for (const p of prestamos || []) {
+    if (p.estado !== "Activo") continue;
+    if (p.frecuenciaCuota === "Personalizado") {
+      for (const c of p.cuotasPersonalizadas || []) {
+        if (!c.fecha || !c.monto) continue;
+        if (c.fecha >= fechaInicio && c.fecha <= fechaFin) presupuestado += Number(c.monto) || 0;
+      }
+      continue;
+    }
+    if (!p.fechaInicio || typeof p.fechaInicio !== "string" || !p.cuota) continue;
+    const parts = p.fechaInicio.split("-").map(Number);
+    if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) continue;
+    const [sy, sm, sd] = parts;
+    if (!sy || !sm) continue;
+    const mesesTotales = p.plazoUnidad === "años" ? (p.plazo || 0) * 12 : p.plazo || 0;
+    const offset = (year - sy) * 12 + (month - sm);
+    const activo = offset >= 0 && offset < mesesTotales;
+    const quincenaCuota = sd && sd >= 15 ? "Q2" : "Q1";
+
+    // Si esta cuota se movió manualmente a otra quincena ("Mover a otra
+    // quincena" en el Checklist), no debe seguir contando en su posición
+    // original — y si se movió una cuota de OTRO mes hacia esta quincena,
+    // sí debe contar aquí.
+    const overrides = p.quincenaOverrides || {};
+    const overrideEsteMesRaw = overrides[`${month}-${year}`];
+    const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
+    if (activo && !overrideEsteMes && quincenaCuota === quincena) presupuestado += Number(p.cuota) || 0;
+    for (const destino of Object.values(overrides)) {
+      if (!destino || typeof destino !== "object") continue;
+      if (destino.year === year && destino.month === month && destino.quincena === quincena) {
+        presupuestado += Number(p.cuota) || 0;
+      }
+    }
+  }
+
+  let gastado = 0;
+  for (const m of movimientos || []) {
+    if (m.type !== "Gasto") continue;
+    if (!m.date || m.date < fechaInicio || m.date > fechaFin) continue;
+    gastado += Number(m.amount) || 0;
+  }
+
+  return { fechaInicio, fechaFin, presupuestado, gastado };
+}
+
+// Convierte el monto esperado de cada fuente de ingreso activa a un
+// equivalente MENSUAL según su frecuencia, y lo divide entre 2 para obtener
+// un estimado de ingreso fijo por quincena (aproximado cuando hay fuentes con
+// distintas frecuencias mezcladas).
+const FRECUENCIA_FACTOR = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1 / 12, Único: 0 };
+
+export function calcularIngresoQuincenal(fuentesIngreso) {
+  let mensual = 0;
+  for (const f of fuentesIngreso || []) {
+    if (f.estado !== "Activo" || f.montoEsperado == null) continue;
+    mensual += f.montoEsperado * (FRECUENCIA_FACTOR[f.frecuencia] ?? 1);
+  }
+  return mensual / 2;
+}

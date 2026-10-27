@@ -1,0 +1,1219 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root,
+:root[data-theme="navy"] {
+  --paper: #0a0f1d;
+  --ink: #f8fafc;
+  --ink-soft: #94a3b8;
+  --stamp: #f43f5e;
+  --stamp-bg: #38121e;
+  --sage: #38bdf8;
+  --sage-bg: #0c2744;
+  --line: #1f293d;
+  --line-soft: #151e30;
+  --card: #111827;
+  --muted-line: #2e3e5c;
+  --amber: #fbbf24;
+  --amber-bg: #332408;
+  --blue: #60a5fa;
+  --blue-bg: #122847;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 22px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="light"] {
+  --paper: #f7f4ec;
+  --ink: #1c1917;
+  --ink-soft: #635c4e;
+  --stamp: #ba372a;
+  --stamp-bg: #fbedea;
+  --sage: #2d6a4f;
+  --sage-bg: #e8f1ec;
+  --line: #dcd4c3;
+  --line-soft: #ede6d8;
+  --card: #ffffff;
+  --muted-line: #b6ac98;
+  --amber: #b57c1e;
+  --amber-bg: #faf0dc;
+  --blue: #31608a;
+  --blue-bg: #e7eff6;
+  --shadow-sm: 0 1px 2px rgba(28, 25, 23, 0.04);
+  --shadow-md: 0 4px 16px rgba(28, 25, 23, 0.06);
+}
+
+:root[data-theme="dark"] {
+  --paper: #111317;
+  --ink: #f3f4f6;
+  --ink-soft: #9ca3af;
+  --stamp: #ef4444;
+  --stamp-bg: #321517;
+  --sage: #10b981;
+  --sage-bg: #063726;
+  --line: #272d3b;
+  --line-soft: #1e232e;
+  --card: #181b22;
+  --muted-line: #3d465c;
+  --amber: #f59e0b;
+  --amber-bg: #352309;
+  --blue: #3b82f6;
+  --blue-bg: #132747;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+}
+
+:root[data-theme="navy"] {
+  --paper: #0a0f1d;
+  --ink: #f8fafc;
+  --ink-soft: #94a3b8;
+  --stamp: #f43f5e;
+  --stamp-bg: #38121e;
+  --sage: #38bdf8;
+  --sage-bg: #0c2744;
+  --line: #1f293d;
+  --line-soft: #151e30;
+  --card: #111827;
+  --muted-line: #2e3e5c;
+  --amber: #fbbf24;
+  --amber-bg: #332408;
+  --blue: #60a5fa;
+  --blue-bg: #122847;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 22px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="emerald"] {
+  --paper: #07130c;
+  --ink: #f0fdf4;
+  --ink-soft: #86efac;
+  --stamp: #fb7185;
+  --stamp-bg: #38121c;
+  --sage: #10b981;
+  --sage-bg: #064e3b;
+  --line: #183a27;
+  --line-soft: #102a1c;
+  --card: #0e2217;
+  --muted-line: #25583b;
+  --amber: #fbbf24;
+  --amber-bg: #342607;
+  --blue: #34d399;
+  --blue-bg: #073524;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 6px 22px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="slate"] {
+  --paper: #f8fafc;
+  --ink: #0f172a;
+  --ink-soft: #64748b;
+  --stamp: #e11d48;
+  --stamp-bg: #ffe4e6;
+  --sage: #2563eb;
+  --sage-bg: #eff6ff;
+  --line: #e2e8f0;
+  --line-soft: #f1f5f9;
+  --card: #ffffff;
+  --muted-line: #cbd5e1;
+  --amber: #d97706;
+  --amber-bg: #fef3c7;
+  --blue: #3b82f6;
+  --blue-bg: #eff6ff;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+:root[data-theme="amethyst"] {
+  --paper: #0f0a17;
+  --ink: #faf5ff;
+  --ink-soft: #c4b5fd;
+  --stamp: #f43f5e;
+  --stamp-bg: #38121e;
+  --sage: #a855f7;
+  --sage-bg: #35155d;
+  --line: #2c1f40;
+  --line-soft: #201633;
+  --card: #1a1226;
+  --muted-line: #4a356c;
+  --amber: #facc15;
+  --amber-bg: #362706;
+  --blue: #c084fc;
+  --blue-bg: #30164e;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 6px 22px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme="latte"] {
+  --paper: #f5eee5;
+  --ink: #292524;
+  --ink-soft: #78716c;
+  --stamp: #b93826;
+  --stamp-bg: #fae9e6;
+  --sage: #785135;
+  --sage-bg: #f3e8dd;
+  --line: #ded3c4;
+  --line-soft: #eee6dc;
+  --card: #ffffff;
+  --muted-line: #bfb2a0;
+  --amber: #b47b1e;
+  --amber-bg: #faedd9;
+  --blue: #57534e;
+  --blue-bg: #ebe7e3;
+  --shadow-sm: 0 1px 2px rgba(41, 37, 36, 0.04);
+  --shadow-md: 0 4px 16px rgba(41, 37, 36, 0.06);
+}
+
+:root[data-theme="oled"] {
+  --paper: #000000;
+  --ink: #ffffff;
+  --ink-soft: #9ca3af;
+  --stamp: #ff4757;
+  --stamp-bg: #340c11;
+  --sage: #00e599;
+  --sage-bg: #002919;
+  --line: #222630;
+  --line-soft: #14171d;
+  --card: #0b0d10;
+  --muted-line: #3b4252;
+  --amber: #ffd32a;
+  --amber-bg: #332600;
+  --blue: #00d2d3;
+  --blue-bg: #002626;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.8);
+  --shadow-md: 0 6px 24px rgba(0, 0, 0, 0.9);
+}
+
+body {
+  transition: background-color 0.15s ease;
+}
+
+.despensa-loading-screen {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--paper);
+}
+
+.despensa-loading-content {
+  display: flex;
+  width: min(100%, 340px);
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: despensa-splash-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.despensa-splash-logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.3s ease;
+}
+
+.despensa-splash-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.despensa-splash-title {
+  color: var(--ink);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.despensa-splash-subtitle {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.despensa-loading-title {
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.despensa-loading-track {
+  position: relative;
+  width: min(100%, 180px);
+  height: 4px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--line);
+}
+
+.despensa-loading-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 35%;
+  border-radius: inherit;
+  background: var(--sage);
+  animation: despensa-loading-progress 1.2s ease-in-out infinite;
+}
+
+.despensa-loading-caption {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+@keyframes despensa-splash-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes despensa-loading-progress {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(270%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .despensa-loading-indicator {
+    animation: none;
+    transform: translateX(80%);
+  }
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+/* Barras de desplazamiento integradas con la paleta de Smart Finance. */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--sage);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.despensa-tab-font {
+  font-family: "Space Grotesk", "Inter", sans-serif;
+  letter-spacing: -0.015em;
+}
+
+.despensa-mono {
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+input,
+select,
+textarea {
+  background: var(--card);
+  color: var(--ink);
+  font-family: inherit;
+  color-scheme: light;
+  border: 1px solid var(--line);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea,
+:root[data-theme="navy"] input,
+:root[data-theme="navy"] select,
+:root[data-theme="navy"] textarea,
+:root[data-theme="emerald"] input,
+:root[data-theme="emerald"] select,
+:root[data-theme="emerald"] textarea,
+:root[data-theme="amethyst"] input,
+:root[data-theme="amethyst"] select,
+:root[data-theme="amethyst"] textarea,
+:root[data-theme="oled"] input,
+:root[data-theme="oled"] select,
+:root[data-theme="oled"] textarea {
+  color-scheme: dark;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-soft);
+  opacity: 0.85;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--sage);
+  box-shadow: 0 0 0 3px var(--sage-bg);
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  transition: opacity 0.15s ease, background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+button:hover {
+  opacity: 0.92;
+}
+
+button:active {
+  transform: scale(0.985);
+}
+
+.despensa-row:hover {
+  background: var(--line-soft);
+}
+
+.despensa-shell {
+  display: flex;
+  min-height: 100vh;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.despensa-shell--sidebar-hidden {
+  max-width: 1120px;
+}
+
+.despensa-sidebar-visibility-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.despensa-sidebar-visibility-toggle:hover {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+
+.despensa-sidebar {
+  width: 200px;
+  flex-shrink: 0;
+  padding: 1.5rem 1rem;
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.15s ease;
+}
+
+.despensa-sidebar--collapsed {
+  width: 64px;
+  padding: 1.5rem 0.5rem;
+}
+
+.despensa-sidebar--collapsed .despensa-navitem {
+  position: relative;
+  padding: 9px 0;
+}
+
+.despensa-collapse-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 1rem;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  cursor: pointer;
+  justify-content: center;
+}
+
+.despensa-sidebar--collapsed .despensa-collapse-btn {
+  padding-top: 0.75rem;
+}
+
+.despensa-navlist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.despensa-navitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background-color 0.14s ease, color 0.14s ease;
+}
+
+.despensa-navitem:hover {
+  background: var(--line-soft) !important;
+}
+
+.despensa-navlabel {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.despensa-main {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem 1.5rem 3rem;
+}
+
+.despensa-main--assistant {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 1.5rem;
+}
+
+.despensa-main--assistant .despensa-header {
+  flex-shrink: 0;
+}
+
+.despensa-main--assistant .despensa-asistente {
+  flex: 1;
+  min-height: 0;
+  height: auto !important;
+  max-height: none !important;
+}
+
+.despensa-asistente-flotante {
+  position: fixed;
+  z-index: 180;
+  right: max(20px, calc((100vw - 960px) / 2 + 20px));
+  bottom: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.despensa-asistente-boton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--sage);
+  border-radius: 50%;
+  background: var(--sage);
+  color: #fff;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.24);
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.despensa-asistente-boton:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 11px 32px rgba(0, 0, 0, 0.3);
+}
+
+.despensa-asistente-ventana {
+  width: min(390px, calc(100vw - 32px));
+  height: min(620px, calc(100dvh - 112px));
+  min-height: 300px;
+  padding: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.32);
+}
+
+.despensa-asistente-ventana .despensa-asistente {
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0;
+}
+
+.despensa-catalogo-seleccion-barra {
+  position: fixed;
+  z-index: 150;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(780px, calc(100vw - 32px));
+  padding: 11px 13px;
+  border: 1px solid var(--sage);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .despensa-catalogo-seleccion-barra {
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+    gap: 8px;
+  }
+  .despensa-asistente-flotante {
+    display: none;
+  }
+  .despensa-shell {
+    flex-direction: column;
+  }
+  .despensa-sidebar {
+    display: none;
+  }
+  .despensa-main {
+    padding: 1.25rem 1rem calc(70px + env(safe-area-inset-bottom, 0px));
+  }
+  .despensa-main--assistant {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding: calc(1.25rem + env(safe-area-inset-top, 0px)) 1rem env(safe-area-inset-bottom, 0px);
+  }
+  .despensa-main--assistant .despensa-header {
+    flex-shrink: 0;
+  }
+  .despensa-main--assistant .despensa-asistente {
+    flex: 1;
+    min-height: 0;
+    height: auto !important;
+    max-height: none !important;
+  }
+  .despensa-header {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: var(--paper);
+    padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.75rem;
+    margin: -1.25rem -1rem 10px;
+    border-bottom: 1px solid var(--line);
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+  }
+  .despensa-hamburger {
+    display: flex !important;
+  }
+  .despensa-desktop-only {
+    display: none !important;
+  }
+  .despensa-header-left--search-open {
+    display: none !important;
+  }
+  .despensa-puntos-monto {
+    display: none;
+  }
+  .despensa-puntos-btn {
+    padding: 6px 8px !important;
+  }
+  .despensa-whatsapp-btn {
+    padding: 6px 8px !important;
+  }
+}
+
+.despensa-whatsapp-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.despensa-whatsapp-btn:active {
+  transform: translateY(0);
+}
+.despensa-sidebar-whatsapp:hover {
+  background: linear-gradient(135deg, rgba(37,211,102,0.22) 0%, rgba(37,211,102,0.12) 100%) !important;
+  border-color: rgba(37,211,102,0.55) !important;
+}
+.despensa-menu-item-whatsapp:hover {
+  background: rgba(37,211,102,0.14) !important;
+}
+
+
+.despensa-bottomnav {
+  display: none;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
+  justify-content: space-around;
+  align-items: center;
+}
+
+@media (max-width: 640px) {
+  .despensa-bottomnav {
+    display: flex;
+  }
+  .despensa-bottomnav--assistant {
+    display: none;
+  }
+}
+
+.despensa-bottomnav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 10px;
+  font-family: Inter, sans-serif;
+  position: relative;
+  flex: 1;
+}
+
+.despensa-bottomnav-dot {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--sage);
+}
+
+.despensa-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+@media (max-width: 520px) {
+  .despensa-formgrid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@keyframes despensa-highlight-flash {
+  0% {
+    background-color: var(--sage-bg);
+  }
+  70% {
+    background-color: var(--sage-bg);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.despensa-highlight {
+  animation: despensa-highlight-flash 2.4s ease-out;
+  border-radius: 10px;
+}
+
+.despensa-gauge-needle {
+  transform-box: view-box;
+  transform-origin: 110px 108px;
+  animation: despensa-gauge-start 1.35s cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+/* Tarjetas ejecutivas con curvatura refinada de alto impacto visual */
+.despensa-dashboard-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.despensa-dashboard-card:hover {
+  border-color: color-mix(in srgb, var(--line) 70%, var(--sage));
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.03);
+}
+
+@keyframes despensa-gauge-start {
+  from {
+    transform: rotate(-180deg);
+  }
+  to {
+    transform: rotate(var(--despensa-gauge-needle-target));
+  }
+}
+
+.despensa-gasto-punto-pico {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: despensa-gasto-punto-latido 1.8s ease-in-out infinite;
+}
+
+.despensa-chart-hover-area {
+  position: relative;
+}
+
+.despensa-chart-tooltip {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  z-index: 60;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(92%, 310px);
+  max-height: 220px;
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+.despensa-chart-tooltip__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.despensa-chart-tooltip__list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding-top: 8px;
+  overflow-y: auto;
+}
+
+.despensa-chart-tooltip__row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+}
+
+.despensa-chart-tooltip__category {
+  overflow: hidden;
+  color: var(--ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.despensa-chart-tooltip__row strong {
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.despensa-chart-tooltip__empty {
+  padding-top: 8px;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+@keyframes despensa-gasto-punto-latido {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(1.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .despensa-gasto-punto-pico,
+  .despensa-gauge-needle {
+    animation: none;
+  }
+}
+
+/* Scrollbar discreta, del color del tema, para tiras horizontales como
+   Acciones — en vez del scrollbar grueso y claro por defecto del navegador. */
+.despensa-scroll-x {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.despensa-scroll-x::-webkit-scrollbar {
+  height: 6px;
+}
+.despensa-scroll-x::-webkit-scrollbar-track {
+  background: transparent;
+}
+.despensa-scroll-x::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 10px;
+}
+.despensa-scroll-x::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-soft);
+}
+
+.despensa-acciones-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+}
+.despensa-acciones-card {
+  flex: 0 0 120px;
+}
+
+/* En móvil, en vez de una sola fila con scroll lateral, se acomodan en una
+   cuadrícula de 3 columnas (ej. 6 acciones = 2 filas de 3). */
+@media (max-width: 640px) {
+  .despensa-acciones-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    overflow-x: visible;
+  }
+  .despensa-acciones-card {
+    flex: none;
+  }
+}
+
+@keyframes despensa-cofre-pop-anim {
+  0% {
+    transform: scale(0.6) rotate(-4deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.06) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+.despensa-cofre-pop {
+  animation: despensa-cofre-pop-anim 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes despensa-spin-anim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.despensa-spin {
+  animation: despensa-spin-anim 0.8s linear infinite;
+}
+
+/* Checklist Pagos - Layout responsivo y lineal para móvil */
+.checklist-item-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.checklist-item-card--pagado {
+  background: rgba(16, 185, 129, 0.22) !important;
+  border-color: #10b981 !important;
+  opacity: 1 !important;
+}
+
+.checklist-item-card--pagado .checklist-item-monto-btn {
+  color: var(--ink) !important;
+  font-weight: 700 !important;
+}
+
+.checklist-item-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.checklist-item-text {
+  flex: 1;
+  min-width: 0;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.checklist-item-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.checklist-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.checklist-item-bottom-row {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .checklist-item-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .checklist-item-main {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+  }
+
+  .checklist-item-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .checklist-item-title {
+    font-size: 13.5px;
+    line-height: 1.35;
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+    letter-spacing: normal;
+  }
+
+  /* En móvil, los controles de acción se ubican en una segunda fila horizontal bien espaciada */
+  .checklist-item-desktop-only {
+    display: none !important;
+  }
+
+  .checklist-item-bottom-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding-top: 6px;
+    border-top: 1px solid var(--line-soft, rgba(128, 128, 128, 0.15));
+    flex-wrap: wrap;
+  }
+
+  .checklist-item-bottom-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .checklist-item-monto-btn {
+    font-size: 14px !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+
+  .checklist-variable-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+  }
+}
+
+/* Skeletons y Shimmer con soporte multi-tema */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--line-soft) 0%,
+    var(--line) 50%,
+    var(--line-soft) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer-sweep 1.6s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer-sweep {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Transición suave entre pestañas y vistas (evita saltos bruscos) */
+.tab-content-enter {
+  animation: tabFadeSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes tabFadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Micro-transición para quincenas y subvistas */
+.fade-in-quick {
+  animation: fadeInQuick 0.18s ease-out forwards;
+}
+
+@keyframes fadeInQuick {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Enfoque vertical móvil: previene desbordamientos o deformaciones al girar en dispositivos móviles */
+@media screen and (orientation: landscape) and (max-height: 550px) {
+  html, body {
+    overflow-x: hidden;
+  }
+}
+
+/* Nodos estilo Duolingo en el canvas de Flujo */
+.duolingo-flow-node:active {
+  transform: translateY(3px);
+  filter: brightness(0.96);
+}
+
+/* Columna fija (Categoría) en la matriz de Presupuesto Anual: opaca, sólida y sobre las celdas desplazables */
+.presupuesto-col-sticky,
+.presupuesto-grid thead > tr:first-child > th:first-child,
+.presupuesto-grid tbody > tr > td:first-child,
+.presupuesto-grid tfoot > tr > td:first-child {
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 3 !important;
+  background-clip: padding-box !important;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.4) !important;
+  opacity: 1 !important;
+  min-width: 185px !important;
+  width: 185px !important;
+  max-width: 185px !important;
+  box-sizing: border-box !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* El encabezado Categoría (rowSpan=2) en la fila 1 del thead tiene la máxima prioridad visual */
+.presupuesto-grid thead > tr:first-child > th:first-child,
+th.presupuesto-col-sticky {
+  z-index: 10 !important;
+  background-color: var(--card) !important;
+}
+
+/* La fila 2 del thead contiene las quincenas (Q1, Q2): NUNCA deben ser sticky ni tener anchos de categoría */
+.presupuesto-grid thead > tr:nth-child(2) > th {
+  position: static !important;
+  left: auto !important;
+  z-index: 1 !important;
+  min-width: 52px !important;
+  max-width: none !important;
+  box-shadow: none !important;
+}
+
+.presupuesto-grid tfoot > tr > td:first-child,
+.presupuesto-grid tfoot td.presupuesto-col-sticky {
+  z-index: 4 !important;
+  background-color: var(--card) !important;
+}

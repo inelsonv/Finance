@@ -1,0 +1,4675 @@
+import {
+  addDoc,
+  collection as fsCollection,
+  deleteDoc,
+  doc as fsDoc,
+  getDoc,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  runTransaction,
+  increment,
+  arrayUnion,
+  arrayRemove,
+  deleteField,
+} from "firebase/firestore";
+import { ref as fsRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { deleteUser, reauthenticateWithPopup, signOut } from "firebase/auth";
+import { db, storage, functions, auth, isOwnerUser, OWNER_EMAIL, googleProvider } from "../firebase";
+
+let currentExplicitUser = null;
+let duoSharedMemberCache = false;
+
+export function setDuoSharedMemberStatus(status) {
+  duoSharedMemberCache = Boolean(status);
+}
+
+export function isDuoSharedMember(user) {
+  if (!user) return false;
+  // El propietario nunca es un miembro dúo secundario
+  if (isOwnerUser(user)) return false;
+
+  const emailLower = (user.email || "").toLowerCase().trim();
+
+  // Si el usuario tiene seleccionado el plan individual, sus colecciones personales son privadas
+  try {
+    const planLocal = localStorage.getItem(`smart-finance-plan-${user.uid}`);
+    if (planLocal === "individual") return false;
+  } catch {}
+
+  // Si no está activo en la caché en memoria, no es miembro compartido
+  if (!duoSharedMemberCache) return false;
+
+  try {
+    if (localStorage.getItem(`smart-finance-duo-member-${user.uid}`) === "1") return true;
+    if (user.email && localStorage.getItem(`smart-finance-duo-email-${emailLower}`) === "1") return true;
+  } catch {}
+  return false;
+}
+
+export function setCurrentDbUser(user) {
+  currentExplicitUser = user;
+}
+
+export function getCurrentDbUser() {
+  return currentExplicitUser || auth.currentUser || null;
+}
+
+const COLECCIONES_COMPARTIDAS_DUO = new Set([
+  "presupuestos",
+  "categoriasGasto",
+  "flujo",
+  "config",
+]);
+
+const COLECCIONES_SISTEMA_GLOBALES = new Set([
+  "usuariosRegistrados",
+  "duoMembers",
+  "duoMembersByEmail",
+  "planesConfig",
+]);
+
+export function getCol(colName, ...pathSegments) {
+  const current = getCurrentDbUser();
+  if (COLECCIONES_SISTEMA_GLOBALES.has(colName)) {
+    return fsCollection(db, colName, ...pathSegments);
+  }
+  // Únicamente el propietario original autenticado (iventuramena@gmail.com) lee de colecciones raíz
+  if (current && isOwnerUser(current)) {
+    return fsCollection(db, colName, ...pathSegments);
+  }
+  // Si no hay usuario autenticado, NUNCA dirigir a la raíz del propietario
+  if (!current) {
+    return fsCollection(db, "_unauth", colName, ...pathSegments);
+  }
+  // Solo en Plan Dúo legítimo y confirmado se comparte el presupuesto
+  if (isDuoSharedMember(current) && COLECCIONES_COMPARTIDAS_DUO.has(colName)) {
+    return fsCollection(db, colName, ...pathSegments);
+  }
+  // Toda la información de cualquier usuario independiente vive 100% aislada en users/{uid}/{colName}
+  return fsCollection(db, "users", current.uid, colName, ...pathSegments);
+}
+
+export function getDocRef(colName, ...pathSegments) {
+  const current = getCurrentDbUser();
+  if (COLECCIONES_SISTEMA_GLOBALES.has(colName)) {
+    return fsDoc(db, colName, ...pathSegments);
+  }
+  // Únicamente el propietario original autenticado (iventuramena@gmail.com) lee de documentos raíz
+  if (current && isOwnerUser(current)) {
+    return fsDoc(db, colName, ...pathSegments);
+  }
+  // Si no hay usuario autenticado, NUNCA dirigir a la raíz del propietario
+  if (!current) {
+    return fsDoc(db, "_unauth", colName, ...pathSegments);
+  }
+  // Solo en Plan Dúo legítimo y confirmado se comparte el presupuesto
+  if (isDuoSharedMember(current) && COLECCIONES_COMPARTIDAS_DUO.has(colName)) {
+    return fsDoc(db, colName, ...pathSegments);
+  }
+  // Todo documento personal vive 100% aislado en users/{uid}/{colName}/...
+  return fsDoc(db, "users", current.uid, colName, ...pathSegments);
+}
+
+// Interceptores locales dinámicos para que cualquier llamada en db.js se auto-enrute al usuario actual
+const collection = (firestoreInstance, colName, ...pathSegments) => {
+  return getCol(colName, ...pathSegments);
+};
+
+const doc = (firestoreInstance, colName, ...pathSegments) => {
+  return getDocRef(colName, ...pathSegments);
+};
+
+const ref = (storageInstance, path) => {
+  const current = getCurrentDbUser();
+  if (current && isOwnerUser(current)) {
+    return fsRef(storageInstance, path);
+  }
+  if (!current) {
+    return fsRef(storageInstance, `_unauth/${path}`);
+  }
+  return fsRef(storageInstance, `users/${current.uid}/${path}`);
+};
+import { rangoFechasQuincenaConfigurado } from "./quincenaConfig";
+import { unidadesRestantesProducto, todayStr } from "./inventario";
+import { httpsCallable } from "firebase/functions";
+
+export function watchConnectionStatus(onChange) {
+  return onSnapshot(
+    collection(db, "productos"),
+    { includeMetadataChanges: true },
+    (snap) => onChange(!snap.metadata.fromCache),
+    () => onChange(false)
+  );
+}
+
+export function watchProducts(onChange, onError) {
+  const q = query(collection(db, "productos"), orderBy("name"));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchList(onChange, onError) {
+  return onSnapshot(
+    collection(db, "listaCompra"),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addProduct({ name, category, unit, price, codigoBarras, urlReferencia, proteinaPor100g, imageUrl, tienda }) {
+  const docRef = await addDoc(collection(db, "productos"), {
+    name,
+    category,
+    unit: unit || "unidad",
+    price: price != null ? Number(price) : 0,
+    imageUrl: imageUrl || null,
+    updatedAt: serverTimestamp(),
+    codigoBarras: codigoBarras || null,
+    urlReferencia: urlReferencia || null,
+    proteinaPor100g: proteinaPor100g != null ? Number(proteinaPor100g) : null,
+    tienda: tienda || null,
+  });
+  return docRef;
+}
+
+export async function setProductImageUrl(id, imageUrl) {
+  await updateDoc(doc(db, "productos", id), {
+    imageUrl: imageUrl || null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function uploadProductImage(id, file) {
+  const imgRef = ref(storage, `productos/${id}`);
+  await uploadBytes(imgRef, file, { contentType: file.type });
+  const url = await getDownloadURL(imgRef);
+  await updateDoc(doc(db, "productos", id), { imageUrl: url });
+  return url;
+}
+
+// Sube el archivo .epub de un libro a Firebase Storage y guarda su URL de
+// descarga en el registro del libro — así se puede abrir con el lector
+// dentro de la misma app.
+export async function uploadLibroEpub(id, file) {
+  const epubRef = ref(storage, `libros/${id}/libro.epub`);
+  await uploadBytes(epubRef, file, { contentType: "application/epub+zip" });
+  const url = await getDownloadURL(epubRef);
+  await updateDoc(doc(db, "libros", id), { epubUrl: url, epubNombreArchivo: file.name });
+  return url;
+}
+
+// Sube una portada elegida desde el dispositivo del usuario (en vez de la
+// que se encuentra por búsqueda en Open Library).
+export async function uploadLibroPortada(id, file) {
+  const portadaRef = ref(storage, `libros/${id}/portada`);
+  await uploadBytes(portadaRef, file, { contentType: file.type });
+  const url = await getDownloadURL(portadaRef);
+  await updateDoc(doc(db, "libros", id), { portadaUrl: url });
+  return url;
+}
+
+export async function eliminarLibroEpub(id) {
+  const epubRef = ref(storage, `libros/${id}/libro.epub`);
+  try {
+    await deleteObject(epubRef);
+  } catch (err) {
+    // Si el archivo ya no existe en Storage, no bloquea el resto.
+  }
+  await updateDoc(doc(db, "libros", id), { epubUrl: null, epubNombreArchivo: null });
+}
+
+// Extrae nombre, precio e imagen de la página de un producto (ej. de una
+// tienda en línea), vía una Cloud Function del lado del servidor — evita el
+// problema de CORS que impediría hacerlo directo desde el navegador.
+export async function extraerProductoDeUrl(url) {
+  const fn = httpsCallable(functions, "extraerProductoDeUrl");
+  const res = await fn({ url });
+  return res.data;
+}
+
+// Busca un producto por nombre en supermercadosrd.com sin que el usuario
+// tenga que ir al sitio y copiar la URL él mismo — la Cloud Function la
+// encuentra por su cuenta usando búsqueda web, y devuelve el mismo formato
+// que extraerProductoDeUrl (incluyendo la URL encontrada, para guardarla
+// como referencia).
+export async function buscarYExtraerProducto(nombreProducto) {
+  const fn = httpsCallable(functions, "buscarYExtraerProducto");
+  const res = await fn({ nombreProducto });
+  return res.data;
+}
+
+// Manda una pregunta al asistente de IA junto con el resumen financiero
+// actual y el historial corto para dar contexto de seguimiento. Detecta y extrae
+// gastos a registrar (por ejemplo combustible / gasolina) de forma estructurada.
+export async function preguntarAsistente(pregunta, resumen, historial, opciones = {}) {
+  // 1. Intenta vía endpoint local / servidor (Gemini 3.8 Flash con respuesta estructurada de gastos)
+  let errorServidor = null;
+  try {
+    const resServer = await fetch("/api/asistente/preguntar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pregunta,
+        resumen,
+        historial,
+        categorias: opciones.categorias || [],
+        tarjetas: opciones.tarjetas || [],
+        prestamos: opciones.prestamos || [],
+        cuentas: opciones.cuentas || [],
+        ordenesCompra: opciones.ordenesCompra || [],
+        products: opciones.products || [],
+      }),
+    });
+    if (resServer.ok) {
+      const data = await resServer.json();
+      return data;
+    } else {
+      const errJson = await resServer.json().catch(() => null);
+      errorServidor = errJson?.error || `Error del servidor (${resServer.status})`;
+    }
+  } catch (err) {
+    errorServidor = err?.message || String(err);
+  }
+
+  // 2. Fallback a la Cloud Function de Firebase
+  try {
+    const fn = httpsCallable(functions, "preguntarAsistente");
+    const res = await fn({ pregunta, resumen, historial });
+    return res.data;
+  } catch (errFirebase) {
+    console.warn("Fallo en asistente con Firebase:", errFirebase?.message || errFirebase);
+    throw new Error(
+      errorServidor
+        ? `No se pudo consultar al asistente: ${errorServidor}`
+        : "No se pudo obtener respuesta del asistente financiero."
+    );
+  }
+}
+
+// Lee una factura de supermercado mediante IA (Gemini / Anthropic / Cloud Functions).
+export async function escanearFactura(imageBase64, mediaType = "image/jpeg") {
+  // 1. Intenta vía proxy de servidor (Gemini 3.8 Flash con visión directa)
+  let errorServidor = null;
+  try {
+    const resServer = await fetch("/api/escanear-factura", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageBase64, mediaType }),
+    });
+    if (resServer.ok) {
+      const data = await resServer.json();
+      if (data && (Array.isArray(data.items) || data.total)) {
+        return data;
+      }
+    } else {
+      const errJson = await resServer.json().catch(() => null);
+      errorServidor = errJson?.error || `Error del servidor (${resServer.status})`;
+    }
+  } catch (err) {
+    errorServidor = err?.message || String(err);
+  }
+
+  // 2. Fallback a la Cloud Function de Firebase
+  try {
+    const fn = httpsCallable(functions, "escanearFactura");
+    const res = await fn({ imageBase64, mediaType });
+    if (res?.data) return res.data;
+  } catch (errFirebase) {
+    console.warn("Fallo en escaneo con Firebase:", errFirebase?.message || errFirebase);
+    throw new Error(
+      errorServidor
+        ? `No se pudo procesar la factura: ${errorServidor}`
+        : "No se pudo procesar la imagen de la factura. Intenta con una foto más nítida o centrada."
+    );
+  }
+}
+
+export function watchAsistenteChats(onChange, onError) {
+  const q = query(collection(db, "asistenteChats"), orderBy("actualizadoAt", "desc"));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchAsistenteChat(id, onChange, onError) {
+  return onSnapshot(
+    doc(db, "asistenteChats", id),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function crearAsistenteChat(titulo = "Nueva conversación", mensajes = []) {
+  const ref = await addDoc(collection(db, "asistenteChats"), {
+    titulo,
+    mensajes: (mensajes || []).slice(-80),
+    creadoAt: serverTimestamp(),
+    actualizadoAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function guardarAsistenteChat(id, titulo, mensajes) {
+  await setDoc(
+    doc(db, "asistenteChats", id),
+    {
+      titulo,
+      mensajes: (mensajes || []).slice(-80),
+      actualizadoAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+// Descarga una imagen desde una URL externa y la guarda en Firebase Storage
+// (no solo enlaza la URL externa) — así la imagen sigue disponible aunque el
+// sitio original la borre o cambie. Puede fallar si el sitio de origen no
+// permite descargas desde el navegador (CORS); en ese caso se informa al
+// usuario para que la descargue y suba manualmente.
+export async function uploadProductImageFromUrl(id, url) {
+  // Primero se intenta descargar directo desde el navegador (más rápido) —
+  // si el sitio de origen no permite CORS (como los CDNs de algunos
+  // supermercados), se recurre a una Cloud Function que la descarga desde
+  // el servidor, donde no aplica esa restricción.
+  try {
+    const response = await fetch(url, { mode: "cors" });
+    if (response.ok) {
+      const blob = await response.blob();
+      if (blob.type.startsWith("image/")) {
+        const imgRef = ref(storage, `productos/${id}`);
+        await uploadBytes(imgRef, blob, { contentType: blob.type });
+        const downloadUrl = await getDownloadURL(imgRef);
+        await updateDoc(doc(db, "productos", id), { imageUrl: downloadUrl });
+        return downloadUrl;
+      }
+    }
+  } catch (err) {
+    // Falla silenciosa aquí — se cae al respaldo del servidor abajo.
+  }
+
+  const fn = httpsCallable(functions, "descargarImagenProducto");
+  const res = await fn({ productId: id, url });
+  return res.data.imageUrl;
+}
+
+export async function removeProductImage(id) {
+  try {
+    await deleteObject(ref(storage, `productos/${id}`));
+  } catch (err) {
+    // si el archivo ya no existe, seguimos igual
+  }
+  await updateDoc(doc(db, "productos", id), { imageUrl: null });
+}
+
+export async function updateProductPrice(id, price) {
+  await updateDoc(doc(db, "productos", id), {
+    price,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function updateProducto(id, fields) {
+  await updateDoc(doc(db, "productos", id), fields);
+}
+
+export async function registrarDisparoPedidoAutomatico(productId, infoPedido) {
+  await updateDoc(doc(db, "productos", productId), {
+    ultimoPedidoAutomatico: infoPedido,
+  });
+}
+
+export async function registrarPedidoFarmacia({ productId, productName, entidadId, entidadName, telefono, cantidad, notas, automatico = false }) {
+  const docRef = await addDoc(collection(db, "pedidosFarmacia"), {
+    productId,
+    productName,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "Farmacia",
+    telefono: telefono || "",
+    cantidad: cantidad || 1,
+    notas: notas || "",
+    automatico: !!automatico,
+    estado: "solicitado",
+    createdAt: serverTimestamp(),
+  });
+  return docRef;
+}
+
+export async function deleteProduct(id) {
+  await deleteDoc(doc(db, "productos", id));
+}
+
+export async function addToList(productId) {
+  await setDoc(doc(db, "listaCompra", productId), { productId, qty: 1, checked: false }, { merge: true });
+}
+
+export async function setListQty(productId, qty) {
+  await updateDoc(doc(db, "listaCompra", productId), { qty });
+}
+
+export async function setListChecked(productId, checked) {
+  await updateDoc(doc(db, "listaCompra", productId), { checked });
+}
+
+export async function removeFromList(productId) {
+  await deleteDoc(doc(db, "listaCompra", productId));
+}
+
+export async function incrementListQty(productId, current, delta) {
+  await updateDoc(doc(db, "listaCompra", productId), { qty: Math.max(1, current + delta) });
+}
+
+export function watchEntidades(onChange, onError) {
+  return onSnapshot(
+    collection(db, "entidades"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ docId: d.id, ...d.data() }));
+      docs.sort((a, b) => {
+        const ta = a.createdAt ? a.createdAt.toMillis() : Infinity;
+        const tb = b.createdAt ? b.createdAt.toMillis() : Infinity;
+        return ta - tb;
+      });
+      onChange(docs.map((d, i) => ({ ...d, num: i + 1 })));
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addEntidad({ name, type, address, phone, notes }) {
+  const docRef = await addDoc(collection(db, "entidades"), {
+    name,
+    type,
+    address: address || "",
+    phone: phone || "",
+    notes: notes || "",
+    createdAt: serverTimestamp(),
+  });
+  return docRef;
+}
+
+export async function updateEntidad(docId, fields) {
+  await updateDoc(doc(db, "entidades", docId), fields);
+}
+
+export async function deleteEntidad(docId) {
+  await deleteDoc(doc(db, "entidades", docId));
+}
+
+export function watchTiposEntidad(onChange, onError) {
+  return onSnapshot(
+    collection(db, "tiposEntidad"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addTipoEntidad(nombre) {
+  await addDoc(collection(db, "tiposEntidad"), { nombre, createdAt: serverTimestamp() });
+}
+
+export async function deleteTipoEntidad(id) {
+  await deleteDoc(doc(db, "tiposEntidad", id));
+}
+
+export function watchMovimientos(onChange, onError) {
+  return onSnapshot(
+    collection(db, "movimientos"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addMovimiento({
+  type,
+  category,
+  amount,
+  description,
+  date,
+  clasificacion,
+  metodoPago,
+  entidadId,
+  entidadName,
+  prestamoId,
+  prestamoNumero,
+  cuentaId,
+  cuentaNombre,
+  tarjetaId,
+  tarjetaNombre,
+  monedaTarjeta,
+  fechaPagoTarjeta,
+  membresiaId,
+  membresiaNombre,
+  fuenteIngresoId,
+  fuenteIngresoNombre,
+  contratoId,
+  contratoNombre,
+  origen,
+  origenChecklist,
+}) {
+  const docRef = await addDoc(collection(db, "movimientos"), {
+    type,
+    category,
+    amount,
+    description: description || "",
+    date,
+    clasificacion: clasificacion || null,
+    metodoPago: metodoPago || null,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    prestamoId: prestamoId || null,
+    prestamoNumero: prestamoNumero || "",
+    cuentaId: cuentaId || null,
+    cuentaNombre: cuentaNombre || "",
+    tarjetaId: tarjetaId || null,
+    tarjetaNombre: tarjetaNombre || "",
+    monedaTarjeta: monedaTarjeta || null,
+    fechaPagoTarjeta: fechaPagoTarjeta || null,
+    pagado: type === "Gasto" && metodoPago === "Tarjeta de crédito" ? false : null,
+    membresiaId: membresiaId || null,
+    membresiaNombre: membresiaNombre || "",
+    fuenteIngresoId: fuenteIngresoId || null,
+    fuenteIngresoNombre: fuenteIngresoNombre || "",
+    contratoId: contratoId || null,
+    contratoNombre: contratoNombre || "",
+    origenChecklist: origenChecklist || null,
+    createdAt: serverTimestamp(),
+  });
+
+  // Otorga puntos automáticamente según el tipo de movimiento registrado
+  // (cumplir una obligación rígida genera puntos). No debe romper el guardado
+  // del movimiento si algo falla aquí.
+  // 1 punto = $1 peso disponible para gastos flexibles. Se otorga el 5% del
+  // monto de cada obligación cumplida (préstamo, categoría configurada como
+  // generadora de puntos, aporte a ahorro).
+  const PORCENTAJE_PUNTOS = 0.05;
+  let montoNum = 0;
+  let puntosGanados = 0;
+  try {
+    montoNum = Number(amount) || 0;
+    let montoParaPuntos = montoNum;
+    if (category === "Pago de tarjeta" && monedaTarjeta === "USD") {
+      // Convierte el pago en USD a su equivalente en pesos usando la misma
+      // caché de tipo de cambio que usa la tarjeta de Dólar en Inicio.
+      const tipoCambioSnap = await getDoc(doc(db, "config", "tipoCambioCache"));
+      const tasaUSD = tipoCambioSnap.exists() ? tipoCambioSnap.data()?.rates?.USD : null;
+      if (tasaUSD) montoParaPuntos = montoNum * tasaUSD;
+    }
+    puntosGanados = Math.round(montoParaPuntos * PORCENTAJE_PUNTOS);
+    if (category === "Pago de préstamo" && prestamoId && puntosGanados > 0) {
+      await otorgarPuntos(`Pago de préstamo ${prestamoNumero || ""}`.trim(), puntosGanados, "prestamo", docRef.id);
+    } else if (category === "Pago de tarjeta" && tarjetaId && puntosGanados > 0) {
+      await otorgarPuntos(`Pago de tarjeta ${tarjetaNombre || ""}`.trim(), puntosGanados, "tarjeta", docRef.id);
+    } else if (type === "Gasto" && puntosGanados > 0) {
+      const categoriasPuntosSnap = await getDoc(doc(db, "config", "categoriasPuntos"));
+      const categoriasQueGeneranPuntos = categoriasPuntosSnap.exists() ? categoriasPuntosSnap.data().nombres || [] : [];
+      if (categoriasQueGeneranPuntos.includes(category)) {
+        await otorgarPuntos(`Pago de "${category}"`, puntosGanados, "gastoFijo", docRef.id);
+      }
+    } else if (cuentaId && montoNum > 0 && puntosGanados > 0) {
+      const metasSnap = await getDocs(
+        query(collection(db, "metasAhorro"), where("cuentaId", "==", cuentaId), where("estado", "==", "Activa"))
+      );
+      if (!metasSnap.empty) {
+        await otorgarPuntos("Aporte a meta de ahorro", puntosGanados, "metaAhorro", docRef.id);
+      }
+    }
+
+    // Punto fijo, pequeño, por el simple hecho de registrar el movimiento
+    // (no depende del monto ni de la categoría) — se suma aparte de
+    // cualquier otro punto ya otorgado arriba. No aplica a Ingresos. Si se
+    // registró desde el registro rápido de móvil (no desde el Checklist ni
+    // el formulario completo), el bono es menor (1 punto en vez de 10) para
+    // no incentivar registrar muchos gastos mínimos solo por los puntos.
+    if (type !== "Ingreso") {
+      const puntosRegistro = origen === "rapido" ? 5 : 10;
+      await otorgarPuntos("Registraste un movimiento", puntosRegistro, "registro", docRef.id);
+    }
+  } catch (err) {
+    console.error("No se pudieron otorgar puntos:", err);
+  }
+
+  // Si este pago es de un préstamo, verifica si con él queda completamente
+  // saldado, y en ese caso marca el estado como "Pagado" automáticamente y
+  // otorga un bono de puntos por cancelar la deuda. También revisa si el
+  // pago se hizo antes de lo que tocaba (adelantado), y en ese caso otorga
+  // un bono extra sobre los puntos ya ganados por el pago.
+  // Este estado ya no se puede revertir manualmente (ver Prestamos.jsx).
+  let prestamoRecienCancelado = null;
+  try {
+    if (category === "Pago de préstamo" && prestamoId) {
+      const prestamoSnap = await getDoc(doc(db, "prestamos", prestamoId));
+      if (prestamoSnap.exists()) {
+        const p = prestamoSnap.data();
+        if (p.estado !== "Pagado") {
+          let totalAPagar = 0;
+          let meses = 0;
+          if (p.frecuenciaCuota === "Personalizado") {
+            totalAPagar = (p.cuotasPersonalizadas || []).reduce((s, c) => s + (Number(c.monto) || 0), 0);
+          } else {
+            meses = p.plazoUnidad === "años" ? (Number(p.plazo) || 0) * 12 : Number(p.plazo) || 0;
+            totalAPagar = (Number(p.cuota) || 0) * meses;
+          }
+          if (totalAPagar > 0) {
+            const pagosSnap = await getDocs(query(collection(db, "movimientos"), where("prestamoId", "==", prestamoId)));
+            const totalPagado = pagosSnap.docs.reduce((s, d) => s + (Number(d.data().amount) || 0), 0);
+
+            // Bono por adelantar cuota: compara lo pagado ANTES de este pago
+            // contra lo que técnicamente tocaba pagar hasta hoy. Si ya
+            // estaba al día (o adelantado) antes de este pago, este pago
+            // cuenta como adelanto.
+            const hoyStr = new Date().toISOString().slice(0, 10);
+            let debidoHastaHoy = null;
+            if (p.frecuenciaCuota === "Personalizado") {
+              debidoHastaHoy = (p.cuotasPersonalizadas || [])
+                .filter((c) => c.fecha && c.fecha <= hoyStr)
+                .reduce((s, c) => s + (Number(c.monto) || 0), 0);
+            } else if (p.fechaInicio) {
+              const fechaInicioP = new Date(p.fechaInicio);
+              const hoyDate = new Date();
+              let mesesTranscurridos =
+                (hoyDate.getFullYear() - fechaInicioP.getFullYear()) * 12 + (hoyDate.getMonth() - fechaInicioP.getMonth()) + 1;
+              mesesTranscurridos = Math.max(0, Math.min(mesesTranscurridos, meses));
+              debidoHastaHoy = (Number(p.cuota) || 0) * mesesTranscurridos;
+            }
+            const totalPagadoAntes = totalPagado - montoNum;
+            if (debidoHastaHoy != null && totalPagadoAntes >= debidoHastaHoy && puntosGanados > 0) {
+              const bonoAdelanto = Math.round(puntosGanados * 0.2);
+              if (bonoAdelanto > 0) {
+                await otorgarPuntos(
+                  `Bono por adelantar cuota de préstamo ${p.numero || ""}`.trim(),
+                  bonoAdelanto,
+                  "prestamoAdelanto",
+                  docRef.id
+                );
+              }
+            }
+
+            if (totalPagado >= totalAPagar) {
+              await updateDoc(doc(db, "prestamos", prestamoId), { estado: "Pagado" });
+              prestamoRecienCancelado = p.numero || "";
+              const bonoCancelacion = Math.round(totalAPagar * 0.08);
+              if (bonoCancelacion > 0) {
+                await otorgarPuntos(
+                  `¡Cancelaste el préstamo ${p.numero || ""}! Bono por deuda saldada`.trim(),
+                  bonoCancelacion,
+                  "prestamoCancelado",
+                  docRef.id
+                );
+              }
+              await abrirCofre(docRef.id, `Cancelaste el préstamo ${p.numero || ""}`.trim()).catch((err) =>
+                console.error("No se pudo abrir el cofre de recompensa:", err)
+              );
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("No se pudo verificar/actualizar el estado del préstamo:", err);
+  }
+
+  // Si este pago/compra es de una tarjeta, ajusta el saldo correspondiente
+  // (en pesos o en USD según lo que se haya elegido en Movimientos), sin
+  // bajar de cero.
+  try {
+    const esPagoTarjeta = category === "Pago de tarjeta" && tarjetaId;
+    const esCompraTarjeta = type === "Gasto" && tarjetaId;
+    if (esPagoTarjeta || esCompraTarjeta) {
+      const tarjetaSnap = await getDoc(doc(db, "tarjetas", tarjetaId));
+      if (tarjetaSnap.exists()) {
+        const t = tarjetaSnap.data();
+        const esUSD = monedaTarjeta === "USD" && t.tieneMonedaSecundaria;
+        const campo = esUSD ? "saldoActualUSD" : "saldoActual";
+        const saldoPrevio = Number(t[campo]) || 0;
+        const nuevoSaldo = esPagoTarjeta
+          ? Math.max(saldoPrevio - (Number(amount) || 0), 0)
+          : saldoPrevio + (Number(amount) || 0);
+        await updateDoc(doc(db, "tarjetas", tarjetaId), { [campo]: nuevoSaldo });
+      }
+    }
+  } catch (err) {
+    console.error("No se pudo actualizar el saldo de la tarjeta:", err);
+  }
+
+  docRef.prestamoRecienCancelado = prestamoRecienCancelado;
+  return docRef;
+}
+
+export async function otorgarPuntos(motivo, puntos, tipo, movimientoId = null) {
+  // Si hay un multiplicador de puntos activo (premio de un cofre) y no ha
+  // expirado, se aplica automáticamente a cualquier otorgamiento positivo de
+  // puntos — así el jugador no tiene que hacer nada especial para
+  // beneficiarse de él.
+  let puntosFinales = puntos;
+  let multiplicadorAplicado = null;
+  if (puntos > 0) {
+    try {
+      const recompensasSnap = await getDoc(doc(db, "config", "recompensas"));
+      const mult = recompensasSnap.exists() ? recompensasSnap.data().multiplicador : null;
+      if (mult?.activo && mult.expiraEn && mult.expiraEn > Date.now()) {
+        puntosFinales = Math.round(puntos * (mult.factor || 1));
+        multiplicadorAplicado = mult.factor;
+      }
+    } catch (err) {
+      // Si falla la consulta del multiplicador, se otorgan los puntos
+      // normales sin bloquear el resto del flujo.
+    }
+  }
+
+  await addDoc(collection(db, "puntosHistorial"), {
+    motivo: multiplicadorAplicado ? `${motivo} (x${multiplicadorAplicado} activo)` : motivo,
+    puntos: puntosFinales,
+    tipo,
+    movimientoId: movimientoId || null,
+    fecha: new Date().toISOString().slice(0, 10),
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(puntosFinales) }, { merge: true });
+
+  // Si los puntos corresponden al pago o cancelación de una deuda (préstamo o tarjeta),
+  // dispara la animación de cohete hacia la sección de puntos generados.
+  if (["prestamo", "tarjeta", "prestamoCancelado", "prestamoAdelanto"].includes(tipo) && puntosFinales > 0) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("lanzarCoheteDeuda", {
+          detail: { puntos: puntosFinales, mensaje: motivo },
+        })
+      );
+    }
+  }
+}
+
+const PREMIOS_COFRE = ["puntosExtra", "multiplicador", "protectorRacha", "insignia"];
+const INSIGNIAS_POSIBLES = ["Cazador de Deudas", "Libre de Intereses", "Cero Deuda"];
+
+// Abre un cofre de recompensa (premio por cancelar una deuda por completo):
+// elige un premio al azar entre 4 tipos, lo aplica, y deja un registro para
+// poder mostrar la animación de apertura y notificar. Protegido contra
+// abrir dos cofres por el mismo evento (mismo movimientoId).
+export async function abrirCofre(movimientoId, contexto) {
+  const cofreId = `cofre_${movimientoId}`;
+  const ref = doc(db, "cofresGanados", cofreId);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return null;
+
+  const premio = PREMIOS_COFRE[Math.floor(Math.random() * PREMIOS_COFRE.length)];
+  let detalle = {};
+
+  if (premio === "puntosExtra") {
+    const monto = 50 + Math.floor(Math.random() * 251); // 50-300
+    await otorgarPuntos(`Cofre de recompensa: bono sorpresa (${contexto})`, monto, "cofrePuntos", movimientoId);
+    detalle = { monto };
+  } else if (premio === "multiplicador") {
+    const expiraEn = Date.now() + 48 * 60 * 60 * 1000; // 48 horas
+    await setDoc(doc(db, "config", "recompensas"), { multiplicador: { activo: true, factor: 2, expiraEn } }, { merge: true });
+    detalle = { factor: 2, expiraEn };
+  } else if (premio === "protectorRacha") {
+    await setDoc(doc(db, "config", "recompensas"), { protectoresRacha: increment(1) }, { merge: true });
+    detalle = { cantidad: 1 };
+  } else if (premio === "insignia") {
+    const insignia = INSIGNIAS_POSIBLES[Math.floor(Math.random() * INSIGNIAS_POSIBLES.length)];
+    await setDoc(doc(db, "config", "recompensas"), { insignias: arrayUnion(insignia) }, { merge: true });
+    detalle = { insignia };
+  }
+
+  await setDoc(ref, { movimientoId, contexto, premio, detalle, createdAt: serverTimestamp(), visto: false });
+  return { premio, detalle };
+}
+
+export function watchRecompensas(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "recompensas"),
+    (snap) => onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchCofresGanados(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "cofresGanados"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function marcarCofreVisto(cofreId) {
+  await updateDoc(doc(db, "cofresGanados", cofreId), { visto: true });
+}
+
+// ---- Salud: datos corporales ----
+// Guardados en un solo documento (no hay historial por ahora) — se usan
+// como variables para calcular recomendaciones, como cuánta agua tomar.
+export function watchDatosCorporales(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "datosCorporales"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveDatosCorporales({ peso, estatura, edad, nivelActividad }) {
+  await setDoc(
+    doc(db, "config", "datosCorporales"),
+    { peso: peso ?? null, estatura: estatura ?? null, edad: edad ?? null, nivelActividad: nivelActividad ?? null, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+}
+
+// Perfil personal — fecha de nacimiento, usada para calcular la edad
+// automáticamente en vez de tener que escribirla a mano cada vez.
+export function watchPerfilPersonal(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "perfilPersonal"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function savePerfilPersonal({ fechaNacimiento }) {
+  await setDoc(doc(db, "config", "perfilPersonal"), { fechaNacimiento: fechaNacimiento || null, updatedAt: serverTimestamp() }, { merge: true });
+}
+
+// ---- Habit Tracker ----
+// Hábitos definidos libremente por el usuario (ej. "Buena alimentación",
+// "Consumo de agua"), con seguimiento diario y puntos por cumplirlos.
+const PUNTOS_POR_HABITO = 5;
+const PUNTOS_POR_TAREA = 50;
+
+export function watchHabitos(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "habitos"), orderBy("createdAt", "asc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addHabito(nombre, icono, frecuencia, diaRecurrencia = null, categoria = "Salud") {
+  const nombreTrim = (nombre || "").trim();
+  if (!nombreTrim) throw new Error("Ponle un nombre al hábito");
+  await addDoc(collection(db, "habitos"), {
+    nombre: nombreTrim,
+    icono: icono || "check",
+    frecuencia: frecuencia || "Diario",
+    diaRecurrencia: diaRecurrencia,
+    categoria: categoria || "Salud",
+    activo: true,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteHabito(id) {
+  await deleteDoc(doc(db, "habitos", id));
+}
+
+export async function updateHabito(id, fields) {
+  await updateDoc(doc(db, "habitos", id), fields);
+}
+
+// Guarda el nuevo orden de los hábitos (arrastrar y soltar en la lista).
+// habitosEnOrden es un array de IDs en el orden deseado, de arriba a abajo.
+export async function reordenarHabitos(habitosEnOrden) {
+  await Promise.all(habitosEnOrden.map((id, index) => updateDoc(doc(db, "habitos", id), { orden: index })));
+}
+
+const PENALIZACION_RACHA_ROTA = 2;
+
+// Si un hábito rompió una racha de al menos 3 periodos (día/semana/mes,
+// según su frecuencia), resta 2 puntos y deja un registro para poder
+// notificarlo — protegido contra evaluar el mismo hueco dos veces con un
+// documento por (habitoId + periodoFaltante).
+export async function evaluarPenalizacionHabito(habitoId, periodoFaltante, rachaPrevia, habitoNombre) {
+  const evalId = `${habitoId}_${periodoFaltante}`;
+  const ref = doc(db, "habitosPenalizaciones", evalId);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return;
+
+  // Si hay un protector de racha disponible (premio de un cofre), se
+  // consume automáticamente en vez de aplicar la penalización — se deja un
+  // registro igual, pero sin restar puntos, para que quede visible que la
+  // racha quedó protegida.
+  const recompensasSnap = await getDoc(doc(db, "config", "recompensas"));
+  const protectoresDisponibles = recompensasSnap.exists() ? recompensasSnap.data().protectoresRacha || 0 : 0;
+
+  if (protectoresDisponibles > 0) {
+    await setDoc(doc(db, "config", "recompensas"), { protectoresRacha: increment(-1) }, { merge: true });
+    await setDoc(ref, {
+      habitoId,
+      habitoNombre,
+      periodoFaltante,
+      rachaPrevia,
+      puntos: 0,
+      protegida: true,
+      createdAt: serverTimestamp(),
+    });
+    return;
+  }
+
+  await setDoc(ref, {
+    habitoId,
+    habitoNombre,
+    periodoFaltante,
+    rachaPrevia,
+    puntos: -PENALIZACION_RACHA_ROTA,
+    createdAt: serverTimestamp(),
+  });
+
+  await addDoc(collection(db, "puntosHistorial"), {
+    motivo: `Se rompió tu racha de "${habitoNombre}" (llevabas ${rachaPrevia})`,
+    puntos: -PENALIZACION_RACHA_ROTA,
+    tipo: "habitoRoto",
+    fecha: new Date().toISOString().slice(0, 10),
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(-PENALIZACION_RACHA_ROTA) }, { merge: true });
+}
+
+export function watchHabitosPenalizaciones(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "habitosPenalizaciones"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+// Versículo diario — se elige uno al azar la primera vez que se abre la app
+// cada día, y se guarda (un documento por fecha) para que sea el mismo todo
+// el día, sin importar cuántas veces recargues.
+export async function evaluarVersiculoDiario(fechaStr, obtenerVersiculo) {
+  const ref = doc(db, "versiculoDiario", fechaStr);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return;
+  const v = await obtenerVersiculo();
+  await setDoc(ref, { fecha: fechaStr, referencia: v.referencia, texto: v.texto, fuente: v.fuente || "local", createdAt: serverTimestamp() });
+}
+
+export function watchVersiculoHoy(fechaStr, onChange, onError) {
+  return onSnapshot(
+    doc(db, "versiculoDiario", fechaStr),
+    (snap) => onChange(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchHabitosRegistro(onChange, onError) {
+  return onSnapshot(
+    collection(db, "habitosRegistro"),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+// Marca o desmarca un hábito para una fecha específica. Al marcarlo, otorga
+// puntos fijos; al desmarcarlo, revierte esos mismos puntos (protegido
+// contra doble-otorgamiento usando el ID del registro como llave del
+// documento).
+export async function toggleHabitoRegistro(habitoId, fecha, habitoNombre, categoria) {
+  const puntosAOtorgar = categoria === "Tarea" ? PUNTOS_POR_TAREA : PUNTOS_POR_HABITO;
+  const regId = `${habitoId}_${fecha}`;
+  const ref = doc(db, "habitosRegistro", regId);
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    await deleteDoc(ref);
+    const puntosSnap = await getDocs(query(collection(db, "puntosHistorial"), where("habitoRegistroId", "==", regId)));
+    for (const d of puntosSnap.docs) {
+      const puntos = Number(d.data().puntos) || 0;
+      await setDoc(doc(db, "config", "puntos"), { total: increment(-puntos) }, { merge: true });
+      await deleteDoc(d.ref);
+    }
+  } else {
+    await setDoc(ref, { habitoId, fecha, createdAt: serverTimestamp() });
+    await addDoc(collection(db, "puntosHistorial"), {
+      motivo: `${categoria === "Tarea" ? "Tarea completada" : "Hábito cumplido"}: ${habitoNombre}`,
+      puntos: puntosAOtorgar,
+      tipo: categoria === "Tarea" ? "tarea" : "habito",
+      fecha,
+      habitoRegistroId: regId,
+      createdAt: serverTimestamp(),
+    });
+    await setDoc(doc(db, "config", "puntos"), { total: increment(puntosAOtorgar) }, { merge: true });
+  }
+}
+
+// Evalúa si una quincena YA CERRADA cumplió el presupuesto (gastado <=
+// presupuestado). Se protege contra evaluar la misma quincena dos veces
+// usando un documento por periodo en "presupuestoCumplimiento". Otorga el 5%
+// de lo presupuestado como puntos si cumplió (mismo criterio que el resto del
+// sistema de puntos).
+export async function evaluarCumplimientoQuincena(periodoKey, presupuestado, gastado) {
+  if (!presupuestado || presupuestado <= 0) return;
+  const ref = doc(db, "presupuestoCumplimiento", periodoKey);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return; // ya evaluada antes, no repetir
+
+  const cumplio = gastado <= presupuestado;
+  await setDoc(ref, {
+    evaluado: true,
+    cumplio,
+    presupuestado,
+    gastado,
+    evaluadoEn: serverTimestamp(),
+  });
+
+  if (cumplio) {
+    const puntos = Math.round(presupuestado * 0.05);
+    if (puntos > 0) {
+      await otorgarPuntos(`Cumpliste el presupuesto de la quincena (${periodoKey})`, puntos, "cumplimientoPresupuesto");
+    }
+  }
+}
+
+// Detecta si sobró una cantidad significativa de dinero en una quincena ya
+// cerrada (presupuestado - gastado), después de cumplir las obligaciones. Si
+// el excedente supera el umbral, guarda una sugerencia genérica para que se
+// muestre como notificación. No recomienda instrumentos específicos, solo
+// categorías generales (fondo de emergencia, ahorro, inversión).
+export async function evaluarExcedenteQuincena(periodoKey, presupuestado, gastado) {
+  if (!presupuestado || presupuestado <= 0) return;
+  const ref = doc(db, "sugerenciasInversion", periodoKey);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return; // ya evaluada antes, no repetir
+
+  const excedente = Math.round((presupuestado - gastado) * 100) / 100;
+  const umbral = Math.max(1000, presupuestado * 0.1);
+
+  await setDoc(ref, {
+    evaluado: true,
+    excedente,
+    superaUmbral: excedente >= umbral,
+    presupuestado,
+    gastado,
+    evaluadoEn: serverTimestamp(),
+  });
+}
+
+export function watchSugerenciasInversion(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "sugerenciasInversion"), orderBy("evaluadoEn", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchPuntos(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "puntos"),
+    (snap) => onChange(snap.exists() ? snap.data().total || 0 : 0),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchPuntosHistorial(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "puntosHistorial"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+// Canjea puntos acumulados: libera ese monto (1 punto = $1) como presupuesto
+// extra en una categoría de gasto variable, para una quincena específica
+// (normalmente del mes siguiente). Lee y suma sobre el valor ya presupuestado
+// en esa celda, en vez de sobreescribirlo.
+export function watchCategoriasPuntosConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "categoriasPuntos"),
+    (snap) => onChange(snap.exists() ? snap.data().nombres || [] : []),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveCategoriasPuntosConfig(nombres) {
+  await setDoc(doc(db, "config", "categoriasPuntos"), { nombres: nombres || [] });
+}
+
+export function watchTopesAjusteConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "topesAjusteAutomatico"),
+    (snap) => onChange(snap.exists() ? snap.data().topes || {} : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveTopeAjuste(categoria, monto) {
+  const montoNum = monto === null || monto === "" ? null : Number(monto);
+  if (montoNum === null || !Number.isFinite(montoNum) || montoNum <= 0) {
+    await updateDoc(doc(db, "config", "topesAjusteAutomatico"), { [`topes.${categoria}`]: deleteField() }).catch(async () => {
+      // El doc puede no existir aún; en ese caso no hay nada que borrar.
+    });
+    return;
+  }
+  await setDoc(doc(db, "config", "topesAjusteAutomatico"), { topes: { [categoria]: montoNum } }, { merge: true });
+}
+
+export function watchAjustesPresupuestoHistorial(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "ajustesPresupuestoHistorial"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+// Revisa, para una quincena YA CERRADA, cada categoría con un tope
+// configurado que se haya excedido, y ajusta automáticamente el presupuesto
+// de la PRÓXIMA quincena a lo que realmente se gastó (sin pasar del tope).
+// Protegido contra doble-ejecución con un documento por periodo, igual que la
+// evaluación de cumplimiento general.
+export async function evaluarAjustesPresupuesto(periodoKey, gastoPorCategoria, presupuestoPorCategoria, topes, destino, categoriasGasto = []) {
+  const ref = doc(db, "presupuestoAjustesEvaluados", periodoKey);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return;
+  await setDoc(ref, { evaluado: true, evaluadoEn: serverTimestamp() });
+
+  const categoriasMap = {};
+  (categoriasGasto || []).forEach((c) => {
+    categoriasMap[c.nombre] = c;
+  });
+
+  for (const categoria of Object.keys(topes || {})) {
+    // Los gastos fijos no tienen tope de ajuste; son obligaciones acordadas de monto fijo
+    const catObj = categoriasMap[categoria];
+    const esFijo =
+      catObj?.clasificacion === "Fijo" ||
+      catObj?.tipoGastoChecklist === "pago_unico" ||
+      /^(estacionamiento|parqueo|alquiler|renta|mantenimiento|colegiatura|universidad|colegio|gym|gimnasio|internet|telefono|celular|seguro|cuota|vivienda|servicios)/i.test(categoria);
+    if (esFijo) continue;
+
+    const tope = Number(topes[categoria]);
+    if (!Number.isFinite(tope) || tope <= 0) continue;
+    const gastado = Number(gastoPorCategoria[categoria]) || 0;
+    const presupuestado = Number(presupuestoPorCategoria[categoria]) || 0;
+    if (gastado <= presupuestado) continue; // no se excedió, nada que ajustar
+
+    const nuevoMonto = Math.min(Math.round(gastado), tope);
+
+    const presupuestoSnap = await getDoc(doc(db, "presupuestos", String(destino.year)));
+    const valorActualDestino = presupuestoSnap.exists()
+      ? presupuestoSnap.data()?.[categoria]?.[String(destino.month)]?.[destino.quincena] || 0
+      : 0;
+    if (nuevoMonto <= valorActualDestino) continue; // no bajamos un presupuesto ya mayor
+
+    await setDoc(
+      doc(db, "presupuestos", String(destino.year)),
+      { [categoria]: { [String(destino.month)]: { [destino.quincena]: nuevoMonto } } },
+      { merge: true }
+    );
+
+    await addDoc(collection(db, "ajustesPresupuestoHistorial"), {
+      categoria,
+      periodoOrigen: periodoKey,
+      montoAnterior: valorActualDestino,
+      montoNuevo: nuevoMonto,
+      gastado,
+      tope,
+      createdAt: serverTimestamp(),
+    });
+  }
+}
+
+// Si una tarjeta con TAE configurada no fue saldada dentro de su plazo de
+// gracia (días desde el corte), suma automáticamente al saldo actual el
+// interés mensual (TAE/12) sobre el saldo, más la mora configurada (si hay).
+// Protegido contra doble-aplicación con un documento por ciclo (tarjeta +
+// mes de corte).
+export async function evaluarInteresYMoraTarjeta(tarjetaId, cicloKey, saldoActual, tasaTAE, montoMora) {
+  const ref = doc(db, "tarjetaCiclosEvaluados", `${tarjetaId}_${cicloKey}`);
+  const snap = await getDoc(ref);
+  if (snap.exists()) return;
+  await setDoc(ref, { evaluado: true, evaluadoEn: serverTimestamp() });
+
+  if (!saldoActual || saldoActual <= 0) return; // nada pendiente, no genera cargos
+
+  const tasaMensual = (Number(tasaTAE) || 0) / 100 / 12;
+  const interes = Math.round(saldoActual * tasaMensual * 100) / 100;
+  const mora = Number(montoMora) || 0;
+  if (interes <= 0 && mora <= 0) return;
+
+  const nuevoSaldo = saldoActual + interes + mora;
+
+  await updateDoc(doc(db, "tarjetas", tarjetaId), { saldoActual: nuevoSaldo });
+
+  await addDoc(collection(db, "tarjetaCargosHistorial"), {
+    tarjetaId,
+    cicloKey,
+    interes,
+    mora,
+    saldoAnterior: saldoActual,
+    saldoNuevo: nuevoSaldo,
+    createdAt: serverTimestamp(),
+  });
+}
+
+// Días de cobro configurables (por defecto 15 y 30), usados por la nueva
+// función de clasificación de quincena en lib/quincenaConfig.js.
+export function watchDiasCobroConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "diasCobro"),
+    (snap) => onChange(snap.exists() && snap.data().dias?.length ? snap.data().dias : [15, 30]),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveDiasCobroConfig(dias) {
+  const limpio = [...new Set((dias || []).map((d) => parseInt(d, 10)).filter((d) => Number.isFinite(d) && d >= 1 && d <= 31))].sort((a, b) => a - b);
+  if (limpio.length === 0) throw new Error("Debes tener al menos un día de cobro válido (1-31)");
+  await setDoc(doc(db, "config", "diasCobro"), { dias: limpio });
+}
+
+// Actualización automática de precios de productos importados por URL — la
+// Cloud Function programada (actualizarPreciosAutomatico) corre todos los
+// días, pero solo hace el trabajo real según esta frecuencia configurada
+// aquí, comparando contra la última vez que corrió.
+export function watchActualizacionPreciosAutoConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "actualizacionPreciosAuto"),
+    (snap) => onChange(snap.exists() ? snap.data() : { activo: false, frecuencia: "semanal" }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveActualizacionPreciosAutoConfig({ activo, frecuencia }) {
+  await setDoc(doc(db, "config", "actualizacionPreciosAuto"), { activo: !!activo, frecuencia: frecuencia || "semanal" }, { merge: true });
+}
+
+export function watchTarjetaCargosHistorial(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "tarjetaCargosHistorial"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function canjearPuntos({ montoACanjear, year, month, quincena, categoria, topeCategoria, ingresoQuincenalFijo, nota }) {
+  const monto = Math.round(Number(montoACanjear) || 0);
+  if (monto <= 0) throw new Error("El monto a canjear debe ser mayor a cero");
+
+  const categoriasPuntosSnap = await getDoc(doc(db, "config", "categoriasPuntos"));
+  const categoriasQueGeneranPuntos = categoriasPuntosSnap.exists() ? categoriasPuntosSnap.data().nombres || [] : [];
+  if (categoriasQueGeneranPuntos.includes(categoria)) {
+    throw new Error("No puedes canjear puntos hacia una categoría que también los genera");
+  }
+
+  const puntosSnap = await getDoc(doc(db, "config", "puntos"));
+  const puntosDisponibles = puntosSnap.exists() ? puntosSnap.data().total || 0 : 0;
+  if (monto > puntosDisponibles) throw new Error("No tienes suficientes puntos para ese canje");
+
+  const presupuestoSnap = await getDoc(doc(db, "presupuestos", String(year)));
+  const valorActual = presupuestoSnap.exists() ? presupuestoSnap.data()?.[categoria]?.[String(month)]?.[quincena] || 0 : 0;
+  const nuevoValor = valorActual + monto;
+
+  // No permitir que el canje haga que la categoría supere su tope
+  // configurado en Configuración → "Tope de ajuste automático de
+  // presupuesto" (el mismo usado para los ajustes automáticos por exceso).
+  if (topeCategoria != null && Number.isFinite(topeCategoria) && topeCategoria > 0 && nuevoValor > topeCategoria) {
+    throw new Error(`Ese canje haría que "${categoria}" supere su tope configurado (${formatMoneyErr(topeCategoria)})`);
+  }
+
+  // No permitir canjear, en total hacia esta misma quincena, más de lo que
+  // realmente vas a percibir de ingreso fijo esa quincena (sin descontar
+  // impuestos ni deducciones) — evita desbloquear más gasto del que tu
+  // ingreso real puede sostener, sin importar cuántos puntos tengas.
+  const destinoPeriodoKey = `${year}-${month}-${quincena}`;
+  if (ingresoQuincenalFijo != null && Number.isFinite(ingresoQuincenalFijo) && ingresoQuincenalFijo > 0) {
+    const canjesPreviosSnap = await getDocs(
+      query(collection(db, "puntosHistorial"), where("destinoPeriodoKey", "==", destinoPeriodoKey))
+    );
+    const totalYaCanjeadoDestino = canjesPreviosSnap.docs.reduce((s, d) => s + Math.abs(Number(d.data().puntos) || 0), 0);
+    if (totalYaCanjeadoDestino + monto > ingresoQuincenalFijo) {
+      const disponible = Math.max(ingresoQuincenalFijo - totalYaCanjeadoDestino, 0);
+      throw new Error(`No puedes canjear más de tu ingreso fijo de esa quincena. Disponible: ${formatMoneyErr(disponible)}`);
+    }
+  }
+
+  await setDoc(
+    doc(db, "presupuestos", String(year)),
+    { [categoria]: { [String(month)]: { [quincena]: nuevoValor } } },
+    { merge: true }
+  );
+
+  await addDoc(collection(db, "puntosHistorial"), {
+    motivo: `Canje: $${monto} liberados para "${categoria}"${nota ? ` — ${nota}` : ""}`,
+    puntos: -monto,
+    tipo: "canje",
+    fecha: new Date().toISOString().slice(0, 10),
+    destinoPeriodoKey,
+    categoria,
+    year,
+    month,
+    quincena,
+    monto,
+    nota: nota || "",
+    revertido: false,
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(-monto) }, { merge: true });
+}
+
+// Deshace un canje ya hecho: le quita el monto de vuelta al presupuesto de
+// esa categoría/quincena, y devuelve los puntos gastados — deja el registro
+// marcado como "revertido" (no se borra) para conservar el historial.
+export async function revertirCanje(canjeId) {
+  const canjeRef = doc(db, "puntosHistorial", canjeId);
+  const canjeSnap = await getDoc(canjeRef);
+  if (!canjeSnap.exists()) throw new Error("No se encontró ese canje");
+  const c = canjeSnap.data();
+  if (c.tipo !== "canje") throw new Error("Ese registro no es un canje");
+  if (c.revertido) throw new Error("Ese canje ya había sido revertido");
+  if (c.monto == null || c.categoria == null || c.year == null || c.month == null || c.quincena == null) {
+    throw new Error("Este canje es de antes de que se pudiera revertir automáticamente — no tiene todos los datos necesarios. Ajusta el presupuesto y tus puntos manualmente si hace falta.");
+  }
+
+  const presupuestoSnap = await getDoc(doc(db, "presupuestos", String(c.year)));
+  const valorActual = presupuestoSnap.exists() ? presupuestoSnap.data()?.[c.categoria]?.[String(c.month)]?.[c.quincena] || 0 : 0;
+  const nuevoValor = Math.max(0, valorActual - c.monto);
+  console.log("[revertirCanje] datos del canje:", { categoria: c.categoria, year: c.year, month: c.month, quincena: c.quincena, monto: c.monto });
+  console.log("[revertirCanje] presupuesto leído:", { valorActual, nuevoValor });
+
+  // No permitir revertir si ya se gastó (con movimientos reales) más de lo
+  // que quedaría presupuestado después de quitar el canje — evitaría dejar
+  // la categoría "en rojo" retroactivamente por algo que ya se gastó.
+  const diasCobroSnap = await getDoc(doc(db, "config", "diasCobro"));
+  const diasCobroConfig = diasCobroSnap.exists() ? diasCobroSnap.data() : null;
+  const { fechaInicio, fechaFin } = rangoFechasQuincenaConfigurado(c.year, c.month, c.quincena, diasCobroConfig);
+
+  const movimientosSnap = await getDocs(query(collection(db, "movimientos"), where("category", "==", c.categoria)));
+  const gastadoEnQuincena = movimientosSnap.docs.reduce((s, d) => {
+    const m = d.data();
+    if (m.type !== "Gasto" || !m.date || m.date < fechaInicio || m.date > fechaFin) return s;
+    return s + (Number(m.amount) || 0);
+  }, 0);
+
+  if (gastadoEnQuincena > nuevoValor) {
+    throw new Error(
+      `No se puede revertir: ya gastaste ${formatMoneyErr(gastadoEnQuincena)} en "${c.categoria}" esa quincena, y el presupuesto quedaría en ${formatMoneyErr(nuevoValor)} sin este canje.`
+    );
+  }
+
+  await setDoc(
+    doc(db, "presupuestos", String(c.year)),
+    { [c.categoria]: { [String(c.month)]: { [c.quincena]: nuevoValor } } },
+    { merge: true }
+  );
+  console.log("[revertirCanje] presupuesto actualizado correctamente a:", nuevoValor);
+  await setDoc(doc(db, "config", "puntos"), { total: increment(c.monto) }, { merge: true });
+  await updateDoc(canjeRef, { revertido: true });
+}
+
+// Ajuste manual de puntos — para corregir el total a mano si algo salió mal
+// (ej. un canje que falló a medias). No aplica multiplicadores ni ninguna
+// otra lógica automática, solo suma o resta exactamente el monto indicado.
+export async function ajustarPuntosManual(motivo, monto) {
+  const montoNum = Math.round(Number(monto) || 0);
+  if (montoNum === 0) throw new Error("El ajuste no puede ser cero");
+  await addDoc(collection(db, "puntosHistorial"), {
+    motivo: motivo?.trim() || "Ajuste manual",
+    puntos: montoNum,
+    tipo: "ajusteManual",
+    fecha: new Date().toISOString().slice(0, 10),
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(montoNum) }, { merge: true });
+}
+
+// Arreglo puntual, de una sola vez: el 5-sep-2026 una reversión de canje de
+// 1000 puntos falló a medias (el canje quedó marcado "Revertido" pero los
+// 1000 puntos nunca se devolvieron, por un canje viejo sin los campos
+// necesarios). Se aplica automáticamente la primera vez que corre después
+// de este cambio, y queda marcado para no volver a aplicarse dos veces.
+export async function aplicarArregloPuntosPerdidos_20260905() {
+  const flagRef = doc(db, "config", "fixPuntos20260905");
+  const flagSnap = await getDoc(flagRef);
+  if (flagSnap.exists() && flagSnap.data().aplicado) return;
+
+  await addDoc(collection(db, "puntosHistorial"), {
+    motivo: "Corrección automática: recuperación de 1000 puntos de una reversión de canje que falló a medias",
+    puntos: 1000,
+    tipo: "ajusteManual",
+    fecha: new Date().toISOString().slice(0, 10),
+    createdAt: serverTimestamp(),
+  });
+  await setDoc(doc(db, "config", "puntos"), { total: increment(1000) }, { merge: true });
+  await setDoc(flagRef, { aplicado: true, aplicadoEn: serverTimestamp() });
+}
+
+// Recalcula el total de puntos DESDE CERO, sumando todo el historial real
+// (puntosHistorial), en vez de confiar en el contador acumulado que puede
+// haberse corrompido por un error a medias. Los canjes marcados "revertido"
+// se excluyen de la suma (se tratan como si nunca hubieran restado puntos),
+// ya que su reversión no generó una línea de historial propia. Se usa como
+// arreglo de una sola vez para corregir el total tras el bug de reversión.
+export async function recalcularPuntosTotal_fix20260905() {
+  const flagRef = doc(db, "config", "fixPuntosRecalculo20260905");
+  const flagSnap = await getDoc(flagRef);
+  if (flagSnap.exists() && flagSnap.data().aplicado) return;
+
+  const historialSnap = await getDocs(collection(db, "puntosHistorial"));
+  let total = 0;
+  for (const d of historialSnap.docs) {
+    const h = d.data();
+    if (h.tipo === "canje" && h.revertido) continue;
+    total += Number(h.puntos) || 0;
+  }
+
+  await setDoc(doc(db, "config", "puntos"), { total }, { merge: true });
+  await setDoc(flagRef, { aplicado: true, aplicadoEn: serverTimestamp(), totalRecalculado: total });
+}
+
+function formatMoneyErr(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// Calcula, a partir de una fecha de inicio, la lista de quincenas
+// consecutivas (year, month, quincena) donde caerá cada cuota.
+function calcularQuincenasConsecutivas(fechaInicio, cantidad) {
+  const [y, m, d] = fechaInicio.split("-").map(Number);
+  let year = y;
+  let month = m;
+  let quincena = d >= 15 ? "Q2" : "Q1";
+  const lista = [];
+  for (let i = 0; i < cantidad; i++) {
+    lista.push({ year, month, quincena });
+    if (quincena === "Q1") {
+      quincena = "Q2";
+    } else {
+      quincena = "Q1";
+      month += 1;
+      if (month > 12) {
+        month = 1;
+        year += 1;
+      }
+    }
+  }
+  return lista;
+}
+
+// Registra una compra prorateada: divide el monto total en N cuotas iguales
+// (la última absorbe el redondeo) y suma cada cuota al presupuesto de la
+// categoría indicada, en quincenas consecutivas a partir de la fecha de
+// compra. Todo en una sola operación, para que quede reflejado de inmediato.
+export async function addCompraProrateada({ nombre, montoTotal, cuotas, categoria, fechaInicio, productoId, paquetesInventario, unidadesInventario }) {
+  const total = Math.round((Number(montoTotal) || 0) * 100) / 100;
+  const numCuotas = Math.max(1, parseInt(cuotas, 10) || 1);
+  if (total <= 0) throw new Error("El monto total debe ser mayor a cero");
+
+  const montoCuotaBase = Math.round((total / numCuotas) * 100) / 100;
+  const quincenas = calcularQuincenasConsecutivas(fechaInicio, numCuotas);
+
+  const cuotasDetalle = quincenas.map((q, i) => {
+    const esUltima = i === numCuotas - 1;
+    const montoAcumuladoPrevio = montoCuotaBase * i;
+    const monto = esUltima ? Math.round((total - montoAcumuladoPrevio) * 100) / 100 : montoCuotaBase;
+    return { ...q, monto };
+  });
+
+  // Suma cada cuota al presupuesto de su quincena correspondiente, agrupando
+  // las escrituras por año para minimizar operaciones.
+  const porAño = {};
+  for (const c of cuotasDetalle) {
+    if (!porAño[c.year]) porAño[c.year] = [];
+    porAño[c.year].push(c);
+  }
+  for (const [year, lista] of Object.entries(porAño)) {
+    const presupuestoSnap = await getDoc(doc(db, "presupuestos", year));
+    const data = presupuestoSnap.exists() ? presupuestoSnap.data() : {};
+    const merge = {};
+    for (const c of lista) {
+      const valorActual = data?.[categoria]?.[String(c.month)]?.[c.quincena] || 0;
+      if (!merge[categoria]) merge[categoria] = {};
+      if (!merge[categoria][String(c.month)]) merge[categoria][String(c.month)] = {};
+      merge[categoria][String(c.month)][c.quincena] = valorActual + c.monto;
+    }
+    await setDoc(doc(db, "presupuestos", year), merge, { merge: true });
+  }
+
+  const docRef = await addDoc(collection(db, "comprasProrateadas"), {
+    nombre: nombre || "Compra prorateada",
+    montoTotal: total,
+    cuotas: numCuotas,
+    montoCuota: montoCuotaBase,
+    categoria,
+    fechaInicio,
+    cuotasDetalle,
+    productoId: productoId || null,
+    paquetesInventario: paquetesInventario || null,
+    unidadesInventario: unidadesInventario || null,
+    createdAt: serverTimestamp(),
+  });
+  return docRef;
+}
+
+export function watchComprasProrateadas(onChange, onError) {
+  return onSnapshot(
+    query(collection(db, "comprasProrateadas"), orderBy("createdAt", "desc")),
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+// Elimina una compra prorateada y revierte los montos que había sumado al
+// presupuesto de cada quincena afectada.
+export async function deleteCompraProrateada(id, compra) {
+  const porAño = {};
+  for (const c of compra.cuotasDetalle || []) {
+    if (!porAño[c.year]) porAño[c.year] = [];
+    porAño[c.year].push(c);
+  }
+  for (const [year, lista] of Object.entries(porAño)) {
+    const presupuestoSnap = await getDoc(doc(db, "presupuestos", year));
+    if (!presupuestoSnap.exists()) continue;
+    const data = presupuestoSnap.data();
+    const merge = {};
+    for (const c of lista) {
+      const valorActual = data?.[compra.categoria]?.[String(c.month)]?.[c.quincena] || 0;
+      const nuevoValor = Math.max(valorActual - c.monto, 0);
+      if (!merge[compra.categoria]) merge[compra.categoria] = {};
+      if (!merge[compra.categoria][String(c.month)]) merge[compra.categoria][String(c.month)] = {};
+      merge[compra.categoria][String(c.month)][c.quincena] = nuevoValor;
+    }
+    await setDoc(doc(db, "presupuestos", year), merge, { merge: true });
+  }
+
+  // Si la compra había sumado stock al inventario, descuenta esas unidades
+  if (compra.productoId && compra.unidadesInventario) {
+    try {
+      const prodRef = doc(db, "productos", compra.productoId);
+      const prodSnap = await getDoc(prodRef);
+      if (prodSnap.exists()) {
+        const prodData = prodSnap.data();
+        const unidadesCalculadas = unidadesRestantesProducto(prodData);
+        const disponiblesHoy = unidadesCalculadas != null ? unidadesCalculadas : (Number(prodData.unidadesDisponibles) || 0);
+        const nuevoDisponibles = Math.max(0, disponiblesHoy - compra.unidadesInventario);
+        await updateDoc(prodRef, {
+          fechaInicio: todayStr(),
+          unidadesDisponibles: nuevoDisponibles,
+        });
+      }
+    } catch (err) {
+      console.error("Error al revertir inventario de compra prorateada:", err);
+    }
+  }
+
+  await deleteDoc(doc(db, "comprasProrateadas", id));
+}
+
+// Cambia la fecha de un movimiento, exigiendo un motivo de justificación.
+// Guarda un historial de cambios (no sobreescribe el motivo anterior).
+export async function updateMovimientoFecha(id, nuevaFecha, motivo, fechaAnterior) {
+  const motivoLimpio = (motivo || "").trim();
+  if (!motivoLimpio) throw new Error("Debes justificar el cambio de fecha");
+  await updateDoc(doc(db, "movimientos", id), {
+    date: nuevaFecha,
+    historialCambiosFecha: arrayUnion({
+      fechaAnterior: fechaAnterior || null,
+      fechaNueva: nuevaFecha,
+      motivo: motivoLimpio,
+      cambiadoEn: new Date().toISOString(),
+    }),
+  });
+}
+
+// Igual que updateMovimientoFecha, pero para corregir el MONTO de un
+// movimiento ya registrado (ej. si se puso un monto menor al real) — exige
+// un motivo y guarda el historial del cambio, sin borrar/recrear el
+// movimiento (conserva su id, fecha, y cualquier vínculo con préstamos,
+// tarjetas, o el checklist).
+export async function updateMovimientoMonto(id, nuevoMonto, motivo, montoAnterior) {
+  const motivoLimpio = (motivo || "").trim();
+  if (!motivoLimpio) throw new Error("Debes justificar el cambio de monto");
+  const montoNum = Number(nuevoMonto);
+  if (!Number.isFinite(montoNum) || montoNum <= 0) throw new Error("El monto debe ser un número mayor a 0");
+  await updateDoc(doc(db, "movimientos", id), {
+    amount: montoNum,
+    historialCambiosMonto: arrayUnion({
+      montoAnterior: montoAnterior != null ? Number(montoAnterior) : null,
+      montoNuevo: montoNum,
+      motivo: motivoLimpio,
+      cambiadoEn: new Date().toISOString(),
+    }),
+  });
+}
+
+// Marca una lista de consumos de tarjeta (movimientos de tipo Gasto con
+// tarjeta) como pagados, vinculándolos al pago que los saldó — se usa al
+// registrar un "Pago de tarjeta" y elegir cuáles consumos pendientes cubre.
+export async function marcarConsumosComoPagados(movimientoIds, pagoId) {
+  await Promise.all(
+    movimientoIds.map((id) => updateDoc(doc(db, "movimientos", id), { pagado: true, pagoTarjetaId: pagoId || null }))
+  );
+}
+
+export async function deleteMovimiento(id, motivo) {
+  // Guarda un registro de auditoría con los datos del movimiento y el
+  // motivo de eliminación, antes de borrarlo — para poder revisar después
+  // por qué se eliminó algo, si hace falta.
+  try {
+    const movSnap = await getDoc(doc(db, "movimientos", id));
+    if (movSnap.exists()) {
+      await addDoc(collection(db, "movimientosEliminados"), {
+        movimientoOriginal: movSnap.data(),
+        movimientoId: id,
+        motivo: motivo || "",
+        eliminadoEn: serverTimestamp(),
+      });
+    }
+  } catch (err) {
+    console.error("No se pudo guardar el registro de auditoría de eliminación:", err);
+  }
+
+  // Si este movimiento había generado puntos, los revierte antes de eliminarlo
+  // (no debe romper el borrado si algo falla aquí).
+  try {
+    const puntosSnap = await getDocs(query(collection(db, "puntosHistorial"), where("movimientoId", "==", id)));
+    for (const d of puntosSnap.docs) {
+      const puntosOtorgados = d.data().puntos || 0;
+      if (puntosOtorgados !== 0) {
+        await setDoc(doc(db, "config", "puntos"), { total: increment(-puntosOtorgados) }, { merge: true });
+      }
+      await deleteDoc(d.ref);
+    }
+  } catch (err) {
+    console.error("No se pudieron revertir los puntos de este movimiento:", err);
+  }
+
+  // Si este movimiento se creó desde el Checklist de pagos, al eliminarlo se
+  // desmarca ese ítem del checklist (vuelve a "pendiente"), para que no se
+  // quede marcado como pagado sin que exista el movimiento real.
+  try {
+    const movSnap = await getDoc(doc(db, "movimientos", id));
+    const origenChecklist = movSnap.exists() ? movSnap.data().origenChecklist : null;
+    if (origenChecklist?.periodoKey && origenChecklist?.itemKey) {
+      const checklistRef = doc(db, "checklistPagos", origenChecklist.periodoKey);
+      const checklistSnap = await getDoc(checklistRef);
+      const itemActual = checklistSnap.exists() ? checklistSnap.data()?.items?.[origenChecklist.itemKey] : null;
+      if (itemActual) {
+        await setDoc(
+          checklistRef,
+          { items: { [origenChecklist.itemKey]: { ...itemActual, pagado: false } } },
+          { merge: true }
+        );
+      }
+    }
+  } catch (err) {
+    console.error("No se pudo revertir el estado del checklist para este movimiento:", err);
+  }
+
+  // Si este movimiento era un pago de préstamo y el préstamo quedó marcado
+  // "Pagado" gracias a él, al eliminarlo hay que revisar si TODAVÍA sigue
+  // saldado sin contar este pago — si no, el préstamo vuelve a "Activo"
+  // (su estado normal), para no dejarlo marcado como pagado sin serlo.
+  try {
+    const movSnap = await getDoc(doc(db, "movimientos", id));
+    const mov = movSnap.exists() ? movSnap.data() : null;
+    if (mov && mov.category === "Pago de préstamo" && mov.prestamoId) {
+      const prestamoRef = doc(db, "prestamos", mov.prestamoId);
+      const prestamoSnap = await getDoc(prestamoRef);
+      if (prestamoSnap.exists() && prestamoSnap.data().estado === "Pagado") {
+        const p = prestamoSnap.data();
+        // Si el préstamo fue marcado Pagado manualmente o saldado fuera de la app,
+        // no revertirlo al eliminar un movimiento
+        if (p.marcadoPagadoManual) {
+          return;
+        }
+        let totalAPagar = 0;
+        if (p.frecuenciaCuota === "Personalizado") {
+          totalAPagar = (p.cuotasPersonalizadas || []).reduce((s, c) => s + (Number(c.monto) || 0), 0);
+        } else {
+          const meses = p.plazoUnidad === "años" ? (Number(p.plazo) || 0) * 12 : Number(p.plazo) || 0;
+          totalAPagar = (Number(p.cuota) || 0) * meses;
+        }
+        const pagosSnap = await getDocs(
+          query(collection(db, "movimientos"), where("prestamoId", "==", mov.prestamoId))
+        );
+        const totalPagadoSinEste = pagosSnap.docs
+          .filter((d) => d.id !== id)
+          .reduce((s, d) => s + (Number(d.data().amount) || 0), 0);
+        if (totalAPagar > 0 && totalPagadoSinEste < totalAPagar) {
+          await updateDoc(prestamoRef, { estado: "Activo" });
+        }
+      }
+    }
+  } catch (err) {
+    console.error("No se pudo revisar/revertir el estado del préstamo tras eliminar este movimiento:", err);
+  }
+
+  // Si este movimiento generó un cofre de recompensa (por cancelar un
+  // préstamo), se revierte el premio correspondiente antes de eliminarlo —
+  // el bono de puntos extra ya se revierte con el bloque de puntos de
+  // arriba (comparten el mismo movimientoId), aquí se manejan los otros 3
+  // tipos de premio.
+  try {
+    const cofreRef = doc(db, "cofresGanados", `cofre_${id}`);
+    const cofreSnap = await getDoc(cofreRef);
+    if (cofreSnap.exists()) {
+      const cofre = cofreSnap.data();
+      if (cofre.premio === "multiplicador") {
+        await setDoc(doc(db, "config", "recompensas"), { multiplicador: { activo: false } }, { merge: true });
+      } else if (cofre.premio === "protectorRacha") {
+        await setDoc(doc(db, "config", "recompensas"), { protectoresRacha: increment(-1) }, { merge: true });
+      } else if (cofre.premio === "insignia" && cofre.detalle?.insignia) {
+        await setDoc(doc(db, "config", "recompensas"), { insignias: arrayRemove(cofre.detalle.insignia) }, { merge: true });
+      }
+      await deleteDoc(cofreRef);
+    }
+  } catch (err) {
+    console.error("No se pudo revertir el cofre de recompensa de este movimiento:", err);
+  }
+
+  await deleteDoc(doc(db, "movimientos", id));
+}
+
+// Recalcula el estado de un préstamo (marcando como "Pagado" si los pagos registrados
+// cubren o superan el total a pagar). Si un préstamo ya está marcado como "Pagado"
+// (o "En mora"), nunca se degrada automáticamente a "Activo" para respetar la decisión
+// del usuario y evitar que préstamos saldados fuera de la app o marcados manualmente
+// vuelvan a "Activo" al recargar la página.
+export async function recalcularEstadoPrestamo(prestamoId) {
+  const prestamoRef = doc(db, "prestamos", prestamoId);
+  const prestamoSnap = await getDoc(prestamoRef);
+  if (!prestamoSnap.exists()) throw new Error("No se encontró ese préstamo");
+  const p = prestamoSnap.data();
+
+  // Si ya está marcado como Pagado o En mora, o marcado manualmente como Pagado,
+  // se respeta su estado y no se sobreescribe
+  if (p.estado === "Pagado" || p.marcadoPagadoManual || p.estado === "En mora") {
+    return { estadoAnterior: p.estado, estadoNuevo: p.estado, totalPagado: 0, totalAPagar: 0 };
+  }
+
+  let totalAPagar = 0;
+  if (p.frecuenciaCuota === "Personalizado") {
+    totalAPagar = (p.cuotasPersonalizadas || []).reduce((s, c) => s + (Number(c.monto) || 0), 0);
+  } else {
+    const meses = p.plazoUnidad === "años" ? (Number(p.plazo) || 0) * 12 : Number(p.plazo) || 0;
+    totalAPagar = (Number(p.cuota) || 0) * meses;
+  }
+
+  const pagosSnap = await getDocs(query(collection(db, "movimientos"), where("prestamoId", "==", prestamoId)));
+  const totalPagado = pagosSnap.docs.reduce((s, d) => s + (Number(d.data().amount) || 0), 0);
+
+  // Solo se promueve a "Pagado" si los pagos registrados cubren o superan el total a pagar
+  if (totalAPagar > 0 && totalPagado >= totalAPagar) {
+    await updateDoc(prestamoRef, { estado: "Pagado" });
+    return { estadoAnterior: p.estado, estadoNuevo: "Pagado", totalPagado, totalAPagar };
+  }
+
+  return { estadoAnterior: p.estado, estadoNuevo: p.estado, totalPagado, totalAPagar };
+}
+
+// Verifica el estado de los préstamos al iniciar la app para marcar automáticamente
+// como "Pagados" aquellos cuyas cuotas o pagos ya sumen el total adeudado.
+// Omite cualquier préstamo que ya esté en "Pagado", "En mora" o marcado manualmente.
+export async function verificarEstadoTodosPrestamos() {
+  const prestamosSnap = await getDocs(collection(db, "prestamos"));
+  for (const prestamoDoc of prestamosSnap.docs) {
+    try {
+      const data = prestamoDoc.data();
+      if (data.estado === "Pagado" || data.estado === "En mora" || data.marcadoPagadoManual) {
+        continue;
+      }
+      await recalcularEstadoPrestamo(prestamoDoc.id);
+    } catch (err) {
+      console.error(`No se pudo verificar el préstamo ${prestamoDoc.id}:`, err);
+    }
+  }
+}
+
+// Arreglo puntual, de una sola vez: el préstamo PT07 quedó marcado "Pagado"
+// después de haberse eliminado el pago que lo saldaba (antes de que
+// existiera la corrección automática en deleteMovimiento) — esto lo dejó
+// bloqueado en el Checklist sin poder desmarcarse. Recalcula su estado real
+// según sus movimientos actuales, una sola vez.
+export async function aplicarArregloPrestamoPT07_20260906() {
+  const flagRef = doc(db, "config", "fixPrestamoPT0720260906");
+  const flagSnap = await getDoc(flagRef);
+  if (flagSnap.exists() && flagSnap.data().aplicado) return;
+
+  const prestamosSnap = await getDocs(query(collection(db, "prestamos"), where("numero", "==", "PT07")));
+  if (!prestamosSnap.empty) {
+    await recalcularEstadoPrestamo(prestamosSnap.docs[0].id);
+  }
+  await setDoc(flagRef, { aplicado: true, aplicadoEn: serverTimestamp() });
+}
+
+export function watchPrestamos(onChange, onError) {
+  return onSnapshot(
+    collection(db, "prestamos"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.numero || "").localeCompare(b.numero || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addPrestamo({
+  numero,
+  tipo,
+  entidadId,
+  entidadName,
+  montoAprobado,
+  plazo,
+  plazoUnidad,
+  tasaInteres,
+  cuota,
+  fechaInicio,
+  estado,
+  notas,
+  notificarWhatsapp,
+  activoId,
+  activoNombre,
+  esRevolvente,
+  saldoActual,
+  montoMinimoRetiro,
+  frecuenciaCuota,
+  cuotasPersonalizadas,
+  metodoPago,
+  cuentaDestinoId,
+  cuentaDestinoBanco,
+  cuentaDestinoNumero,
+  cuentaDestinoBeneficiario,
+  cuentaDestinoTipo,
+}) {
+  await addDoc(collection(db, "prestamos"), {
+    numero,
+    tipo: tipo || "Otro",
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    activoId: activoId || null,
+    activoNombre: activoNombre || "",
+    esRevolvente: !!esRevolvente,
+    saldoActual: saldoActual ?? null,
+    montoMinimoRetiro: montoMinimoRetiro ?? null,
+    montoAprobado,
+    plazo,
+    plazoUnidad,
+    tasaInteres,
+    cuota: cuota ?? null,
+    fechaInicio,
+    estado,
+    notas: notas || "",
+    notificarWhatsapp: !!notificarWhatsapp,
+    frecuenciaCuota: frecuenciaCuota || "Mensual",
+    cuotasPersonalizadas: cuotasPersonalizadas || [],
+    metodoPago: metodoPago || "Transferencia",
+    cuentaDestinoId: cuentaDestinoId || null,
+    cuentaDestinoBanco: cuentaDestinoBanco || "",
+    cuentaDestinoNumero: cuentaDestinoNumero || "",
+    cuentaDestinoBeneficiario: cuentaDestinoBeneficiario || "",
+    cuentaDestinoTipo: cuentaDestinoTipo || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updatePrestamoEstado(id, estado) {
+  const updates = { estado };
+  if (estado === "Pagado") {
+    updates.marcadoPagadoManual = true;
+    updates.fechaSaldado = new Date().toISOString();
+  } else {
+    updates.marcadoPagadoManual = false;
+  }
+  await updateDoc(doc(db, "prestamos", id), updates);
+}
+
+export async function updatePrestamo(id, fields) {
+  const updates = { ...fields };
+  if (fields.estado === "Pagado") {
+    updates.marcadoPagadoManual = true;
+    if (!updates.fechaSaldado) {
+      updates.fechaSaldado = new Date().toISOString();
+    }
+  } else if (fields.estado && fields.estado !== "Pagado") {
+    updates.marcadoPagadoManual = false;
+  }
+  await updateDoc(doc(db, "prestamos", id), updates);
+}
+
+// Mueve la cuota que naturalmente cae en (origenMonth, origenYear) hacia
+// cualquier otra quincena/mes/año destino (incluso cruzando de mes), sin
+// cambiar la configuración general del préstamo.
+export async function setPrestamoQuincenaOverride(id, origenYear, origenMonth, destino) {
+  await updateDoc(doc(db, "prestamos", id), {
+    [`quincenaOverrides.${origenMonth}-${origenYear}`]: destino,
+  });
+}
+
+export async function quitarPrestamoQuincenaOverride(id, origenYear, origenMonth) {
+  await updateDoc(doc(db, "prestamos", id), {
+    [`quincenaOverrides.${origenMonth}-${origenYear}`]: deleteField(),
+  });
+}
+
+export async function setPrestamoCuotaPersonalizadaFechaOverride(id, fechaOriginal, fechaDestino) {
+  await updateDoc(doc(db, "prestamos", id), {
+    [`cuotasPersonalizadasOverrides.${fechaOriginal}`]: fechaDestino,
+  });
+}
+
+export async function quitarPrestamoCuotaPersonalizadaFechaOverride(id, fechaOriginal) {
+  await updateDoc(doc(db, "prestamos", id), {
+    [`cuotasPersonalizadasOverrides.${fechaOriginal}`]: deleteField(),
+  });
+}
+
+export async function deletePrestamo(id) {
+  await deleteDoc(doc(db, "prestamos", id));
+}
+
+export function watchCuentas(onChange, onError) {
+  return onSnapshot(
+    collection(db, "cuentas"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addCuenta({ nombre, tipo, entidadId, entidadName, numeroCuenta, saldoInicial, notas }) {
+  await addDoc(collection(db, "cuentas"), {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    numeroCuenta: numeroCuenta || "",
+    saldoInicial: saldoInicial ?? null,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateCuenta(id, fields) {
+  await updateDoc(doc(db, "cuentas", id), fields);
+}
+
+export async function deleteCuenta(id) {
+  await deleteDoc(doc(db, "cuentas", id));
+}
+
+export function watchTarjetas(onChange, onError) {
+  return onSnapshot(
+    collection(db, "tarjetas"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addTarjeta({
+  nombre,
+  tipoTarjeta,
+  entidadId,
+  entidadName,
+  ultimos4,
+  limiteCredito,
+  tasaInteres,
+  pagoMinimo,
+  fechaCorte,
+  fechaPago,
+  estado,
+  notas,
+  color,
+  marca,
+  saldoActual,
+  tieneMonedaSecundaria,
+  limiteCreditoUSD,
+  pagoMinimoUSD,
+  saldoActualUSD,
+  tasaTAE,
+  montoMora,
+  diasGracia,
+  fechaVencimientoPlastico,
+  categoriasHabilitadas,
+}) {
+  await addDoc(collection(db, "tarjetas"), {
+    nombre,
+    tipoTarjeta: tipoTarjeta || "Crédito",
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    ultimos4: ultimos4 || "",
+    limiteCredito: limiteCredito ?? null,
+    tasaInteres: tasaInteres ?? null,
+    pagoMinimo: pagoMinimo ?? null,
+    fechaCorte: fechaCorte ?? null,
+    fechaPago: fechaPago ?? null,
+    estado,
+    notas: notas || "",
+    color: color || "azul",
+    marca: marca || "Otra",
+    saldoActual: saldoActual ?? null,
+    tieneMonedaSecundaria: !!tieneMonedaSecundaria,
+    limiteCreditoUSD: limiteCreditoUSD ?? null,
+    pagoMinimoUSD: pagoMinimoUSD ?? null,
+    saldoActualUSD: saldoActualUSD ?? null,
+    tasaTAE: tasaTAE ?? null,
+    montoMora: montoMora ?? null,
+    diasGracia: diasGracia ?? 22,
+    fechaVencimientoPlastico: fechaVencimientoPlastico ?? null,
+    categoriasHabilitadas: categoriasHabilitadas ?? null,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateTarjeta(id, fields) {
+  await updateDoc(doc(db, "tarjetas", id), fields);
+}
+
+export async function updateTarjetaEstado(id, estado) {
+  await updateDoc(doc(db, "tarjetas", id), { estado });
+}
+
+export async function deleteTarjeta(id) {
+  await deleteDoc(doc(db, "tarjetas", id));
+}
+
+// Sincroniza o actualiza los saldos en RD$ y US$ de la Tarjeta de Crédito Local (terminación 6011)
+export async function sincronizarTarjetaCreditoLocal() {
+  const tarjetasSnap = await getDocs(collection(db, "tarjetas"));
+  let encontrada = false;
+
+  for (const docSnap of tarjetasSnap.docs) {
+    const data = docSnap.data();
+    const u4 = (data.ultimos4 || "").trim();
+    const nom = (data.nombre || "").toLowerCase();
+    const coincide = u4 === "6011" || nom.includes("local") || (tarjetasSnap.docs.length === 1 && (data.tipoTarjeta || "Crédito") === "Crédito");
+
+    if (coincide) {
+      encontrada = true;
+      const necesitaActualizar =
+        Number(data.saldoActual) !== 56741.60 ||
+        Number(data.saldoActualUSD) !== 397.70 ||
+        !data.tieneMonedaSecundaria ||
+        u4 !== "6011";
+
+      if (necesitaActualizar) {
+        await updateDoc(docSnap.ref, {
+          saldoActual: 56741.60,
+          saldoActualUSD: 397.70,
+          tieneMonedaSecundaria: true,
+          ultimos4: "6011",
+          ...(data.nombre ? {} : { nombre: "Tarjeta de Credito Local" }),
+        });
+      }
+      break;
+    }
+  }
+
+  // Si no había ninguna tarjeta registrada en la base de datos, crearla directamente
+  if (!encontrada && tarjetasSnap.empty) {
+    await addDoc(collection(db, "tarjetas"), {
+      nombre: "Tarjeta de Credito Local",
+      tipoTarjeta: "Crédito",
+      entidadId: null,
+      entidadName: "Banco",
+      ultimos4: "6011",
+      limiteCredito: 100000,
+      tasaInteres: null,
+      pagoMinimo: 2800,
+      fechaCorte: null,
+      fechaPago: null,
+      estado: "Activa",
+      notas: "Resumen de sus tarjetas",
+      color: "azul",
+      marca: "Visa",
+      saldoActual: 56741.60,
+      tieneMonedaSecundaria: true,
+      limiteCreditoUSD: 2000,
+      pagoMinimoUSD: 20,
+      saldoActualUSD: 397.70,
+      diasGracia: 22,
+      createdAt: serverTimestamp(),
+    });
+  }
+}
+
+// ---- Biblioteca: registro personal de libros (estilo Goodreads) ----
+export function watchLibros(onChange, onError) {
+  return onSnapshot(
+    collection(db, "libros"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => {
+        const oa = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const ob = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return ob - oa;
+      });
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addLibro({ titulo, autor, estado, genero, calificacion, notas, portadaUrl }) {
+  const tituloTrim = (titulo || "").trim();
+  if (!tituloTrim) throw new Error("Ponle un título al libro");
+  const docRef = await addDoc(collection(db, "libros"), {
+    titulo: tituloTrim,
+    autor: (autor || "").trim(),
+    estado: estado || "Pendiente",
+    genero: genero || "",
+    calificacion: calificacion || null,
+    notas: notas || "",
+    portadaUrl: portadaUrl || null,
+    fechaInicio: null,
+    fechaFin: null,
+    ultimaPosicion: null,
+    progresoPct: null,
+    createdAt: serverTimestamp(),
+  });
+  return docRef;
+}
+
+export async function updateLibro(id, fields) {
+  await updateDoc(doc(db, "libros", id), fields);
+}
+
+// Asegura que solo un libro esté marcado como "Leyendo" a la vez — pasa
+// cualquier otro que esté en ese estado a "Pendiente".
+export async function demoteOtrosLeyendo(exceptId) {
+  const librosSnap = await getDocs(query(collection(db, "libros"), where("estado", "==", "Leyendo")));
+  await Promise.all(
+    librosSnap.docs.filter((d) => d.id !== exceptId).map((d) => updateDoc(doc(db, "libros", d.id), { estado: "Pendiente" }))
+  );
+}
+
+// Marcadores de texto importante dentro de un libro (resaltados) — se
+// guardan como un array en el propio documento del libro, cada uno con la
+// posición exacta (CFI range) para poder volver a resaltarlos al reabrir.
+export async function agregarMarcadorLibro(id, marcador) {
+  await updateDoc(doc(db, "libros", id), { marcadores: arrayUnion(marcador) });
+}
+
+export async function quitarMarcadorLibro(id, marcador) {
+  await updateDoc(doc(db, "libros", id), { marcadores: arrayRemove(marcador) });
+}
+
+export async function deleteLibro(id) {
+  await deleteDoc(doc(db, "libros", id));
+}
+
+export function watchMembresias(onChange, onError) {
+  return onSnapshot(
+    collection(db, "membresias"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addMembresia({
+  nombre,
+  tipo,
+  entidadId,
+  entidadName,
+  costo,
+  frecuencia,
+  diaPago,
+  fechaInicio,
+  fechaExpiracion,
+  alertarExpiracion,
+  diasAvisoExpiracion,
+  diasAvisoPago,
+  estado,
+  notas,
+  color,
+  nivel,
+}) {
+  await addDoc(collection(db, "membresias"), {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    costo: costo ?? null,
+    frecuencia,
+    diaPago: diaPago ?? null,
+    fechaInicio: fechaInicio || null,
+    fechaExpiracion: fechaExpiracion || null,
+    alertarExpiracion: alertarExpiracion !== false,
+    diasAvisoExpiracion: diasAvisoExpiracion ? Number(diasAvisoExpiracion) : 5,
+    diasAvisoPago: diasAvisoPago ? Number(diasAvisoPago) : null,
+    color: color || "azul",
+    nivel: nivel || "",
+    estado,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateMembresia(id, fields) {
+  await updateDoc(doc(db, "membresias", id), fields);
+}
+
+export async function updateMembresiaEstado(id, estado) {
+  await updateDoc(doc(db, "membresias", id), { estado });
+}
+
+export async function deleteMembresia(id) {
+  await deleteDoc(doc(db, "membresias", id));
+}
+
+export function watchFuentesIngreso(onChange, onError) {
+  return onSnapshot(
+    collection(db, "fuentesIngreso"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addFuenteIngreso({
+  nombre,
+  tipo,
+  entidadId,
+  entidadName,
+  montoEsperado,
+  frecuencia,
+  diaPago,
+  estado,
+  notas,
+  codigoEmpleado,
+  diasVacacionesAnuales,
+}) {
+  await addDoc(collection(db, "fuentesIngreso"), {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    montoEsperado: montoEsperado ?? null,
+    frecuencia,
+    diaPago: diaPago || "",
+    estado,
+    notas: notas || "",
+    codigoEmpleado: codigoEmpleado || "",
+    diasVacacionesAnuales: diasVacacionesAnuales ?? null,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateFuenteIngreso(id, fields) {
+  await updateDoc(doc(db, "fuentesIngreso", id), fields);
+}
+
+export async function updateFuenteIngresoEstado(id, estado) {
+  await updateDoc(doc(db, "fuentesIngreso", id), { estado });
+}
+
+export async function deleteFuenteIngreso(id) {
+  await deleteDoc(doc(db, "fuentesIngreso", id));
+}
+
+export function watchIngresosPuntuales(onChange, onError) {
+  return onSnapshot(
+    collection(db, "ingresosPuntuales"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addIngresoPuntual({ fuenteIngresoId, fuenteIngresoNombre, tipo, monto, fecha, notas }) {
+  await addDoc(collection(db, "ingresosPuntuales"), {
+    fuenteIngresoId,
+    fuenteIngresoNombre: fuenteIngresoNombre || "",
+    tipo,
+    monto: monto ?? null,
+    fecha: fecha || null,
+    notas: notas || "",
+    recibido: false,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteIngresoPuntual(id) {
+  await deleteDoc(doc(db, "ingresosPuntuales", id));
+}
+
+// Marca un ingreso puntual como recibido y registra el movimiento
+// correspondiente. No debe poder revertirse una vez recibido.
+export async function marcarIngresoPuntualRecibido(id, ingreso) {
+  await addMovimiento({
+    type: "Ingreso",
+    category: ingreso.tipo,
+    amount: ingreso.monto,
+    description: `${ingreso.tipo} — ${ingreso.fuenteIngresoNombre}`,
+    date: ingreso.fecha || new Date().toISOString().slice(0, 10),
+    fuenteIngresoId: ingreso.fuenteIngresoId,
+    fuenteIngresoNombre: ingreso.fuenteIngresoNombre,
+  });
+  await updateDoc(doc(db, "ingresosPuntuales", id), { recibido: true });
+}
+
+export function watchCategoriasGasto(onChange, onError) {
+  return onSnapshot(
+    collection(db, "categoriasGasto"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addCategoriaGasto({ nombre, clasificacion, metodoPagoDefault, color, tipoGastoChecklist }) {
+  await addDoc(collection(db, "categoriasGasto"), {
+    nombre,
+    clasificacion,
+    metodoPagoDefault: metodoPagoDefault || "Efectivo",
+    color: color || null,
+    tipoGastoChecklist: tipoGastoChecklist || null,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateCategoriaGasto(id, fields) {
+  await updateDoc(doc(db, "categoriasGasto", id), fields);
+}
+
+export async function deleteCategoriaGasto(id) {
+  await deleteDoc(doc(db, "categoriasGasto", id));
+}
+
+export function watchPresupuestoAnual(year, onChange, onError) {
+  return onSnapshot(
+    doc(db, "presupuestos", String(year)),
+    (snap) => onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchPresupuestosHistoricos(onChange, onError) {
+  return onSnapshot(
+    collection(db, "presupuestos"),
+    (snap) => onChange(Object.fromEntries(snap.docs.map((d) => [d.id, d.data()]))),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function setPresupuestoCelda(year, category, month, quincena, amount) {
+  await setDoc(
+    doc(db, "presupuestos", String(year)),
+    { [category]: { [String(month)]: { [quincena]: amount } } },
+    { merge: true }
+  );
+}
+
+export async function setPresupuestoBatch(year, dataByCat) {
+  if (!year || !dataByCat || Object.keys(dataByCat).length === 0) return;
+  await setDoc(
+    doc(db, "presupuestos", String(year)),
+    dataByCat,
+    { merge: true }
+  );
+}
+
+// Transferencias de gastos fijos y rubros presupuestados entre quincenas
+export function watchTransferenciasPresupuesto(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "transferenciasPresupuesto"),
+    (snap) => onChange(snap.exists() ? snap.data().transferencias || [] : []),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function moverGastoQuincena({ categoria, monto, origen, destino, motivo }) {
+  if (!categoria || !origen || !destino) return;
+  const montoNum = Number(monto) || 0;
+  if (montoNum <= 0) return;
+
+  const origenDocRef = doc(db, "presupuestos", String(origen.year));
+  const destinoDocRef = doc(db, "presupuestos", String(destino.year));
+
+  const origenSnap = await getDoc(origenDocRef);
+  const origenData = origenSnap.exists() ? origenSnap.data() : {};
+  const actualOrigen = Number(origenData?.[categoria]?.[String(origen.month)]?.[origen.quincena]) || 0;
+  const nuevoOrigen = Math.max(0, actualOrigen - montoNum);
+
+  if (origen.year === destino.year) {
+    if (String(origen.month) === String(destino.month)) {
+      const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+      const nuevoDestino = actualDestino + montoNum;
+
+      await setDoc(
+        origenDocRef,
+        {
+          [categoria]: {
+            [String(origen.month)]: {
+              [origen.quincena]: nuevoOrigen,
+              [destino.quincena]: nuevoDestino,
+            },
+          },
+        },
+        { merge: true }
+      );
+    } else {
+      const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+      const nuevoDestino = actualDestino + montoNum;
+
+      await setDoc(
+        origenDocRef,
+        {
+          [categoria]: {
+            [String(origen.month)]: { [origen.quincena]: nuevoOrigen },
+            [String(destino.month)]: { [destino.quincena]: nuevoDestino },
+          },
+        },
+        { merge: true }
+      );
+    }
+  } else {
+    const destinoSnap = await getDoc(destinoDocRef);
+    const destinoData = destinoSnap.exists() ? destinoSnap.data() : {};
+    const actualDestino = Number(destinoData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+    const nuevoDestino = actualDestino + montoNum;
+
+    await setDoc(
+      origenDocRef,
+      { [categoria]: { [String(origen.month)]: { [origen.quincena]: nuevoOrigen } } },
+      { merge: true }
+    );
+    await setDoc(
+      destinoDocRef,
+      { [categoria]: { [String(destino.month)]: { [destino.quincena]: nuevoDestino } } },
+      { merge: true }
+    );
+  }
+
+  // Si el origen queda en 0 o menos, asegurar limpiar el item en checklistPagos para que no quede residuo
+  if (nuevoOrigen <= 0) {
+    try {
+      const origenPeriodoKey = `${origen.year}-${origen.month}-${origen.quincena}`;
+      await setDoc(
+        doc(db, "checklistPagos", origenPeriodoKey),
+        { items: { [categoria]: { pagado: false, montoOverride: null } } },
+        { merge: true }
+      );
+    } catch {}
+  }
+
+  const transfId = `${categoria}_${origen.year}_${origen.month}_${origen.quincena}_${destino.year}_${destino.month}_${destino.quincena}_${Date.now()}`;
+  const transfRecord = {
+    id: transfId,
+    categoria,
+    monto: montoNum,
+    origen: { year: origen.year, month: origen.month, quincena: origen.quincena },
+    destino: { year: destino.year, month: destino.month, quincena: destino.quincena },
+    motivo: motivo || "Mover a otra quincena",
+    fecha: new Date().toISOString(),
+  };
+
+  const transfDocRef = doc(db, "config", "transferenciasPresupuesto");
+  const transfSnap = await getDoc(transfDocRef);
+  const listaActual = transfSnap.exists() ? transfSnap.data().transferencias || [] : [];
+  await setDoc(
+    transfDocRef,
+    { transferencias: [...listaActual, transfRecord], updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+
+  return transfRecord;
+}
+
+export async function revertirMoverGastoQuincena(transferencia) {
+  if (!transferencia || !transferencia.categoria || !transferencia.origen || !transferencia.destino) return;
+  const { categoria, monto, origen, destino, id } = transferencia;
+  const montoNum = Number(monto) || 0;
+
+  const origenDocRef = doc(db, "presupuestos", String(origen.year));
+  const destinoDocRef = doc(db, "presupuestos", String(destino.year));
+
+  const origenSnap = await getDoc(origenDocRef);
+  const origenData = origenSnap.exists() ? origenSnap.data() : {};
+  const actualOrigen = Number(origenData?.[categoria]?.[String(origen.month)]?.[origen.quincena]) || 0;
+  const restauradoOrigen = actualOrigen + montoNum;
+
+  if (origen.year === destino.year) {
+    if (String(origen.month) === String(destino.month)) {
+      const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+      const restauradoDestino = Math.max(0, actualDestino - montoNum);
+
+      await setDoc(
+        origenDocRef,
+        {
+          [categoria]: {
+            [String(origen.month)]: {
+              [origen.quincena]: restauradoOrigen,
+              [destino.quincena]: restauradoDestino,
+            },
+          },
+        },
+        { merge: true }
+      );
+    } else {
+      const actualDestino = Number(origenData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+      const restauradoDestino = Math.max(0, actualDestino - montoNum);
+
+      await setDoc(
+        origenDocRef,
+        {
+          [categoria]: {
+            [String(origen.month)]: { [origen.quincena]: restauradoOrigen },
+            [String(destino.month)]: { [destino.quincena]: restauradoDestino },
+          },
+        },
+        { merge: true }
+      );
+    }
+  } else {
+    const destinoSnap = await getDoc(destinoDocRef);
+    const destinoData = destinoSnap.exists() ? destinoSnap.data() : {};
+    const actualDestino = Number(destinoData?.[categoria]?.[String(destino.month)]?.[destino.quincena]) || 0;
+    const restauradoDestino = Math.max(0, actualDestino - montoNum);
+
+    await setDoc(
+      origenDocRef,
+      { [categoria]: { [String(origen.month)]: { [origen.quincena]: restauradoOrigen } } },
+      { merge: true }
+    );
+    await setDoc(
+      destinoDocRef,
+      { [categoria]: { [String(destino.month)]: { [destino.quincena]: restauradoDestino } } },
+      { merge: true }
+    );
+  }
+
+  const transfDocRef = doc(db, "config", "transferenciasPresupuesto");
+  const transfSnap = await getDoc(transfDocRef);
+  if (transfSnap.exists()) {
+    const lista = transfSnap.data().transferencias || [];
+    const filtrada = lista.filter((t) => t.id !== id);
+    await setDoc(transfDocRef, { transferencias: filtrada, updatedAt: serverTimestamp() }, { merge: true });
+  }
+}
+
+const CONFIG_METODOLOGIA_KEY = "smart-finance-metodologia-config";
+
+export function watchMetodologiaPresupuestoConfig(onChange, onError) {
+  const getLocal = () => {
+    try {
+      const saved = localStorage.getItem(CONFIG_METODOLOGIA_KEY);
+      return saved ? JSON.parse(saved) : { metodologia: "50-30-20", pilares: {}, customPct: { necesidad: 50, deseo: 30, ahorro: 20 } };
+    } catch {
+      return { metodologia: "50-30-20", pilares: {}, customPct: { necesidad: 50, deseo: 30, ahorro: 20 } };
+    }
+  };
+
+  return onSnapshot(
+    doc(db, "config", "metodologiaPresupuesto"),
+    (snap) => {
+      if (snap.exists()) {
+        const d = snap.data();
+        try { localStorage.setItem(CONFIG_METODOLOGIA_KEY, JSON.stringify(d)); } catch {}
+        onChange(d);
+      } else {
+        onChange(getLocal());
+      }
+    },
+    (err) => {
+      console.warn("Metodología config Firestore fallback a local:", err);
+      onChange(getLocal());
+      if (onError) onError(err);
+    }
+  );
+}
+
+export async function saveMetodologiaPresupuestoConfig(config) {
+  try {
+    localStorage.setItem(CONFIG_METODOLOGIA_KEY, JSON.stringify(config));
+  } catch {}
+  try {
+    await setDoc(doc(db, "config", "metodologiaPresupuesto"), config, { merge: true });
+  } catch (err) {
+    console.warn("No se pudo sincronizar configuración de metodología con Firestore:", err);
+  }
+}
+
+export function watchContratos(onChange, onError) {
+  return onSnapshot(
+    collection(db, "contratos"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addContrato({
+  nombre,
+  tipo,
+  entidadId,
+  entidadName,
+  numeroContrato,
+  montoEstimado,
+  diaPago,
+  estado,
+  notas,
+}) {
+  await addDoc(collection(db, "contratos"), {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    numeroContrato: numeroContrato || "",
+    montoEstimado: montoEstimado ?? null,
+    diaPago: diaPago ?? null,
+    estado,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateContrato(id, fields) {
+  await updateDoc(doc(db, "contratos", id), fields);
+}
+
+export async function updateContratoEstado(id, estado) {
+  await updateDoc(doc(db, "contratos", id), { estado });
+}
+
+export async function deleteContrato(id) {
+  await deleteDoc(doc(db, "contratos", id));
+}
+
+export function watchFlujo(onChange, onError) {
+  return onSnapshot(
+    doc(db, "flujo", "diagrama"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveFlujo(nodes, edges, viewport) {
+  await setDoc(doc(db, "flujo", "diagrama"), { nodes, edges, viewport: viewport || null, updatedAt: serverTimestamp() });
+}
+
+export function watchAcciones(onChange, onError) {
+  return onSnapshot(
+    collection(db, "acciones"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.symbol || "").localeCompare(b.symbol || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addAccion({ symbol, nombre }) {
+  await addDoc(collection(db, "acciones"), { symbol: symbol.toUpperCase(), nombre: nombre || "", createdAt: serverTimestamp() });
+}
+
+export async function deleteAccion(id) {
+  await deleteDoc(doc(db, "acciones", id));
+}
+
+export function watchAccionesConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "acciones"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveAccionesConfig(apiKey) {
+  await setDoc(doc(db, "config", "acciones"), { apiKey });
+}
+
+export function watchAccionesPrecios(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "accionesPrecios"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveAccionesPrecios(prices, symbols) {
+  await setDoc(doc(db, "config", "accionesPrecios"), {
+    prices,
+    symbols,
+    fetchedAt: serverTimestamp(),
+  });
+}
+
+export function watchTipoCambioCache(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "tipoCambio"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveTipoCambioCache(rates) {
+  await setDoc(doc(db, "config", "tipoCambio"), { rates, fetchedAt: serverTimestamp() });
+}
+
+export function watchNotifConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "notificaciones"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveNotifConfig(email) {
+  await setDoc(doc(db, "config", "notificaciones"), { email });
+}
+
+export function watchWhatsappNotifConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "whatsappNotif"),
+    (snap) => onChange(snap.exists() ? snap.data() : { activo: true }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveWhatsappNotifConfig(data) {
+  await setDoc(doc(db, "config", "whatsappNotif"), data, { merge: true });
+}
+
+// Estrategia de pago de deudas activa (avalancha o bola de nieve) — se
+// guarda para poder mencionarla en las notificaciones cuando la deuda
+// prioritaria según ese plan esté atrasada.
+// Mundos del Mapa de progreso que ya fueron premiados con puntos, para no
+// volver a otorgarlos cada vez que se recalcula el mapa (que se completó
+// una vez, se queda completado).
+export function watchMundosPremiados(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "mapaProgreso"),
+    (snap) => onChange(snap.exists() ? snap.data()?.premiados || [] : []),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function premiarMundoCompletado(mundoId, puntos, nombreMundo) {
+  const ref = doc(db, "config", "mapaProgreso");
+  const snap = await getDoc(ref);
+  const yaPremiados = snap.exists() ? snap.data()?.premiados || [] : [];
+  if (yaPremiados.includes(mundoId)) return; // ya se otorgó antes, no duplicar
+  await otorgarPuntos(`¡Mundo completado! ${nombreMundo}`, puntos, "mapaProgreso");
+  await setDoc(ref, { premiados: arrayUnion(mundoId) }, { merge: true });
+}
+
+// "Fondos autosostenibles" — capital invertido por cada gasto fijo cuyo
+// rendimiento se supone que paga ese gasto indefinidamente.
+export function watchFondosSostenibles(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "fondosSostenibles"),
+    (snap) => onChange(snap.exists() ? snap.data()?.fondos || {} : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function activarFondoSostenible(categoriaNombre) {
+  const ref = doc(db, "config", "fondosSostenibles");
+  const snap = await getDoc(ref);
+  const fondos = snap.exists() ? snap.data()?.fondos || {} : {};
+  fondos[categoriaNombre] = { activo: true, montoAcumulado: fondos[categoriaNombre]?.montoAcumulado || 0 };
+  await setDoc(ref, { fondos }, { merge: true });
+}
+
+export async function desactivarFondoSostenible(categoriaNombre) {
+  const ref = doc(db, "config", "fondosSostenibles");
+  const snap = await getDoc(ref);
+  const fondos = snap.exists() ? snap.data()?.fondos || {} : {};
+  if (fondos[categoriaNombre]) fondos[categoriaNombre].activo = false;
+  await setDoc(ref, { fondos }, { merge: true });
+}
+
+export async function actualizarMontoFondoSostenible(categoriaNombre, monto) {
+  const ref = doc(db, "config", "fondosSostenibles");
+  const snap = await getDoc(ref);
+  const fondos = snap.exists() ? snap.data()?.fondos || {} : {};
+  fondos[categoriaNombre] = { ...(fondos[categoriaNombre] || { activo: true }), montoAcumulado: Number(monto) || 0 };
+  await setDoc(ref, { fondos }, { merge: true });
+}
+
+export function watchEstrategiaDeudas(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "estrategiaDeudas"),
+    (snap) => onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function activarEstrategiaDeudas(metodo) {
+  await setDoc(doc(db, "config", "estrategiaDeudas"), { activo: true, metodo });
+}
+
+export async function desactivarEstrategiaDeudas() {
+  await setDoc(doc(db, "config", "estrategiaDeudas"), { activo: false }, { merge: true });
+}
+
+// "Pago rápido" — activa destinar todo el excedente disponible (después de
+// gastos fijos y cuotas mínimas) a acelerar el pago de una deuda
+// específica, sin comprometer los gastos fijos.
+export function watchPagoRapido(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "pagoRapido"),
+    (snap) => onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function activarPagoRapido(deudaId, deudaNombre, extraMensual) {
+  await setDoc(doc(db, "config", "pagoRapido"), { activo: true, deudaId, deudaNombre, extraMensual });
+}
+
+export async function desactivarPagoRapido() {
+  await setDoc(doc(db, "config", "pagoRapido"), { activo: false }, { merge: true });
+}
+
+// ---- Integración: registro automático de gastos desde correo (Banco Popular) ----
+// El toggle "activo" lo lee la Cloud Function antes de registrar cualquier
+// gasto — si está apagado, ignora los correos aunque el Apps Script siga
+// corriendo cada 15 min (así se controla desde la app sin tocar el script).
+export function watchIntegracionCorreoConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "integracionCorreo"),
+    (snap) => onChange(snap.exists() ? snap.data() : { activo: true, tarjetas: ["6011"] }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveIntegracionCorreoConfig({ activo, tarjetas }) {
+  await setDoc(doc(db, "config", "integracionCorreo"), { activo, tarjetas: tarjetas || [] }, { merge: true });
+}
+
+// Estado de la última sincronización — lo escribe la Cloud Function cada
+// vez que el Apps Script la llama, para poder ver desde la app cuándo fue
+// la última vez que corrió y con qué resultado.
+export function watchIntegracionCorreoEstado(onChange, onError) {
+  return onSnapshot(
+    doc(db, "estado", "integracionCorreo"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchDiezmoConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "diezmo"),
+    (snap) => onChange(snap.exists() ? snap.data() : { activo: false, porcentaje: 10 }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveDiezmoConfig({ activo, porcentaje }) {
+  await setDoc(doc(db, "config", "diezmo"), { activo: !!activo, porcentaje: porcentaje ?? 10 });
+}
+
+export function watchAhorroAutoConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "ahorroAutomatico"),
+    (snap) => onChange(snap.exists() ? snap.data() : { activo: false, porcentaje: 10, condicionadoADeuda: true }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveAhorroAutoConfig({ activo, porcentaje, condicionadoADeuda }) {
+  await setDoc(doc(db, "config", "ahorroAutomatico"), {
+    activo: !!activo,
+    porcentaje: porcentaje ?? 10,
+    condicionadoADeuda: condicionadoADeuda !== false,
+  });
+}
+
+export function watchCombustibleConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "combustible"),
+    (snap) => onChange(snap.exists() ? snap.data() : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveCombustibleConfig(precios) {
+  await setDoc(doc(db, "config", "combustible"), { precios, updatedAt: serverTimestamp(), actualizadoAutomaticamente: false, semana: null });
+}
+
+export function watchChecklistPeriodo(periodoKey, onChange, onError) {
+  return onSnapshot(
+    doc(db, "checklistPagos", periodoKey),
+    (snap) => onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+// Trae TODOS los períodos del checklist a la vez (usado para calcular la
+// racha de quincenas cumplidas). La colección es pequeña (una quincena a la
+// vez), así que traerla completa es económico.
+export function watchChecklistTodos(onChange, onError) {
+  return onSnapshot(
+    collection(db, "checklistPagos"),
+    (snap) => {
+      const map = {};
+      snap.docs.forEach((d) => {
+        map[d.id] = d.data();
+      });
+      onChange(map);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function setChecklistItem(periodoKey, itemKey, fields) {
+  await setDoc(doc(db, "checklistPagos", periodoKey), { items: { [itemKey]: fields } }, { merge: true });
+}
+
+export function watchInicioOrden(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "inicioOrden"),
+    (snap) => onChange(snap.exists() ? snap.data().orden : null),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveInicioOrden(orden) {
+  await setDoc(doc(db, "config", "inicioOrden"), { orden });
+}
+
+export function watchCalendario(onChange, onError) {
+  return onSnapshot(
+    collection(db, "calendario"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => `${a.fecha || ""}${a.hora || ""}`.localeCompare(`${b.fecha || ""}${b.hora || ""}`));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addEvento({ titulo, tipo, fecha, hora, entidadId, entidadName, diasAviso, estado, notas, categoriaGasto, montoEstimado, tipoMantenimiento, activoId, activoNombre, kilometraje }) {
+  await addDoc(collection(db, "calendario"), {
+    titulo,
+    tipo,
+    fecha,
+    hora: hora || "",
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    diasAviso: diasAviso ?? 1,
+    estado: estado || "Pendiente",
+    notas: notas || "",
+    categoriaGasto: categoriaGasto || null,
+    montoEstimado: montoEstimado ?? null,
+    tipoMantenimiento: tipoMantenimiento || null,
+    activoId: activoId || null,
+    activoNombre: activoNombre || null,
+    kilometraje: kilometraje ?? null,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateEvento(id, fields) {
+  await updateDoc(doc(db, "calendario", id), fields);
+}
+
+export async function updateEventoEstado(id, estado) {
+  await updateDoc(doc(db, "calendario", id), { estado });
+}
+
+export async function deleteEvento(id) {
+  await deleteDoc(doc(db, "calendario", id));
+}
+
+export function watchActivos(onChange, onError) {
+  return onSnapshot(
+    collection(db, "activos"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addActivo({
+  nombre,
+  tipo,
+  marca,
+  modelo,
+  anio,
+  identificador,
+  fechaCompra,
+  valorCompra,
+  proximoMantenimiento,
+  estado,
+  notas,
+}) {
+  await addDoc(collection(db, "activos"), {
+    nombre,
+    tipo,
+    marca: marca || "",
+    modelo: modelo || "",
+    anio: anio ?? null,
+    identificador: identificador || "",
+    fechaCompra: fechaCompra || null,
+    valorCompra: valorCompra ?? null,
+    proximoMantenimiento: proximoMantenimiento || null,
+    estado: estado || "Activo",
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateActivo(id, fields) {
+  await updateDoc(doc(db, "activos", id), fields);
+}
+
+export async function updateActivoEstado(id, estado) {
+  await updateDoc(doc(db, "activos", id), { estado });
+}
+
+export async function deleteActivo(id) {
+  await deleteDoc(doc(db, "activos", id));
+}
+
+export function watchMantenimientos(onChange, onError) {
+  return onSnapshot(
+    collection(db, "mantenimientos"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addMantenimiento({ activoId, activoNombre, fecha, tipo, costo, kilometraje, notas }) {
+  await addDoc(collection(db, "mantenimientos"), {
+    activoId,
+    activoNombre: activoNombre || "",
+    fecha,
+    tipo,
+    costo: costo ?? null,
+    kilometraje: kilometraje ?? null,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function deleteMantenimiento(id) {
+  await deleteDoc(doc(db, "mantenimientos", id));
+}
+
+export function watchMetasAhorro(onChange, onError) {
+  return onSnapshot(
+    collection(db, "metasAhorro"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addMetaAhorro({
+  nombre,
+  tipoMeta,
+  cuentaId,
+  cuentaNombre,
+  montoObjetivo,
+  porcentaje,
+  fechaInicio,
+  fechaObjetivo,
+  estado,
+  notas,
+  categoria,
+  icono,
+  activoId,
+}) {
+  await addDoc(collection(db, "metasAhorro"), {
+    nombre,
+    tipoMeta,
+    cuentaId: cuentaId || null,
+    cuentaNombre: cuentaNombre || "",
+    montoObjetivo: montoObjetivo ?? null,
+    porcentaje: porcentaje ?? null,
+    fechaInicio: fechaInicio || null,
+    fechaObjetivo: fechaObjetivo || null,
+    estado: estado || "Activa",
+    notas: notas || "",
+    categoria: categoria || null,
+    icono: icono || null,
+    activoId: activoId || null,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateMetaAhorro(id, fields) {
+  await updateDoc(doc(db, "metasAhorro", id), fields);
+}
+
+export async function updateMetaAhorroEstado(id, estado) {
+  await updateDoc(doc(db, "metasAhorro", id), { estado });
+}
+
+export async function deleteMetaAhorro(id) {
+  await deleteDoc(doc(db, "metasAhorro", id));
+}
+
+export function watchSeguros(onChange, onError) {
+  return onSnapshot(
+    collection(db, "seguros"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addSeguro({
+  nombre,
+  tipo,
+  entidadId,
+  entidadName,
+  activoId,
+  activoNombre,
+  numeroPoliza,
+  fechaInicio,
+  fechaVencimiento,
+  primaMonto,
+  primaFrecuencia,
+  diasAviso,
+  estado,
+  notas,
+}) {
+  await addDoc(collection(db, "seguros"), {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    activoId: activoId || null,
+    activoNombre: activoNombre || "",
+    numeroPoliza: numeroPoliza || "",
+    fechaInicio: fechaInicio || null,
+    fechaVencimiento: fechaVencimiento || null,
+    primaMonto: primaMonto ?? null,
+    primaFrecuencia: primaFrecuencia || "Anual",
+    diasAviso: diasAviso ?? 15,
+    estado: estado || "Activo",
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateSeguro(id, fields) {
+  await updateDoc(doc(db, "seguros", id), fields);
+}
+
+export async function updateSeguroEstado(id, estado) {
+  await updateDoc(doc(db, "seguros", id), { estado });
+}
+
+export async function deleteSeguro(id) {
+  await deleteDoc(doc(db, "seguros", id));
+}
+
+export function watchRenovaciones(onChange, onError) {
+  return onSnapshot(
+    collection(db, "renovaciones"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addRenovacion({
+  nombre,
+  tipo,
+  entidadId,
+  entidadName,
+  activoId,
+  activoNombre,
+  numeroReferencia,
+  fechaInicio,
+  fechaVencimiento,
+  monto,
+  diasAviso,
+  estado,
+  categoriaGasto,
+  notas,
+}) {
+  await addDoc(collection(db, "renovaciones"), {
+    nombre,
+    tipo,
+    entidadId: entidadId || null,
+    entidadName: entidadName || "",
+    activoId: activoId || null,
+    activoNombre: activoNombre || "",
+    numeroReferencia: numeroReferencia || "",
+    fechaInicio: fechaInicio || null,
+    fechaVencimiento: fechaVencimiento || null,
+    monto: monto ?? null,
+    diasAviso: diasAviso ?? 15,
+    estado: estado || "Activo",
+    categoriaGasto: categoriaGasto || null,
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateRenovacion(id, fields) {
+  await updateDoc(doc(db, "renovaciones", id), fields);
+}
+
+export async function updateRenovacionEstado(id, estado) {
+  await updateDoc(doc(db, "renovaciones", id), { estado });
+}
+
+export async function deleteRenovacion(id) {
+  await deleteDoc(doc(db, "renovaciones", id));
+}
+
+export function watchHistorialCompras(onChange, onError) {
+  return onSnapshot(
+    collection(db, "historialCompras"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function registrarCompraProducto({ productId, productName, fecha, cantidad }) {
+  const docRef = await addDoc(collection(db, "historialCompras"), {
+    productId,
+    productName: productName || "",
+    fecha,
+    cantidad: cantidad || 1,
+    createdAt: serverTimestamp(),
+  });
+  return docRef;
+}
+
+export async function deleteHistorialCompra(id) {
+  await deleteDoc(doc(db, "historialCompras", id));
+}
+
+export function watchOrdenesCompra(onChange, onError) {
+  return onSnapshot(
+    collection(db, "ordenesCompra"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.folio || "").localeCompare(a.folio || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+// Genera el siguiente folio (OC00001, OC00002, ...) de forma atómica, usando un
+// contador en Firestore para evitar folios repetidos.
+async function siguienteFolioOC() {
+  const contadorRef = doc(db, "config", "contadorOC");
+  const nuevoNumero = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(contadorRef);
+    const actual = snap.exists() ? snap.data().ultimo || 0 : 0;
+    const siguiente = actual + 1;
+    tx.set(contadorRef, { ultimo: siguiente });
+    return siguiente;
+  });
+  return `OC${String(nuevoNumero).padStart(5, "0")}`;
+}
+
+export async function addOrdenCompra({ items, proveedorId, proveedorNombre, notas, categoriaGasto, fechaPlaneada }) {
+  const folio = await siguienteFolioOC();
+  const docRef = await addDoc(collection(db, "ordenesCompra"), {
+    folio,
+    fecha: new Date().toISOString().slice(0, 10),
+    estado: "Borrador",
+    modalidad: null,
+    proveedorId: proveedorId || null,
+    proveedorNombre: proveedorNombre || "",
+    items: items || [],
+    notas: notas || "",
+    categoriaGasto: categoriaGasto || null,
+    fechaPlaneada: fechaPlaneada || null,
+    createdAt: serverTimestamp(),
+  });
+  return { id: docRef.id, folio };
+}
+
+// Agrega (o incrementa la cantidad de) un producto en la orden de compra que esté
+// en Borrador. Si no existe ninguna en borrador, crea una nueva automáticamente.
+// Así, "agregar a la lista" desde Catálogo alimenta directo la orden de compra.
+export async function agregarItemABorrador(ordenBorrador, { productId, productName, precioUnitario }) {
+  if (!ordenBorrador) {
+    const { id } = await addOrdenCompra({
+      items: [{ productId, productName, cantidad: 1, precioUnitario: precioUnitario ?? null }],
+    });
+    return id;
+  }
+  const items = ordenBorrador.items || [];
+  const idx = items.findIndex((it) => it.productId === productId);
+  let nuevosItems;
+  if (idx >= 0) {
+    nuevosItems = items.map((it, i) => (i === idx ? { ...it, cantidad: (Number(it.cantidad) || 0) + 1 } : it));
+  } else {
+    nuevosItems = [...items, { productId, productName, cantidad: 1, precioUnitario: precioUnitario ?? null }];
+  }
+  await updateOrdenCompra(ordenBorrador.id, { items: nuevosItems });
+  return ordenBorrador.id;
+}
+
+export async function agregarItemsABorrador(ordenBorrador, productos) {
+  const nuevosProductos = (productos || []).map((producto) => ({
+    productId: producto.productId,
+    productName: producto.productName || "",
+    cantidad: Number(producto.cantidad) || 1,
+    precioUnitario: producto.precioUnitario ?? null,
+  }));
+  if (!nuevosProductos.length) return null;
+  if (!ordenBorrador) {
+    const { id } = await addOrdenCompra({ items: nuevosProductos });
+    return id;
+  }
+
+  const items = [...(ordenBorrador.items || [])];
+  for (const nuevo of nuevosProductos) {
+    const indice = items.findIndex((item) => item.productId === nuevo.productId);
+    if (indice >= 0) {
+      items[indice] = { ...items[indice], cantidad: (Number(items[indice].cantidad) || 0) + nuevo.cantidad };
+    } else {
+      items.push(nuevo);
+    }
+  }
+  await updateOrdenCompra(ordenBorrador.id, { items });
+  return ordenBorrador.id;
+}
+
+export async function updateOrdenCompra(id, fields) {
+  await updateDoc(doc(db, "ordenesCompra", id), fields);
+}
+
+export async function deleteOrdenCompra(id) {
+  await deleteDoc(doc(db, "ordenesCompra", id));
+}
+
+export function watchVacaciones(onChange, onError) {
+  return onSnapshot(
+    collection(db, "vacaciones"),
+    (snap) => {
+      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (a.fechaInicio || "").localeCompare(b.fechaInicio || ""));
+      onChange(docs);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function addVacacion({
+  destino,
+  fuenteIngresoId,
+  fuenteIngresoName,
+  fechaInicio,
+  fechaFin,
+  diasUtilizados,
+  presupuestoEstimado,
+  categoriaGasto,
+  estado,
+  notas,
+}) {
+  await addDoc(collection(db, "vacaciones"), {
+    destino,
+    fuenteIngresoId: fuenteIngresoId || null,
+    fuenteIngresoName: fuenteIngresoName || "",
+    fechaInicio,
+    fechaFin,
+    diasUtilizados: diasUtilizados ?? 0,
+    presupuestoEstimado: presupuestoEstimado ?? null,
+    categoriaGasto: categoriaGasto || null,
+    estado: estado || "Planificada",
+    notas: notas || "",
+    createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateVacacion(id, fields) {
+  await updateDoc(doc(db, "vacaciones", id), fields);
+}
+
+export async function deleteVacacion(id) {
+  await deleteDoc(doc(db, "vacaciones", id));
+}
+
+// Configuración e historial de reportes de pagos de quincena enviados por correo
+export function watchReportesQuincenaConfig(onChange, onError) {
+  return onSnapshot(
+    doc(db, "config", "reportesQuincenaEmail"),
+    (snap) => onChange(snap.exists() ? snap.data() : {
+      email: "iventuramena@gmail.com",
+      activoDiasCobro: true,
+      ultimoEnvio: null,
+    }),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveReportesQuincenaConfig(data) {
+  await setDoc(doc(db, "config", "reportesQuincenaEmail"), data, { merge: true });
+}
+
+export async function registrarEnvioReporteEmail(registro) {
+  await setDoc(
+    doc(db, "config", "reportesQuincenaEmail"),
+    {
+      ultimoEnvio: {
+        ...registro,
+        timestamp: Date.now(),
+      },
+    },
+    { merge: true }
+  );
+}
+
+
+
+// ==========================================
+// Soporte Multi-Usuario & Onboarding
+// ==========================================
+export async function inicializarEspacioUsuarioNuevo(user) {
+  if (!user || !user.uid) return;
+  setCurrentDbUser(user);
+
+  const uid = user.uid;
+  const emailLower = (user.email || "").toLowerCase().trim();
+  const perfilPublicoRef = fsDoc(db, "usuariosRegistrados", uid);
+
+  // Registrar / actualizar usuario en el directorio
+  try {
+    const isOwner = isOwnerUser(user);
+    const updateData = {
+      uid,
+      email: user.email || "",
+      displayName: user.displayName || user.email?.split("@")[0] || "Usuario",
+      photoURL: user.photoURL || null,
+      rol: isOwner ? "propietario" : "usuario",
+      lastLogin: serverTimestamp(),
+    };
+
+    // Para inelsonv@bellon.com.do o usuarios con plan individual, asegurar que su cuenta sea individual
+    if (emailLower === "inelsonv@bellon.com.do") {
+      updateData.planId = "individual";
+      updateData.planNombre = "Plan Individual";
+      updateData.rolPlan = "individual";
+    }
+
+    await setDoc(perfilPublicoRef, updateData, { merge: true });
+  } catch (err) {
+    console.warn("No se pudo actualizar registro de usuario:", err);
+  }
+
+  // Si es el propietario original, sus datos residen en las colecciones raíz existentes
+  if (isOwnerUser(user)) {
+    return;
+  }
+
+  // Para usuarios con plan individual, sus cuentas y movimientos personales permanecen en su espacio privado
+  if (emailLower === "inelsonv@bellon.com.do") {
+    setDuoSharedMemberStatus(false);
+    try {
+      localStorage.setItem(`smart-finance-plan-${uid}`, "individual");
+    } catch (e) {}
+  }
+
+  // Para usuarios individuales, inicializar o completar sus colecciones privadas
+  try {
+    const initDocRef = fsDoc(db, "users", uid, "config", "inicializado");
+    const initSnap = await getDoc(initDocRef);
+
+    // 1. Categorías de gasto predeterminadas (crear si no tiene)
+    const catSnap = await getDocs(fsCollection(db, "users", uid, "categoriasGasto")).catch(() => ({ empty: true }));
+    if (catSnap.empty) {
+      const categoriasBase = [
+        { nombre: "Alimentación y Supermercado", clasificacion: "Necesario", metodoPagoDefault: "Efectivo" },
+        { nombre: "Vivienda y Servicios", clasificacion: "Necesario", metodoPagoDefault: "Transferencia" },
+        { nombre: "Transporte y Combustible", clasificacion: "Necesario", metodoPagoDefault: "Efectivo" },
+        { nombre: "Salud y Medicamentos", clasificacion: "Necesario", metodoPagoDefault: "Efectivo" },
+        { nombre: "Educación y Capacitación", clasificacion: "Necesario", metodoPagoDefault: "Transferencia" },
+        { nombre: "Entretenimiento y Ocio", clasificacion: "Deseo", metodoPagoDefault: "Efectivo" },
+        { nombre: "Ropa y Cuidado Personal", clasificacion: "Deseo", metodoPagoDefault: "Efectivo" },
+        { nombre: "Otros Gastos", clasificacion: "Otros", metodoPagoDefault: "Efectivo" },
+      ];
+      for (const cat of categoriasBase) {
+        await addDoc(fsCollection(db, "users", uid, "categoriasGasto"), {
+          ...cat,
+          createdAt: serverTimestamp(),
+        }).catch(() => {});
+      }
+    }
+
+    // 2. Fuentes de ingreso predeterminadas
+    const fuentesSnap = await getDocs(fsCollection(db, "users", uid, "fuentesIngreso")).catch(() => ({ empty: true }));
+    if (fuentesSnap.empty) {
+      const fuentesBase = [
+        { nombre: "Sueldo / Salario Principal", tipo: "Fijo", periodicidad: "Quincenal", monto: 0 },
+        { nombre: "Ingresos Extras / Proyectos", tipo: "Variable", periodicidad: "Mensual", monto: 0 },
+      ];
+      for (const fuente of fuentesBase) {
+        await addDoc(fsCollection(db, "users", uid, "fuentesIngreso"), {
+          ...fuente,
+          createdAt: serverTimestamp(),
+        }).catch(() => {});
+      }
+    }
+
+    // 3. Cuentas de dinero base
+    const cuentasSnap = await getDocs(fsCollection(db, "users", uid, "cuentas")).catch(() => ({ empty: true }));
+    if (cuentasSnap.empty) {
+      await addDoc(fsCollection(db, "users", uid, "cuentas"), {
+        nombre: "Efectivo",
+        tipo: "Efectivo",
+        saldoActual: 0,
+        moneda: "DOP",
+        color: "#10b981",
+        estado: "Activa",
+        createdAt: serverTimestamp(),
+      }).catch(() => {});
+      await addDoc(fsCollection(db, "users", uid, "cuentas"), {
+        nombre: "Cuenta Banco Principal",
+        tipo: "Banco",
+        saldoActual: 0,
+        moneda: "DOP",
+        color: "#3b82f6",
+        estado: "Activa",
+        createdAt: serverTimestamp(),
+      }).catch(() => {});
+    }
+
+    // 4. Bono de bienvenida en Puntos Smart Finance
+    if (!initSnap.exists()) {
+      await setDoc(fsDoc(db, "users", uid, "config", "puntos"), { total: 100 }, { merge: true }).catch(() => {});
+      await addDoc(fsCollection(db, "users", uid, "puntosHistorial"), {
+        concepto: "Bono de bienvenida Smart Finance 🎉",
+        puntos: 100,
+        tipo: "positivo",
+        createdAt: serverTimestamp(),
+      }).catch(() => {});
+    }
+
+    // 5. Configuración de días de cobro por defecto (quincenas 15 y 30)
+    await setDoc(fsDoc(db, "users", uid, "config", "diasCobro"), { dias: [15, 30] }, { merge: true }).catch(() => {});
+
+    // 6. Perfil de configuración personal
+    await setDoc(
+      fsDoc(db, "users", uid, "config", "perfilPersonal"),
+      {
+        nombre: user.displayName || user.email?.split("@")[0] || "Mi Usuario",
+        email: user.email,
+        fechaRegistro: serverTimestamp(),
+      },
+      { merge: true }
+    ).catch(() => {});
+
+    // 7. Presupuesto limpio inicial para el año actual
+    const currentYear = String(new Date().getFullYear());
+    await setDoc(fsDoc(db, "users", uid, "presupuestos", currentYear), {}, { merge: true }).catch(() => {});
+
+    // 8. Configuración de plan individual propio
+    await setDoc(
+      fsDoc(db, "users", uid, "config", "suscripcion"),
+      {
+        planId: "individual",
+        planNombre: "Plan Individual",
+        titularEmail: user.email,
+        titularUid: uid,
+        maxUsuarios: 1,
+        estado: "activo",
+      },
+      { merge: true }
+    ).catch(() => {});
+
+    // Marcar como inicializado
+    await setDoc(initDocRef, {
+      version: 2,
+      fechaInicializacion: serverTimestamp(),
+    }).catch(() => {});
+  } catch (err) {
+    console.error("Error creando datos iniciales para el nuevo usuario:", err);
+  }
+}
+
+export function watchUsuariosRegistrados(onChange, onError) {
+  const q = query(fsCollection(db, "usuariosRegistrados"), orderBy("lastLogin", "desc"));
+  return onSnapshot(
+    q,
+    (snap) => onChange(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+    (err) => onError && onError(err)
+  );
+}
+
+export async function saveUserThemePreference(uid, theme) {
+  if (!uid || !theme) return;
+  try {
+    const userRef = fsDoc(db, "usuariosRegistrados", uid);
+    await setDoc(userRef, { preferredTheme: theme, themeUpdatedAt: serverTimestamp() }, { merge: true });
+  } catch (err) {
+    console.warn("No se pudo guardar la preferencia de tema en Firestore:", err);
+  }
+}
+
+export async function getUserThemePreference(uid) {
+  if (!uid) return null;
+  try {
+    const userRef = fsDoc(db, "usuariosRegistrados", uid);
+    const snap = await getDoc(userRef);
+    if (snap.exists() && snap.data()?.preferredTheme) {
+      return snap.data().preferredTheme;
+    }
+  } catch (err) {
+    console.warn("No se pudo obtener la preferencia de tema de Firestore:", err);
+  }
+  return null;
+}
+
+// ==========================================
+// Planes de Suscripción & Plan Dúo (Parejas)
+// ==========================================
+
+export const PLANES_DISPONIBLES = [
+  {
+    id: "individual",
+    nombre: "Plan Individual",
+    badge: "👤 Individual",
+    precio: "Gratuito",
+    precioNumero: 0,
+    periodo: "de por vida",
+    descripcion: "Para una sola persona que gestiona sus finanzas de manera independiente.",
+    maxUsuarios: 1,
+    color: "var(--ink-soft)",
+    bg: "var(--paper)",
+    border: "var(--line)",
+    caracteristicas: [
+      "1 usuario independiente",
+      "Espacio financiero privado y aislado",
+      "Registro ilimitado de movimientos y cuentas",
+      "Presupuesto quincenal y mensual",
+      "Metas de ahorro personales",
+    ],
+  },
+  {
+    id: "duo",
+    nombre: "Plan Dúo",
+    badge: "👫 Plan Dúo (Parejas)",
+    destacado: true,
+    precio: "RD$ 499",
+    precioNumero: 499,
+    periodo: "/ mes (Modo Prueba Activo)",
+    descripcion: "Diseñado para ti y tu pareja. Ambos registran gastos, ven cuentas y administran presupuestos juntos en tiempo real.",
+    maxUsuarios: 2,
+    color: "#8b5cf6",
+    bg: "rgba(139, 92, 246, 0.08)",
+    border: "#8b5cf6",
+    caracteristicas: [
+      "2 cuentas vinculadas (Tú + Tu Pareja)",
+      "Finanzas conjuntas compartidas en tiempo real",
+      "Presupuesto del hogar sincronizado",
+      "Registro colaborativo de gastos y compras",
+      "Metas de ahorro en pareja",
+      "Etiqueta de autor en cada movimiento",
+      "100% sincronizado en móvil y escritorio",
+    ],
+  },
+  {
+    id: "familiar",
+    nombre: "Plan Familiar",
+    badge: "👨‍👩‍👧‍👦 Plan Familiar",
+    precio: "RD$ 899",
+    precioNumero: 899,
+    periodo: "/ mes",
+    descripcion: "Para hogares y familias que desean controlar gastos colectivos con múltiples miembros.",
+    maxUsuarios: 5,
+    color: "#0ea5e9",
+    bg: "rgba(14, 165, 233, 0.08)",
+    border: "#0ea5e9",
+    caracteristicas: [
+      "Hasta 5 cuentas familiares",
+      "Control y visibilidad de finanzas del hogar",
+      "Presupuestos colaborativos de la casa",
+      "Metas de ahorro familiares conjuntas",
+      "Historial de compras y gastos unificado",
+    ],
+  },
+];
+
+export function watchPlanSuscripcion(arg1, arg2, arg3) {
+  let user = null;
+  let onChange = null;
+  let onError = null;
+
+  if (typeof arg1 === "function") {
+    onChange = arg1;
+    onError = arg2;
+    user = getCurrentDbUser();
+  } else {
+    user = arg1 || getCurrentDbUser();
+    onChange = arg2;
+    onError = arg3;
+  }
+
+  // 1. Propietario original (iventuramena@gmail.com): su plan vive en planesConfig/suscripcion
+  if (!user || isOwnerUser(user)) {
+    const planRef = fsDoc(db, "planesConfig", "suscripcion");
+    return onSnapshot(
+      planRef,
+      (snap) => {
+        if (snap.exists()) {
+          onChange && onChange({ id: snap.id, ...snap.data() });
+        } else {
+          onChange && onChange({
+            id: "suscripcion",
+            planId: "individual",
+            planNombre: "Plan Individual",
+            titularEmail: OWNER_EMAIL,
+            maxUsuarios: 1,
+            miembros: [
+              {
+                email: OWNER_EMAIL,
+                nombre: "Titular",
+                rol: "titular",
+                estado: "activo",
+              },
+            ],
+          });
+        }
+      },
+      (err) => onError && onError(err)
+    );
+  }
+
+  // 2. Usuario independiente / secundario (ej. inelsonv@bellon.com.do):
+  // Observa su propio perfil en usuariosRegistrados
+  const userRegRef = fsDoc(db, "usuariosRegistrados", user.uid);
+  return onSnapshot(
+    userRegRef,
+    (snap) => {
+      const regData = snap.exists() ? snap.data() : {};
+      const planId = regData.planId || "individual";
+
+      // Si seleccionó o tiene el plan individual (gratuito)
+      if (planId === "individual" || !regData.planDuoCon) {
+        setDuoSharedMemberStatus(false);
+        try {
+          localStorage.removeItem(`smart-finance-duo-member-${user.uid}`);
+          if (user.email) {
+            localStorage.removeItem(`smart-finance-duo-email-${user.email.toLowerCase().trim()}`);
+          }
+          localStorage.setItem(`smart-finance-plan-${user.uid}`, "individual");
+        } catch (e) {}
+
+        onChange && onChange({
+          id: user.uid,
+          planId: "individual",
+          planNombre: "Plan Individual",
+          titularEmail: user.email,
+          maxUsuarios: 1,
+          miembros: [
+            {
+              email: user.email,
+              nombre: user.displayName || user.email?.split("@")[0] || "Usuario",
+              rol: "titular",
+              estado: "activo",
+            },
+          ],
+        });
+        return;
+      }
+
+      // Si está en plan duo con un titular activo
+      if (planId === "duo" && regData.planDuoCon) {
+        onChange && onChange({
+          id: user.uid,
+          planId: "duo",
+          planNombre: "Plan Dúo",
+          titularEmail: regData.planDuoCon,
+          rolPlan: regData.rolPlan || "pareja",
+          maxUsuarios: 2,
+        });
+        return;
+      }
+
+      onChange && onChange({
+        id: user.uid,
+        planId: "individual",
+        planNombre: "Plan Individual",
+        titularEmail: user.email,
+        maxUsuarios: 1,
+        miembros: [
+          {
+            email: user.email,
+            nombre: user.displayName || user.email?.split("@")[0] || "Usuario",
+            rol: "titular",
+            estado: "activo",
+          },
+        ],
+      });
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function cambiarPlanSuscripcion({ planId, user }) {
+  if (!planId) return;
+  const planInfo = PLANES_DISPONIBLES.find((p) => p.id === planId) || PLANES_DISPONIBLES[0];
+  const currentUser = user || getCurrentDbUser();
+  if (!currentUser) return;
+
+  const emailLower = (currentUser.email || "").toLowerCase().trim();
+  const uid = currentUser.uid;
+
+  // CASO: Selecciona Plan Individual (gratuito) -> Desvinculación y aislamiento total
+  if (planId === "individual") {
+    // 1. Apagar flag Duo en memoria y storage
+    setDuoSharedMemberStatus(false);
+    try {
+      localStorage.removeItem(`smart-finance-duo-member-${uid}`);
+      if (emailLower) localStorage.removeItem(`smart-finance-duo-email-${emailLower}`);
+      localStorage.removeItem(`smart-finance-duo-titular-${uid}`);
+      localStorage.setItem(`smart-finance-plan-${uid}`, "individual");
+    } catch (e) {}
+
+    // 2. Eliminar registros en duoMembers y duoMembersByEmail
+    if (emailLower) {
+      await deleteDoc(fsDoc(db, "duoMembersByEmail", emailLower)).catch(() => {});
+    }
+    if (uid) {
+      await deleteDoc(fsDoc(db, "duoMembers", uid)).catch(() => {});
+    }
+
+    // 3. Actualizar registro en usuariosRegistrados
+    if (uid) {
+      await setDoc(
+        fsDoc(db, "usuariosRegistrados", uid),
+        {
+          planId: "individual",
+          planNombre: "Plan Individual",
+          rolPlan: "individual",
+          planDuoCon: deleteField(),
+          actualizadoEn: serverTimestamp(),
+        },
+        { merge: true }
+      ).catch(() => {});
+
+      // 4. Guardar en users/{uid}/config/suscripcion
+      await setDoc(
+        fsDoc(db, "users", uid, "config", "suscripcion"),
+        {
+          planId: "individual",
+          planNombre: "Plan Individual",
+          titularEmail: currentUser.email,
+          titularUid: uid,
+          maxUsuarios: 1,
+          estado: "activo",
+          actualizadoEn: serverTimestamp(),
+        },
+        { merge: true }
+      ).catch(() => {});
+    }
+
+    // 5. Si estaba en planesConfig/suscripcion.miembros, removerlo
+    try {
+      const planRef = fsDoc(db, "planesConfig", "suscripcion");
+      const snap = await getDoc(planRef);
+      if (snap.exists()) {
+        const pData = snap.data();
+        if (Array.isArray(pData.miembros) && pData.miembros.some((m) => m.email?.toLowerCase().trim() === emailLower)) {
+          const nuevos = pData.miembros.filter((m) => m.email?.toLowerCase().trim() !== emailLower);
+          await updateDoc(planRef, { miembros: nuevos, actualizadoEn: serverTimestamp() }).catch(() => {});
+        }
+      }
+    } catch (e) {}
+
+    // 6. Si es el propietario original:
+    if (isOwnerUser(currentUser)) {
+      try {
+        const planRef = fsDoc(db, "planesConfig", "suscripcion");
+        const snap = await getDoc(planRef);
+        const dataActual = snap.exists() ? snap.data() : {};
+        const pareja = Array.isArray(dataActual.miembros)
+          ? dataActual.miembros.find((m) => m.rol === "pareja" || m.rol === "miembro")
+          : null;
+        if (pareja?.email) {
+          await deleteDoc(fsDoc(db, "duoMembersByEmail", pareja.email.toLowerCase().trim())).catch(() => {});
+          if (pareja.uid) await deleteDoc(fsDoc(db, "duoMembers", pareja.uid)).catch(() => {});
+        }
+        await setDoc(
+          planRef,
+          {
+            planId: "individual",
+            planNombre: "Plan Individual",
+            titularEmail: currentUser.email,
+            titularUid: currentUser.uid,
+            maxUsuarios: 1,
+            estado: "activo",
+            miembros: [
+              {
+                email: currentUser.email,
+                uid: currentUser.uid,
+                nombre: currentUser.displayName || "Titular",
+                rol: "titular",
+                estado: "activo",
+              },
+            ],
+            actualizadoEn: serverTimestamp(),
+          },
+          { merge: true }
+        );
+      } catch (e) {}
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("smart-finance-plan-changed", { detail: { planId: "individual" } }));
+    }
+
+    return { planId: "individual", planNombre: "Plan Individual" };
+  }
+
+  // CASO: Selecciona Plan Dúo u otro plan
+  if (isOwnerUser(currentUser)) {
+    const planRef = fsDoc(db, "planesConfig", "suscripcion");
+    const snap = await getDoc(planRef);
+    const dataActual = snap.exists() ? snap.data() : {};
+    let miembros = Array.isArray(dataActual.miembros) ? [...dataActual.miembros] : [];
+    if (!miembros.some((m) => m.rol === "titular")) {
+      miembros.unshift({
+        email: currentUser.email,
+        uid: currentUser.uid,
+        nombre: currentUser.displayName || "Titular",
+        rol: "titular",
+        estado: "activo",
+        agregadoEn: new Date().toISOString(),
+      });
+    }
+    const payload = {
+      planId,
+      planNombre: planInfo.nombre,
+      titularEmail: currentUser.email,
+      titularUid: currentUser.uid,
+      titularNombre: currentUser.displayName || "Titular",
+      maxUsuarios: planInfo.maxUsuarios,
+      estado: "activo",
+      miembros,
+      actualizadoEn: serverTimestamp(),
+    };
+    await setDoc(planRef, payload, { merge: true });
+    if (uid) {
+      await setDoc(
+        fsDoc(db, "usuariosRegistrados", uid),
+        { planId, planNombre: planInfo.nombre, rolPlan: "titular" },
+        { merge: true }
+      ).catch(() => {});
+    }
+    return payload;
+  } else {
+    if (uid) {
+      await setDoc(
+        fsDoc(db, "usuariosRegistrados", uid),
+        { planId, planNombre: planInfo.nombre, rolPlan: "titular" },
+        { merge: true }
+      ).catch(() => {});
+      await setDoc(
+        fsDoc(db, "users", uid, "config", "suscripcion"),
+        {
+          planId,
+          planNombre: planInfo.nombre,
+          titularEmail: currentUser.email,
+          titularUid: uid,
+          maxUsuarios: planInfo.maxUsuarios,
+          estado: "activo",
+          actualizadoEn: serverTimestamp(),
+        },
+        { merge: true }
+      ).catch(() => {});
+    }
+    try {
+      localStorage.setItem(`smart-finance-plan-${uid}`, planId);
+    } catch (e) {}
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("smart-finance-plan-changed", { detail: { planId } }));
+    }
+    return { planId, planNombre: planInfo.nombre };
+  }
+}
+
+export async function asociarParejaPlanDuo({ emailPareja, nombrePareja = "Pareja", rol = "pareja", userTitular }) {
+  const emailLimpio = (emailPareja || "").toLowerCase().trim();
+  if (!emailLimpio) throw new Error("Debes ingresar un correo electrónico.");
+  if (emailLimpio === (userTitular?.email || "").toLowerCase().trim()) {
+    throw new Error("No puedes asociar tu propio correo como pareja.");
+  }
+
+  const planRef = fsDoc(db, "planesConfig", "suscripcion");
+  const snap = await getDoc(planRef);
+  const data = snap.exists() ? snap.data() : {};
+
+  const titularEmail = userTitular?.email || data.titularEmail || OWNER_EMAIL;
+  const titularUid = userTitular?.uid || data.titularUid || null;
+  const titularNombre = userTitular?.displayName || titularEmail.split("@")[0] || "Titular";
+
+  let miembros = Array.isArray(data.miembros) ? [...data.miembros] : [];
+  if (!miembros.some((m) => m.email?.toLowerCase() === titularEmail.toLowerCase())) {
+    miembros.unshift({
+      email: titularEmail,
+      uid: titularUid,
+      nombre: titularNombre,
+      rol: "titular",
+      estado: "activo",
+    });
+  }
+
+  let parejaUid = null;
+  let parejaDisplayName = nombrePareja;
+  try {
+    const qUsuarios = query(fsCollection(db, "usuariosRegistrados"), where("email", "==", emailLimpio));
+    const snapUsuarios = await getDocs(qUsuarios);
+    if (!snapUsuarios.empty) {
+      parejaUid = snapUsuarios.docs[0].id;
+      const uData = snapUsuarios.docs[0].data();
+      if (uData.displayName) parejaDisplayName = uData.displayName;
+    }
+  } catch (err) {
+    console.warn("No se pudo consultar usuariosRegistrados:", err);
+  }
+
+  miembros = miembros.filter((m) => m.rol !== "pareja" && m.email?.toLowerCase() !== emailLimpio);
+
+  const nuevoMiembro = {
+    email: emailLimpio,
+    uid: parejaUid,
+    nombre: parejaDisplayName,
+    rol,
+    estado: parejaUid ? "vinculado" : "invitado",
+    agregadoEn: new Date().toISOString(),
+  };
+  miembros.push(nuevoMiembro);
+
+  await setDoc(
+    planRef,
+    {
+      planId: "duo",
+      planNombre: "Plan Dúo",
+      titularEmail,
+      titularUid,
+      titularNombre,
+      maxUsuarios: 2,
+      miembros,
+      actualizadoEn: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  const duoRecord = {
+    titularEmail,
+    titularUid,
+    titularNombre,
+    parejaEmail: emailLimpio,
+    parejaNombre: parejaDisplayName,
+    parejaUid,
+    rol,
+    planId: "duo",
+    vinculadoEn: serverTimestamp(),
+  };
+  await setDoc(fsDoc(db, "duoMembersByEmail", emailLimpio), duoRecord, { merge: true });
+
+  if (parejaUid) {
+    await setDoc(fsDoc(db, "duoMembers", parejaUid), duoRecord, { merge: true });
+    // Si la pareja ya tiene un plan individual, mantener su plan individual y solo concederle acceso al presupuesto compartido
+    try {
+      const regSnap = await getDoc(fsDoc(db, "usuariosRegistrados", parejaUid));
+      const esIndividual = regSnap.exists() && regSnap.data().planId === "individual";
+      await setDoc(
+        fsDoc(db, "usuariosRegistrados", parejaUid),
+        {
+          planDuoCon: titularEmail,
+          planId: esIndividual ? "individual" : "duo",
+          rolPlan: "pareja",
+          tienePresupuestoCompartido: true,
+          presupuestoCompartidoDe: titularEmail,
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      await setDoc(
+        fsDoc(db, "usuariosRegistrados", parejaUid),
+        {
+          planDuoCon: titularEmail,
+          rolPlan: "pareja",
+          tienePresupuestoCompartido: true,
+          presupuestoCompartidoDe: titularEmail,
+        },
+        { merge: true }
+      );
+    }
+  }
+
+  return nuevoMiembro;
+}
+
+export async function desvincularParejaPlanDuo({ emailPareja }) {
+  const emailLimpio = (emailPareja || "").toLowerCase().trim();
+  const planRef = fsDoc(db, "planesConfig", "suscripcion");
+  const snap = await getDoc(planRef);
+  if (!snap.exists()) return;
+
+  const data = snap.data();
+  const miembros = (data.miembros || []).filter((m) => m.email?.toLowerCase() !== emailLimpio);
+
+  await setDoc(
+    planRef,
+    {
+      miembros,
+      actualizadoEn: serverTimestamp(),
+    },
+    { merge: true }
+  );
+
+  try {
+    await deleteDoc(fsDoc(db, "duoMembersByEmail", emailLimpio));
+  } catch (e) {}
+
+  try {
+    const qUsuarios = query(fsCollection(db, "usuariosRegistrados"), where("email", "==", emailLimpio));
+    const snapUsuarios = await getDocs(qUsuarios);
+    if (!snapUsuarios.empty) {
+      const pUid = snapUsuarios.docs[0].id;
+      await deleteDoc(fsDoc(db, "duoMembers", pUid)).catch(() => {});
+      await updateDoc(fsDoc(db, "usuariosRegistrados", pUid), {
+        planDuoCon: deleteField(),
+        tienePresupuestoCompartido: deleteField(),
+        presupuestoCompartidoDe: deleteField(),
+      }).catch(() => {});
+    }
+  } catch (e) {}
+}
+
+export async function sincronizarEstadoDuoUsuario(user) {
+  if (!user) {
+    setDuoSharedMemberStatus(false);
+    return { esDuo: false };
+  }
+  try {
+    const emailLower = (user.email || "").toLowerCase().trim();
+    if (!emailLower) {
+      setDuoSharedMemberStatus(false);
+      return { esDuo: false };
+    }
+
+    if (isOwnerUser(user)) {
+      setDuoSharedMemberStatus(false);
+      return { esDuo: false, isOwner: true };
+    }
+
+    // 1. Revisar si el usuario tiene explícitamente el Plan Individual (gratuito)
+    let esIndividual = false;
+    try {
+      const localPlan = localStorage.getItem(`smart-finance-plan-${user.uid}`);
+      if (localPlan === "individual") {
+        esIndividual = true;
+      }
+    } catch (e) {}
+
+    let regData = null;
+    if (user.uid) {
+      try {
+        const regSnap = await getDoc(fsDoc(db, "usuariosRegistrados", user.uid));
+        if (regSnap.exists()) {
+          regData = regSnap.data();
+          if (regData.planId === "individual" || (!regData.planDuoCon && regData.planId !== "duo")) {
+            esIndividual = true;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // Si el usuario tiene Plan Individual:
+    // Sus cuentas, tarjetas, movimientos y metas personales se mantienen 100% aisladas
+    if (emailLower === "inelsonv@bellon.com.do" || esIndividual) {
+      setDuoSharedMemberStatus(false);
+      try {
+        localStorage.setItem(`smart-finance-plan-${user.uid}`, "individual");
+      } catch (e) {}
+
+      // Comprobar si un usuario en Plan Dúo le compartió su presupuesto
+      let sharedDuo = null;
+      try {
+        const emailSnap = await getDoc(fsDoc(db, "duoMembersByEmail", emailLower));
+        if (emailSnap && emailSnap.exists()) {
+          sharedDuo = emailSnap.data();
+        } else if (user.uid) {
+          const uidSnap = await getDoc(fsDoc(db, "duoMembers", user.uid));
+          if (uidSnap && uidSnap.exists()) {
+            sharedDuo = uidSnap.data();
+          }
+        }
+      } catch (e) {}
+
+      // También verificar en planesConfig/suscripcion.miembros
+      if (!sharedDuo) {
+        try {
+          const planSnap = await getDoc(fsDoc(db, "planesConfig", "suscripcion"));
+          if (planSnap && planSnap.exists()) {
+            const planData = planSnap.data();
+            const esMiembro = Array.isArray(planData.miembros) &&
+              planData.miembros.some((m) => m.email?.toLowerCase().trim() === emailLower);
+            if (esMiembro && planData.planId === "duo") {
+              sharedDuo = {
+                titularEmail: planData.titularEmail || OWNER_EMAIL,
+                titularNombre: planData.titularNombre || "Titular",
+                titularUid: planData.titularUid || null,
+                rol: "pareja",
+                planId: "duo",
+                compartirPresupuesto: true,
+              };
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (sharedDuo) {
+        const titularEmail = sharedDuo.titularEmail || OWNER_EMAIL;
+        try {
+          localStorage.setItem(`smart-finance-duo-titular-${user.uid}`, titularEmail);
+          localStorage.setItem(`smart-finance-shared-budget-${user.uid}`, "1");
+        } catch (e) {}
+        return {
+          esDuo: false,
+          planId: "individual",
+          tienePresupuestoCompartido: true,
+          titularEmail,
+          titularUid: sharedDuo.titularUid || null,
+          titularNombre: sharedDuo.titularNombre || titularEmail.split("@")[0] || "Titular",
+          compartirPresupuesto: true,
+          duoData: sharedDuo,
+        };
+      }
+
+      return { esDuo: false, planId: "individual", tienePresupuestoCompartido: false };
+    }
+
+    // 2. Si no es individual, verificar si existe un vínculo Dúo mutuo, legítimo y activo
+    let esDuo = false;
+    let duoData = null;
+
+    try {
+      const emailSnap = await getDoc(fsDoc(db, "duoMembersByEmail", emailLower));
+      if (emailSnap && emailSnap.exists()) {
+        duoData = emailSnap.data();
+        // Verificar que el plan del titular sea legítimamente Dúo
+        const planSnap = await getDoc(fsDoc(db, "planesConfig", "suscripcion"));
+        if (planSnap && planSnap.exists() && planSnap.data().planId === "duo") {
+          esDuo = true;
+        }
+      }
+    } catch (e) {}
+
+    if (esDuo && duoData) {
+      setDuoSharedMemberStatus(true);
+      const titularEmail = duoData?.titularEmail || OWNER_EMAIL;
+      try {
+        localStorage.setItem(`smart-finance-duo-member-${user.uid}`, "1");
+        localStorage.setItem(`smart-finance-duo-email-${emailLower}`, "1");
+        localStorage.setItem(`smart-finance-duo-titular-${user.uid}`, titularEmail);
+        localStorage.setItem(`smart-finance-plan-${user.uid}`, "duo");
+      } catch (e) {}
+      return { esDuo: true, titularEmail, duoData, tienePresupuestoCompartido: true };
+    } else {
+      setDuoSharedMemberStatus(false);
+      try {
+        localStorage.removeItem(`smart-finance-duo-member-${user.uid}`);
+        localStorage.removeItem(`smart-finance-duo-email-${emailLower}`);
+        localStorage.removeItem(`smart-finance-duo-titular-${user.uid}`);
+        localStorage.setItem(`smart-finance-plan-${user.uid}`, "individual");
+      } catch (e) {}
+      return { esDuo: false, planId: "individual", tienePresupuestoCompartido: false };
+    }
+  } catch (err) {
+    console.warn("Error al sincronizar estado Dúo del usuario:", err);
+    setDuoSharedMemberStatus(false);
+    return { esDuo: false };
+  }
+}
+
+export function getDuoTitularEmail(user) {
+  if (!user) return null;
+  try {
+    return localStorage.getItem(`smart-finance-duo-titular-${user.uid}`) || null;
+  } catch {}
+  return null;
+}
+
+// -------------------------------------------------------------
+// Funciones específicas para Presupuesto Compartido (Plan Dúo)
+// Permite que un usuario con Plan Individual vea en tiempo real
+// el presupuesto del usuario con Plan Dúo
+// -------------------------------------------------------------
+
+export function watchPresupuestoCompartido(year, titularEmail, titularUid, onChange, onError) {
+  const esTitularOwner = !titularEmail || titularEmail.toLowerCase().trim() === OWNER_EMAIL.toLowerCase().trim();
+  const docRef = esTitularOwner
+    ? fsDoc(db, "presupuestos", String(year))
+    : titularUid
+    ? fsDoc(db, "users", titularUid, "presupuestos", String(year))
+    : fsDoc(db, "presupuestos", String(year));
+
+  return onSnapshot(
+    docRef,
+    (snap) => onChange && onChange(snap.exists() ? snap.data() : {}),
+    (err) => onError && onError(err)
+  );
+}
+
+export function watchCategoriasCompartidas(titularEmail, titularUid, onChange, onError) {
+  const esTitularOwner = !titularEmail || titularEmail.toLowerCase().trim() === OWNER_EMAIL.toLowerCase().trim();
+  const colRef = esTitularOwner
+    ? fsCollection(db, "categoriasGasto")
+    : titularUid
+    ? fsCollection(db, "users", titularUid, "categoriasGasto")
+    : fsCollection(db, "categoriasGasto");
+
+  return onSnapshot(
+    colRef,
+    (snap) => {
+      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      onChange && onChange(items);
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function setPresupuestoCeldaCompartida(year, category, month, quincena, amount, titularEmail, titularUid) {
+  const esTitularOwner = !titularEmail || titularEmail.toLowerCase().trim() === OWNER_EMAIL.toLowerCase().trim();
+  const docRef = esTitularOwner
+    ? fsDoc(db, "presupuestos", String(year))
+    : titularUid
+    ? fsDoc(db, "users", titularUid, "presupuestos", String(year))
+    : fsDoc(db, "presupuestos", String(year));
+
+  await setDoc(
+    docRef,
+    { [category]: { [String(month)]: { [quincena]: amount } } },
+    { merge: true }
+  );
+}
+
+export function watchEstadoPresupuestoCompartido(user, onChange, onError) {
+  if (!user || !user.email) {
+    onChange && onChange({ tieneAcceso: false });
+    return () => {};
+  }
+  const emailLower = (user.email || "").toLowerCase().trim();
+  const docRef = fsDoc(db, "duoMembersByEmail", emailLower);
+
+  return onSnapshot(
+    docRef,
+    async (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        onChange && onChange({
+          tieneAcceso: true,
+          titularEmail: data.titularEmail || OWNER_EMAIL,
+          titularNombre: data.titularNombre || data.titularEmail?.split("@")[0] || "Titular",
+          titularUid: data.titularUid || null,
+          rol: data.rol || "pareja",
+          compartirPresupuesto: true,
+          duoData: data,
+        });
+      } else {
+        try {
+          const pSnap = await getDoc(fsDoc(db, "planesConfig", "suscripcion"));
+          if (pSnap.exists()) {
+            const pData = pSnap.data();
+            const esMiembro = Array.isArray(pData.miembros) &&
+              pData.miembros.some((m) => m.email?.toLowerCase().trim() === emailLower);
+            if (esMiembro && pData.planId === "duo") {
+              onChange && onChange({
+                tieneAcceso: true,
+                titularEmail: pData.titularEmail || OWNER_EMAIL,
+                titularNombre: pData.titularNombre || "Titular",
+                titularUid: pData.titularUid || null,
+                rol: "pareja",
+                compartirPresupuesto: true,
+              });
+              return;
+            }
+          }
+        } catch (e) {}
+        onChange && onChange({ tieneAcceso: false });
+      }
+    },
+    (err) => onError && onError(err)
+  );
+}
+
+export async function compartirPresupuestoPlanDuo({ emailDestino, nombreDestino = "Pareja", userTitular }) {
+  return asociarParejaPlanDuo({
+    emailPareja: emailDestino,
+    nombrePareja: nombreDestino,
+    rol: "pareja",
+    userTitular,
+  });
+}
+
+export async function desvincularPresupuestoCompartido({ emailDestino }) {
+  return desvincularParejaPlanDuo({ emailPareja: emailDestino });
+}
+
+/**
+ * Elimina de manera permanente e irreversible la cuenta del usuario actual:
+ * 1. Desvincula membresías de planes compartidos / Plan Dúo.
+ * 2. Borra todas sus subcolecciones y documentos en Firestore (`users/{uid}/*`).
+ * 3. Elimina su ficha en `usuariosRegistrados/{uid}`.
+ * 4. Limpia la caché y almacenamiento local (`localStorage`).
+ * 5. Borra la cuenta en Firebase Authentication (con re-autenticación si la sesión expiró).
+ * 6. Cierra la sesión activa.
+ */
+export async function eliminarCuentaUsuario(user) {
+  if (!user || !user.uid) {
+    throw new Error("No hay una sesión de usuario válida para eliminar.");
+  }
+
+  const uid = user.uid;
+  const emailLower = (user.email || "").toLowerCase().trim();
+  const esPropietarioActual = isOwnerUser(user);
+
+  // 1. Desvincular de Plan Dúo o membresías compartidas
+  try {
+    setDuoSharedMemberStatus(false);
+    if (emailLower) {
+      await deleteDoc(fsDoc(db, "duoMembersByEmail", emailLower)).catch(() => {});
+    }
+    await deleteDoc(fsDoc(db, "duoMembers", uid)).catch(() => {});
+
+    const planRef = fsDoc(db, "planesConfig", "suscripcion");
+    const snapPlan = await getDoc(planRef).catch(() => null);
+    if (snapPlan && snapPlan.exists()) {
+      const pData = snapPlan.data();
+      if (
+        Array.isArray(pData.miembros) &&
+        pData.miembros.some(
+          (m) => (m.email && m.email.toLowerCase().trim() === emailLower) || m.uid === uid
+        )
+      ) {
+        const nuevos = pData.miembros.filter(
+          (m) => (!m.email || m.email.toLowerCase().trim() !== emailLower) && m.uid !== uid
+        );
+        await updateDoc(planRef, { miembros: nuevos, actualizadoEn: serverTimestamp() }).catch(() => {});
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso al desvincular membresía de planes:", err);
+  }
+
+  // 2. Lista de subcolecciones personales
+  const coleccionesPersonales = [
+    "cuentas",
+    "tarjetas",
+    "prestamos",
+    "membresias",
+    "contratos",
+    "fuentesIngreso",
+    "categoriasGasto",
+    "movimientos",
+    "products",
+    "list",
+    "ordenesCompra",
+    "historialCompras",
+    "activos",
+    "seguros",
+    "renovaciones",
+    "mantenimientos",
+    "metasAhorro",
+    "vacaciones",
+    "eventos",
+    "flujo",
+    "habitos",
+    "habitosRegistro",
+    "habitosPenalizaciones",
+    "config",
+    "presupuestos",
+    "puntosHistorial",
+    "recompensas",
+    "cofres",
+    "versiculos",
+    "notificaciones",
+    "comprasProrateadas",
+    "ingresosPuntuales",
+    "ajustesPresupuesto",
+    "sugerenciasInversion",
+    "acciones",
+    "tipoCambioCache",
+  ];
+
+  // 3. Borrar subcolecciones personales en users/{uid}/*
+  for (const colName of coleccionesPersonales) {
+    try {
+      const colRef = fsCollection(db, "users", uid, colName);
+      const snapshot = await getDocs(colRef);
+      if (!snapshot.empty) {
+        const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
+        await Promise.all(deletePromises);
+      }
+    } catch (err) {
+      console.warn(`Aviso al limpiar subcolección ${colName} de users/${uid}:`, err);
+    }
+  }
+
+  // Si es propietario/admin, también limpiamos las colecciones del sistema raíz
+  if (esPropietarioActual) {
+    for (const colName of coleccionesPersonales) {
+      try {
+        const rootColRef = fsCollection(db, colName);
+        const snapshot = await getDocs(rootColRef);
+        if (!snapshot.empty) {
+          const deletePromises = snapshot.docs.map((docSnap) => deleteDoc(docSnap.ref));
+          await Promise.all(deletePromises);
+        }
+      } catch (err) {
+        console.warn(`Aviso al limpiar colección raíz ${colName}:`, err);
+      }
+    }
+  }
+
+  // 4. Borrar documento raíz en users/{uid} y en usuariosRegistrados/{uid}
+  try {
+    await deleteDoc(fsDoc(db, "users", uid)).catch(() => {});
+  } catch (e) {}
+
+  try {
+    await deleteDoc(fsDoc(db, "usuariosRegistrados", uid)).catch(() => {});
+  } catch (e) {}
+
+  // 5. Limpiar datos y cachés locales del usuario en localStorage
+  try {
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (
+        key &&
+        (key.includes(uid) || (emailLower && key.includes(emailLower)) || key.startsWith("smart-finance-"))
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => {
+      try {
+        localStorage.removeItem(k);
+      } catch (e) {}
+    });
+  } catch (e) {}
+
+  // 6. Eliminar el usuario en Firebase Authentication de manera segura
+  try {
+    const authUser = auth.currentUser || user;
+    if (authUser) {
+      await deleteUser(authUser);
+    }
+  } catch (authErr) {
+    console.warn("Aviso al eliminar usuario de Firebase Auth:", authErr);
+    if (authErr?.code === "auth/requires-recent-login") {
+      try {
+        const isGoogle = (user.providerData || []).some(
+          (p) => p.providerId === "google.com" || p.providerId === googleProvider.providerId
+        );
+        if (isGoogle) {
+          await reauthenticateWithPopup(auth.currentUser || user, googleProvider);
+          await deleteUser(auth.currentUser || user);
+        }
+      } catch (reAuthErr) {
+        console.warn("No se pudo re-autenticar en Auth (la sesión será cerrada):", reAuthErr);
+        // Continuamos: todos los datos de Firestore y sesión local ya están 100% eliminados
+      }
+    }
+  }
+
+  // 7. Cerrar sesión
+  try {
+    await signOut(auth);
+  } catch (e) {
+    console.warn("Aviso al cerrar sesión:", e);
+  }
+}
+

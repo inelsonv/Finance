@@ -1,0 +1,346 @@
+// Arma un resumen COMPACTO de las finanzas actuales del usuario, para
+// mandárselo al asistente de IA en vez del historial crudo completo (más
+// barato, más rápido, y evita exponer más datos de los necesarios).
+import { calcularResumenQuincena } from "./quincenaResumen";
+import { periodoActualConfigurado, rangoFechasQuincenaConfigurado } from "./quincenaConfig";
+
+function formatMoney(n) {
+  return Math.round(Number(n) || 0);
+}
+
+export function construirResumenFinanciero({
+  movimientos,
+  presupuesto,
+  presupuestoYear,
+  presupuestosHistoricos = {},
+  prestamos,
+  tarjetas,
+  cuentas,
+  fuentesIngreso,
+  puntos,
+  diasCobro,
+  categoriasGasto,
+  checklistTodos,
+  membresias = [],
+  contratos = [],
+  activos = [],
+  metasAhorro = [],
+  seguros = [],
+  ingresosPuntuales = [],
+  eventos = [],
+  ordenesCompra = [],
+  products = [],
+}) {
+  const hoy = new Date();
+  const mesActual = hoy.getMonth() + 1;
+  const yearActual = hoy.getFullYear();
+
+  // Historial agregado, sin enviar movimientos individuales al proveedor IA.
+  const historialPorPeriodo = {};
+  for (const m of movimientos || []) {
+    if (!m.date || !/^\d{4}-\d{2}/.test(m.date)) continue;
+    const [year, month] = m.date.split("-").map(Number);
+    const periodo = `${year}-${String(month).padStart(2, "0")}`;
+    const resumen = historialPorPeriodo[periodo] ||= { gastos: 0, ingresos: 0, gastosPorCategoria: {}, ingresosPorCategoria: {} };
+    const amount = Number(m.amount) || 0;
+    if (m.type === "Gasto") {
+      resumen.gastos += amount;
+      resumen.gastosPorCategoria[m.category || "Sin categoría"] = (resumen.gastosPorCategoria[m.category || "Sin categoría"] || 0) + amount;
+    } else if (m.type === "Ingreso") {
+      resumen.ingresos += amount;
+      resumen.ingresosPorCategoria[m.category || "Sin categoría"] = (resumen.ingresosPorCategoria[m.category || "Sin categoría"] || 0) + amount;
+    }
+  }
+  for (const periodo of Object.values(historialPorPeriodo)) {
+    periodo.gastos = formatMoney(periodo.gastos);
+    periodo.ingresos = formatMoney(periodo.ingresos);
+    for (const campo of ["gastosPorCategoria", "ingresosPorCategoria"]) {
+      periodo[campo] = Object.fromEntries(Object.entries(periodo[campo]).map(([cat, monto]) => [cat, formatMoney(monto)]));
+    }
+  }
+
+  const historialMensualCompacto = Object.entries(historialPorPeriodo)
+    .filter(([periodo]) => periodo !== `${yearActual}-${String(mesActual).padStart(2, "0")}`)
+    .map(([periodo, datos]) => [periodo, datos.gastos, datos.ingresos, Object.entries(datos.gastosPorCategoria), Object.entries(datos.ingresosPorCategoria)]);
+
+  const presupuestosPorPeriodo = [];
+  for (const [year, presupuestoYearData] of Object.entries(presupuestosHistoricos || {})) {
+    for (let month = 1; month <= 12; month++) {
+      const porCategoria = {};
+      let total = 0;
+      for (const [categoria, meses] of Object.entries(presupuestoYearData || {})) {
+        const datos = meses?.[String(month)];
+        const monto = (Number(datos?.Q1) || 0) + (Number(datos?.Q2) || 0);
+        if (!monto) continue;
+        porCategoria[categoria] = formatMoney(monto);
+        total += monto;
+      }
+      const periodo = `${year}-${String(month).padStart(2, "0")}`;
+      if (total && periodo !== `${yearActual}-${String(mesActual).padStart(2, "0")}`) {
+        presupuestosPorPeriodo.push([periodo, formatMoney(total), Object.entries(porCategoria)]);
+      }
+    }
+  }
+
+  // Gastos del mes actual, agrupados por categoría
+  const gastosPorCategoria = {};
+  let totalGastadoMes = 0;
+  let totalIngresoMes = 0;
+  for (const m of movimientos || []) {
+    if (!m.date) continue;
+    const [y, mo] = m.date.split("-").map(Number);
+    if (y !== yearActual || mo !== mesActual) continue;
+    if (m.type === "Gasto") {
+      gastosPorCategoria[m.category] = (gastosPorCategoria[m.category] || 0) + (Number(m.amount) || 0);
+      totalGastadoMes += Number(m.amount) || 0;
+    } else if (m.type === "Ingreso") {
+      totalIngresoMes += Number(m.amount) || 0;
+    }
+  }
+
+  // Presupuesto del mes actual (ambas quincenas sumadas) por categoría
+  const presupuestoDelMes = {};
+  if (presupuesto && presupuestoYear === yearActual) {
+    for (const [cat, porMes] of Object.entries(presupuesto)) {
+      const datosMes = porMes?.[String(mesActual)];
+      if (!datosMes) continue;
+      presupuestoDelMes[cat] = formatMoney((datosMes.Q1 || 0) + (datosMes.Q2 || 0));
+    }
+  }
+
+  // Pagos realizados por préstamo para saldo pendiente real y amortización
+  const pagadoPorPrestamo = {};
+  for (const m of movimientos || []) {
+    if (m.category === "Pago de préstamo") {
+      const am = Number(m.amount) || 0;
+      if (m.prestamoId) {
+        pagadoPorPrestamo[m.prestamoId] = (pagadoPorPrestamo[m.prestamoId] || 0) + am;
+      }
+      if (m.prestamoNumero) {
+        const numNorm = String(m.prestamoNumero).trim().toUpperCase();
+        pagadoPorPrestamo[numNorm] = (pagadoPorPrestamo[numNorm] || 0) + am;
+      }
+    }
+  }
+
+  // Lista de TODOS los préstamos con balances exactos calculados
+  const todosLosPrestamos = (prestamos || []).map((p) => {
+    const numNorm = String(p.numero || "").trim().toUpperCase();
+    const pagado = (pagadoPorPrestamo[p.id] || 0) + (numNorm ? (pagadoPorPrestamo[numNorm] || 0) : 0);
+    const montoAprobado = Number(p.montoAprobado) || 0;
+    const saldoPendienteReal = p.esRevolvente
+      ? (Number(p.saldoActual) || 0)
+      : Math.max(montoAprobado - pagado, 0);
+    const estaSaldado = p.estado === "Pagado" || (!p.esRevolvente && montoAprobado > 0 && saldoPendienteReal <= 0);
+
+    return {
+      id: p.id,
+      numero: p.numero || "",
+      codigo: p.numero || "",
+      entidad: p.entidadName || "Préstamo",
+      tipo: p.tipo || "Personal",
+      montoAprobado: formatMoney(montoAprobado),
+      montoAprobadoNumero: montoAprobado,
+      totalPagado: formatMoney(pagado),
+      totalPagadoNumero: pagado,
+      saldoPendiente: formatMoney(saldoPendienteReal),
+      saldoPendienteNumero: saldoPendienteReal,
+      cuotaMensual: formatMoney(p.cuota ?? p.cuotaMensual),
+      cuotaMensualNumero: Number(p.cuota ?? p.cuotaMensual) || 0,
+      tasaInteres: p.tasaInteres ? `${p.tasaInteres}%` : null,
+      estado: estaSaldado ? "Pagado" : (p.estado || "Activo"),
+      esRevolvente: !!p.esRevolvente,
+    };
+  });
+
+  const deudas = todosLosPrestamos.filter((p) => p.estado !== "Pagado" && p.saldoPendienteNumero > 0);
+  const prestamosSaldados = todosLosPrestamos.filter((p) => p.estado === "Pagado" || p.saldoPendienteNumero === 0);
+
+  // Pagos recientes de deuda para que el agente reconozca amortizaciones y puntos
+  const ultimosPagosDeuda = (movimientos || [])
+    .filter((m) => {
+      const cat = (m.category || "").toLowerCase();
+      const desc = (m.description || "").toLowerCase();
+      return (
+        cat.includes("pago de préstamo") ||
+        cat.includes("pago de tarjeta") ||
+        cat.includes("prestamo") ||
+        cat.includes("tarjeta") ||
+        desc.includes("pago de préstamo") ||
+        desc.includes("abono")
+      );
+    })
+    .slice(-6)
+    .reverse()
+    .map((m) => ({
+      fecha: m.date,
+      categoria: m.category,
+      descripcion: m.description,
+      monto: formatMoney(m.amount),
+    }));
+
+  const todasDeudasActivas = [
+    ...deudas.map((p) => ({
+      tipo: "Préstamo",
+      id: p.id,
+      numero: p.numero || "",
+      nombre: p.numero ? `${p.numero} - ${p.entidad}` : p.entidad,
+      saldo: p.saldoPendienteNumero,
+      tasaInteres: Number(parseFloat(p.tasaInteres) || 0),
+      cuota: p.cuotaMensualNumero,
+    })),
+    ...(tarjetas || []).filter((t) => t.estado === "Activa" && Number(t.saldoActual) > 0).map((t) => ({
+      tipo: "Tarjeta de crédito",
+      nombre: t.nombre,
+      saldo: Number(t.saldoActual) || 0,
+      tasaInteres: Number(t.tasaInteres) || 28,
+      cuota: Number(t.pagoMinimo) || 0,
+    })),
+  ];
+
+  const totalDeudaPendiente = todasDeudasActivas.reduce((acc, d) => acc + d.saldo, 0);
+  const totalCuotasMensuales = todasDeudasActivas.reduce((acc, d) => acc + d.cuota, 0);
+  const prioridadesBolaDeNieve = [...todasDeudasActivas].sort((a, b) => a.saldo - b.saldo);
+  const prioridadesAvalancha = [...todasDeudasActivas].sort((a, b) => b.tasaInteres - a.tasaInteres);
+
+  const estrategiaDeudasResumen = {
+    totalDeudaPendiente: formatMoney(totalDeudaPendiente),
+    totalCuotasMensuales: formatMoney(totalCuotasMensuales),
+    cantidadDeudasActivas: todasDeudasActivas.length,
+    siguienteBolaDeNieve: prioridadesBolaDeNieve[0]
+      ? { nombre: prioridadesBolaDeNieve[0].nombre, saldo: formatMoney(prioridadesBolaDeNieve[0].saldo) }
+      : null,
+    siguienteAvalancha: prioridadesAvalancha[0]
+      ? { nombre: prioridadesAvalancha[0].nombre, saldo: formatMoney(prioridadesAvalancha[0].saldo), tasa: prioridadesAvalancha[0].tasaInteres }
+      : null,
+    ultimosPagosRealizados: ultimosPagosDeuda,
+  };
+
+  const tarjetasResumen = (tarjetas || [])
+    .filter((t) => t.estado === "Activa")
+    .map((t) => ({
+      nombre: t.nombre,
+      saldoActual: formatMoney(t.saldoActual),
+      limite: formatMoney(t.limite),
+    }));
+
+  const cuentasResumen = (cuentas || []).map((c) => ({ nombre: c.nombre, saldo: formatMoney(c.saldo) }));
+
+  const ingresoFijoMensual = (fuentesIngreso || [])
+    .filter((f) => f.estado === "Activo")
+    .reduce((s, f) => s + (Number(f.montoMensual) || Number(f.montoQuincenal) * 2 || 0), 0);
+
+  const periodoActual = periodoActualConfigurado(diasCobro, hoy);
+  const periodoKey = `${periodoActual.year}-${periodoActual.month}-${periodoActual.quincena}`;
+  const rangoActual = rangoFechasQuincenaConfigurado(
+    periodoActual.year,
+    periodoActual.month,
+    periodoActual.quincena,
+    diasCobro
+  );
+  const resumenQuincena = calcularResumenQuincena({
+    ...periodoActual,
+    presupuesto: presupuestoYear === periodoActual.year ? presupuesto : null,
+    categoriasGasto,
+    prestamos,
+    movimientos,
+    diasCobro,
+  });
+  const gastosPorCategoriaQuincena = {};
+  for (const m of movimientos || []) {
+    if (m.type !== "Gasto" || !m.date || m.date < rangoActual.fechaInicio || m.date > rangoActual.fechaFin) continue;
+    gastosPorCategoriaQuincena[m.category] = (gastosPorCategoriaQuincena[m.category] || 0) + (Number(m.amount) || 0);
+  }
+  const prioridadesChecklist = (categoriasGasto || [])
+    .filter((c) => c.clasificacion === "Fijo" || /^(combustible|gasolina)$/i.test(c.nombre?.trim() || ""))
+    .map((c) => {
+      const presupuestado = Number(presupuesto?.[c.nombre]?.[String(periodoActual.month)]?.[periodoActual.quincena]) || 0;
+      return {
+        categoria: c.nombre,
+        prioridad: c.clasificacion === "Fijo" ? "Gasto fijo" : "Prioridad indicada por el usuario",
+        montoPresupuestado: formatMoney(presupuestado),
+        gastadoEnQuincena: formatMoney(gastosPorCategoriaQuincena[c.nombre] || 0),
+        pagadoEnChecklist: Boolean(checklistTodos?.[periodoKey]?.items?.[c.nombre]?.pagado),
+      };
+    })
+    .filter((c) => c.montoPresupuestado > 0 || c.gastadoEnQuincena > 0);
+
+  const mensajesChecklist = Object.entries(checklistTodos?.[periodoKey]?.items || {}).map(([key, estado]) => {
+    const categoria = (categoriasGasto || []).find((c) => c.nombre === key);
+    if (categoria) {
+      return { concepto: categoria.nombre, pagado: Boolean(estado?.pagado), tipo: categoria.clasificacion || "Gasto" };
+    }
+    const prestamo = (prestamos || []).find((p) => key.startsWith(`prestamo-${p.id}`));
+    if (prestamo) {
+      return { concepto: `Préstamo ${prestamo.numero}${prestamo.entidadName ? ` · ${prestamo.entidadName}` : ""}`, pagado: Boolean(estado?.pagado), tipo: "Deuda" };
+    }
+    const tarjeta = (tarjetas || []).find((t) => key.startsWith(`tarjeta-${t.id}-`));
+    if (tarjeta) {
+      return { concepto: `Tarjeta ${tarjeta.nombre} — pago mínimo`, pagado: Boolean(estado?.pagado), tipo: "Deuda" };
+    }
+    return { concepto: key, pagado: Boolean(estado?.pagado), tipo: "Otro" };
+  });
+
+  return {
+    fechaHoy: hoy.toISOString().slice(0, 10),
+    mesActual: `${mesActual}/${yearActual}`,
+    historialMensual: historialMensualCompacto,
+    presupuestosPorMes: presupuestosPorPeriodo,
+    quincenaActual: {
+      periodo: periodoKey,
+      fechaInicio: rangoActual.fechaInicio,
+      fechaFin: rangoActual.fechaFin,
+      montoPresupuestado: formatMoney(resumenQuincena.presupuestado),
+      montoGastado: formatMoney(resumenQuincena.gastado),
+      presupuestoSinConsumir: formatMoney(resumenQuincena.presupuestado - resumenQuincena.gastado),
+      gastosPorCategoria: Object.fromEntries(Object.entries(gastosPorCategoriaQuincena).map(([k, v]) => [k, formatMoney(v)])),
+      prioridadesChecklist,
+      estadosChecklistGuardados: mensajesChecklist,
+    },
+    gastosPorCategoriaEsteMes: Object.fromEntries(Object.entries(gastosPorCategoria).map(([k, v]) => [k, formatMoney(v)])),
+    totalGastadoEsteMes: formatMoney(totalGastadoMes),
+    totalIngresoEsteMes: formatMoney(totalIngresoMes),
+    presupuestoMensualPorCategoria: presupuestoDelMes,
+    ingresoFijoMensualConfigurado: formatMoney(ingresoFijoMensual),
+    deudasPrestamos: deudas,
+    prestamosActivos: deudas,
+    todosLosPrestamos,
+    prestamosSaldados,
+    ordenDeCompraAbierta: (() => {
+      const b = (ordenesCompra || []).find((o) => o.estado === "Borrador");
+      if (!b) return null;
+      return {
+        id: b.id,
+        folio: b.folio || "Borrador",
+        proveedor: b.proveedorNombre || "Sin proveedor",
+        cantidadItems: (b.items || []).length,
+        items: (b.items || []).map((it) => ({
+          nombre: it.productName,
+          cantidad: it.cantidad,
+          precioUnitario: it.precioUnitario,
+        })),
+        totalAproximado: formatMoney(
+          (b.items || []).reduce(
+            (acc, it) => acc + (Number(it.cantidad) || 0) * (Number(it.precioUnitario) || 0),
+            0
+          )
+        ),
+      };
+    })(),
+    totalProductosEnCatalogo: (products || []).length,
+    tarjetasCredito: tarjetasResumen,
+    cuentasBancarias: cuentasResumen,
+    puntosAcumulados: typeof puntos === "number" ? puntos : puntos?.total || 0,
+    estrategiaDeudas: estrategiaDeudasResumen,
+    ultimosPagosDeuda,
+    otrosDatosFinancieros: {
+      membresiasActivas: (membresias || []).filter((x) => x.estado === "Activa" || x.estado === "Activo").map((x) => ({ nombre: x.nombre, costo: formatMoney(x.costo), frecuencia: x.frecuencia, diaPago: x.diaPago })),
+      contratosActivos: (contratos || []).filter((x) => x.estado === "Activo" || x.estado === "Activa").map((x) => ({ nombre: x.nombre, montoEstimado: formatMoney(x.montoEstimado), fechaFin: x.fechaFin, diaPago: x.diaPago })),
+      activos: (activos || []).filter((x) => x.estado !== "Inactivo").map((x) => ({ nombre: x.nombre, valorCompra: formatMoney(x.valorCompra), tipo: x.tipo, fechaCompra: x.fechaCompra })),
+      metasAhorro: (metasAhorro || []).filter((x) => x.estado === "Activa").map((x) => ({ nombre: x.nombre, tipoMeta: x.tipoMeta, objetivo: formatMoney(x.montoObjetivo), fechaObjetivo: x.fechaObjetivo, cuentaId: x.cuentaId })),
+      segurosActivos: (seguros || []).filter((x) => x.estado !== "Inactivo").map((x) => ({ nombre: x.nombre, prima: formatMoney(x.primaMonto), frecuenciaPrima: x.primaFrecuencia, vencimiento: x.fechaVencimiento })),
+      ingresosPuntuales: (ingresosPuntuales || []).map((x) => ({ concepto: x.concepto || x.nombre, monto: formatMoney(x.monto ?? x.amount), fecha: x.fecha || x.date })),
+      eventosFinancieros: (eventos || []).map((x) => ({ titulo: x.titulo || x.nombre, fecha: x.fecha || x.date, monto: formatMoney(x.monto ?? x.amount) })),
+    },
+  };
+}

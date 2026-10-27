@@ -1,0 +1,631 @@
+import React, { useMemo, useState } from "react";
+import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame, Target, CreditCard, PenLine, Volume2, VolumeX, Sparkles } from "lucide-react";
+import { canjearPuntos, revertirCanje, ajustarPuntosManual } from "../lib/db";
+import { calcularIngresoQuincenal } from "../lib/quincenaResumen";
+import { confirm } from "../lib/confirm";
+import Pagination from "./Pagination.jsx";
+import { calcularRacha, historialRachaVisual } from "../lib/racha";
+import {
+  estanSonidosHabilitados,
+  setSonidosHabilitados,
+  reproducirSonidoMoneda,
+  reproducirSonidoPuntos,
+  reproducirSonidoCoheteDespegue,
+  reproducirSonidoCoheteImpacto,
+  reproducirSonidoCofre,
+  reproducirSonidoCanje,
+} from "../lib/sonidos";
+
+const NOMBRES_MES = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+];
+
+const TIPO_ICONS = {
+  prestamo: Landmark,
+  gastoFijo: HandCoins,
+  metaAhorro: PiggyBank,
+  canje: Gift,
+  cumplimientoPresupuesto: Target,
+  tarjeta: CreditCard,
+  registro: PenLine,
+};
+
+function formatMoney(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  const signo = v < 0 ? "-" : "";
+  return signo + "$" + Math.abs(v).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+export default function Puntos({ puntos, puntosHistorial, categoriasGasto, checklistTodos, categoriasPuntos, fuentesIngreso, topesAjuste, recompensas }) {
+  const [categoria, setCategoria] = useState("");
+  const [monto, setMonto] = useState("");
+  const [quincena, setQuincena] = useState("Q1");
+  const [notaCanje, setNotaCanje] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [exito, setExito] = useState(null);
+  const [showAjusteManual, setShowAjusteManual] = useState(false);
+  const [montoAjuste, setMontoAjuste] = useState("");
+  const [motivoAjuste, setMotivoAjuste] = useState("");
+  const [savingAjuste, setSavingAjuste] = useState(false);
+  const [errorAjuste, setErrorAjuste] = useState(null);
+  const [sonidosOn, setSonidosOn] = useState(estanSonidosHabilitados());
+
+  const handleAjusteManual = async () => {
+    const montoNum = parseInt(montoAjuste, 10);
+    if (!Number.isFinite(montoNum) || montoNum === 0) {
+      setErrorAjuste("Ingresa un monto distinto de cero (puede ser negativo)");
+      return;
+    }
+    setSavingAjuste(true);
+    setErrorAjuste(null);
+    try {
+      await ajustarPuntosManual(motivoAjuste, montoNum);
+      setMontoAjuste("");
+      setMotivoAjuste("");
+      setShowAjusteManual(false);
+    } catch (err) {
+      setErrorAjuste(err.message || String(err));
+    } finally {
+      setSavingAjuste(false);
+    }
+  };
+
+  const [pageHistorial, setPageHistorial] = useState(1);
+  const PAGE_SIZE_HISTORIAL = 10;
+
+  const historialPaginado = useMemo(
+    () => (puntosHistorial || []).slice((pageHistorial - 1) * PAGE_SIZE_HISTORIAL, pageHistorial * PAGE_SIZE_HISTORIAL),
+    [puntosHistorial, pageHistorial]
+  );
+
+  const racha = useMemo(() => calcularRacha(checklistTodos), [checklistTodos]);
+  const historialRacha = useMemo(() => historialRachaVisual(checklistTodos), [checklistTodos]);
+
+  const { mesObjetivo: mesPorDefecto, yearObjetivo: yearPorDefecto } = useMemo(() => {
+    const hoy = new Date();
+    let mes = hoy.getMonth() + 2; // mes siguiente, 1-indexado
+    let year = hoy.getFullYear();
+    if (mes > 12) {
+      mes -= 12;
+      year += 1;
+    }
+    return { mesObjetivo: mes, yearObjetivo: year };
+  }, []);
+  const [mesObjetivo, setMesObjetivo] = useState(mesPorDefecto);
+  const [yearObjetivo, setYearObjetivo] = useState(yearPorDefecto);
+
+  // Las categorías marcadas en Configuración → "Categorías que generan
+  // puntos" no pueden recibir puntos por canje, para no crear un círculo
+  // donde la misma vía da y recibe puntos.
+  const ingresoQuincenalFijo = useMemo(() => calcularIngresoQuincenal(fuentesIngreso), [fuentesIngreso]);
+
+  const categoriasVariables = useMemo(
+    () =>
+      (categoriasGasto || []).filter(
+        (c) => c.clasificacion === "Variable" && !(categoriasPuntos || []).includes(c.nombre)
+      ),
+    [categoriasGasto, categoriasPuntos]
+  );
+
+  const handleRevertirCanje = async (h) => {
+    const ok = await confirm(
+      `¿Revertir este canje de ${formatMoney(Math.abs(h.puntos))} para "${h.categoria}"? Se te devuelven los puntos y se quita ese monto del presupuesto de esa quincena.`,
+      { confirmLabel: "Revertir", danger: true }
+    );
+    if (!ok) return;
+    try {
+      await revertirCanje(h.id);
+    } catch (err) {
+      alert("No se pudo revertir: " + (err.message || String(err)));
+    }
+  };
+
+  const handleCanjear = async () => {
+    const montoNum = parseFloat(monto);
+    if (!categoria) {
+      setError("Elige una categoría de gasto variable");
+      return;
+    }
+    if (!Number.isFinite(montoNum) || montoNum <= 0) {
+      setError("Ingresa un monto válido");
+      return;
+    }
+    if (montoNum > puntos) {
+      setError("No tienes suficientes puntos para ese canje");
+      return;
+    }
+
+    const confirmado = await confirm(
+      `¿Liberar ${formatMoney(montoNum)} para "${categoria}" en la ${quincena === "Q1" ? "primera" : "segunda"} quincena de ${NOMBRES_MES[mesObjetivo - 1]} ${yearObjetivo}?`,
+      { confirmLabel: "Canjear puntos", danger: false }
+    );
+    if (!confirmado) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      await canjearPuntos({
+        montoACanjear: montoNum,
+        year: yearObjetivo,
+        month: mesObjetivo,
+        quincena,
+        categoria,
+        topeCategoria: topesAjuste?.[categoria] ?? null,
+        ingresoQuincenalFijo,
+        nota: notaCanje.trim(),
+      });
+      reproducirSonidoCanje();
+      setExito(`Listo: se agregaron ${formatMoney(montoNum)} a "${categoria}" para esa quincena.`);
+      setMonto("");
+      setCategoria("");
+      setNotaCanje("");
+      setTimeout(() => setExito(null), 5000);
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 640 }}>
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "16px 18px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <Flame size={18} style={{ color: racha > 0 ? "var(--stamp)" : "var(--ink-soft)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>
+            Racha: {racha} quincena{racha !== 1 ? "s" : ""} seguida{racha !== 1 ? "s" : ""}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {historialRacha.map((h) => {
+            const [, mesN, q] = h.key.split("-");
+            return (
+              <div key={h.key} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                <div
+                  title={h.esActual ? "Quincena en curso" : h.cumplida ? "Cumplida" : "No cumplida"}
+                  style={{
+                    width: 30,
+                    height: 30,
+                    borderRadius: "50%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: h.esActual ? "var(--card)" : h.cumplida ? "var(--sage)" : "var(--line-soft)",
+                    border: h.esActual ? "2px dashed var(--amber)" : "none",
+                    color: h.cumplida ? "#fff" : "var(--ink-soft)",
+                  }}
+                >
+                  {h.esActual ? (
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--amber)" }} />
+                  ) : h.cumplida ? (
+                    <Check size={15} />
+                  ) : (
+                    <span style={{ fontSize: 10 }}>✕</span>
+                  )}
+                </div>
+                <span style={{ fontSize: 9, color: "var(--ink-soft)" }}>{q}/{mesN}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 10 }}>
+          Se cuenta una quincena como cumplida cuando marcas todos sus pagos del Checklist como pagados.
+        </div>
+      </div>
+
+      {((recompensas?.insignias || []).length > 0 || recompensas?.protectoresRacha > 0 || (recompensas?.multiplicador?.activo && recompensas.multiplicador.expiraEn > Date.now())) && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "16px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <Trophy size={17} style={{ color: "var(--sage)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Recompensas ganadas</span>
+          </div>
+
+          {(recompensas?.multiplicador?.activo && recompensas.multiplicador.expiraEn > Date.now()) && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "var(--paper)", borderRadius: 8, marginBottom: 8, fontSize: 12.5 }}>
+              ⚡ Multiplicador x{recompensas.multiplicador.factor} activo — termina{" "}
+              {new Date(recompensas.multiplicador.expiraEn).toLocaleString("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </div>
+          )}
+          {recompensas?.protectoresRacha > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "var(--paper)", borderRadius: 8, marginBottom: 8, fontSize: 12.5 }}>
+              🛡️ {recompensas.protectoresRacha} protector{recompensas.protectoresRacha !== 1 ? "es" : ""} de racha disponible{recompensas.protectoresRacha !== 1 ? "s" : ""}
+            </div>
+          )}
+          {(recompensas?.insignias || []).length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>Insignias</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {recompensas.insignias.map((nombre, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "6px 12px",
+                      borderRadius: 20,
+                      background: "var(--sage-bg)",
+                      color: "var(--sage)",
+                      fontSize: 12,
+                      fontWeight: 500,
+                    }}
+                  >
+                    🏅 {nombre}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          background: "var(--amber-bg)",
+          border: "1px solid var(--amber)",
+          borderRadius: 12,
+          padding: "16px 18px",
+        }}
+      >
+        <Trophy size={30} style={{ color: "var(--amber)" }} />
+        <div style={{ flex: 1 }}>
+          <div className="despensa-mono" style={{ fontSize: 26, fontWeight: 700, color: "var(--amber)" }}>{formatMoney(puntos)}</div>
+          <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>disponibles para canjear (1 punto = $1 peso)</div>
+        </div>
+      </div>
+
+      {/* Control y prueba de Efectos de Sonido */}
+      <div
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--line)",
+          borderRadius: 12,
+          padding: "14px 16px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {sonidosOn ? (
+              <Volume2 size={18} style={{ color: "var(--sage)" }} />
+            ) : (
+              <VolumeX size={18} style={{ color: "var(--ink-soft)" }} />
+            )}
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+                Efectos de sonido {sonidosOn ? "🔊 (Activados)" : "🔇 (Silenciados)"}
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                Audio dinámico para monedas 🪙, puntos ✨, despegue de cohete 🚀 y cofres 🎁
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const nuevo = !sonidosOn;
+              setSonidosOn(nuevo);
+              setSonidosHabilitados(nuevo);
+              if (nuevo) reproducirSonidoMoneda(0);
+            }}
+            className="despensa-btn-secondary"
+            style={{
+              fontSize: 12,
+              padding: "5px 12px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              borderRadius: 8,
+              fontWeight: 600,
+            }}
+          >
+            {sonidosOn ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            {sonidosOn ? "Silenciar audio" : "Activar audio"}
+          </button>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", paddingTop: 4, borderTop: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 11, color: "var(--ink-soft)", fontWeight: 600, marginRight: 2 }}>
+            Probar sonidos:
+          </span>
+          <button
+            type="button"
+            title="Escuchar sonido de moneda dorada"
+            onClick={() => reproducirSonidoMoneda(Math.floor(Math.random() * 6))}
+            className="despensa-btn-secondary"
+            style={{ fontSize: 11.5, padding: "4px 9px", borderRadius: 6 }}
+          >
+            🪙 Moneda
+          </button>
+          <button
+            type="button"
+            title="Escuchar sonido de acumulación de puntos"
+            onClick={() => reproducirSonidoPuntos(50)}
+            className="despensa-btn-secondary"
+            style={{ fontSize: 11.5, padding: "4px 9px", borderRadius: 6 }}
+          >
+            ✨ Puntos
+          </button>
+          <button
+            type="button"
+            title="Escuchar sonido de despegue e impacto de cohete"
+            onClick={() => {
+              reproducirSonidoCoheteDespegue(0.85);
+              setTimeout(() => reproducirSonidoCoheteImpacto(), 850);
+            }}
+            className="despensa-btn-secondary"
+            style={{ fontSize: 11.5, padding: "4px 9px", borderRadius: 6 }}
+          >
+            🚀 Cohete
+          </button>
+          <button
+            type="button"
+            title="Escuchar sonido de cofre sorpresa"
+            onClick={() => reproducirSonidoCofre()}
+            className="despensa-btn-secondary"
+            style={{ fontSize: 11.5, padding: "4px 9px", borderRadius: 6 }}
+          >
+            🎁 Cofre
+          </button>
+        </div>
+      </div>
+
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 12, padding: "16px 18px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <Gift size={16} style={{ color: "var(--sage)" }} />
+          <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Canjear puntos</span>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--ink-soft)", marginBottom: 14 }}>
+          Libera dinero extra en una categoría de gasto variable (compras, entretenimiento, etc.) para el periodo que
+          elijas abajo — se suma al presupuesto que ya tengas ahí.
+        </div>
+
+        {categoriasVariables.length === 0 ? (
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+            Todavía no tienes categorías de gasto marcadas como "Variable". Ve a Presupuesto → Categoría de gasto para
+            crear o marcar una (ej. Compras, Entretenimiento).
+          </div>
+        ) : puntos <= 0 ? (
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+            Todavía no tienes puntos acumulados. Se ganan al pagar préstamos, gastos fijos, y aportar a tus metas de ahorro.
+          </div>
+        ) : (
+          <>
+            <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
+              <select
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+                style={{ padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+              >
+                <option value="">Categoría variable…</option>
+                {categoriasVariables.map((c) => (
+                  <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                ))}
+              </select>
+              <select
+                value={quincena}
+                onChange={(e) => setQuincena(e.target.value)}
+                style={{ padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+              >
+                <option value="Q1">1ra quincena</option>
+                <option value="Q2">2da quincena</option>
+              </select>
+            </div>
+
+            <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
+              <select
+                value={mesObjetivo}
+                onChange={(e) => setMesObjetivo(Number(e.target.value))}
+                style={{ padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+              >
+                {NOMBRES_MES.map((nombre, i) => (
+                  <option key={nombre} value={i + 1}>{nombre}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                value={yearObjetivo}
+                onChange={(e) => setYearObjetivo(Number(e.target.value) || yearObjetivo)}
+                style={{ padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </div>
+
+            {categoria && topesAjuste?.[categoria] != null && (
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+                Tope configurado para "{categoria}": <strong>{formatMoney(topesAjuste[categoria])}</strong> (no se permite pasarlo)
+              </div>
+            )}
+            {ingresoQuincenalFijo > 0 && (
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+                Tu ingreso fijo estimado esa quincena es <strong>{formatMoney(ingresoQuincenalFijo)}</strong> — no se permite canjear más que eso en total hacia esa quincena.
+              </div>
+            )}
+
+            <div style={{ marginBottom: 8 }}>
+              <input
+                placeholder='Nota (opcional), ej. "Necesito comprar medias"'
+                value={notaCanje}
+                onChange={(e) => setNotaCanje(e.target.value)}
+                style={{ width: "100%", padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input
+                className="despensa-mono"
+                type="number"
+                min="0"
+                max={puntos}
+                step="1"
+                placeholder={`Monto a liberar (máx. ${formatMoney(puntos)})`}
+                value={monto}
+                onChange={(e) => setMonto(e.target.value)}
+                style={{ flex: 1, padding: "9px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <button
+                onClick={handleCanjear}
+                disabled={saving}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "9px 16px",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: "var(--sage)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: saving ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                <ArrowRight size={14} /> {saving ? "Canjeando…" : "Canjear"}
+              </button>
+            </div>
+
+            {error && <div style={{ fontSize: 12, color: "var(--stamp)" }}>{error}</div>}
+            {exito && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--sage)" }}>
+                <Check size={13} /> {exito}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Historial</div>
+          <button
+            onClick={() => setShowAjusteManual((s) => !s)}
+            style={{ fontSize: 11, color: "var(--ink-soft)", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}
+          >
+            Ajuste manual
+          </button>
+        </div>
+
+        {showAjusteManual && (
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, marginBottom: 14 }}>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 8, lineHeight: 1.5 }}>
+              Para corregir tu total de puntos a mano (ej. si un canje o reversión no salió bien). Usa un número
+              negativo para restar.
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+              <input
+                className="despensa-mono"
+                type="number"
+                placeholder="Monto (ej. 1000 o -500)"
+                value={montoAjuste}
+                onChange={(e) => setMontoAjuste(e.target.value)}
+                style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+            </div>
+            <input
+              placeholder="Motivo (ej. Corrección de reversión fallida)"
+              value={motivoAjuste}
+              onChange={(e) => setMotivoAjuste(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+            />
+            {errorAjuste && <div style={{ fontSize: 11.5, color: "var(--stamp)", marginBottom: 8 }}>{errorAjuste}</div>}
+            <button
+              onClick={handleAjusteManual}
+              disabled={savingAjuste}
+              style={{ padding: "7px 14px", fontSize: 12, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+            >
+              {savingAjuste ? "Guardando…" : "Aplicar ajuste"}
+            </button>
+          </div>
+        )}
+
+        {(!puntosHistorial || puntosHistorial.length === 0) ? (
+          <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
+            Todavía no tienes movimientos de puntos.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {historialPaginado.map((h) => {
+              const Icon = TIPO_ICONS[h.tipo] || Trophy;
+              const positivo = h.puntos >= 0;
+              return (
+                <div
+                  key={h.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 12px",
+                    background: "var(--card)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 10,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: "50%",
+                      background: positivo ? "var(--sage-bg)" : "var(--stamp-bg)",
+                      color: positivo ? "var(--sage)" : "var(--stamp)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Icon size={14} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{h.motivo}</div>
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>{formatDateDisplay(h.fecha)}</div>
+                  </div>
+                  <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 700, color: positivo ? "var(--sage)" : "var(--stamp)" }}>
+                    {positivo ? "+" : ""}{formatMoney(h.puntos)}
+                  </div>
+                  {h.tipo === "canje" && !h.revertido && h.monto != null && h.categoria != null && (
+                    <button
+                      onClick={() => handleRevertirCanje(h)}
+                      title="Revertir este canje"
+                      style={{
+                        marginLeft: 4,
+                        padding: "5px 10px",
+                        fontSize: 10.5,
+                        fontWeight: 500,
+                        background: "transparent",
+                        border: "1px solid var(--line)",
+                        borderRadius: 8,
+                        color: "var(--ink-soft)",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      }}
+                    >
+                      Revertir
+                    </button>
+                  )}
+                  {h.tipo === "canje" && h.revertido && (
+                    <span style={{ marginLeft: 4, fontSize: 10, color: "var(--ink-soft)", fontStyle: "italic", flexShrink: 0 }}>Revertido</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <Pagination page={pageHistorial} totalItems={(puntosHistorial || []).length} pageSize={PAGE_SIZE_HISTORIAL} onPageChange={setPageHistorial} />
+      </div>
+    </div>
+  );
+}

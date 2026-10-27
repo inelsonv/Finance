@@ -1,0 +1,1762 @@
+import React, { useEffect, useRef, useState } from "react";
+import { onAuthStateChanged, signOut, getRedirectResult, GoogleAuthProvider } from "firebase/auth";
+import { auth, ALLOWED_EMAIL, isOwnerUser, setCachedAccessToken, clearCachedAccessToken } from "./firebase";
+import { watchProducts, watchList, watchEntidades, watchConnectionStatus, watchMovimientos, watchPrestamos, watchCuentas, watchTarjetas, watchMembresias, watchFuentesIngreso, watchCategoriasGasto, watchPresupuestoAnual, watchContratos, watchFlujo, watchTiposEntidad, watchCalendario, watchActivos, watchMantenimientos, watchMetasAhorro, watchSeguros, watchHistorialCompras, watchOrdenesCompra, watchVacaciones, watchDiezmoConfig, watchAhorroAutoConfig, watchRenovaciones, watchPuntos, watchPuntosHistorial, watchChecklistTodos, watchCategoriasPuntosConfig, watchIngresosPuntuales, evaluarCumplimientoQuincena, watchTopesAjusteConfig, evaluarAjustesPresupuesto, watchAjustesPresupuestoHistorial, evaluarInteresYMoraTarjeta, watchComprasProrateadas, evaluarExcedenteQuincena, watchSugerenciasInversion, watchDiasCobroConfig, watchHabitos, watchHabitosRegistro, evaluarPenalizacionHabito, watchHabitosPenalizaciones, evaluarVersiculoDiario, watchVersiculoHoy, setCurrentDbUser, inicializarEspacioUsuarioNuevo, watchUsuariosRegistrados, saveUserThemePreference, getUserThemePreference, watchPlanSuscripcion, sincronizarEstadoDuoUsuario, getDuoTitularEmail, setDuoSharedMemberStatus } from "./lib/db";
+import { fechaHoyStr, obtenerVersiculoDelDia } from "./lib/versiculos";
+import { obtenerConsejoDelDia } from "./lib/consejosFinancieros";
+import { lanzarMonedasHaciaTrofeo } from "./lib/monedaVolando";
+import { lanzarCoheteHaciaPuntos } from "./lib/coheteVolando";
+import { reproducirSonidoCofre } from "./lib/sonidos";
+import { watchCofresGanados, marcarCofreVisto, watchDatosCorporales, toggleHabitoRegistro, recalcularPuntosTotal_fix20260905, verificarEstadoTodosPrestamos, watchRecompensas, watchEstrategiaDeudas, watchTipoCambioCache, registrarDisparoPedidoAutomatico, registrarPedidoFarmacia, updateTarjeta, sincronizarTarjetaCreditoLocal } from "./lib/db";
+import { evaluarPedidosAutomaticos } from "./lib/inventario";
+import { periodoDeFecha } from "./lib/rachaHabito";
+import { detectarRachaRota } from "./lib/rachaHabito";
+import { cicloVencidoParaTarjeta } from "./lib/tarjetaCiclos";
+import { periodoActualConfigurado, periodoAdyacenteConfigurado } from "./lib/quincenaConfig";
+import { periodoKey } from "./lib/racha";
+import { calcularResumenQuincena, rangoFechasQuincena } from "./lib/quincenaResumen";
+import { LoginScreen, AccessDeniedScreen } from "./components/Login.jsx";
+import FirebaseErrorScreen from "./components/FirebaseErrorScreen.jsx";
+import AccountMenu from "./components/AccountMenu.jsx";
+import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
+import GlobalSearch from "./components/GlobalSearch.jsx";
+import MobileMenu from "./components/MobileMenu.jsx";
+import PullToRefresh from "./components/PullToRefresh.jsx";
+import { Menu, Trophy, Bot, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { SmartFinanceMark } from "./components/SmartFinanceLogo.jsx";
+import SugeridorRecetas from "./components/SugeridorRecetas.jsx";
+import Catalogo from "./components/Catalogo.jsx";
+import Compras from "./components/Compras.jsx";
+import Finanzas from "./components/Finanzas.jsx";
+import PagosFijos from "./components/PagosFijos.jsx";
+import Vacaciones from "./components/Vacaciones.jsx";
+import Entidades from "./components/Entidades.jsx";
+import Movimientos from "./components/Movimientos.jsx";
+import Prestamos from "./components/Prestamos.jsx";
+import Cuentas from "./components/Cuentas.jsx";
+import Tarjetas from "./components/Tarjetas.jsx";
+import Membresias from "./components/Membresias.jsx";
+import FuentesIngreso from "./components/FuentesIngreso.jsx";
+import CategoriaGasto from "./components/CategoriaGasto.jsx";
+import Inicio from "./components/Inicio.jsx";
+import PresupuestoAnual from "./components/PresupuestoAnual.jsx";
+import Contratos from "./components/Contratos.jsx";
+import FlujoEditor from "./components/FlujoEditor.jsx";
+import Inversion from "./components/Inversion.jsx";
+import EstrategiaDeudas from "./components/EstrategiaDeudas.jsx";
+import Calendario from "./components/Calendario.jsx";
+import Activos from "./components/Activos.jsx";
+import Ahorro from "./components/Ahorro.jsx";
+import Seguros from "./components/Seguros.jsx";
+import Renovaciones from "./components/Renovaciones.jsx";
+import OrdenesCompra from "./components/OrdenesCompra.jsx";
+import ChecklistPagos from "./components/ChecklistPagos.jsx";
+import Configuracion from "./components/Configuracion.jsx";
+import EscanearFactura from "./components/EscanearFactura.jsx";
+import NotificationBell from "./components/NotificationBell.jsx";
+import Puntos from "./components/Puntos.jsx";
+import HabitTracker from "./components/HabitTracker.jsx";
+import Wallet from "./components/Wallet.jsx";
+import Asistente from "./components/Asistente.jsx";
+import MapaProgreso from "./components/MapaProgreso.jsx";
+import FondosSostenibles from "./components/FondosSostenibles.jsx";
+import Sidebar from "./components/Sidebar.jsx";
+import BottomNav from "./components/BottomNav.jsx";
+import NotificacionesPage from "./components/NotificacionesPage.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
+import WhatsAppGroupButton from "./components/WhatsAppGroupButton.jsx";
+
+
+const THEME_KEY = "smart-finance-theme";
+const getUserThemeKey = (uid) => (uid ? `smart-finance-theme_${uid}` : THEME_KEY);
+const SIDEBAR_KEY = "smart-finance-sidebar-collapsed";
+const SIDEBAR_VISIBLE_KEY = "smart-finance-sidebar-visible";
+const ASISTENTE_FLOTANTE_KEY = "smart-finance-asistente-flotante";
+
+const TITLES = {
+  inicio: "Inicio",
+  notificaciones: "Notificaciones",
+  movimientos: "Movimientos",
+  catalogo: "Catálogo",
+  compras: "Compras",
+  "dinero-cuentas": "Finanzas",
+  "deudas-pagos": "Pagos fijos",
+  entidades: "Entidades",
+  cuentas: "Cuentas",
+  prestamos: "Préstamos",
+  tarjetas: "Tarjetas",
+  membresias: "Membresías",
+  contratos: "Contratos",
+  ingresos: "Ingresos",
+  "presupuesto-categoria-gasto": "Categoría de gasto",
+  "presupuesto-metodologia": "Tipos y Metodología de Presupuesto",
+  "presupuesto-mensual": "Presupuesto",
+  "presupuesto-flujo": "Ruta de Flujo Financiero",
+  inversion: "Inversión",
+  "estrategia-deudas": "Estrategia de deudas",
+  "checklist-pagos": "Checklist de pagos",
+  vacaciones: "Vacaciones",
+  vuelos: "Consultar Vuelos",
+  calendario: "Calendario",
+  activos: "Activos",
+  ahorro: "Ahorro",
+  seguros: "Seguros",
+  renovaciones: "Renovaciones y Trámites",
+  puntos: "Puntos",
+  asistente: "Consultor Financiero",
+  "mapa-progreso": "Mapa de progreso",
+  "ordenes-compra": "Órdenes de compra",
+  recetas: "Sugeridor de platos",
+  configuracion: "Configuración",
+  "escanear-factura": "Registrar compra (factura)",
+};
+
+const ADMIN_ONLY_TABS = new Set([
+  "compras",
+  "catalogo",
+  "recetas",
+  "ordenes-compra",
+  "escanear-factura",
+]);
+
+function getInitialTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    const validThemes = ["navy", "light", "dark", "emerald", "slate", "amethyst", "latte", "oled"];
+    if (saved && validThemes.includes(saved)) return saved;
+  } catch (e) {
+    // localStorage no disponible, seguimos con el valor por defecto
+  }
+  return "navy";
+}
+
+function getInitialCollapsed() {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) === "1";
+  } catch (e) {
+    return false;
+  }
+}
+
+function getInitialSidebarVisible() {
+  try {
+    return localStorage.getItem(SIDEBAR_VISIBLE_KEY) !== "0";
+  } catch (e) {
+    return true;
+  }
+}
+
+function getInitialAsistenteFlotante() {
+  try {
+    return localStorage.getItem(ASISTENTE_FLOTANTE_KEY) !== "0";
+  } catch (e) {
+    return true;
+  }
+}
+
+function SplashScreen({ caption = "Sincronizando espacio privado…" }) {
+  return (
+    <div className="despensa-loading-screen" role="status" aria-label="Cargando Smart Finance">
+      <div className="despensa-loading-content">
+        <div className="despensa-splash-logo-wrap">
+          <SmartFinanceMark size={96} hasBox={false} />
+        </div>
+        <div className="despensa-splash-brand">
+          <div className="despensa-tab-font despensa-splash-title">
+            Smart<span style={{ color: "var(--sage)" }}>Finance</span>
+          </div>
+          <div className="despensa-splash-subtitle">
+            Pequeños hábitos, grandes resultados
+          </div>
+        </div>
+        <div className="despensa-loading-track" role="progressbar" aria-label="Cargando Smart Finance" aria-valuetext="Cargando">
+          <span className="despensa-loading-indicator" />
+        </div>
+        <div className="despensa-loading-caption">{caption}</div>
+      </div>
+    </div>
+  );
+}
+
+function leerParamsURL() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    const year = parseInt(params.get("year"), 10);
+    const month = parseInt(params.get("month"), 10);
+    const quincena = params.get("quincena");
+    if (tab === "checklist-pagos" && year && month && (quincena === "Q1" || quincena === "Q2")) {
+      return { tab, periodo: { year, month, quincena } };
+    }
+    if (tab) return { tab, periodo: null };
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+export default function App() {
+  const [authUser, setAuthUser] = useState(undefined); // undefined = cargando, null = sin sesión
+  const esPropietario = isOwnerUser(authUser);
+  const [tab, setTab] = useState(() => {
+    const initialTab = leerParamsURL()?.tab || "inicio";
+    return initialTab === "presupuesto" ? "presupuesto-mensual" : initialTab;
+  });
+  const [products, setProducts] = useState([]);
+  const [list, setList] = useState([]);
+  const [entidades, setEntidades] = useState([]);
+  const [movimientos, setMovimientos] = useState([]);
+  const [prestamos, setPrestamos] = useState([]);
+  const [cuentas, setCuentas] = useState([]);
+  const [tarjetas, setTarjetas] = useState([]);
+  const [membresias, setMembresias] = useState([]);
+  const [fuentesIngreso, setFuentesIngreso] = useState([]);
+  const [categoriasGasto, setCategoriasGasto] = useState([]);
+  const [presupuestoAnual, setPresupuestoAnual] = useState({});
+  const [contratos, setContratos] = useState([]);
+  const [tiposEntidad, setTiposEntidad] = useState([]);
+  const [eventos, setEventos] = useState([]);
+  const [activos, setActivos] = useState([]);
+  const [mantenimientos, setMantenimientos] = useState([]);
+  const [metasAhorro, setMetasAhorro] = useState([]);
+  const [seguros, setSeguros] = useState([]);
+  const [renovaciones, setRenovaciones] = useState([]);
+  const [ingresosPuntuales, setIngresosPuntuales] = useState([]);
+  const [historialCompras, setHistorialCompras] = useState([]);
+  const [ordenesCompra, setOrdenesCompra] = useState([]);
+  const [vacaciones, setVacaciones] = useState([]);
+  const [diezmoConfig, setDiezmoConfig] = useState(undefined);
+  const [ahorroAutoConfig, setAhorroAutoConfig] = useState(undefined);
+  const [puntos, setPuntos] = useState(0);
+  const puntosAnteriores = useRef(null);
+  const [puntosHistorial, setPuntosHistorial] = useState([]);
+  const [estrategiaDeudas, setEstrategiaDeudas] = useState({});
+  const [tipoCambio, setTipoCambio] = useState(null);
+  const [recompensas, setRecompensas] = useState({});
+  const [checklistTodos, setChecklistTodos] = useState({});
+  const [categoriasPuntos, setCategoriasPuntos] = useState([]);
+  const [topesAjuste, setTopesAjuste] = useState({});
+  const [ajustesPresupuesto, setAjustesPresupuesto] = useState([]);
+  const [comprasProrateadas, setComprasProrateadas] = useState([]);
+  const [sugerenciasInversion, setSugerenciasInversion] = useState([]);
+  const [diasCobro, setDiasCobro] = useState([15, 30]);
+  const [habitos, setHabitos] = useState([]);
+  const [habitosRegistro, setHabitosRegistro] = useState([]);
+  const [datosCorporales, setDatosCorporales] = useState(null);
+
+  const [habitosPenalizaciones, setHabitosPenalizaciones] = useState([]);
+  const [versiculoHoy, setVersiculoHoy] = useState(null);
+  const [cofresGanados, setCofresGanados] = useState([]);
+  const [cofreParaMostrar, setCofreParaMostrar] = useState(null);
+  const cofresCerradosLocalmente = useRef(new Set());
+  const [showVersiculoModal, setShowVersiculoModal] = useState(false);
+  const [showConsejoModal, setShowConsejoModal] = useState(false);
+  const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
+  const [highlightId, setHighlightId] = useState(null);
+  const [focusProductId, setFocusProductId] = useState(null);
+  const [flujo, setFlujo] = useState(undefined);
+  const [presupuestoYear, setPresupuestoYear] = useState(() => new Date().getFullYear());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [synced, setSynced] = useState(null);
+  const [theme, setTheme] = useState(getInitialTheme);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialCollapsed);
+  const [sidebarVisible, setSidebarVisible] = useState(getInitialSidebarVisible);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showAsistenteFlotante, setShowAsistenteFlotante] = useState(false);
+  const [asistenteFlotanteActivo, setAsistenteFlotanteActivo] = useState(getInitialAsistenteFlotante);
+  const [notificacionAgentePago, setNotificacionAgentePago] = useState(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [planActual, setPlanActual] = useState(null);
+  const [duoSyncVersion, setDuoSyncVersion] = useState(0);
+  const [duoInfo, setDuoInfo] = useState({ esDuo: false, titularEmail: null });
+
+  useEffect(() => {
+    let timer = null;
+    const handlePagoDeuda = (e) => {
+      const { puntos, mensaje } = e.detail || {};
+      setNotificacionAgentePago({ puntos, mensaje, timestamp: Date.now() });
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        setNotificacionAgentePago(null);
+      }, 9500);
+    };
+
+    window.addEventListener("agenteCelebrarPagoDeuda", handlePagoDeuda);
+    return () => {
+      window.removeEventListener("agenteCelebrarPagoDeuda", handlePagoDeuda);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+      if (authUser?.uid) {
+        localStorage.setItem(getUserThemeKey(authUser.uid), theme);
+        saveUserThemePreference(authUser.uid, theme);
+      }
+    } catch (e) {
+      // si falla el guardado, el tema sigue funcionando solo en esta sesión
+    }
+  }, [theme, authUser]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_KEY, sidebarCollapsed ? "1" : "0");
+    } catch (e) {
+      // si falla el guardado, la preferencia sigue funcionando solo en esta sesión
+    }
+  }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_VISIBLE_KEY, sidebarVisible ? "1" : "0");
+    } catch (e) {
+      // La preferencia sigue funcionando durante esta sesión.
+    }
+  }, [sidebarVisible]);
+
+  const toggleTheme = () => setTheme((t) => (t === "dark" ? "light" : "dark"));
+  const cambiarAsistenteFlotante = (activo) => {
+    setAsistenteFlotanteActivo(activo);
+    if (!activo) setShowAsistenteFlotante(false);
+    try {
+      localStorage.setItem(ASISTENTE_FLOTANTE_KEY, activo ? "1" : "0");
+    } catch (e) {
+      // El ajuste sigue aplicado durante esta sesión aunque no se pueda guardar.
+    }
+  };
+
+  useEffect(() => {
+    if (!showAsistenteFlotante) return undefined;
+    const cerrarConEscape = (event) => {
+      if (event.key === "Escape") setShowAsistenteFlotante(false);
+    };
+    window.addEventListener("keydown", cerrarConEscape);
+    return () => window.removeEventListener("keydown", cerrarConEscape);
+  }, [showAsistenteFlotante]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const id = highlightId;
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-record-id="${CSS.escape(id)}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("despensa-highlight");
+        setTimeout(() => el.classList.remove("despensa-highlight"), 2400);
+      }
+      setHighlightId(null);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [highlightId, tab]);
+
+
+
+  const seleccionarTab = (tabId) => {
+    if (!esPropietario && ADMIN_ONLY_TABS.has(tabId)) {
+      setTab("inicio");
+      return;
+    }
+    if (tabId === "presupuesto" || tabId === "presupuesto-mensual") {
+      setPresupuestoYear(new Date().getFullYear());
+      setTab("presupuesto-mensual");
+      return;
+    }
+    if (tabId === "presupuesto-metodologia") {
+      setPresupuestoYear(new Date().getFullYear());
+      setTab("presupuesto-metodologia");
+      return;
+    }
+    setTab(tabId);
+  };
+
+  useEffect(() => {
+    if (authUser && !esPropietario && ADMIN_ONLY_TABS.has(tab)) {
+      setTab("inicio");
+    }
+  }, [tab, authUser, esPropietario]);
+
+  const handleNavigate = (tabId, periodoObjetivo, productId) => {
+    if (tabId === "consejo-modal") {
+      setShowConsejoModal(true);
+      return;
+    }
+    if (tabId === "versiculo-modal") {
+      setShowVersiculoModal(true);
+      // Al abrir el versículo del día, marca automáticamente el hábito
+      // "Lectura de la Biblia" como cumplido hoy (si existe y aún no se
+      // había marcado) — así no hay que hacerlo aparte.
+      const habitoBiblia = (habitos || []).find((h) => h.nombre.trim().toLowerCase() === "lectura de la biblia");
+      if (habitoBiblia) {
+        const periodoActual = periodoDeFecha(habitoBiblia.frecuencia || "Diario", new Date());
+        const yaMarcado = (habitosRegistro || []).some((r) => r.habitoId === habitoBiblia.id && r.fecha === periodoActual);
+        if (!yaMarcado) {
+          toggleHabitoRegistro(habitoBiblia.id, periodoActual, habitoBiblia.nombre).catch((err) =>
+            console.error("No se pudo marcar el hábito de lectura bíblica:", err)
+          );
+        }
+      }
+      return;
+    }
+    seleccionarTab(tabId);
+    if (periodoObjetivo) setChecklistPeriodoInicial(periodoObjetivo);
+    if (productId) setFocusProductId(productId);
+  };
+  const handleSearchNavigate = (tabId, recordId) => {
+    seleccionarTab(tabId);
+    if (recordId) setHighlightId(recordId);
+  };
+  const toggleSidebar = () => setSidebarCollapsed((c) => !c);
+
+  const resetUserState = () => {
+    setProducts([]);
+    setList([]);
+    setEntidades([]);
+    setMovimientos([]);
+    setPrestamos([]);
+    setCuentas([]);
+    setTarjetas([]);
+    setMembresias([]);
+    setFuentesIngreso([]);
+    setCategoriasGasto([]);
+    setContratos([]);
+    setTiposEntidad([]);
+    setFlujo([]);
+    setEventos([]);
+    setActivos([]);
+    setMantenimientos([]);
+    setMetasAhorro([]);
+    setSeguros([]);
+    setRenovaciones([]);
+    setIngresosPuntuales([]);
+    setHistorialCompras([]);
+    setOrdenesCompra([]);
+    setVacaciones([]);
+    setPresupuestoAnual(null);
+  };
+
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          const cred = GoogleAuthProvider.credentialFromResult(result);
+          if (cred?.accessToken) setCachedAccessToken(cred.accessToken);
+        }
+      })
+      .catch((err) => {
+        try {
+          sessionStorage.setItem("smart-finance-auth-error", err.message || String(err));
+        } catch (e) {
+          // sessionStorage no disponible, el error simplemente no se muestra
+        }
+      });
+
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        clearCachedAccessToken();
+        setCurrentDbUser(null);
+        setDuoSharedMemberStatus(false);
+        setDuoInfo({ esDuo: false, titularEmail: null });
+        setAuthUser(null);
+        resetUserState();
+        setDuoSyncVersion((v) => v + 1);
+        return;
+      }
+
+      // Limpiar estados anteriores inmediatamente antes de suscribirse a los del nuevo usuario
+      resetUserState();
+      setCurrentDbUser(user);
+
+      // 1. Sincronizar estado Dúo PRIMERO para que el enrutamiento a colecciones compartidas esté listo
+      let infoDuo = { esDuo: false };
+      try {
+        infoDuo = await sincronizarEstadoDuoUsuario(user);
+        setDuoInfo(infoDuo);
+      } catch (err) {
+        console.error("Error sincronizando estado Plan Dúo:", err);
+      }
+
+      // 2. Inicializar espacio (no creará duplicados si es miembro dúo o propietario)
+      try {
+        await inicializarEspacioUsuarioNuevo(user);
+      } catch (err) {
+        console.error("Error al preparar espacio multi-usuario:", err);
+      }
+
+      // 3. Activar usuario autenticado
+      setAuthUser(user);
+      setDuoSyncVersion((v) => v + 1);
+
+        // Cargar y aplicar la preferencia de tema exclusiva de este usuario
+        try {
+          const userKey = getUserThemeKey(user.uid);
+          let userSaved = localStorage.getItem(userKey);
+          const validThemes = ["light", "dark", "navy", "emerald", "slate", "amethyst", "latte", "oled"];
+          if (!userSaved || !validThemes.includes(userSaved)) {
+            const remoteTheme = await getUserThemePreference(user.uid);
+            if (remoteTheme && validThemes.includes(remoteTheme)) {
+              userSaved = remoteTheme;
+              try {
+                localStorage.setItem(userKey, remoteTheme);
+              } catch (e) {}
+            }
+          }
+          if (userSaved && validThemes.includes(userSaved)) {
+            setTheme(userSaved);
+          }
+        } catch (err) {
+          console.warn("Error cargando preferencia de tema del usuario:", err);
+        }
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    const handlePlanChanged = () => {
+      resetUserState();
+      setDuoSyncVersion((v) => v + 1);
+    };
+    window.addEventListener("smart-finance-plan-changed", handlePlanChanged);
+    return () => window.removeEventListener("smart-finance-plan-changed", handlePlanChanged);
+  }, []);
+
+  const authorized = Boolean(authUser);
+
+  const fechaHoy = (() => {
+    const d = new Date();
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  })();
+
+  useEffect(() => {
+    if (!authorized) return;
+    const handleError = (err) => {
+      setError(err.message || String(err));
+      setLoading(false);
+    };
+    const unsubProducts = watchProducts((p) => {
+      setProducts(p);
+      setLoading(false);
+    }, handleError);
+    const unsubList = watchList(setList, handleError);
+    const unsubEntidades = watchEntidades(setEntidades, handleError);
+    const unsubMovimientos = watchMovimientos(setMovimientos, handleError);
+    const unsubPrestamos = watchPrestamos(setPrestamos, handleError);
+    const unsubCuentas = watchCuentas(setCuentas, handleError);
+    const unsubTarjetas = watchTarjetas(setTarjetas, handleError);
+    const unsubMembresias = watchMembresias(setMembresias, handleError);
+    const unsubFuentesIngreso = watchFuentesIngreso(setFuentesIngreso, handleError);
+    const unsubCategoriasGasto = watchCategoriasGasto(setCategoriasGasto, handleError);
+    const unsubContratos = watchContratos(setContratos, handleError);
+    const unsubTiposEntidad = watchTiposEntidad(setTiposEntidad, handleError);
+    const unsubFlujo = watchFlujo(setFlujo, handleError);
+    const unsubCalendario = watchCalendario(setEventos, handleError);
+    const unsubActivos = watchActivos(setActivos, handleError);
+    const unsubMantenimientos = watchMantenimientos(setMantenimientos, handleError);
+    const unsubMetasAhorro = watchMetasAhorro(setMetasAhorro, handleError);
+    const unsubSeguros = watchSeguros(setSeguros, handleError);
+    const unsubRenovaciones = watchRenovaciones(setRenovaciones, handleError);
+    const unsubIngresosPuntuales = watchIngresosPuntuales(setIngresosPuntuales, handleError);
+    const unsubHistorialCompras = watchHistorialCompras(setHistorialCompras, handleError);
+    const unsubOrdenesCompra = watchOrdenesCompra(setOrdenesCompra, handleError);
+    const unsubVacaciones = watchVacaciones(setVacaciones, handleError);
+    const unsubDiezmo = watchDiezmoConfig(setDiezmoConfig, handleError);
+    const unsubAhorroAuto = watchAhorroAutoConfig(setAhorroAutoConfig, handleError);
+    const unsubPuntos = watchPuntos((val) => {
+      setPuntos(val);
+      if (puntosAnteriores.current !== null) {
+        const delta = val - puntosAnteriores.current;
+        if (delta > 0) {
+          const origenX = window.__ultimoClickPuntosX || (window.innerWidth / 2);
+          const origenY = window.__ultimoClickPuntosY || (window.innerHeight * 0.65);
+          lanzarMonedasHaciaTrofeo(origenX, origenY, delta);
+        }
+      }
+      puntosAnteriores.current = val;
+    }, handleError);
+    const unsubPuntosHistorial = watchPuntosHistorial(setPuntosHistorial, handleError);
+    const unsubEstrategiaDeudas = watchEstrategiaDeudas(setEstrategiaDeudas, handleError);
+    const unsubTipoCambio = watchTipoCambioCache((data) => setTipoCambio(data?.rates?.USD || null), handleError);
+    const unsubRecompensas = watchRecompensas(setRecompensas, handleError);
+    const unsubChecklistTodos = watchChecklistTodos(setChecklistTodos, handleError);
+    const unsubCategoriasPuntos = watchCategoriasPuntosConfig(setCategoriasPuntos, handleError);
+    const unsubTopesAjuste = watchTopesAjusteConfig(setTopesAjuste, handleError);
+    const unsubAjustesPresupuesto = watchAjustesPresupuestoHistorial(setAjustesPresupuesto, handleError);
+    const unsubComprasProrateadas = watchComprasProrateadas(setComprasProrateadas, handleError);
+    const unsubSugerenciasInversion = watchSugerenciasInversion(setSugerenciasInversion, handleError);
+    const unsubDiasCobro = watchDiasCobroConfig(setDiasCobro, handleError);
+    const unsubHabitos = watchHabitos(setHabitos, handleError);
+    const unsubHabitosRegistro = watchHabitosRegistro(setHabitosRegistro, handleError);
+    const unsubDatosCorporales = watchDatosCorporales(setDatosCorporales, handleError);
+
+    const unsubHabitosPenalizaciones = watchHabitosPenalizaciones(setHabitosPenalizaciones, handleError);
+    const unsubVersiculoHoy = watchVersiculoHoy(fechaHoyStr(), setVersiculoHoy, handleError);
+    const unsubCofresGanados = watchCofresGanados(setCofresGanados, handleError);
+    const unsubPlan = watchPlanSuscripcion(authUser, (nuevoPlan) => {
+      setPlanActual(nuevoPlan);
+      if (authUser && !isOwnerUser(authUser)) {
+        if (nuevoPlan?.planId === "individual") {
+          setDuoSharedMemberStatus(false);
+          setDuoInfo({ esDuo: false, titularEmail: null });
+        } else {
+          const emailLower = (authUser.email || "").toLowerCase().trim();
+          const esPareja = nuevoPlan?.planId === "duo" && Array.isArray(nuevoPlan?.miembros) &&
+            nuevoPlan.miembros.some((m) => m.email?.toLowerCase().trim() === emailLower);
+          if (esPareja) {
+            setDuoSharedMemberStatus(true);
+            setDuoInfo({ esDuo: true, titularEmail: nuevoPlan.titularEmail || OWNER_EMAIL });
+          } else {
+            setDuoSharedMemberStatus(false);
+            setDuoInfo({ esDuo: false, titularEmail: null });
+          }
+        }
+      }
+    }, handleError);
+    const unsubStatus = watchConnectionStatus(setSynced);
+    return () => {
+      unsubProducts();
+      unsubList();
+      unsubEntidades();
+      unsubMovimientos();
+      unsubPrestamos();
+      unsubCuentas();
+      unsubTarjetas();
+      unsubMembresias();
+      unsubFuentesIngreso();
+      unsubCategoriasGasto();
+      unsubContratos();
+      unsubTiposEntidad();
+      unsubFlujo();
+      unsubCalendario();
+      unsubActivos();
+      unsubMantenimientos();
+      unsubMetasAhorro();
+      unsubSeguros();
+      unsubRenovaciones();
+      unsubIngresosPuntuales();
+      unsubHistorialCompras();
+      unsubOrdenesCompra();
+      unsubVacaciones();
+      unsubDiezmo();
+      unsubAhorroAuto();
+      unsubPuntos();
+      unsubPuntosHistorial();
+      unsubEstrategiaDeudas();
+      unsubTipoCambio();
+      unsubRecompensas();
+      unsubChecklistTodos();
+      unsubCategoriasPuntos();
+      unsubTopesAjuste();
+      unsubAjustesPresupuesto();
+      unsubComprasProrateadas();
+      unsubSugerenciasInversion();
+      unsubDiasCobro();
+      unsubHabitos();
+      unsubHabitosRegistro();
+      unsubDatosCorporales();
+
+      unsubHabitosPenalizaciones();
+      unsubVersiculoHoy();
+      unsubCofresGanados();
+      unsubPlan();
+      unsubStatus();
+    };
+  }, [authorized, duoSyncVersion]);
+
+  // Al abrir la app, revisa si la quincena que acaba de cerrar cumplió el
+  // presupuesto (sin excederse), y en ese caso otorga puntos. Protegido
+  // contra doble-evaluación desde db.js, así que es seguro que corra en cada
+  // sesión sin duplicar puntos.
+  const cumplimientoEvaluado = useRef(false);
+  useEffect(() => {
+    if (!authorized || cumplimientoEvaluado.current) return;
+    if (!presupuestoAnual || categoriasGasto.length === 0) return;
+
+    const periodoCerrado = periodoAdyacenteConfigurado(periodoActualConfigurado(diasCobro), diasCobro, -1);
+    if (periodoCerrado.year !== presupuestoYear) return; // datos de otro año no disponibles aquí
+
+    cumplimientoEvaluado.current = true;
+    const resumen = calcularResumenQuincena({
+      year: periodoCerrado.year,
+      month: periodoCerrado.month,
+      quincena: periodoCerrado.quincena,
+      presupuesto: presupuestoAnual,
+      categoriasGasto,
+      prestamos,
+      movimientos,
+      diasCobro,
+      eventos,
+    });
+    evaluarCumplimientoQuincena(periodoKey(periodoCerrado), resumen.presupuestado, resumen.gastado).catch((err) =>
+      console.error("No se pudo evaluar el cumplimiento de la quincena:", err)
+    );
+    evaluarExcedenteQuincena(periodoKey(periodoCerrado), resumen.presupuestado, resumen.gastado).catch((err) =>
+      console.error("No se pudo evaluar el excedente de la quincena:", err)
+    );
+  }, [authorized, presupuestoAnual, categoriasGasto, prestamos, movimientos, presupuestoYear, diasCobro]);
+
+  // Al abrir la app, revisa si algún hábito activo rompió una racha de al
+  // menos 3 periodos (día/semana/mes según su frecuencia) — si es así,
+  // aplica la penalización de puntos una sola vez por hueco.
+  const habitosPenalizacionEvaluada = useRef(false);
+  useEffect(() => {
+    if (!authorized || habitosPenalizacionEvaluada.current) return;
+    if (!habitos || habitos.length === 0) return;
+    habitosPenalizacionEvaluada.current = true;
+
+    const registrosPorHabito = {};
+    for (const r of habitosRegistro || []) {
+      if (!registrosPorHabito[r.habitoId]) registrosPorHabito[r.habitoId] = [];
+      registrosPorHabito[r.habitoId].push(r.fecha);
+    }
+
+    for (const h of habitos) {
+      if (h.activo === false) continue;
+      const periodos = registrosPorHabito[h.id] || [];
+      const resultado = detectarRachaRota(periodos, h.frecuencia || "Diario");
+      if (!resultado) continue;
+      evaluarPenalizacionHabito(h.id, resultado.periodoFaltante, resultado.rachaPrevia, h.nombre).catch((err) =>
+        console.error(`No se pudo evaluar la penalización del hábito ${h.nombre}:`, err)
+      );
+    }
+  }, [authorized, habitos, habitosRegistro]);
+
+  // Al abrir la app, si todavía no hay un versículo asignado para hoy, elige
+  // uno al azar y lo guarda — protegido contra generar dos distintos el
+  // mismo día (un documento por fecha).
+  const versiculoEvaluado = useRef(false);
+  useEffect(() => {
+    if (!authorized || versiculoEvaluado.current) return;
+    versiculoEvaluado.current = true;
+    evaluarVersiculoDiario(fechaHoyStr(), obtenerVersiculoDelDia).catch((err) =>
+      console.error("No se pudo evaluar el versículo diario:", err)
+    );
+  }, [authorized]);
+
+  const arregloPuntosAplicado = useRef(false);
+  useEffect(() => {
+    if (!authorized || arregloPuntosAplicado.current) return;
+    arregloPuntosAplicado.current = true;
+    recalcularPuntosTotal_fix20260905().catch((err) =>
+      console.error("No se pudo recalcular el total de puntos:", err)
+    );
+  }, [authorized]);
+
+  const verificacionPrestamosAplicada = useRef(false);
+  useEffect(() => {
+    if (!authorized || verificacionPrestamosAplicada.current) return;
+    verificacionPrestamosAplicada.current = true;
+    verificarEstadoTodosPrestamos().catch((err) =>
+      console.error("No se pudo verificar el estado de los préstamos:", err)
+    );
+  }, [authorized]);
+
+  // Registra la posición del último clic/toque para que las monedas salgan desde allí
+  useEffect(() => {
+    const guardarCoordenadas = (e) => {
+      if (Number.isFinite(e.clientX) && Number.isFinite(e.clientY)) {
+        window.__ultimoClickPuntosX = e.clientX;
+        window.__ultimoClickPuntosY = e.clientY;
+      }
+    };
+    window.addEventListener("pointerdown", guardarCoordenadas, { passive: true });
+    return () => window.removeEventListener("pointerdown", guardarCoordenadas);
+  }, []);
+
+  // Cuando aparece un cofre nuevo sin ver (premio por cancelar una deuda),
+  // muestra la animación de apertura — solo uno a la vez, aunque haya
+  // varios pendientes.
+  useEffect(() => {
+    if (cofreParaMostrar) return;
+    const sinVer = (cofresGanados || []).find((c) => !c.visto && !cofresCerradosLocalmente.current.has(c.id));
+    if (sinVer) {
+      setCofreParaMostrar(sinVer);
+      reproducirSonidoCofre();
+    }
+  }, [cofresGanados, cofreParaMostrar]);
+
+  // Referencia usada por la suscripción a puntos (más abajo) para comparar
+  // cada valor nuevo contra el anterior REAL de Firestore, y así lanzar
+  // monedas solo en aumentos genuinos durante la sesión — nunca en la carga
+  // inicial de la app, que es cuando ocurría el falso positivo antes.
+
+
+  // Al abrir la app, revisa si alguna categoría con tope configurado se
+  // excedió en la quincena que acaba de cerrar, y si es así, ajusta
+  // automáticamente el presupuesto de la quincena actual (la "próxima" desde
+  // el punto de vista de la que cerró) hasta el tope definido.
+  const topesAjusteEvaluado = useRef(false);
+  useEffect(() => {
+    if (!authorized || topesAjusteEvaluado.current) return;
+    if (!presupuestoAnual || categoriasGasto.length === 0) return;
+    if (Object.keys(topesAjuste).length === 0) return;
+
+    const periodoCerrado = periodoAdyacenteConfigurado(periodoActualConfigurado(diasCobro), diasCobro, -1);
+    if (periodoCerrado.year !== presupuestoYear) return;
+
+    topesAjusteEvaluado.current = true;
+
+    const { fechaInicio, fechaFin } = rangoFechasQuincena(periodoCerrado.year, periodoCerrado.month, periodoCerrado.quincena, diasCobro);
+    const gastoPorCategoria = {};
+    for (const m of movimientos) {
+      if (m.type !== "Gasto") continue;
+      if (!m.date || m.date < fechaInicio || m.date > fechaFin) continue;
+      gastoPorCategoria[m.category] = (gastoPorCategoria[m.category] || 0) + (Number(m.amount) || 0);
+    }
+    const presupuestoPorCategoria = {};
+    for (const c of categoriasGasto) {
+      const val = presupuestoAnual?.[c.nombre]?.[String(periodoCerrado.month)]?.[periodoCerrado.quincena];
+      if (typeof val === "number") presupuestoPorCategoria[c.nombre] = val;
+    }
+
+    evaluarAjustesPresupuesto(
+      periodoKey(periodoCerrado),
+      gastoPorCategoria,
+      presupuestoPorCategoria,
+      topesAjuste,
+      periodoActualConfigurado(diasCobro),
+      categoriasGasto
+    ).catch((err) =>
+      console.error("No se pudieron evaluar los ajustes automáticos de presupuesto:", err)
+    );
+  }, [authorized, presupuestoAnual, categoriasGasto, movimientos, presupuestoYear, topesAjuste, diasCobro]);
+
+  // Revisa productos de inventario con pedido automático activo (ej. medicamentos/pastillas)
+  // que hayan alcanzado su umbral de agotamiento (o <= 5 unidades) y solicita la orden
+  // automáticamente a Farmacia Los Hidalgos, notificando de inmediato al usuario.
+  useEffect(() => {
+    if (!authorized || !esPropietario || !products || products.length === 0) return;
+    evaluarPedidosAutomaticos(
+      products,
+      entidades,
+      registrarDisparoPedidoAutomatico,
+      registrarPedidoFarmacia
+    ).catch((err) => console.error("No se pudieron evaluar los pedidos automáticos de farmacia:", err));
+  }, [authorized, esPropietario, products, entidades]);
+
+  // Al abrir la app, revisa cada tarjeta activa con TAE configurada: si su
+  // ciclo de corte más reciente ya venció el plazo de gracia sin saldarse,
+  // aplica automáticamente el interés (y la mora, si está configurada) al
+  // saldo actual. Protegido contra doble-aplicación desde db.js (un ciclo
+  // solo se evalúa una vez).
+  const interesTarjetasEvaluado = useRef(false);
+  useEffect(() => {
+    if (!authorized || interesTarjetasEvaluado.current) return;
+    if (!tarjetas || tarjetas.length === 0) return;
+    interesTarjetasEvaluado.current = true;
+
+    const hoy = new Date();
+    for (const t of tarjetas) {
+      if (t.estado !== "Activa" || (t.tipoTarjeta || "Crédito") !== "Crédito") continue;
+      const ciclo = cicloVencidoParaTarjeta(t, hoy);
+      if (!ciclo) continue;
+      evaluarInteresYMoraTarjeta(t.id, ciclo.cicloKey, Number(t.saldoActual) || 0, t.tasaTAE, t.montoMora).catch((err) =>
+        console.error(`No se pudo evaluar interés/mora de la tarjeta ${t.id}:`, err)
+      );
+    }
+  }, [authorized, tarjetas]);
+
+  // Sincronización automática de saldos de la Tarjeta de Crédito Local (6011) en RD$ y US$
+  const tarjeta6011Sincronizada = useRef(false);
+  useEffect(() => {
+    if (!authorized || tarjeta6011Sincronizada.current) return;
+    tarjeta6011Sincronizada.current = true;
+    sincronizarTarjetaCreditoLocal().catch((err) =>
+      console.error("No se pudo sincronizar saldo de la tarjeta 6011:", err)
+    );
+  }, [authorized]);
+
+  useEffect(() => {
+    if (!authorized || !tarjetas || tarjetas.length === 0) return;
+    for (const t of tarjetas) {
+      const u4 = (t.ultimos4 || "").trim();
+      const nom = (t.nombre || "").toLowerCase();
+      const match = u4 === "6011" || nom.includes("local");
+      if (match) {
+        const diffPesos = Math.abs((Number(t.saldoActual) || 0) - 56741.60) > 0.001;
+        const diffDolares = Math.abs((Number(t.saldoActualUSD) || 0) - 397.70) > 0.001;
+        if (diffPesos || diffDolares || !t.tieneMonedaSecundaria || u4 !== "6011") {
+          updateTarjeta(t.id, {
+            saldoActual: 56741.60,
+            saldoActualUSD: 397.70,
+            tieneMonedaSecundaria: true,
+            ultimos4: "6011",
+          }).catch((err) => console.error("Error al actualizar montos de tarjeta 6011:", err));
+        }
+      }
+    }
+  }, [authorized, tarjetas]);
+
+  useEffect(() => {
+    if (!authorized) return;
+    setPresupuestoAnual(null);
+    const unsub = watchPresupuestoAnual(
+      presupuestoYear,
+      setPresupuestoAnual,
+      (err) => setError(err.message || String(err))
+    );
+    return () => unsub();
+  }, [authorized, presupuestoYear, duoSyncVersion, authUser?.uid]);
+
+  if (authUser === undefined) {
+    return <SplashScreen caption="Iniciando Smart Finance…" />;
+  }
+
+  if (authUser === null) {
+    return <LoginScreen />;
+  }
+
+  if (!authorized) {
+    return <AccessDeniedScreen user={authUser} />;
+  }
+
+  if (loading) {
+    return <SplashScreen caption="Sincronizando espacio privado…" />;
+  }
+
+  if (error) {
+    return (
+      <FirebaseErrorScreen
+        error={error}
+        user={authUser}
+        onRetry={() => {
+          setError(null);
+          setLoading(true);
+        }}
+        onContinue={() => {
+          setError(null);
+          setLoading(false);
+        }}
+        onSignOut={() => signOut(auth)}
+      />
+    );
+  }
+
+  const asistenteProps = {
+    movimientos,
+    presupuesto: presupuestoAnual,
+    presupuestoYear,
+    prestamos,
+    tarjetas,
+    cuentas,
+    fuentesIngreso,
+    puntos,
+    diasCobro,
+    categoriasGasto,
+    checklistTodos,
+    membresias,
+    contratos,
+    activos,
+    metasAhorro,
+    seguros,
+    ingresosPuntuales,
+    eventos,
+    onNavigate: seleccionarTab,
+    ultimoPagoDeuda: notificacionAgentePago,
+    products,
+    ordenesCompra,
+    entidades,
+  };
+
+  return (
+    <div className={`despensa-shell${sidebarVisible ? "" : " despensa-shell--sidebar-hidden"}`}>
+      {sidebarVisible && <Sidebar
+        tab={tab}
+        setTab={seleccionarTab}
+        listCount={(ordenesCompra.find((o) => o.estado === "Borrador")?.items || []).length}
+        prestamosActivosCount={prestamos.filter((p) => p.estado === "Activo").length}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={toggleSidebar}
+        isOwner={esPropietario}
+      />}
+      <BottomNav
+        tab={tab}
+        setTab={seleccionarTab}
+        isOwner={esPropietario}
+        categoriasGasto={categoriasGasto}
+        ingresosPuntuales={ingresosPuntuales}
+        ajustesPresupuesto={ajustesPresupuesto}
+        sugerenciasInversion={sugerenciasInversion}
+        diasCobro={diasCobro}
+        habitosPenalizaciones={habitosPenalizaciones}
+        versiculoHoy={versiculoHoy}
+        habitos={habitos}
+        habitosRegistro={habitosRegistro}
+        prestamos={prestamos}
+        tarjetas={tarjetas}
+        membresias={membresias}
+        contratos={contratos}
+        movimientos={movimientos}
+        products={products}
+        entidades={entidades}
+        fuentesIngreso={fuentesIngreso}
+        eventos={eventos}
+        presupuesto={presupuestoAnual}
+        presupuestoYear={presupuestoYear}
+        seguros={seguros}
+        checklistTodos={checklistTodos}
+      />
+      <PullToRefresh />
+      <main className={`despensa-main${tab === "asistente" ? " despensa-main--assistant" : ""}`}>
+        <div className="despensa-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "nowrap", gap: 8, minWidth: 0 }}>
+          <div className={`despensa-header-left${searchOpen ? " despensa-header-left--search-open" : ""}`} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, overflow: "hidden" }}>
+            <button
+              onClick={() => setShowMobileMenu(true)}
+              className="despensa-hamburger"
+              title="Más opciones"
+            >
+              <Menu size={22} />
+            </button>
+            <h1 className="despensa-tab-font" style={{ fontSize: "clamp(15px, 4.2vw, 22px)", fontWeight: 700, margin: 0, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {TITLES[tab]}
+            </h1>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", flexShrink: 0 }}>
+              <button
+                type="button"
+                className="despensa-sidebar-visibility-toggle despensa-desktop-only"
+                onClick={() => setSidebarVisible((visible) => !visible)}
+                title={sidebarVisible ? "Ocultar menú lateral" : "Mostrar menú lateral"}
+                aria-label={sidebarVisible ? "Ocultar menú lateral" : "Mostrar menú lateral"}
+                aria-pressed={sidebarVisible}
+              >
+                {sidebarVisible ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+              </button>
+              {esPropietario && tab === "catalogo" && (
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                  {products.length} producto{products.length !== 1 ? "s" : ""} en catálogo
+                </span>
+              )}
+              {tab === "entidades" && (
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                  {entidades.length} entidad{entidades.length !== 1 ? "es" : ""} registrada{entidades.length !== 1 ? "s" : ""}
+                </span>
+              )}
+              <GlobalSearch
+                products={products}
+                entidades={entidades}
+                prestamos={prestamos}
+                tarjetas={tarjetas}
+                membresias={membresias}
+                contratos={contratos}
+                cuentas={cuentas}
+                activos={activos}
+                seguros={seguros}
+                eventos={eventos}
+                ordenesCompra={ordenesCompra}
+                metasAhorro={metasAhorro}
+                fuentesIngreso={fuentesIngreso}
+                onNavigate={handleSearchNavigate}
+                onOpenChange={setSearchOpen}
+                isOwner={esPropietario}
+              />
+              <button
+                id="despensa-trofeo-header"
+                onClick={() => setTab("puntos")}
+                title="Ver tus puntos"
+                className={`despensa-puntos-btn${searchOpen ? " despensa-header-left--search-open" : ""}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 10px",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  background: "var(--amber-bg)",
+                  color: "var(--amber)",
+                  border: "1px solid var(--amber)",
+                  borderRadius: 20,
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <Trophy size={14} />
+                <span className="despensa-mono despensa-puntos-monto">${puntos}</span>
+              </button>
+              <WhatsAppGroupButton variant="header" className={searchOpen ? "despensa-header-left--search-open" : ""} />
+              <div className="despensa-desktop-only">
+                <NotificationBell
+                  prestamos={prestamos}
+                  tarjetas={tarjetas}
+                  membresias={membresias}
+                  contratos={contratos}
+                  movimientos={movimientos}
+                  products={products}
+                  entidades={entidades}
+                  fuentesIngreso={fuentesIngreso}
+                  eventos={eventos}
+                  presupuesto={presupuestoAnual}
+                  presupuestoYear={presupuestoYear}
+                  seguros={seguros}
+                  onNavigate={handleNavigate}
+                  categoriasGasto={categoriasGasto}
+                  ingresosPuntuales={ingresosPuntuales}
+                  ajustesPresupuesto={ajustesPresupuesto}
+                  sugerenciasInversion={sugerenciasInversion}
+                  diasCobro={diasCobro}
+                  habitosPenalizaciones={habitosPenalizaciones}
+                  versiculoHoy={versiculoHoy}
+                  habitos={habitos}
+                  habitosRegistro={habitosRegistro}
+                  estrategiaDeudas={estrategiaDeudas}
+                  tipoCambio={tipoCambio}
+                  isOwner={esPropietario}
+                  checklistTodos={checklistTodos}
+                />
+              </div>
+              <AccountMenu
+                user={authUser}
+                isOwner={esPropietario}
+                onSignOut={() => signOut(auth)}
+                onOpenSettings={() => setTab("configuracion")}
+                synced={synced}
+                ahorroActivo={!!ahorroAutoConfig?.activo}
+                estrategiaDeudas={estrategiaDeudas}
+                theme={theme}
+                onSelectTheme={setTheme}
+                planActual={planActual}
+              />
+            </div>
+            <span className="despensa-mono despensa-desktop-only" style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+              {fechaHoy}
+            </span>
+          </div>
+        </div>
+
+        <ErrorBoundary key={tab} onGoHome={() => setTab("inicio")}>
+        <div key={tab} className="tab-content-enter">
+        {!esPropietario && ADMIN_ONLY_TABS.has(tab) && (
+          <div style={{ textAlign: "center", padding: "4rem 1.5rem" }}>
+            <div style={{ fontSize: 44, marginBottom: 14 }}>🔒</div>
+            <h2 className="despensa-tab-font" style={{ fontSize: 20, fontWeight: 700, margin: "0 0 8px", color: "var(--ink)" }}>
+              Sección exclusiva para el Administrador
+            </h2>
+            <p style={{ fontSize: 13.5, color: "var(--ink-soft)", maxWidth: 440, margin: "0 auto 20px", lineHeight: 1.5 }}>
+              Las compras y temas de despensa están reservados únicamente para la cuenta de administración.
+            </p>
+            <button
+              onClick={() => setTab("inicio")}
+              style={{
+                padding: "9px 20px",
+                borderRadius: 8,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Volver al Inicio
+            </button>
+          </div>
+        )}
+        {tab === "inicio" && (
+          <Inicio
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            fuentesIngreso={fuentesIngreso}
+            movimientos={movimientos}
+            cuentas={cuentas}
+            presupuesto={presupuestoAnual}
+            diasCobro={diasCobro}
+            products={products}
+            metasAhorro={metasAhorro}
+            activos={activos}
+            onNavigate={setTab}
+            isOwner={esPropietario}
+          />
+        )}
+        {tab === "notificaciones" && (
+          <NotificacionesPage
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            membresias={membresias}
+            contratos={contratos}
+            movimientos={movimientos}
+            products={products}
+            entidades={entidades}
+            fuentesIngreso={fuentesIngreso}
+            eventos={eventos}
+            presupuesto={presupuestoAnual}
+            presupuestoYear={presupuestoYear}
+            seguros={seguros}
+            onNavigate={handleNavigate}
+            categoriasGasto={categoriasGasto}
+            ingresosPuntuales={ingresosPuntuales}
+            ajustesPresupuesto={ajustesPresupuesto}
+            sugerenciasInversion={sugerenciasInversion}
+            diasCobro={diasCobro}
+            habitosPenalizaciones={habitosPenalizaciones}
+            versiculoHoy={versiculoHoy}
+            habitos={habitos}
+            habitosRegistro={habitosRegistro}
+            estrategiaDeudas={estrategiaDeudas}
+            tipoCambio={tipoCambio}
+            isOwner={esPropietario}
+            checklistTodos={checklistTodos}
+          />
+        )}
+        {tab === "puntos" && (
+          <Puntos
+            puntos={puntos}
+            puntosHistorial={puntosHistorial}
+            categoriasGasto={categoriasGasto}
+            checklistTodos={checklistTodos}
+            categoriasPuntos={categoriasPuntos}
+            fuentesIngreso={fuentesIngreso}
+            topesAjuste={topesAjuste}
+            recompensas={recompensas}
+          />
+        )}
+        {tab === "asistente" && (
+          <Asistente {...asistenteProps} />
+        )}
+        {tab === "mapa-progreso" && (
+          <MapaProgreso
+            fuentesIngreso={fuentesIngreso}
+            categoriasGasto={categoriasGasto}
+            movimientos={movimientos}
+            presupuesto={presupuestoAnual}
+            checklistTodos={checklistTodos}
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            estrategiaDeudas={estrategiaDeudas}
+            metasAhorro={metasAhorro}
+            cuentas={cuentas}
+            activos={activos}
+            seguros={seguros}
+            puntos={puntos}
+            recompensas={recompensas}
+            habitos={habitos}
+            habitosRegistro={habitosRegistro}
+            onNavigate={setTab}
+          />
+        )}
+        {tab === "fondos-sostenibles" && <FondosSostenibles categoriasGasto={categoriasGasto} presupuesto={presupuestoAnual} />}
+        {tab === "habitos" && <HabitTracker habitos={habitos} habitosRegistro={habitosRegistro} datosCorporales={datosCorporales} products={products} historialCompras={historialCompras} />}
+        {tab === "wallet" && <Wallet tarjetas={tarjetas} membresias={membresias} onNavigate={setTab} />}
+
+        {esPropietario && tab === "compras" && (
+          <Compras
+            products={products}
+            ordenesCompra={ordenesCompra}
+            historialCompras={historialCompras}
+            onNavigate={setTab}
+            entidades={entidades}
+            categoriasGasto={categoriasGasto}
+            comprasProrateadas={comprasProrateadas}
+          />
+        )}
+        {tab === "dinero-cuentas" && (
+          <Finanzas cuentas={cuentas} metasAhorro={metasAhorro} fuentesIngreso={fuentesIngreso} movimientos={movimientos} onNavigate={setTab} />
+        )}
+        {tab === "deudas-pagos" && (
+          <PagosFijos prestamos={prestamos} tarjetas={tarjetas} membresias={membresias} contratos={contratos} movimientos={movimientos} onNavigate={setTab} />
+        )}
+        {esPropietario && tab === "catalogo" && (
+          <Catalogo
+            products={products}
+            entidades={entidades}
+            historialCompras={historialCompras}
+            ordenesCompra={ordenesCompra}
+            onNavigate={setTab}
+            categoriasGasto={categoriasGasto}
+            comprasProrateadas={comprasProrateadas}
+            focusProductId={focusProductId}
+            onClearFocus={() => setFocusProductId(null)}
+          />
+        )}
+        {esPropietario && tab === "recetas" && (
+          <SugeridorRecetas
+            products={products}
+            ordenesCompra={ordenesCompra}
+            onNavigate={setTab}
+          />
+        )}
+        {tab === "entidades" && <Entidades entidades={entidades} tiposPersonalizados={tiposEntidad} />}
+        {tab === "movimientos" && (
+          <Movimientos
+            movimientos={movimientos}
+            entidades={entidades}
+            prestamos={prestamos}
+            cuentas={cuentas}
+            tarjetas={tarjetas}
+            membresias={membresias}
+            fuentesIngreso={fuentesIngreso}
+            categoriasGasto={categoriasGasto}
+            contratos={contratos}
+            presupuesto={presupuestoAnual}
+            presupuestoYear={presupuestoYear}
+            diasCobro={diasCobro}
+          />
+        )}
+        {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} activos={activos} cuentas={cuentas} focusPrestamoId={highlightId} />}
+        {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
+        {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} categoriasGasto={categoriasGasto} />}
+        {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
+        {tab === "contratos" && <Contratos contratos={contratos} entidades={entidades} movimientos={movimientos} />}
+        {tab === "ingresos" && (
+          <FuentesIngreso fuentes={fuentesIngreso} entidades={entidades} movimientos={movimientos} ingresosPuntuales={ingresosPuntuales} />
+        )}
+        {tab === "presupuesto-categoria-gasto" && (
+          <CategoriaGasto
+            movimientos={movimientos}
+            categoriasPersonalizadas={categoriasGasto}
+            tarjetas={tarjetas}
+            cuentas={cuentas}
+          />
+        )}
+        {(tab === "presupuesto-mensual" || tab === "presupuesto-metodologia" || tab === "presupuesto") && (
+          <PresupuestoAnual
+            presupuesto={presupuestoAnual}
+            categoriasPersonalizadas={categoriasGasto}
+            year={presupuestoYear}
+            onChangeYear={setPresupuestoYear}
+            renovaciones={renovaciones}
+            flujo={flujo}
+            prestamos={prestamos}
+            metasAhorro={metasAhorro}
+            fuentesIngreso={fuentesIngreso}
+            cuentas={cuentas}
+            movimientos={movimientos}
+            eventos={eventos}
+            ordenesCompra={ordenesCompra}
+            vacaciones={vacaciones}
+            diezmoConfig={diezmoConfig}
+            tarjetas={tarjetas}
+            ahorroConfig={ahorroAutoConfig}
+            diasCobro={diasCobro}
+            puntosHistorial={puntosHistorial}
+            entidades={entidades}
+            contratos={contratos}
+            planActual={planActual}
+            duoInfo={duoInfo}
+            isOwner={esPropietario}
+            user={authUser}
+            abrirModalMetodologia={tab === "presupuesto-metodologia"}
+            onCloseModalMetodologia={() => {
+              if (tab === "presupuesto-metodologia") setTab("presupuesto-mensual");
+            }}
+          />
+        )}
+        {tab === "presupuesto-flujo" && (
+          <FlujoEditor
+            fuentesIngreso={fuentesIngreso}
+            ingresosPuntuales={ingresosPuntuales}
+            categoriasGasto={categoriasGasto}
+            movimientos={movimientos}
+            presupuesto={presupuestoAnual}
+            checklistTodos={checklistTodos}
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            estrategiaDeudas={estrategiaDeudas}
+            metasAhorro={metasAhorro}
+            cuentas={cuentas}
+            activos={activos}
+            seguros={seguros}
+            puntos={puntos}
+            recompensas={recompensas}
+            habitos={habitos}
+            habitosRegistro={habitosRegistro}
+            diasCobro={diasCobro}
+            tipoCambio={tipoCambio}
+            onNavigate={setTab}
+          />
+        )}
+        {tab === "inversion" && <Inversion cuentas={cuentas} movimientos={movimientos} />}
+        {tab === "estrategia-deudas" && (
+          <EstrategiaDeudas
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            movimientos={movimientos}
+            estrategiaDeudas={estrategiaDeudas}
+            tipoCambio={tipoCambio}
+            fuentesIngreso={fuentesIngreso}
+            categoriasGasto={categoriasGasto}
+            presupuesto={presupuestoAnual}
+            presupuestoYear={presupuestoYear}
+            diasCobro={diasCobro}
+            cuentas={cuentas}
+            entidades={entidades}
+          />
+        )}
+        {tab === "checklist-pagos" && (
+          <ChecklistPagos
+            categoriasGasto={categoriasGasto}
+            presupuesto={presupuestoAnual}
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+            presupuestoYear={presupuestoYear}
+            periodoInicial={checklistPeriodoInicial}
+            onConsumePeriodoInicial={() => setChecklistPeriodoInicial(null)}
+            fuentesIngreso={fuentesIngreso}
+            diasCobro={diasCobro}
+            movimientos={movimientos}
+            estrategiaDeudas={estrategiaDeudas}
+            tipoCambio={tipoCambio}
+            onOpenPrestamo={(prestamoId) => handleSearchNavigate("prestamos", prestamoId)}
+            onNavigate={setTab}
+            userEmail={authUser?.email || ""}
+            entidades={entidades}
+            cuentas={cuentas}
+            contratos={contratos}
+          />
+        )}
+        {(tab === "vacaciones" || tab === "vuelos") && (
+          <Vacaciones
+            vacaciones={vacaciones}
+            fuentesIngreso={fuentesIngreso}
+            categoriasGasto={categoriasGasto}
+            tabInicial={tab === "vuelos" ? "vuelos" : "vacaciones"}
+          />
+        )}
+        {tab === "calendario" && (
+          <Calendario
+            eventos={eventos}
+            entidades={entidades}
+            categoriasGasto={categoriasGasto}
+            vacaciones={vacaciones}
+            tarjetas={tarjetas}
+            membresias={membresias}
+            habitos={habitos}
+            habitosRegistro={habitosRegistro}
+            activos={activos}
+            diasCobro={diasCobro}
+            presupuestoAnual={presupuestoAnual}
+            presupuestoYear={presupuestoYear}
+          />
+        )}
+        {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} seguros={seguros} />}
+        {tab === "ahorro" && (
+          <Ahorro metas={metasAhorro} cuentas={cuentas} movimientos={movimientos} fuentesIngreso={fuentesIngreso} activos={activos} onNavigate={setTab} />
+        )}
+        {tab === "seguros" && <Seguros seguros={seguros} entidades={entidades} activos={activos} />}
+        {tab === "renovaciones" && (
+          <Renovaciones renovaciones={renovaciones} entidades={entidades} activos={activos} categoriasGasto={categoriasGasto} />
+        )}
+        {esPropietario && tab === "ordenes-compra" && <OrdenesCompra ordenes={ordenesCompra} products={products} entidades={entidades} categoriasGasto={categoriasGasto} />}
+        {tab === "configuracion" && (
+          <Configuracion
+            theme={theme}
+            onToggleTheme={toggleTheme}
+            onSelectTheme={setTheme}
+            user={authUser}
+            onSignOut={() => signOut(auth)}
+            categoriasGasto={categoriasGasto}
+            asistenteFlotanteActivo={asistenteFlotanteActivo}
+            onToggleAsistenteFlotante={cambiarAsistenteFlotante}
+            planActual={planActual}
+            isOwner={esPropietario}
+            entidades={entidades}
+            prestamos={prestamos}
+            onNavigate={setTab}
+          />
+        )}
+        {esPropietario && tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
+        </div>
+        </ErrorBoundary>
+      </main>
+      {asistenteFlotanteActivo && tab !== "asistente" && (
+        <div className="despensa-asistente-flotante">
+          {showAsistenteFlotante && (
+            <section className="despensa-asistente-ventana" aria-label="Asistente financiero">
+              <Asistente {...asistenteProps} onClose={() => setShowAsistenteFlotante(false)} />
+            </section>
+          )}
+          {notificacionAgentePago && !showAsistenteFlotante && (
+            <div
+              style={{
+                background: "var(--card)",
+                border: "1.5px solid rgba(245, 158, 11, 0.4)",
+                borderRadius: 14,
+                padding: "10px 12px",
+                boxShadow: "0 10px 28px rgba(0,0,0,0.22)",
+                maxWidth: 270,
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                animation: "fadeUp 0.3s ease-out",
+                pointerEvents: "auto",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: 5 }}>
+                  <Bot size={13} style={{ color: "var(--sage)" }} />
+                  Asesor Financiero
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setNotificacionAgentePago(null)}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ink-soft)", padding: 2 }}
+                  aria-label="Cerrar notificación"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.35 }}>
+                🚀 ¡Pago registrado con éxito! Ganaste <strong>+{notificacionAgentePago.puntos || 0} pts</strong>. ¿Quieres ver cómo acelerar tu siguiente deuda?
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAsistenteFlotante(true);
+                  setNotificacionAgentePago(null);
+                }}
+                style={{
+                  alignSelf: "flex-start",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: "4px 9px",
+                  borderRadius: 7,
+                  background: "var(--sage)",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                  marginTop: 2,
+                }}
+              >
+                Consultar asesor 💬
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            className="despensa-asistente-boton"
+            onClick={() => setShowAsistenteFlotante((abierto) => !abierto)}
+            aria-label={showAsistenteFlotante ? "Cerrar asistente" : "Abrir consultor financiero"}
+            aria-expanded={showAsistenteFlotante}
+            title="Consultor financiero"
+            style={notificacionAgentePago && !showAsistenteFlotante ? {
+              boxShadow: "0 0 0 3px rgba(245, 158, 11, 0.4), 0 8px 24px rgba(245, 158, 11, 0.35)",
+            } : undefined}
+          >
+            {showAsistenteFlotante ? <X size={21} /> : <Bot size={22} />}
+          </button>
+        </div>
+      )}
+      <ConfirmDialogHost />
+      {showMobileMenu && <MobileMenu tab={tab} setTab={seleccionarTab} onClose={() => setShowMobileMenu(false)} onSignOut={() => signOut(auth)} isOwner={esPropietario} />}
+      {showVersiculoModal && versiculoHoy && (
+        <div
+          onClick={() => setShowVersiculoModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              padding: "32px 26px",
+              maxWidth: 420,
+              width: "100%",
+              textAlign: "center",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ fontSize: 26, marginBottom: 14 }}>📖</div>
+            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink)", marginBottom: 16, fontStyle: "italic" }}>
+              "{versiculoHoy.texto}"
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--sage)", marginBottom: 22 }}>
+              {versiculoHoy.referencia}
+            </div>
+            <button
+              onClick={() => setShowVersiculoModal(false)}
+              style={{
+                padding: "9px 22px",
+                fontSize: 13,
+                fontWeight: 600,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showConsejoModal && (
+        <div
+          onClick={() => setShowConsejoModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              padding: "32px 26px",
+              maxWidth: 420,
+              width: "100%",
+              textAlign: "center",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.4)",
+            }}
+          >
+            <div style={{ fontSize: 26, marginBottom: 14 }}>💡</div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--sage)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 12 }}>
+              Consejo financiero de hoy
+            </div>
+            <div style={{ fontSize: 16, lineHeight: 1.6, color: "var(--ink)", marginBottom: 10, fontStyle: "italic" }}>
+              "{obtenerConsejoDelDia(new Date()).texto}"
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 22 }}>
+              — {obtenerConsejoDelDia(new Date()).autor}
+            </div>
+            <button
+              onClick={() => setShowConsejoModal(false)}
+              style={{
+                padding: "9px 22px",
+                fontSize: 13,
+                fontWeight: 600,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
+      {cofreParaMostrar && (
+        <div
+          onClick={() => {
+            cofresCerradosLocalmente.current.add(cofreParaMostrar.id);
+            marcarCofreVisto(cofreParaMostrar.id).catch(() => {});
+            setCofreParaMostrar(null);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 20,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="despensa-cofre-pop"
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              padding: "32px 26px",
+              maxWidth: 380,
+              width: "100%",
+              textAlign: "center",
+              boxShadow: "0 12px 48px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div style={{ fontSize: 46, marginBottom: 6 }}>🎁</div>
+            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4 }}>¡Felicidades!</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 10 }}>{cofreParaMostrar.contexto}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--sage)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 4 }}>
+              ¡Cofre de recompensa!
+            </div>
+
+            {cofreParaMostrar.premio === "puntosExtra" && (
+              <>
+                <div style={{ fontSize: 30 }}>🪙</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "var(--sage)", margin: "8px 0" }}>
+                  +{cofreParaMostrar.detalle?.monto} puntos
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>Bono sorpresa, aparte del bono normal.</div>
+              </>
+            )}
+            {cofreParaMostrar.premio === "multiplicador" && (
+              <>
+                <div style={{ fontSize: 30 }}>⚡</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "var(--amber)", margin: "8px 0" }}>
+                  Multiplicador x{cofreParaMostrar.detalle?.factor}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>Todos los puntos que ganes en las próximas 48 horas se duplican.</div>
+              </>
+            )}
+            {cofreParaMostrar.premio === "protectorRacha" && (
+              <>
+                <div style={{ fontSize: 30 }}>🛡️</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: "var(--sage)", margin: "8px 0" }}>Protector de racha</div>
+                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                  La próxima vez que se te vaya a romper una racha de hábito, se protege automáticamente.
+                </div>
+              </>
+            )}
+            {cofreParaMostrar.premio === "insignia" && (
+              <>
+                <div style={{ fontSize: 30 }}>🏅</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "var(--sage)", margin: "8px 0" }}>
+                  {cofreParaMostrar.detalle?.insignia}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>Nueva insignia agregada a tu perfil.</div>
+              </>
+            )}
+
+            <button
+              onClick={() => {
+                cofresCerradosLocalmente.current.add(cofreParaMostrar.id);
+                marcarCofreVisto(cofreParaMostrar.id).catch(() => {});
+                setCofreParaMostrar(null);
+              }}
+              style={{
+                marginTop: 22,
+                padding: "9px 22px",
+                fontSize: 13,
+                fontWeight: 600,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+              }}
+            >
+              ¡Genial!
+            </button>
+          </div>
+        </div>
+      )}
+
+
+    </div>
+  );
+}
