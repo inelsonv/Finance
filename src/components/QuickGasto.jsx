@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   X,
   Check,
@@ -100,6 +100,23 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [guardado, setGuardado] = useState(false);
+  const montoInputRef = useRef(null);
+
+  const handleSelectCategoria = (cat) => {
+    setCategoria(cat);
+    if (error === "Elige una categoría") {
+      setError(null);
+    }
+    // Una vez elegida la categoría, enfocar el monto y desplegar el teclado en móviles
+    setTimeout(() => {
+      if (montoInputRef.current) {
+        montoInputRef.current.focus();
+        try {
+          montoInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        } catch (_) {}
+      }
+    }, 60);
+  };
 
   const tarjetasActivas = (tarjetas || []).filter((t) => t.estado === "Activa" && (t.tipoTarjeta || "Crédito") === "Crédito");
 
@@ -225,22 +242,26 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
               {opciones.map((c) => {
                 const Icon = ICONOS_CATEGORIA[iconoParaCategoria(c)] || Receipt;
+                const seleccionada = categoria === c;
                 return (
                   <button
                     key={c}
-                    onClick={() => setCategoria(c)}
+                    type="button"
+                    onClick={() => handleSelectCategoria(c)}
                     style={{
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
                       padding: "8px 14px",
                       fontSize: 12.5,
-                      fontWeight: 500,
+                      fontWeight: seleccionada ? 700 : 500,
                       borderRadius: 20,
-                      border: `1px solid ${categoria === c ? "var(--sage)" : "var(--line)"}`,
-                      background: categoria === c ? "var(--sage-bg)" : "var(--paper)",
-                      color: categoria === c ? "var(--sage)" : "var(--ink)",
+                      border: `1.5px solid ${seleccionada ? "var(--sage)" : "var(--line)"}`,
+                      background: seleccionada ? "var(--sage-bg)" : "var(--paper)",
+                      color: seleccionada ? "var(--sage)" : "var(--ink)",
                       cursor: "pointer",
+                      transition: "all 0.15s ease",
+                      transform: seleccionada ? "scale(1.04)" : "scale(1)",
                     }}
                   >
                     <Icon size={13} />
@@ -250,11 +271,16 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
               })}
             </div>
 
-            <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 8 }}>
-              Monto
+            <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span>Monto</span>
+              {!categoria && (
+                <span style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 400, textTransform: "none" }}>
+                  (Elige una categoría primero)
+                </span>
+              )}
             </div>
             <input
-              autoFocus
+              ref={montoInputRef}
               className="despensa-mono"
               type="number"
               step="0.01"
@@ -263,7 +289,17 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
               placeholder="0.00"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              style={{ width: "100%", padding: "12px 14px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 20, fontWeight: 600, marginBottom: 12 }}
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                border: `1.5px solid ${categoria ? "var(--sage)" : "var(--line)"}`,
+                borderRadius: 10,
+                fontSize: 20,
+                fontWeight: 600,
+                marginBottom: 12,
+                background: "var(--paper)",
+                transition: "border-color 0.2s ease",
+              }}
             />
 
             <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 8 }}>
