@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, TrendingUp, TrendingDown, Landmark, PiggyBank, CreditCard, Ticket, Briefcase, Zap, Fuel, SquareParking, UtensilsCrossed, Coffee, ShoppingBag, Check, AlertTriangle, Pencil, History, Download } from "lucide-react";
 import { addMovimiento, deleteMovimiento, updateMovimientoFecha, updateMovimientoMonto, marcarConsumosComoPagados } from "../lib/db";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
+import { dispararCelebracionDeuda, calcularMetricasReduccionDeuda } from "../lib/celebracionDeuda";
 import SwipeableRow from "./SwipeableRow.jsx";
 import Pagination from "./Pagination.jsx";
 import { CUENTA_TIPOS } from "./Cuentas.jsx";
@@ -523,6 +524,20 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
 
       if (form.tipo === "Pago de préstamo" || form.tipo === "Pago de tarjeta") {
         lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round((Number(amount) || 0) * 0.05) });
+        const metricas = calcularMetricasReduccionDeuda({
+          prestamos,
+          tarjetas,
+          movimientos,
+          montoPagado: amount,
+          prestamoId: form.tipo === "Pago de préstamo" ? form.prestamoId : null,
+          tarjetaId: form.tipo === "Pago de tarjeta" ? form.tarjetaId : null,
+          deudaNombre:
+            form.tipo === "Pago de préstamo"
+              ? prestamo?.numero ? `Préstamo ${prestamo.numero}` : "Préstamo"
+              : tarjeta?.alias || tarjeta?.nombre || "Tarjeta de Crédito",
+          moneda: form.monedaTarjeta === "USD" ? "USD" : "RD$",
+        });
+        dispararCelebracionDeuda(metricas);
       }
 
       if (form.tipo === "Pago de tarjeta" && consumosSeleccionados.length > 0) {

@@ -7,6 +7,7 @@ import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuin
 import { abrirNotificacionWhatsapp } from "../lib/whatsappNotif";
 import { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
+import { dispararCelebracionDeuda, calcularMetricasReduccionDeuda } from "../lib/celebracionDeuda";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuincenaConfigurado } from "../lib/quincenaConfig";
@@ -703,6 +704,16 @@ export default function ChecklistPagos({
 
     if (it.esPrestamo) {
       lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round((Number(it.monto) || 0) * 0.05) });
+      const metricas = calcularMetricasReduccionDeuda({
+        prestamos,
+        tarjetas,
+        movimientos,
+        montoPagado: it.monto,
+        prestamoId: it.prestamoId,
+        deudaNombre: it.nombre,
+      });
+      dispararCelebracionDeuda(metricas);
+
       await addMovimiento({
         type: "Pago de préstamo",
         category: "Pago de préstamo",
@@ -758,6 +769,16 @@ export default function ChecklistPagos({
       }
     } else if (it.esTarjeta) {
       lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round((Number(it.monto) || 0) * 0.05) });
+      const metricas = calcularMetricasReduccionDeuda({
+        prestamos,
+        tarjetas,
+        movimientos,
+        montoPagado: it.monto,
+        tarjetaId: it.tarjetaId,
+        deudaNombre: it.nombre,
+      });
+      dispararCelebracionDeuda(metricas);
+
       await addMovimiento({
         type: "Pago de tarjeta",
         category: "Pago de tarjeta",

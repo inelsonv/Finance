@@ -346,3 +346,42 @@ export function reproducirSonidoCanje() {
     console.debug("Error reproduciendo sonido canje:", err);
   }
 }
+
+/**
+ * Reproduce una fanfarria triunfal y brillante cuando se paga una deuda o cuota.
+ * Acorde ascendente con campanas y brillo metálico (C5 -> E5 -> G5 -> C6).
+ */
+export function reproducirSonidoCelebracionDeuda() {
+  if (!estanSonidosHabilitados()) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+
+  try {
+    const now = ctx.currentTime;
+    // Notas alegres y triunfales: Do5, Mi5, Sol5, Do6
+    const notas = [523.25, 659.25, 783.99, 1046.5];
+
+    notas.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const tInicio = now + idx * 0.08;
+
+      osc.type = idx === notas.length - 1 ? "triangle" : "sine";
+      osc.frequency.setValueAtTime(freq, tInicio);
+
+      // Brillo armónico
+      gain.gain.setValueAtTime(0.001, tInicio);
+      gain.gain.exponentialRampToValueAtTime(0.24, tInicio + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, tInicio + (idx === notas.length - 1 ? 0.9 : 0.45));
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(tInicio);
+      osc.stop(tInicio + 0.95);
+    });
+  } catch (err) {
+    console.debug("Error reproduciendo fanfarria celebración deuda:", err);
+  }
+}
+

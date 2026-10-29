@@ -66,6 +66,7 @@ import BottomNav from "./components/BottomNav.jsx";
 import NotificacionesPage from "./components/NotificacionesPage.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import WhatsAppGroupButton from "./components/WhatsAppGroupButton.jsx";
+import CelebracionDeudaModal from "./components/CelebracionDeudaModal.jsx";
 
 
 const THEME_KEY = "smart-finance-theme";
@@ -1797,7 +1798,14 @@ export default function App() {
         </div>
       )}
 
+      {/* Modal de celebración y animación de confeti con % de reducción de deuda */}
+      <CelebracionDeudaModal
+        prestamos={prestamos}
+        tarjetas={tarjetas}
+        movimientos={movimientos}
+      />
 
     </div>
   );
 }
+

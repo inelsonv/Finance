@@ -45,6 +45,7 @@ import {
   agregarItemABorrador,
   updateOrdenCompra,
 } from "../lib/db";
+import { dispararCelebracionDeuda, calcularMetricasReduccionDeuda } from "../lib/celebracionDeuda";
 import { construirResumenFinanciero } from "../lib/resumenFinanciero";
 import { procesarFacturaConCatalogo, aplicarFacturaACatalogoYMovimientos } from "../lib/facturaOcr";
 import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
@@ -2269,16 +2270,17 @@ export default function Asistente({
             movId = nuevoMov.id;
             guardadoAuto = true;
 
-            const puntosG = Math.round(montoPagar * 0.05);
-            window.dispatchEvent(
-              new CustomEvent("agenteCelebrarPagoDeuda", {
-                detail: {
-                  puntos: puntosG,
-                  mensaje: `¡Pago de préstamo ${prestamoObj?.numero || accionFinal.prestamoNumero} registrado!`,
-                },
-              })
-            );
+            const metricas = calcularMetricasReduccionDeuda({
+              prestamos,
+              tarjetas,
+              movimientos,
+              montoPagado: montoPagar,
+              prestamoId: prestamoObj?.id || accionFinal.prestamoId || null,
+              deudaNombre: `Préstamo ${prestamoObj?.numero || accionFinal.prestamoNumero || ""}`.trim(),
+            });
+            dispararCelebracionDeuda(metricas);
           } catch (errP) {
+
             console.warn("Fallo al guardar pago de préstamo:", errP);
           }
         }
