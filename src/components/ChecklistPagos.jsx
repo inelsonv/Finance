@@ -1059,28 +1059,30 @@ export default function ChecklistPagos({
             border: `1px solid ${whatsappToast.tipo === "exito" ? "#25D366" : "var(--amber)"}`,
             borderRadius: 10,
             marginBottom: 14,
+            width: "100%",
+            boxSizing: "border-box",
             boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
             <WhatsAppIcon size={20} color={whatsappToast.tipo === "exito" ? "#25D366" : "var(--amber)"} />
-            <div style={{ fontSize: 13, minWidth: 0 }}>
+            <div style={{ fontSize: 13, minWidth: 0, flex: 1 }}>
               {whatsappToast.tipo === "exito" ? (
                 <>
-                  <div style={{ fontWeight: 600, color: "var(--ink)" }}>
+                  <div style={{ fontWeight: 600, color: "var(--ink)", whiteSpace: "normal", wordBreak: "keep-all" }}>
                     Pago registrado y notificación de WhatsApp preparada
                   </div>
-                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)", whiteSpace: "normal", wordBreak: "normal", marginTop: 2 }}>
                     {whatsappToast.abierto ? "Se abrió una pestaña de WhatsApp para enviar a " : "Lista para enviar a "}
                     <strong style={{ color: "var(--ink)" }}>{whatsappToast.entidadNombre}</strong> ({whatsappToast.telefono})
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{ fontWeight: 600, color: "var(--amber)" }}>
+                  <div style={{ fontWeight: 600, color: "var(--amber)", whiteSpace: "normal", wordBreak: "keep-all" }}>
                     Pago registrado sin notificación por WhatsApp
                   </div>
-                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-soft)", whiteSpace: "normal", wordBreak: "normal", marginTop: 2 }}>
                     {whatsappToast.entidadNombre} no tiene número de teléfono asignado. Puedes asignarlo en <strong>Configuración</strong> para notificar automáticamente.
                   </div>
                 </>
@@ -1324,6 +1326,8 @@ export default function ChecklistPagos({
                     border: `1px solid ${excedido ? "var(--stamp)" : "var(--line)"}`,
                     borderRadius: 10,
                     padding: "10px 12px",
+                    width: "100%",
+                    boxSizing: "border-box",
                   }}
                 >
                   {/* Fila superior: Icono y Nombre a la izquierda, Monto a la derecha */}

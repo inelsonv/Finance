@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Sparkles, X, TrendingDown, CheckCircle2, Trophy, ArrowRight, ShieldCheck, Flame } from "lucide-react";
 import AgenteAvatar from "./AgenteAvatar.jsx";
 import { dispararConfetiCelebracion, calcularMetricasReduccionDeuda } from "../lib/celebracionDeuda";
@@ -109,7 +110,7 @@ export default function CelebracionDeudaModal({
     setTimeout(() => setDatosCelebracion(null), 300);
   };
 
-  if (!visible || !datosCelebracion) return null;
+  if (!visible || !datosCelebracion || typeof document === "undefined") return null;
 
   const {
     monto = 0,
@@ -121,117 +122,199 @@ export default function CelebracionDeudaModal({
     esLiquidacionTotal = false,
   } = datosCelebracion;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[9999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "16px",
+        backgroundColor: "rgba(2, 6, 23, 0.78)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+      }}
       onClick={cerrar}
     >
       <div
-        className="relative w-full max-w-md bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-emerald-500/30 overflow-hidden transform transition-all scale-100 animate-in zoom-in-95 duration-200"
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: "460px",
+          maxHeight: "92vh",
+          overflowY: "auto",
+          background: "linear-gradient(180deg, #0f172a 0%, #090e17 100%)",
+          color: "#f8fafc",
+          borderRadius: "24px",
+          padding: "24px 22px",
+          border: "1px solid rgba(16, 185, 129, 0.4)",
+          boxShadow: "0 25px 60px -12px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(16, 185, 129, 0.2)",
+          boxSizing: "border-box",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Resplandor decorativo de fondo */}
-        <div className="absolute -top-24 -left-24 w-52 h-52 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -right-24 w-52 h-52 bg-amber-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div style={{ position: "absolute", top: -96, left: -96, width: 200, height: 200, background: "rgba(16, 185, 129, 0.15)", borderRadius: "50%", filter: "blur(60px)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: -96, right: -96, width: 200, height: 200, background: "rgba(245, 158, 11, 0.15)", borderRadius: "50%", filter: "blur(60px)", pointerEvents: "none" }} />
 
         {/* Botón cerrar */}
         <button
           onClick={cerrar}
           aria-label="Cerrar felicitación"
-          className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 14,
+            padding: 8,
+            color: "#94a3b8",
+            background: "rgba(255, 255, 255, 0.06)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: "50%",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.15s ease",
+          }}
         >
-          <X className="w-5 h-5" />
+          <X size={18} />
         </button>
 
         {/* Encabezado con Avatar festivo */}
-        <div className="flex flex-col items-center text-center pt-1 pb-4">
-          <div className="relative mb-3">
-            <div className="absolute -inset-2 bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 rounded-full blur-md opacity-75 animate-pulse" />
-            <div className="relative bg-slate-900 p-1.5 rounded-full border-2 border-emerald-400/80 shadow-lg">
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", paddingTop: 4, paddingBottom: 14 }}>
+          <div style={{ position: "relative", marginBottom: 12 }}>
+            <div style={{ position: "absolute", inset: -8, background: "linear-gradient(90deg, #10b981, #14b8a6, #f59e0b)", borderRadius: "50%", filter: "blur(8px)", opacity: 0.7 }} />
+            <div style={{ position: "relative", background: "#0f172a", padding: 6, borderRadius: "50%", border: "2px solid rgba(52, 211, 153, 0.8)", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.5)" }}>
               <AgenteAvatar size={56} estado="celebrando" showBadge={false} />
             </div>
-            <span className="absolute -bottom-1 -right-1 text-2xl animate-bounce">🎉</span>
+            <span style={{ position: "absolute", bottom: -4, right: -4, fontSize: 24 }}>🎉</span>
           </div>
 
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs font-semibold uppercase tracking-wider mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" style={{ animationDuration: "3s" }} />
-            {esLiquidacionTotal ? "¡Deuda 100% Cancelada!" : "¡Reducción de Deuda Lograda!"}
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 9999, background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(52, 211, 153, 0.35)", color: "#6ee7b7", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>
+            <Sparkles size={13} style={{ color: "#fcd34d" }} />
+            <span>{esLiquidacionTotal ? "¡Deuda 100% Cancelada!" : "¡Reducción de Deuda Lograda!"}</span>
           </div>
 
-          <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+          <h3 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 6px", color: "#ffffff", letterSpacing: "-0.01em" }}>
             {esLiquidacionTotal ? "¡Felicidades! Liquidaste esta deuda 🏆" : "¡Excelente pago registrado!"}
           </h3>
 
-          <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xs">
-            Abonaste <strong className="text-emerald-400 font-bold">{formatMoney(monto, moneda)}</strong> a{" "}
-            <span className="text-white font-medium underline decoration-emerald-500/60 underline-offset-2">{deudaNombre}</span>.
+          <p style={{ fontSize: 13, color: "#cbd5e1", margin: 0, maxWidth: 360, lineHeight: 1.45 }}>
+            Abonaste <strong style={{ color: "#34d399", fontWeight: 700 }}>{formatMoney(monto, moneda)}</strong> a{" "}
+            <span style={{ color: "#ffffff", fontWeight: 600, textDecoration: "underline", textDecorationColor: "rgba(16, 185, 129, 0.6)", textUnderlineOffset: 3 }}>
+              {deudaNombre}
+            </span>.
           </p>
         </div>
 
         {/* Panel de métricas y porcentajes */}
-        <div className="space-y-3 my-2">
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, margin: "8px 0" }}>
           {/* Tarjeta principal con el porcentaje de reducción total */}
-          <div className="bg-gradient-to-r from-emerald-950/60 to-slate-800/80 rounded-2xl p-4 border border-emerald-500/40 shadow-inner flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300">
-                <TrendingDown className="w-6 h-6 stroke-[2.5]" />
+          <div style={{
+            background: "linear-gradient(135deg, rgba(6, 78, 59, 0.5) 0%, rgba(15, 23, 42, 0.9) 100%)",
+            borderRadius: 16,
+            padding: "14px 16px",
+            border: "1px solid rgba(16, 185, 129, 0.45)",
+            boxShadow: "inset 0 1px 1px rgba(255,255,255,0.06)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: "rgba(16, 185, 129, 0.2)", border: "1px solid rgba(52, 211, 153, 0.4)", display: "flex", alignItems: "center", justifyContent: "center", color: "#34d399", flexShrink: 0 }}>
+                <TrendingDown size={24} strokeWidth={2.5} />
               </div>
               <div>
-                <div className="text-[11px] uppercase tracking-wider font-semibold text-emerald-300/90">
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 700, color: "#6ee7b7" }}>
                   Reducción de Deuda Total
                 </div>
-                <div className="text-xs text-slate-300">
+                <div style={{ fontSize: 12, color: "#94a3b8" }}>
                   Menos carga financiera global
                 </div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight flex items-baseline justify-end">
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div style={{ fontSize: 28, fontWeight: 900, color: "#34d399", letterSpacing: "-0.02em", lineHeight: 1, display: "flex", alignItems: "baseline", justifyContent: "flex-end" }}>
                 <span>-{porcentajeReduccionTotal > 0 ? porcentajeReduccionTotal : "100"}</span>
-                <span className="text-base font-bold text-emerald-300 ml-0.5">%</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: "#6ee7b7", marginLeft: 2 }}>%</span>
               </div>
-              <div className="text-[10px] text-emerald-200/70 font-medium">de tu deuda total</div>
+              <div style={{ fontSize: 10, color: "#a7f3d0", fontWeight: 600, marginTop: 3 }}>de tu deuda total</div>
             </div>
           </div>
 
           {/* Tarjeta secundaria de deuda específica (si aplica) */}
           {porcentajeReduccionEspecifica != null && porcentajeReduccionEspecifica > 0 && (
-            <div className="bg-slate-800/50 rounded-2xl p-3 px-4 border border-slate-700 flex items-center justify-between text-xs">
-              <span className="text-slate-300 flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-teal-400" />
+            <div style={{
+              background: "rgba(30, 41, 59, 0.6)",
+              borderRadius: 14,
+              padding: "10px 14px",
+              border: "1px solid rgba(51, 65, 85, 0.8)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontSize: 12,
+            }}>
+              <span style={{ color: "#cbd5e1", display: "flex", alignItems: "center", gap: 6 }}>
+                <ShieldCheck size={16} style={{ color: "#2dd4bf" }} />
                 Reducción directa en {deudaNombre}:
               </span>
-              <span className="font-bold text-teal-300 text-sm">
+              <span style={{ fontWeight: 800, color: "#5eead4", fontSize: 14 }}>
                 -{porcentajeReduccionEspecifica}%
               </span>
             </div>
           )}
 
           {/* Barra de progreso global hacia la meta de Cero Deuda */}
-          <div className="bg-slate-800/60 rounded-2xl p-3.5 border border-slate-700/80">
-            <div className="flex justify-between items-center text-xs mb-2 font-medium">
-              <span className="text-slate-300 flex items-center gap-1.5">
-                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+          <div style={{
+            background: "rgba(30, 41, 59, 0.7)",
+            borderRadius: 14,
+            padding: "12px 14px",
+            border: "1px solid rgba(51, 65, 85, 0.8)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, marginBottom: 8, fontWeight: 600 }}>
+              <span style={{ color: "#cbd5e1", display: "flex", alignItems: "center", gap: 6 }}>
+                <Trophy size={14} style={{ color: "#fbbf24" }} />
                 Progreso hacia Libertad Financiera:
               </span>
-              <span className="font-mono font-bold text-amber-300 text-sm">
+              <span style={{ fontFamily: "monospace", fontWeight: 700, color: "#fcd34d", fontSize: 13 }}>
                 {porcentajeGlobalPagado}% Pagado
               </span>
             </div>
-            <div className="w-full h-3 bg-slate-950 rounded-full overflow-hidden p-0.5 border border-slate-700">
+            <div style={{ width: "100%", height: 12, background: "#020617", borderRadius: 9999, overflow: "hidden", padding: 2, border: "1px solid #334155" }}>
               <div
-                className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400 rounded-full transition-all duration-1000 ease-out shadow-sm"
-                style={{ width: `${Math.min(100, Math.max(5, barraProgresoAnimada))}%` }}
+                style={{
+                  height: "100%",
+                  width: `${Math.min(100, Math.max(5, barraProgresoAnimada))}%`,
+                  background: "linear-gradient(90deg, #10b981 0%, #14b8a6 50%, #f59e0b 100%)",
+                  borderRadius: 9999,
+                  transition: "width 1s ease-out",
+                  boxShadow: "0 1px 4px rgba(16, 185, 129, 0.5)",
+                }}
               />
             </div>
           </div>
         </div>
 
         {/* Mensaje motivacional del Guardián */}
-        <div className="mt-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-200/90 leading-relaxed flex items-start gap-2.5">
-          <Flame className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+        <div style={{
+          marginTop: 14,
+          padding: "12px 14px",
+          borderRadius: 12,
+          background: "rgba(16, 185, 129, 0.12)",
+          border: "1px solid rgba(16, 185, 129, 0.25)",
+          fontSize: 12,
+          color: "#a7f3d0",
+          lineHeight: 1.5,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 10,
+        }}>
+          <Flame size={16} style={{ color: "#fbbf24", flexShrink: 0, marginTop: 2 }} />
           <span>
             {esLiquidacionTotal
               ? "¡Hito desbloqueado! Esta deuda quedó completamente eliminada de tu vida. Libera ese flujo mensual para tu fondo de paz o liquidar la siguiente cuota."
@@ -242,12 +325,30 @@ export default function CelebracionDeudaModal({
         {/* Botón de acción principal */}
         <button
           onClick={cerrar}
-          className="mt-5 w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 active:scale-98 transition-all cursor-pointer"
+          style={{
+            marginTop: 16,
+            width: "100%",
+            padding: "12px 18px",
+            borderRadius: 14,
+            background: "linear-gradient(90deg, #10b981 0%, #0d9488 100%)",
+            color: "#022c22",
+            fontWeight: 800,
+            fontSize: 14,
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            boxShadow: "0 6px 18px rgba(16, 185, 129, 0.35)",
+            transition: "all 0.15s ease",
+          }}
         >
           <span>¡Continuar Ganando!</span>
-          <ArrowRight className="w-4 h-4 stroke-[3]" />
+          <ArrowRight size={16} strokeWidth={3} />
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

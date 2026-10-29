@@ -1,3 +1,4 @@
+@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root,
@@ -991,6 +992,9 @@ button:active {
   border-radius: 10px;
   padding: 10px 12px;
   transition: border-color 0.15s ease, opacity 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .checklist-item-card--pagado {
@@ -1010,11 +1014,12 @@ button:active {
   gap: 10px;
   flex: 1;
   min-width: 0;
+  width: 100%;
 }
 
 .checklist-item-text {
   flex: 1;
-  min-width: 0;
+  min-width: 130px;
   word-break: normal;
   overflow-wrap: break-word;
 }
@@ -1024,8 +1029,9 @@ button:active {
   font-weight: 500;
   line-height: 1.35;
   white-space: normal;
-  word-break: normal;
+  word-break: keep-all;
   overflow-wrap: break-word;
+  hyphens: none;
 }
 
 .checklist-item-actions {
@@ -1046,6 +1052,8 @@ button:active {
     align-items: stretch;
     gap: 8px;
     padding: 10px 12px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .checklist-item-main {
@@ -1064,9 +1072,10 @@ button:active {
     font-size: 13.5px;
     line-height: 1.35;
     white-space: normal;
-    word-break: normal;
+    word-break: keep-all;
     overflow-wrap: break-word;
     letter-spacing: normal;
+    hyphens: none;
   }
 
   /* En móvil, los controles de acción se ubican en una segunda fila horizontal bien espaciada */
