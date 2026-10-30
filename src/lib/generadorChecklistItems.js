@@ -341,24 +341,49 @@ export function generarItemsPeriodo({
   }
 
   for (const t of tarjetas || []) {
-    const saldo = Number(t.saldoActual) || 0;
-    const pagoMin = Number(t.pagoMinimo) || 0;
-    if (saldo <= 0 || pagoMin <= 0 || !t.fechaPago) continue;
+    if (t.estado && t.estado !== "Activa") continue;
     const diasEnMes = new Date(periodo.year, periodo.month, 0).getDate();
-    const diaPago = Math.min(Number(t.fechaPago), diasEnMes);
+    const diaPago = Math.min(Number(t.fechaPago) || 20, diasEnMes);
     const q = diaPago >= 15 ? "Q2" : "Q1";
     if (q !== periodo.quincena) continue;
-    list.push({
-      key: `tarjeta-${t.id}-${periodo.year}-${periodo.month}`,
-      nombre: `Tarjeta ${t.nombre} — pago mínimo`,
-      monto: pagoMin,
-      icon: CreditCard,
-      metodoDefault: null,
-      esTarjeta: true,
-      esPrioridadDeuda: idPrioridadDeuda === `tarjeta-${t.id}`,
-      tarjetaId: t.id,
-      tarjetaNombre: t.nombre,
-    });
+
+    const saldoRD = Number(t.saldoActual) || 0;
+    const pagoMinRD = Number(t.pagoMinimo) || 0;
+    if (saldoRD > 0 && pagoMinRD > 0) {
+      list.push({
+        key: `tarjeta-${t.id}-rd-${periodo.year}-${periodo.month}`,
+        nombre: `Tarjeta ${t.alias || t.nombre} — pago mínimo`,
+        monto: pagoMinRD,
+        icon: CreditCard,
+        metodoDefault: null,
+        esTarjeta: true,
+        esPrioridadDeuda: idPrioridadDeuda === `tarjeta-${t.id}`,
+        tarjetaId: t.id,
+        tarjetaNombre: t.alias || t.nombre,
+        entidadName: t.entidadName || "",
+      });
+    }
+
+    if (t.tieneMonedaSecundaria) {
+      const saldoUSD = Number(t.saldoActualUSD) || 0;
+      const pagoMinUSD = Number(t.pagoMinimoUSD) || 0;
+      if (saldoUSD > 0 && pagoMinUSD > 0) {
+        list.push({
+          key: `tarjeta-${t.id}-usd-${periodo.year}-${periodo.month}`,
+          nombre: `Tarjeta ${t.alias || t.nombre} — pago mínimo (USD)`,
+          monto: tipoCambio ? Math.round(pagoMinUSD * tipoCambio * 100) / 100 : pagoMinUSD,
+          montoOriginalUSD: pagoMinUSD,
+          monedaOriginal: "USD",
+          icon: CreditCard,
+          metodoDefault: null,
+          esTarjeta: true,
+          esPrioridadDeuda: idPrioridadDeuda === `tarjeta-${t.id}-usd`,
+          tarjetaId: t.id,
+          tarjetaNombre: t.alias || t.nombre,
+          entidadName: t.entidadName || "",
+        });
+      }
+    }
   }
 
   if (pagoRapido?.activo && fuentesIngreso && categoriasGasto && presupuesto) {

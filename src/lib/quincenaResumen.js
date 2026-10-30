@@ -7,7 +7,7 @@ export function rangoFechasQuincena(year, month, quincena, diasCobro) {
   return rangoFechasQuincenaConfigurado(year, month, quincena, diasCobro);
 }
 
-export function calcularResumenQuincena({ year, month, quincena, presupuesto, categoriasGasto, prestamos, movimientos, diasCobro, eventos }) {
+export function calcularResumenQuincena({ year, month, quincena, presupuesto, categoriasGasto, prestamos, movimientos, diasCobro, eventos, tarjetas, tipoCambio }) {
   const { fechaInicio, fechaFin } = rangoFechasQuincena(year, month, quincena, diasCobro);
 
   let presupuestado = 0;
@@ -52,6 +52,27 @@ export function calcularResumenQuincena({ year, month, quincena, presupuesto, ca
       if (!destino || typeof destino !== "object") continue;
       if (destino.year === year && destino.month === month && destino.quincena === quincena) {
         presupuestado += Number(p.cuota) || 0;
+      }
+    }
+  }
+
+  // Pagos mínimos de tarjetas de crédito correspondientes a esta quincena (ej. día 20 => Q2)
+  for (const t of tarjetas || []) {
+    if (t.estado && t.estado !== "Activa") continue;
+    const diaPago = Number(t.fechaPago) || 20;
+    const quincenaTarjeta = diaPago >= 15 ? "Q2" : "Q1";
+    if (quincenaTarjeta !== quincena) continue;
+
+    const saldoRD = Number(t.saldoActual) || 0;
+    const minRD = Number(t.pagoMinimo) || 0;
+    if (saldoRD > 0 && minRD > 0) {
+      presupuestado += minRD;
+    }
+    if (t.tieneMonedaSecundaria) {
+      const saldoUSD = Number(t.saldoActualUSD) || 0;
+      const minUSD = Number(t.pagoMinimoUSD) || 0;
+      if (saldoUSD > 0 && minUSD > 0) {
+        presupuestado += tipoCambio ? minUSD * tipoCambio : minUSD;
       }
     }
   }

@@ -45,9 +45,7 @@ import {
   agregarItemABorrador,
   updateOrdenCompra,
 } from "../lib/db";
-import { dispararCelebracionDeuda, calcularMetricasReduccionDeuda } from "../lib/celebracionDeuda";
 import { construirResumenFinanciero } from "../lib/resumenFinanciero";
-import { procesarFacturaConCatalogo, aplicarFacturaACatalogoYMovimientos } from "../lib/facturaOcr";
 import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
 import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
 import { analizarIntencionAccion, analizarIntencionGasto } from "../lib/asistenteGastoParser";
@@ -2270,15 +2268,6 @@ export default function Asistente({
             movId = nuevoMov.id;
             guardadoAuto = true;
 
-            const metricas = calcularMetricasReduccionDeuda({
-              prestamos,
-              tarjetas,
-              movimientos,
-              montoPagado: montoPagar,
-              prestamoId: prestamoObj?.id || accionFinal.prestamoId || null,
-              deudaNombre: `Préstamo ${prestamoObj?.numero || accionFinal.prestamoNumero || ""}`.trim(),
-            });
-            dispararCelebracionDeuda(metricas);
           } catch (errP) {
 
             console.warn("Fallo al guardar pago de préstamo:", errP);

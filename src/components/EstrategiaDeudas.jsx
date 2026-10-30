@@ -29,9 +29,7 @@ import {
   marcarConsumosComoPagados,
 } from "../lib/db";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
-import { dispararCelebracionDeuda, calcularMetricasReduccionDeuda } from "../lib/celebracionDeuda";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
-import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 
 function formatMoney(n) {
@@ -264,18 +262,6 @@ export default function EstrategiaDeudas({
     const puntosEstimados = Math.round(montoNum * 0.05) + (esCompleto ? Math.round(montoNum * 0.08) : 0);
     lanzarCoheteHaciaPuntos(clickX, clickY, { puntos: puntosEstimados, forzar: true });
 
-    const metricas = calcularMetricasReduccionDeuda({
-      prestamos,
-      tarjetas,
-      movimientos,
-      montoPagado: montoNum,
-      prestamoId: d.tipo === "prestamo" ? d.prestamoObj?.id : null,
-      tarjetaId: d.tipo === "tarjeta" ? d.tarjetaObj?.id : null,
-      deudaNombre: d.tipo === "prestamo" ? `Préstamo ${d.prestamoObj?.numero || ""}` : (d.tarjetaObj?.alias || d.tarjetaObj?.nombre || "Tarjeta"),
-      moneda: d.esUSD ? "USD" : "RD$",
-      esLiquidacion: esCompleto,
-    });
-    dispararCelebracionDeuda(metricas);
 
     setProcesandoPago(true);
     try {

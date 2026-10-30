@@ -7,7 +7,6 @@ import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuin
 import { abrirNotificacionWhatsapp } from "../lib/whatsappNotif";
 import { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
-import { dispararCelebracionDeuda, calcularMetricasReduccionDeuda } from "../lib/celebracionDeuda";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuincenaConfigurado } from "../lib/quincenaConfig";
@@ -704,15 +703,6 @@ export default function ChecklistPagos({
 
     if (it.esPrestamo) {
       lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round((Number(it.monto) || 0) * 0.05) });
-      const metricas = calcularMetricasReduccionDeuda({
-        prestamos,
-        tarjetas,
-        movimientos,
-        montoPagado: it.monto,
-        prestamoId: it.prestamoId,
-        deudaNombre: it.nombre,
-      });
-      dispararCelebracionDeuda(metricas);
 
       await addMovimiento({
         type: "Pago de préstamo",
@@ -769,15 +759,6 @@ export default function ChecklistPagos({
       }
     } else if (it.esTarjeta) {
       lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round((Number(it.monto) || 0) * 0.05) });
-      const metricas = calcularMetricasReduccionDeuda({
-        prestamos,
-        tarjetas,
-        movimientos,
-        montoPagado: it.monto,
-        tarjetaId: it.tarjetaId,
-        deudaNombre: it.nombre,
-      });
-      dispararCelebracionDeuda(metricas);
 
       await addMovimiento({
         type: "Pago de tarjeta",
@@ -1385,8 +1366,10 @@ export default function ChecklistPagos({
             return (
               <div
                 key={`${periodoKey}:${it.key}`}
-                className={`checklist-item-card ${estado.pagado ? "checklist-item-card--pagado" : ""} ${it.esPrestamo ? "checklist-item-card--prestamo" : ""}`}
                 style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 10,
                   background: estado.pagado
                     ? "rgba(16, 185, 129, 0.22)"
                     : it.esPrestamo
@@ -1400,607 +1383,412 @@ export default function ChecklistPagos({
                         : "var(--line)"
                   }`,
                   borderRadius: 10,
+                  padding: "10px 12px",
                   opacity: 1,
                   boxShadow: estado.pagado ? "0 2px 8px rgba(16, 185, 129, 0.2)" : "none",
                   transition: "background 0.2s ease, border-color 0.2s ease",
                 }}
               >
-                {/* Fila principal con checkbox, icono, título linear y monto */}
-                <div className="checklist-item-main">
-                  <button
-                    onClick={() => {
-                      if (it.bloqueadoPagado) return;
-                      if (modoSeleccion) {
-                        if (!estado.pagado) toggleSeleccion(it.key);
-                        return;
-                      }
-                      toggleItem(it);
-                    }}
-                    disabled={confirmandoKey === it.key || it.bloqueadoPagado || confirmandoLote || (modoSeleccion && estado.pagado)}
-                    title={
-                      it.bloqueadoPagado
-                        ? "Préstamo saldado — ya no se puede modificar"
-                        : modoSeleccion
-                          ? seleccionados.has(it.key)
-                            ? "Quitar de la selección"
-                            : "Seleccionar para pagar"
-                          : estado.pagado
-                            ? "Marcar como pendiente"
-                            : "Marcar como pagado"
+                <button
+                  onClick={() => {
+                    if (it.bloqueadoPagado) return;
+                    if (modoSeleccion) {
+                      if (!estado.pagado) toggleSeleccion(it.key);
+                      return;
                     }
+                    toggleItem(it);
+                  }}
+                  disabled={confirmandoKey === it.key || it.bloqueadoPagado || confirmandoLote || (modoSeleccion && estado.pagado)}
+                  title={
+                    it.bloqueadoPagado
+                      ? "Préstamo saldado — ya no se puede modificar"
+                      : modoSeleccion
+                        ? seleccionados.has(it.key)
+                          ? "Quitar de la selección"
+                          : "Seleccionar para pagar"
+                        : estado.pagado
+                          ? "Marcar como pendiente"
+                          : "Marcar como pagado"
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 26,
+                    height: 26,
+                    borderRadius: 7,
+                    border: modoSeleccion
+                      ? seleccionados.has(it.key)
+                        ? "2px solid #10b981"
+                        : it.esPrestamo
+                          ? "2px solid var(--amber, #f59e0b)"
+                          : "2px solid var(--ink-soft, #94a3b8)"
+                      : estado.pagado
+                        ? "2px solid #059669"
+                        : it.esPrestamo
+                          ? "2px solid var(--amber, #f59e0b)"
+                          : "2px solid var(--ink-soft, #94a3b8)",
+                    background: modoSeleccion
+                      ? seleccionados.has(it.key)
+                        ? "#10b981"
+                        : it.esPrestamo
+                          ? "rgba(245, 158, 11, 0.16)"
+                          : "rgba(148, 163, 184, 0.15)"
+                      : estado.pagado
+                        ? "#10b981"
+                        : it.esPrestamo
+                          ? "rgba(245, 158, 11, 0.16)"
+                          : "rgba(148, 163, 184, 0.15)",
+                    color: "#ffffff",
+                    boxShadow: (modoSeleccion ? seleccionados.has(it.key) : estado.pagado)
+                      ? "0 2px 6px rgba(16, 185, 129, 0.45)"
+                      : it.esPrestamo
+                        ? "0 0 0 1px rgba(245, 158, 11, 0.25)"
+                        : "none",
+                    cursor: it.bloqueadoPagado || (modoSeleccion && estado.pagado) ? "not-allowed" : confirmandoKey === it.key ? "wait" : "pointer",
+                    flexShrink: 0,
+                    opacity: modoSeleccion && estado.pagado ? 0.4 : 1,
+                    transition: "all 0.15s ease",
+                    marginTop: 1,
+                  }}
+                >
+                  {(modoSeleccion ? seleccionados.has(it.key) : estado.pagado) && (
+                    <Check size={16} strokeWidth={3.5} style={{ color: "#ffffff" }} />
+                  )}
+                </button>
+
+                <Icon
+                  size={15}
+                  style={{
+                    color: estado.pagado ? "#10b981" : it.esPrestamo ? "var(--amber)" : "var(--ink-soft)",
+                    flexShrink: 0,
+                    marginTop: 5,
+                  }}
+                />
+
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    onDoubleClick={it.esPrestamo && onOpenPrestamo ? () => onOpenPrestamo(it.prestamoId) : undefined}
+                    title={it.esPrestamo && onOpenPrestamo ? "Doble clic para abrir este préstamo" : undefined}
                     style={{
+                      fontSize: 13.5,
+                      fontWeight: 500,
+                      textDecoration: estado.pagado ? "line-through" : "none",
+                      cursor: it.esPrestamo && onOpenPrestamo ? "pointer" : undefined,
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center",
-                      width: 26,
-                      height: 26,
-                      borderRadius: 7,
-                      border: modoSeleccion
-                        ? seleccionados.has(it.key)
-                          ? "2px solid #10b981"
-                          : it.esPrestamo
-                            ? "2px solid var(--amber, #f59e0b)"
-                            : "2px solid var(--ink-soft, #94a3b8)"
-                        : estado.pagado
-                          ? "2px solid #059669"
-                          : it.esPrestamo
-                            ? "2px solid var(--amber, #f59e0b)"
-                            : "2px solid var(--ink-soft, #94a3b8)",
-                      background: modoSeleccion
-                        ? seleccionados.has(it.key)
-                          ? "#10b981"
-                          : it.esPrestamo
-                            ? "rgba(245, 158, 11, 0.16)"
-                            : "rgba(148, 163, 184, 0.15)"
-                        : estado.pagado
-                          ? "#10b981"
-                          : it.esPrestamo
-                            ? "rgba(245, 158, 11, 0.16)"
-                            : "rgba(148, 163, 184, 0.15)",
-                      color: "#ffffff",
-                      boxShadow: (modoSeleccion ? seleccionados.has(it.key) : estado.pagado)
-                        ? "0 2px 6px rgba(16, 185, 129, 0.45)"
-                        : it.esPrestamo
-                          ? "0 0 0 1px rgba(245, 158, 11, 0.25)"
-                          : "none",
-                      cursor: it.bloqueadoPagado || (modoSeleccion && estado.pagado) ? "not-allowed" : confirmandoKey === it.key ? "wait" : "pointer",
-                      flexShrink: 0,
-                      opacity: modoSeleccion && estado.pagado ? 0.4 : 1,
-                      transition: "all 0.15s ease",
+                      gap: 6,
+                      flexWrap: "wrap",
                     }}
                   >
-                    {(modoSeleccion ? seleccionados.has(it.key) : estado.pagado) && (
-                      <Check size={16} strokeWidth={3.5} style={{ color: "#ffffff" }} />
+                    <span>{it.nombre}</span>
+                    {it.bloqueadoPagado && (
+                      <span className="despensa-mono" style={{ fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--sage-bg)", color: "var(--sage)", textDecoration: "none", display: "inline-block", verticalAlign: "middle" }}>
+                        Saldado
+                      </span>
                     )}
-                  </button>
+                    {it.esPrioridadDeuda && !estado.pagado && (
+                      <span className="despensa-mono" style={{ fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--stamp-bg)", color: "var(--stamp)", textDecoration: "none", display: "inline-block", verticalAlign: "middle" }}>
+                        Prioridad
+                      </span>
+                    )}
+                    {it.esVariable && !it.esPrestamo && !it.esTarjeta && (
+                      <span
+                        className="despensa-mono"
+                        title="Gasto variable — pago único"
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: 600,
+                          padding: "1px 6px",
+                          borderRadius: 10,
+                          background: "var(--paper)",
+                          border: "1px solid var(--line)",
+                          color: "var(--ink-soft)",
+                          textDecoration: "none",
+                          display: "inline-block",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        Variable
+                      </span>
+                    )}
+                    {it.gastadoReal > 0 && !estado.pagado && (
+                      <span
+                        title={`Registrado en movimientos durante esta quincena: ${formatMoney(it.gastadoReal)}`}
+                        style={{
+                          fontSize: 9.5,
+                          color: "var(--ink-soft)",
+                          background: "var(--line-soft)",
+                          padding: "1px 6px",
+                          borderRadius: 6,
+                          display: "inline-block",
+                          verticalAlign: "middle",
+                          textDecoration: "none",
+                        }}
+                      >
+                        Registrado: {formatMoney(it.gastadoReal)}
+                      </span>
+                    )}
+                  </div>
 
-                  <Icon
-                    size={15}
-                    style={{
-                      color: estado.pagado ? "#10b981" : it.esPrestamo ? "var(--amber)" : "var(--ink-soft)",
-                      flexShrink: 0,
-                      marginTop: 2,
-                    }}
-                  />
-
-                  <div className="checklist-item-text">
-                    <div
-                      onDoubleClick={it.esPrestamo && onOpenPrestamo ? () => onOpenPrestamo(it.prestamoId) : undefined}
-                      title={it.esPrestamo && onOpenPrestamo ? "Doble clic para abrir este préstamo" : undefined}
-                      className="checklist-item-title"
-                      style={{
-                        fontSize: 13.5,
-                        fontWeight: 500,
-                        textDecoration: estado.pagado ? "line-through" : "none",
-                        cursor: it.esPrestamo && onOpenPrestamo ? "pointer" : undefined,
-                      }}
-                    >
-                      {it.nombre}
-                      {it.bloqueadoPagado && (
-                        <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--sage-bg)", color: "var(--sage)", textDecoration: "none", display: "inline-block", verticalAlign: "middle" }}>
-                          Saldado
-                        </span>
-                      )}
-                      {it.esPrioridadDeuda && !estado.pagado && (
-                        <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--stamp-bg)", color: "var(--stamp)", textDecoration: "none", display: "inline-block", verticalAlign: "middle" }}>
-                          Prioridad
-                        </span>
-                      )}
-                      {it.esVariable && !it.esPrestamo && !it.esTarjeta && (
-                        <span
-                          className="despensa-mono"
-                          title="Gasto variable — pago único"
-                          style={{
-                            marginLeft: 6,
-                            fontSize: 9.5,
-                            fontWeight: 600,
-                            padding: "1px 6px",
-                            borderRadius: 10,
-                            background: "var(--paper)",
-                            border: "1px solid var(--line)",
-                            color: "var(--ink-soft)",
-                            textDecoration: "none",
-                            display: "inline-block",
-                            verticalAlign: "middle",
-                          }}
-                        >
-                          Variable
-                        </span>
-                      )}
-                      {it.gastadoReal > 0 && !estado.pagado && (
-                        <span
-                          title={`Registrado en movimientos durante esta quincena: ${formatMoney(it.gastadoReal)}`}
-                          style={{
-                            marginLeft: 6,
-                            fontSize: 9.5,
-                            color: "var(--ink-soft)",
-                            background: "var(--line-soft)",
-                            padding: "1px 6px",
-                            borderRadius: 6,
-                            display: "inline-block",
-                            verticalAlign: "middle",
-                            textDecoration: "none",
-                          }}
-                        >
-                          Registrado: {formatMoney(it.gastadoReal)}
-                        </span>
-                      )}
+                  {it.esVariable && !it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
+                    <div style={{ marginTop: 2, marginBottom: 2 }}>
+                      <button
+                        type="button"
+                        onClick={() => toggleModoChecklist(it)}
+                        title="Cambiar a barra de avance de consumo continuo (estilo gasolina)"
+                        style={{
+                          fontSize: 10.5,
+                          color: "var(--ink-soft)",
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: 0,
+                          textDecorationLine: "underline",
+                          textDecorationStyle: "dotted",
+                        }}
+                      >
+                        Ver como barra de consumo
+                      </button>
                     </div>
+                  )}
 
-                    {/* Detalles en vista desktop */}
-                    <div className="checklist-item-desktop-only">
-                      {it.esVariable && !it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
-                        <div style={{ marginTop: 2, marginBottom: 2 }}>
+                  {it.esPrestamo && it.fechaCuota && (
+                    <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 1 }}>
+                      Vence: {formatoFechaCuota(it.fechaCuota)}
+                    </div>
+                  )}
+                  {(it.esPrestamo || it.esTarjeta) && it.entidadName && (
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
+                      <Landmark size={10} /> Pagar a: {it.entidadName}
+                    </div>
+                  )}
+                  {it.esPrestamo && (it.cuentaDestinoNumero || it.prestamoNumero === "PT01") && (
+                    <div style={{ fontSize: 11, color: "var(--ink)", display: "inline-flex", alignItems: "center", gap: 5, marginTop: 2, background: "rgba(59, 130, 246, 0.08)", padding: "2px 7px", borderRadius: 6, border: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                      <Landmark size={11} style={{ color: "#2563eb" }} />
+                      <span>
+                        <strong>{it.cuentaDestinoBanco || (it.prestamoNumero === "PT01" ? "Banco Popular" : "Banco Popular")}:</strong> <span className="despensa-mono">{it.cuentaDestinoNumero || (it.prestamoNumero === "PT01" ? "0002804611" : "")}</span> ({it.cuentaDestinoBeneficiario || (it.prestamoNumero === "PT01" ? "Julian Ochoa" : "")})
+                      </span>
+                    </div>
+                  )}
+                  {it.esPagoRapido && (
+                    <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", alignItems: "center", gap: 3, marginTop: 1, fontWeight: 600 }}>
+                      🚀 Monto aumentado por Pago rápido
+                    </div>
+                  )}
+                  {estado.metodoPago === "Descuento Nómina" && estado.fuenteIngresoNombre && (
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
+                      <Briefcase size={10} /> Descontado de: {estado.fuenteIngresoNombre}
+                    </div>
+                  )}
+
+                  {it.esPrestamo && !it.bloqueadoPagado && it.origenKey && (
+                    <div style={{ marginTop: 3 }}>
+                      {moviendoAbiertoKey === it.key ? (
+                        <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                          <input
+                            value={destinoFecha}
+                            onChange={(e) => setDestinoFecha(e.target.value)}
+                            style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
+                            type="date"
+                          />
+                          {destinoFecha && (() => {
+                            const [year, month, day] = destinoFecha.split("-").map(Number);
+                            const quincenaDestino = day >= 15 ? "2da" : "1ra";
+                            return <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Se mostrará en {quincenaDestino} quincena de {MES_NOMBRES[month - 1]} {year}</span>;
+                          })()}
                           <button
-                            type="button"
-                            onClick={() => toggleModoChecklist(it)}
-                            title="Cambiar a barra de avance de consumo continuo (estilo gasolina)"
-                            style={{
-                              fontSize: 10.5,
-                              color: "var(--ink-soft)",
-                              background: "transparent",
-                              border: "none",
-                              cursor: "pointer",
-                              padding: 0,
-                              textDecorationLine: "underline",
-                              textDecorationStyle: "dotted",
-                            }}
+                            onClick={() => confirmarMoverQuincena(it)}
+                            disabled={moviendoKey === it.key}
+                            style={{ fontSize: 10.5, padding: "3px 8px", background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
                           >
-                            Ver como barra de consumo
+                            {moviendoKey === it.key ? "…" : "Confirmar"}
+                          </button>
+                          <button
+                            onClick={() => setMoviendoAbiertoKey(null)}
+                            style={{ fontSize: 10.5, padding: "3px 8px", background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          {it.tieneOverride && (
+                            <button
+                              onClick={() => quitarMover(it)}
+                              disabled={moviendoKey === it.key}
+                              title="Volver esta cuota a su quincena original"
+                              style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--amber)", background: "transparent", border: "none", cursor: moviendoKey === it.key ? "wait" : "pointer" }}
+                            >
+                              <ArrowLeftRight size={10} /> Volver a la quincena original
+                            </button>
+                          )}
+                          <button
+                            onClick={() => abrirMoverQuincena(it)}
+                            title="Mover esta cuota a otra quincena, aunque sea de otro mes"
+                            style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer" }}
+                          >
+                            <ArrowLeftRight size={10} /> {it.tieneOverride ? "Mover otra vez" : "Mover a otra quincena"}
                           </button>
                         </div>
                       )}
-                      {it.esPrestamo && it.fechaCuota && (
-                        <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 1 }}>
-                          Vence: {formatoFechaCuota(it.fechaCuota)}
+                    </div>
+                  )}
+
+                  {/* Para gastos fijos y rubros presupuestados (como Gym, Alquiler, etc.) */}
+                  {!it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
+                    <div style={{ marginTop: 4 }}>
+                      {transferenciasHaciaPeriodo.filter((t) => t.categoria === it.nombre).map((t) => (
+                        <div key={t.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--sage)", background: "var(--sage-bg)", padding: "2px 7px", borderRadius: 6, marginBottom: 4 }}>
+                          <span>🔄 Incluye {formatMoney(t.monto)} pasado de {t.origen?.quincena === "Q1" ? "1ra" : "2da"} quincena</span>
+                          <button
+                            onClick={() => handleRevertirTransferencia(t)}
+                            disabled={moviendoGastoCargando}
+                            title="Devolver a la quincena original"
+                            style={{ background: "transparent", border: "none", color: "var(--amber)", fontSize: 10.5, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                          >
+                            Devolver
+                          </button>
                         </div>
-                      )}
-                      {(it.esPrestamo || it.esTarjeta) && it.entidadName && (
-                        <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
-                          <Landmark size={10} /> Pagar a: {it.entidadName}
-                        </div>
-                      )}
-                      {it.esPrestamo && (it.cuentaDestinoNumero || it.prestamoNumero === "PT01") && (
-                        <div style={{ fontSize: 11, color: "var(--ink)", display: "inline-flex", alignItems: "center", gap: 5, marginTop: 2, background: "rgba(59, 130, 246, 0.08)", padding: "2px 7px", borderRadius: 6, border: "1px solid rgba(59, 130, 246, 0.2)" }}>
-                          <Landmark size={11} style={{ color: "#2563eb" }} />
-                          <span>
-                            <strong>{it.cuentaDestinoBanco || (it.prestamoNumero === "PT01" ? "Banco Popular" : "Banco Popular")}:</strong> <span className="despensa-mono">{it.cuentaDestinoNumero || (it.prestamoNumero === "PT01" ? "0002804611" : "")}</span> ({it.cuentaDestinoBeneficiario || (it.prestamoNumero === "PT01" ? "Julian Ochoa" : "")})
-                          </span>
-                        </div>
-                      )}
-                      {it.esPagoRapido && (
-                        <div style={{ fontSize: 11, color: "var(--amber)", display: "flex", alignItems: "center", gap: 3, marginTop: 1, fontWeight: 600 }}>
-                          🚀 Monto aumentado por Pago rápido
-                        </div>
-                      )}
-                      {estado.metodoPago === "Descuento Nómina" && estado.fuenteIngresoNombre && (
-                        <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
-                          <Briefcase size={10} /> Descontado de: {estado.fuenteIngresoNombre}
-                        </div>
-                      )}
-                      {it.esPrestamo && !it.bloqueadoPagado && it.origenKey && (
-                        <div style={{ marginTop: 3 }}>
-                          {moviendoAbiertoKey === it.key ? (
-                            <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-                              <input
-                                value={destinoFecha}
-                                onChange={(e) => setDestinoFecha(e.target.value)}
-                                style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
-                                type="date"
-                              />
-                              {destinoFecha && (() => {
-                                const [year, month, day] = destinoFecha.split("-").map(Number);
-                                const quincenaDestino = day >= 15 ? "2da" : "1ra";
-                                return <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Se mostrará en {quincenaDestino} quincena de {MES_NOMBRES[month - 1]} {year}</span>;
-                              })()}
-                              <button
-                                onClick={() => confirmarMoverQuincena(it)}
-                                disabled={moviendoKey === it.key}
-                                style={{ fontSize: 10.5, padding: "3px 8px", background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
-                              >
-                                {moviendoKey === it.key ? "…" : "Confirmar"}
-                              </button>
-                              <button
-                                onClick={() => setMoviendoAbiertoKey(null)}
-                                style={{ fontSize: 10.5, padding: "3px 8px", background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
-                              >
-                                Cancelar
-                              </button>
-                            </div>
+                      ))}
+
+                      {!estado.pagado && (
+                        <div style={{ marginTop: 2 }}>
+                          {moviendoGastoKey === it.key ? (
+                            renderPanelMoverGasto(it)
                           ) : (
-                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                              {it.tieneOverride && (
-                                <button
-                                  onClick={() => quitarMover(it)}
-                                  disabled={moviendoKey === it.key}
-                                  title="Volver esta cuota a su quincena original"
-                                  style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--amber)", background: "transparent", border: "none", cursor: moviendoKey === it.key ? "wait" : "pointer" }}
-                                >
-                                  <ArrowLeftRight size={10} /> Volver a la quincena original
-                                </button>
-                              )}
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                               <button
-                                onClick={() => abrirMoverQuincena(it)}
-                                title="Mover esta cuota a otra quincena, aunque sea de otro mes"
-                                style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer" }}
+                                type="button"
+                                onClick={() => abrirMoverGasto(it)}
+                                title="Mover este monto presupuestado a otra quincena (ej. primera quincena de noviembre)"
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  padding: "3px 8px",
+                                  fontSize: 11,
+                                  color: "var(--sage)",
+                                  background: "var(--sage-bg)",
+                                  border: "1px solid var(--sage)",
+                                  borderRadius: 6,
+                                  cursor: "pointer",
+                                  fontWeight: 600,
+                                }}
                               >
-                                <ArrowLeftRight size={10} /> {it.tieneOverride ? "Mover otra vez" : "Mover a otra quincena"}
+                                <ArrowLeftRight size={11} /> Mover quincena
                               </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Para gastos fijos y rubros presupuestados (como Gym, Alquiler, etc.) */}
-                      {!it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
-                        <div style={{ marginTop: 4 }}>
-                          {transferenciasHaciaPeriodo.filter((t) => t.categoria === it.nombre).map((t) => (
-                            <div key={t.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--sage)", background: "var(--sage-bg)", padding: "2px 7px", borderRadius: 6, marginBottom: 4 }}>
-                              <span>🔄 Incluye {formatMoney(t.monto)} pasado de {t.origen?.quincena === "Q1" ? "1ra" : "2da"} quincena</span>
                               <button
-                                onClick={() => handleRevertirTransferencia(t)}
-                                disabled={moviendoGastoCargando}
-                                title="Devolver a la quincena original"
-                                style={{ background: "transparent", border: "none", color: "var(--amber)", fontSize: 10.5, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                                type="button"
+                                onClick={() => eliminarGastoQuincena(it)}
+                                disabled={eliminandoGastoKey === it.key}
+                                title="Eliminar este gasto presupuestado de esta quincena (el monto quedará en $0 en esta quincena)"
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  padding: "3px 8px",
+                                  fontSize: 11,
+                                  color: "var(--stamp)",
+                                  background: "var(--stamp-bg)",
+                                  border: "1px solid var(--stamp)",
+                                  borderRadius: 6,
+                                  cursor: eliminandoGastoKey === it.key ? "wait" : "pointer",
+                                  fontWeight: 600,
+                                }}
                               >
-                                Devolver
+                                <Trash2 size={11} /> {eliminandoGastoKey === it.key ? "Eliminando…" : "Eliminar"}
                               </button>
-                            </div>
-                          ))}
-
-                          {!estado.pagado && (
-                            <div style={{ marginTop: 2 }}>
-                              {moviendoGastoKey === it.key ? (
-                                renderPanelMoverGasto(it)
-                              ) : (
-                                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => abrirMoverGasto(it)}
-                                    title="Mover este monto presupuestado a otra quincena (ej. primera quincena de noviembre)"
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 4,
-                                      padding: "3px 8px",
-                                      fontSize: 11,
-                                      color: "var(--sage)",
-                                      background: "var(--sage-bg)",
-                                      border: "1px solid var(--sage)",
-                                      borderRadius: 6,
-                                      cursor: "pointer",
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    <ArrowLeftRight size={11} /> Mover quincena
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => eliminarGastoQuincena(it)}
-                                    disabled={eliminandoGastoKey === it.key}
-                                    title="Eliminar este gasto presupuestado de esta quincena (el monto quedará en $0 en esta quincena)"
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 4,
-                                      padding: "3px 8px",
-                                      fontSize: 11,
-                                      color: "var(--stamp)",
-                                      background: "var(--stamp-bg)",
-                                      border: "1px solid var(--stamp)",
-                                      borderRadius: 6,
-                                      cursor: eliminandoGastoKey === it.key ? "wait" : "pointer",
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    <Trash2 size={11} /> {eliminandoGastoKey === it.key ? "Eliminando…" : "Eliminar"}
-                                  </button>
-                                </div>
-                              )}
                             </div>
                           )}
                         </div>
                       )}
                     </div>
-                  </div>
-
-                  {/* Selector de método (desktop) */}
-                  <div className="checklist-item-desktop-only" style={{ flexShrink: 0 }}>
-                    <select
-                      value={estado.metodoPago || it.metodoDefault || ""}
-                      onChange={(e) => setMetodo(it.key, e.target.value)}
-                      disabled={it.bloqueadoPagado}
-                      style={{
-                        padding: "5px 6px",
-                        border: "1px solid var(--line)",
-                        borderRadius: 7,
-                        fontSize: 11.5,
-                        background: it.bloqueadoPagado ? "var(--line-soft)" : "var(--paper)",
-                        color: it.bloqueadoPagado ? "var(--ink-soft)" : "var(--ink)",
-                        flexShrink: 0,
-                        cursor: it.bloqueadoPagado ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      <option value="">Método…</option>
-                      {METODOS.map((m) => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Monto editable o botón de monto */}
-                  <div style={{ flexShrink: 0, textAlign: "right" }}>
-                    {editandoMontoKey === it.key ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <input
-                          type="number"
-                          value={montoEditado}
-                          onChange={(e) => setMontoEditado(e.target.value)}
-                          autoFocus
-                          onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
-                          style={{ width: 85, padding: "4px 6px", fontSize: 12.5, border: "1px solid var(--sage)", borderRadius: 6, textAlign: "right" }}
-                        />
-                        <button
-                          onClick={async () => {
-                            const actual = checklist?.items?.[it.key] || {};
-                            await setChecklistItem(periodoKey, it.key, { ...actual, montoOverride: Number(montoEditado) || 0 });
-                            setEditandoMontoKey(null);
-                          }}
-                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
-                        >
-                          <Check size={12} />
-                        </button>
-                        <button
-                          onClick={() => setEditandoMontoKey(null)}
-                          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          if (it.bloqueadoPagado) return;
-                          setEditandoMontoKey(it.key);
-                          setMontoEditado(String(it.monto || ""));
-                        }}
-                        disabled={it.bloqueadoPagado}
-                        title={it.bloqueadoPagado ? "Préstamo saldado — ya no se puede modificar" : "Tocar para editar el monto"}
-                        className="despensa-mono checklist-item-monto-btn"
-                        style={{
-                          fontSize: 13.5,
-                          fontWeight: estado.pagado ? 700 : 600,
-                          minWidth: 70,
-                          textAlign: "right",
-                          background: estado.pagado ? "rgba(16, 185, 129, 0.14)" : "transparent",
-                          border: estado.pagado ? "1px solid rgba(16, 185, 129, 0.4)" : "none",
-                          borderRadius: 6,
-                          padding: estado.pagado ? "2px 7px" : 0,
-                          color: "var(--ink)",
-                          cursor: it.bloqueadoPagado ? "default" : "pointer",
-                          textDecorationLine: it.bloqueadoPagado || estado.pagado ? "none" : "underline",
-                          textDecorationStyle: "dotted",
-                          textDecorationColor: "var(--line)",
-                          textUnderlineOffset: 3,
-                        }}
-                      >
-                        {formatMoney(it.monto)}
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
 
-                {/* Fila inferior para móvil: Vence, Entidad, Mover cuota y Método */}
-                <div className="checklist-item-bottom-row">
-                  <div className="checklist-item-bottom-left">
-                    {it.esPrestamo && it.fechaCuota && (
-                      <span style={{ fontSize: 10.5, color: "var(--ink-soft)", whiteSpace: "nowrap" }}>
-                        Vence: {formatoFechaCuota(it.fechaCuota)}
-                      </span>
-                    )}
-                    {(it.esPrestamo || it.esTarjeta) && it.entidadName && (
-                      <span style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" }}>
-                        <Landmark size={10} /> {it.entidadName}
-                      </span>
-                    )}
-                    {it.esPrestamo && (it.cuentaDestinoNumero || it.prestamoNumero === "PT01") && (
-                      <span style={{ fontSize: 10.5, color: "var(--ink)", display: "inline-flex", alignItems: "center", gap: 4, background: "rgba(59, 130, 246, 0.08)", padding: "2px 6px", borderRadius: 5, border: "1px solid rgba(59, 130, 246, 0.2)", whiteSpace: "nowrap" }}>
-                        <Landmark size={9} style={{ color: "#2563eb" }} />
-                        <span><strong>{it.cuentaDestinoBanco || (it.prestamoNumero === "PT01" ? "Banco Popular" : "Banco Popular")}:</strong> <span className="despensa-mono">{it.cuentaDestinoNumero || (it.prestamoNumero === "PT01" ? "0002804611" : "")}</span></span>
-                      </span>
-                    )}
-                    {it.esPagoRapido && (
-                      <span style={{ fontSize: 10.5, color: "var(--amber)", fontWeight: 600, whiteSpace: "nowrap" }}>
-                        🚀 Pago rápido
-                      </span>
-                    )}
-                    {estado.metodoPago === "Descuento Nómina" && estado.fuenteIngresoNombre && (
-                      <span style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" }}>
-                        <Briefcase size={10} /> {estado.fuenteIngresoNombre}
-                      </span>
-                    )}
-                    {it.esPrestamo && !it.bloqueadoPagado && it.origenKey && (
-                      <div style={{ width: "100%", marginTop: 2 }}>
-                        {moviendoAbiertoKey === it.key ? (
-                          <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-                            <input
-                              value={destinoFecha}
-                              onChange={(e) => setDestinoFecha(e.target.value)}
-                              style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
-                              type="date"
-                            />
-                            <button
-                              onClick={() => confirmarMoverQuincena(it)}
-                              disabled={moviendoKey === it.key}
-                              style={{ fontSize: 10.5, padding: "3px 8px", background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
-                            >
-                              {moviendoKey === it.key ? "…" : "Confirmar"}
-                            </button>
-                            <button
-                              onClick={() => setMoviendoAbiertoKey(null)}
-                              style={{ fontSize: 10.5, padding: "3px 8px", background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        ) : (
-                          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                            {it.tieneOverride && (
-                              <button
-                                onClick={() => quitarMover(it)}
-                                disabled={moviendoKey === it.key}
-                                title="Volver esta cuota a su quincena original"
-                                style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--amber)", background: "transparent", border: "none", cursor: moviendoKey === it.key ? "wait" : "pointer" }}
-                              >
-                                <ArrowLeftRight size={10} /> Volver
-                              </button>
-                            )}
-                            <button
-                              onClick={() => abrirMoverQuincena(it)}
-                              title="Mover esta cuota a otra quincena"
-                              style={{ display: "flex", alignItems: "center", gap: 3, padding: 0, fontSize: 10.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer" }}
-                            >
-                              <ArrowLeftRight size={10} /> Mover quincena
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {/* Para gastos fijos y rubros presupuestados en móvil */}
-                    {!it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
-                      <div style={{ width: "100%", marginTop: 3 }}>
-                        {transferenciasHaciaPeriodo.filter((t) => t.categoria === it.nombre).map((t) => (
-                          <div key={t.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10.5, color: "var(--sage)", background: "var(--sage-bg)", padding: "2px 6px", borderRadius: 6, marginBottom: 3 }}>
-                            <span>🔄 Movido de {t.origen?.quincena === "Q1" ? "1ra" : "2da"} Q (+{formatMoney(t.monto)})</span>
-                            <button
-                              onClick={() => handleRevertirTransferencia(t)}
-                              disabled={moviendoGastoCargando}
-                              style={{ background: "transparent", border: "none", color: "var(--amber)", fontSize: 10, cursor: "pointer", textDecoration: "underline", padding: 0 }}
-                            >
-                              Devolver
-                            </button>
-                          </div>
-                        ))}
+                {/* Selector de método */}
+                <select
+                  value={estado.metodoPago || it.metodoDefault || ""}
+                  onChange={(e) => setMetodo(it.key, e.target.value)}
+                  disabled={it.bloqueadoPagado}
+                  style={{
+                    padding: "5px 6px",
+                    border: "1px solid var(--line)",
+                    borderRadius: 7,
+                    fontSize: 11.5,
+                    background: it.bloqueadoPagado ? "var(--line-soft)" : "var(--paper)",
+                    color: it.bloqueadoPagado ? "var(--ink-soft)" : "var(--ink)",
+                    flexShrink: 0,
+                    cursor: it.bloqueadoPagado ? "not-allowed" : "pointer",
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  <option value="">Método…</option>
+                  {METODOS.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
 
-                        {!estado.pagado && (
-                          <div style={{ width: "100%", marginTop: 2 }}>
-                            {moviendoGastoKey === it.key ? (
-                              renderPanelMoverGasto(it)
-                            ) : (
-                              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                                <button
-                                  type="button"
-                                  onClick={() => abrirMoverGasto(it)}
-                                  title="Mover a otra quincena (ej. primera quincena de noviembre)"
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    padding: "3px 8px",
-                                    fontSize: 11,
-                                    color: "var(--sage)",
-                                    background: "var(--sage-bg)",
-                                    border: "1px solid var(--sage)",
-                                    borderRadius: 6,
-                                    cursor: "pointer",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  <ArrowLeftRight size={11} /> Mover quincena
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => eliminarGastoQuincena(it)}
-                                  disabled={eliminandoGastoKey === it.key}
-                                  title="Eliminar este gasto presupuestado de esta quincena"
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    padding: "3px 8px",
-                                    fontSize: 11,
-                                    color: "var(--stamp)",
-                                    background: "var(--stamp-bg)",
-                                    border: "1px solid var(--stamp)",
-                                    borderRadius: 6,
-                                    cursor: eliminandoGastoKey === it.key ? "wait" : "pointer",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  <Trash2 size={11} /> {eliminandoGastoKey === it.key ? "Eliminando…" : "Eliminar"}
-                                </button>
-                                {it.esVariable && !it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleModoChecklist(it)}
-                                    title="Cambiar a barra de consumo continuo"
-                                    style={{
-                                      display: "inline-flex",
-                                      alignItems: "center",
-                                      gap: 3,
-                                      padding: 0,
-                                      fontSize: 10,
-                                      color: "var(--ink-soft)",
-                                      background: "transparent",
-                                      border: "none",
-                                      cursor: "pointer",
-                                      textDecorationLine: "underline",
-                                      textDecorationStyle: "dotted",
-                                      marginLeft: 6,
-                                    }}
-                                  >
-                                    Ver como barra
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <select
-                    value={estado.metodoPago || it.metodoDefault || ""}
-                    onChange={(e) => setMetodo(it.key, e.target.value)}
-                    disabled={it.bloqueadoPagado}
-                    style={{
-                      padding: "4px 6px",
-                      border: "1px solid var(--line)",
-                      borderRadius: 7,
-                      fontSize: 11,
-                      background: it.bloqueadoPagado ? "var(--line-soft)" : "var(--paper)",
-                      color: it.bloqueadoPagado ? "var(--ink-soft)" : "var(--ink)",
-                      flexShrink: 0,
-                      cursor: it.bloqueadoPagado ? "not-allowed" : "pointer",
-                      maxWidth: 110,
-                    }}
-                  >
-                    <option value="">Método…</option>
-                    {METODOS.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
+                {/* Monto editable o botón de monto */}
+                <div style={{ flexShrink: 0, textAlign: "right", alignSelf: "flex-start" }}>
+                  {editandoMontoKey === it.key ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <input
+                        type="number"
+                        value={montoEditado}
+                        onChange={(e) => setMontoEditado(e.target.value)}
+                        autoFocus
+                        onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+                        style={{ width: 85, padding: "4px 6px", fontSize: 12.5, border: "1px solid var(--sage)", borderRadius: 6, textAlign: "right" }}
+                      />
+                      <button
+                        onClick={async () => {
+                          const actual = checklist?.items?.[it.key] || {};
+                          await setChecklistItem(periodoKey, it.key, { ...actual, montoOverride: Number(montoEditado) || 0 });
+                          setEditandoMontoKey(null);
+                        }}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
+                      >
+                        <Check size={12} />
+                      </button>
+                      <button
+                        onClick={() => setEditandoMontoKey(null)}
+                        style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (it.bloqueadoPagado) return;
+                        setEditandoMontoKey(it.key);
+                        setMontoEditado(String(it.monto || ""));
+                      }}
+                      disabled={it.bloqueadoPagado}
+                      title={it.bloqueadoPagado ? "Préstamo saldado — ya no se puede modificar" : "Tocar para editar el monto"}
+                      className="despensa-mono"
+                      style={{
+                        fontSize: 13.5,
+                        fontWeight: estado.pagado ? 700 : 600,
+                        minWidth: 70,
+                        textAlign: "right",
+                        background: estado.pagado ? "rgba(16, 185, 129, 0.14)" : "transparent",
+                        border: estado.pagado ? "1px solid rgba(16, 185, 129, 0.4)" : "none",
+                        borderRadius: 6,
+                        padding: estado.pagado ? "2px 7px" : 0,
+                        color: "var(--ink)",
+                        cursor: it.bloqueadoPagado ? "default" : "pointer",
+                        textDecorationLine: it.bloqueadoPagado || estado.pagado ? "none" : "underline",
+                        textDecorationStyle: "dotted",
+                        textDecorationColor: "var(--line)",
+                        textUnderlineOffset: 3,
+                      }}
+                    >
+                      {formatMoney(it.monto)}
+                    </button>
+                  )}
                 </div>
               </div>
             );

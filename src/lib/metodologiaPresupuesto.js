@@ -132,6 +132,7 @@ export function calcularTotalesPorPilar({
   pilaresGuardados = {},
   prestamosTotalMes = 0,
   contratosTotalMes = 0,
+  tarjetasTotalMes = 0,
   metasTotalMes = 0,
   vacacionesTotalMes = 0,
   renovacionesTotalMes = 0,
@@ -158,9 +159,10 @@ export function calcularTotalesPorPilar({
     }
   }
 
-  // Préstamos y contratos fijos son Necesidades/Compromisos obligatorios
+  // Préstamos, contratos y pagos mínimos de tarjetas son Necesidades/Compromisos obligatorios
   totales.necesidad += Number(prestamosTotalMes) || 0;
   totales.necesidad += Number(contratosTotalMes) || 0;
+  totales.necesidad += Number(tarjetasTotalMes) || 0;
 
   // Metas de ahorro van al pilar de Ahorro
   totales.ahorro += Number(metasTotalMes) || 0;
@@ -189,6 +191,7 @@ export function generarDistribucionMetodologia({
   pilaresGuardados = {},
   prestamosTotalMes = 0,
   contratosTotalMes = 0,
+  tarjetasTotalMes = 0,
   metasTotalMes = 0,
   diezmoTotalMes = 0,
   modoReparto = "proporcional", // "proporcional" | "equitativo"
@@ -234,7 +237,7 @@ export function generarDistribucionMetodologia({
   if (metodo.esBaseCero) {
     // BASE CERO:
     // Ingresos - Compromisos Fijos = Remanente disponible
-    const fijos = Number(prestamosTotalMes) + Number(contratosTotalMes) + Number(metasTotalMes) + Number(diezmoTotalMes);
+    const fijos = Number(prestamosTotalMes) + Number(contratosTotalMes) + Number(tarjetasTotalMes) + Number(metasTotalMes) + Number(diezmoTotalMes);
     const remanente = Math.max(0, ingresoMensual - fijos);
 
     // Asignar 60% del remanente a necesidades variables, 25% a deseos, 15% a ahorro extra
@@ -254,9 +257,9 @@ export function generarDistribucionMetodologia({
       const montoCupo = (ingresoMensual * (cfg.pct || 0)) / 100;
       let montoAjustado = montoCupo;
 
-      // Restar préstamos y contratos del cupo de necesidades si corresponde
+      // Restar préstamos, contratos y tarjetas del cupo de necesidades si corresponde
       if (pilarKey === "necesidad") {
-        montoAjustado = Math.max(0, montoCupo - Number(prestamosTotalMes) - Number(contratosTotalMes));
+        montoAjustado = Math.max(0, montoCupo - Number(prestamosTotalMes) - Number(contratosTotalMes) - Number(tarjetasTotalMes));
       } else if (pilarKey === "ahorro") {
         montoAjustado = Math.max(0, montoCupo - Number(metasTotalMes));
       } else if (pilarKey === "donacion") {

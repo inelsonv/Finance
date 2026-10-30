@@ -21,6 +21,8 @@ const DICCIONARIO_ABREVIATURAS = {
   "compromisos financieros": "Comp. financieros",
   "compromisos financieros (préstamos y contratos)": "Comp. financieros",
   "compromisos financieros (prestamos y contratos)": "Comp. financieros",
+  "compromisos financieros (préstamos, contratos y tarjetas)": "Comp. financieros",
+  "compromisos financieros (prestamos, contratos y tarjetas)": "Comp. financieros",
   "compromisos del mes": "Comp. del mes",
 
   // Pagos y tarjetas

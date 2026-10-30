@@ -60,6 +60,8 @@ export default function MetodologiaPresupuestoModal({
   ingresoMensual = 0,
   prestamosActivos = [],
   contratosActivos = [],
+  tarjetasActivas = [],
+  tipoCambio = 60.3,
   metasActivas = [],
   movimientos = [],
   diezmoMensual = 0,
@@ -103,6 +105,14 @@ export default function MetodologiaPresupuestoModal({
     for (const c of contratosActivos) {
       if (c.montoEstimado) contratosTotal += Number(c.montoEstimado) || 0;
     }
+    let tarjetasTotal = 0;
+    for (const t of tarjetasActivas) {
+      tarjetasTotal += Number(t.pagoMinimo) || 0;
+      if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+        const factor = tipoCambio && tipoCambio > 0 ? tipoCambio : 60.3;
+        tarjetasTotal += (Number(t.pagoMinimoUSD) || 0) * factor;
+      }
+    }
     let metasTotal = 0;
     for (const m of metasActivas) {
       if (m.montoObjetivo) metasTotal += (Number(m.montoObjetivo) || 0) / 12;
@@ -111,11 +121,12 @@ export default function MetodologiaPresupuestoModal({
     return {
       prestamosTotal,
       contratosTotal,
+      tarjetasTotal,
       metasTotal,
       diezmoTotal: Number(diezmoMensual) || 0,
       ahorroAutoTotal: Number(ahorroMensual) || 0,
     };
-  }, [prestamosActivos, contratosActivos, metasActivas, ingresoMensual, diezmoMensual, ahorroMensual]);
+  }, [prestamosActivos, contratosActivos, tarjetasActivas, tipoCambio, metasActivas, ingresoMensual, diezmoMensual, ahorroMensual]);
 
   // Totales por pilar en el mes seleccionado
   const { totales, totalPresupuestado } = useMemo(() => {
@@ -126,6 +137,7 @@ export default function MetodologiaPresupuestoModal({
       pilaresGuardados: pilares,
       prestamosTotalMes: fijosMes.prestamosTotal,
       contratosTotalMes: fijosMes.contratosTotal,
+      tarjetasTotalMes: fijosMes.tarjetasTotal,
       metasTotalMes: fijosMes.metasTotal,
       diezmoTotalMes: fijosMes.diezmoTotal,
       ahorroAutoTotalMes: fijosMes.ahorroAutoTotal,
@@ -147,6 +159,7 @@ export default function MetodologiaPresupuestoModal({
       pilaresGuardados: pilares,
       prestamosTotalMes: fijosMes.prestamosTotal,
       contratosTotalMes: fijosMes.contratosTotal,
+      tarjetasTotalMes: fijosMes.tarjetasTotal,
       metasTotalMes: fijosMes.metasTotal,
       diezmoTotalMes: fijosMes.diezmoTotal,
       modoReparto,

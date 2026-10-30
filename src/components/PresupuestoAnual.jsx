@@ -284,6 +284,7 @@ export default function PresupuestoAnual({
   vacaciones = [],
   diezmoConfig = {},
   tarjetas = [],
+  tipoCambio = null,
   ahorroConfig = {},
   onChangeYear,
   renovaciones = [],
@@ -519,6 +520,18 @@ export default function PresupuestoAnual({
   const contratosActivos = useMemo(
     () => (contratos || []).filter((c) => c.estado === "Activo" && c.diaPago && c.montoEstimado),
     [contratos]
+  );
+
+  // Tarjetas de crédito con pago mínimo activo que deben integrarse en Compromisos financieros
+  const tarjetasConPagoMinimo = useMemo(
+    () =>
+      (tarjetas || []).filter(
+        (t) =>
+          (t.estado === "Activa" || !t.estado) &&
+          (t.tipoTarjeta || "Crédito") === "Crédito" &&
+          ((Number(t.pagoMinimo) || 0) > 0 || (Number(t.pagoMinimoUSD) || 0) > 0)
+      ),
+    [tarjetas]
   );
 
   const ingresoMensual = useMemo(() => {
@@ -772,94 +785,6 @@ export default function PresupuestoAnual({
 
   const totalMesCategoria = (categoria, mes) => (getCelda(categoria, mes, "Q1") || 0) + (getCelda(categoria, mes, "Q2") || 0);
 
-  const totalPorMes = useMemo(() => {
-    const totals = Array(12).fill(0);
-    for (const cat of categorias) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesCategoria(cat.nombre, m);
-    }
-    for (const p of prestamosActivos) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesPrestamo(p, m);
-    }
-    for (const meta of metasActivas) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesMeta(meta, m);
-    }
-    for (const evento of eventosConGasto) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesEvento(evento, m);
-    }
-    for (const orden of ordenesConGasto) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesOrden(orden, m);
-    }
-    for (const vacacion of vacacionesConGasto) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaVacacion(vacacion, m, "Q1") + getCeldaVacacion(vacacion, m, "Q2");
-    }
-    for (const renovacion of renovacionesConGasto) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaRenovacion(renovacion, m, "Q1") + getCeldaRenovacion(renovacion, m, "Q2");
-    }
-    if (diezmoMensual > 0) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += diezmoMensual;
-    }
-    if (ahorroMensual > 0) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += ahorroMensual;
-    }
-    return totals;
-  }, [categorias, presupuestoEfectivo, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
-
-  const totalPorQuincenaGlobal = useMemo(() => {
-    const totals = {};
-    for (let m = 1; m <= 12; m++) {
-      totals[`${m}-Q1`] = 0;
-      totals[`${m}-Q2`] = 0;
-      for (const cat of categorias) {
-        totals[`${m}-Q1`] += getCelda(cat.nombre, m, "Q1") || 0;
-        totals[`${m}-Q2`] += getCelda(cat.nombre, m, "Q2") || 0;
-      }
-      for (const p of prestamosActivos) {
-        totals[`${m}-Q1`] += getCeldaPrestamo(p, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaPrestamo(p, m, "Q2");
-      }
-      for (const meta of metasActivas) {
-        totals[`${m}-Q1`] += getCeldaMeta(meta, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaMeta(meta, m, "Q2");
-      }
-      for (const evento of eventosConGasto) {
-        totals[`${m}-Q1`] += getCeldaEvento(evento, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaEvento(evento, m, "Q2");
-      }
-      for (const orden of ordenesConGasto) {
-        totals[`${m}-Q1`] += getCeldaOrden(orden, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaOrden(orden, m, "Q2");
-      }
-      for (const vacacion of vacacionesConGasto) {
-        totals[`${m}-Q1`] += getCeldaVacacion(vacacion, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaVacacion(vacacion, m, "Q2");
-      }
-      for (const renovacion of renovacionesConGasto) {
-        totals[`${m}-Q1`] += getCeldaRenovacion(renovacion, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaRenovacion(renovacion, m, "Q2");
-      }
-      if (diezmoMensual > 0) {
-        totals[`${m}-Q1`] += getCeldaDiezmo();
-        totals[`${m}-Q2`] += getCeldaDiezmo();
-      }
-      totals[`${m}-Q1`] += getCeldaTarjetaPendiente(m, "Q1");
-      totals[`${m}-Q2`] += getCeldaTarjetaPendiente(m, "Q2");
-      if (ahorroMensual > 0) {
-        totals[`${m}-Q1`] += getCeldaAhorroAuto();
-        totals[`${m}-Q2`] += getCeldaAhorroAuto();
-      }
-    }
-    return totals;
-  }, [categorias, presupuestoEfectivo, prestamosActivos, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
-
-
-  const totalPorCategoria = (categoria) => {
-    let total = 0;
-    for (let m = 1; m <= 12; m++) {
-      total += totalMesCategoria(categoria, m) + totalMesEventoCategoria(categoria, m);
-    }
-    return total;
-  };
-
   const totalPorPrestamo = (p) => {
     let total = 0;
     for (let m = 1; m <= 12; m++) total += totalMesPrestamo(p, m);
@@ -911,6 +836,164 @@ export default function PresupuestoAnual({
     contratosActivos.reduce((s, c) => s + getCeldaContrato(c, mes, quincena), 0);
 
   const totalContratosTodos = () => contratosActivos.reduce((s, c) => s + totalPorContrato(c), 0);
+
+  // Pago mínimo de tarjetas de crédito dentro de Compromisos Financieros:
+  // Usa la fecha de pago (por ejemplo, día 20 de cada mes corresponde a la 2da quincena Q2;
+  // si el día de pago es < 15, corresponde a la 1ra quincena Q1).
+  const getCeldaTarjetaMinimo = (tarjeta, mes, quincena, moneda = "RD") => {
+    if (!tarjeta) return 0;
+    const diaPago = Number(tarjeta.fechaPago) || 20;
+    const quincenaEfectiva = diaPago >= 15 ? "Q2" : "Q1";
+    if (quincena !== quincenaEfectiva) return 0;
+
+    if (moneda === "USD") {
+      if (!tarjeta.tieneMonedaSecundaria) return 0;
+      const minUSD = Number(tarjeta.pagoMinimoUSD) || 0;
+      if (minUSD <= 0) return 0;
+      const factorConversion = tipoCambio && tipoCambio > 0 ? tipoCambio : 60.3;
+      return minUSD * factorConversion;
+    }
+
+    return Number(tarjeta.pagoMinimo) || 0;
+  };
+
+  const totalMesTarjetaMinimo = (tarjeta, mes, moneda = "RD") =>
+    getCeldaTarjetaMinimo(tarjeta, mes, "Q1", moneda) + getCeldaTarjetaMinimo(tarjeta, mes, "Q2", moneda);
+
+  const totalPorTarjetaMinimo = (tarjeta, moneda = "RD") => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) total += totalMesTarjetaMinimo(tarjeta, m, moneda);
+    return total;
+  };
+
+  const getCeldaTarjetasTodas = (mes, quincena) =>
+    tarjetasConPagoMinimo.reduce((s, t) => {
+      let sum = s + getCeldaTarjetaMinimo(t, mes, quincena, "RD");
+      if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+        sum += getCeldaTarjetaMinimo(t, mes, quincena, "USD");
+      }
+      return sum;
+    }, 0);
+
+  const totalTarjetasTodas = () =>
+    tarjetasConPagoMinimo.reduce((s, t) => {
+      let sum = s + totalPorTarjetaMinimo(t, "RD");
+      if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+        sum += totalPorTarjetaMinimo(t, "USD");
+      }
+      return sum;
+    }, 0);
+
+  const totalPorMes = useMemo(() => {
+    const totals = Array(12).fill(0);
+    for (const cat of categorias) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesCategoria(cat.nombre, m);
+    }
+    for (const p of prestamosActivos) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesPrestamo(p, m);
+    }
+    for (const c of contratosActivos) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesContrato(c, m);
+    }
+    for (const t of tarjetasConPagoMinimo) {
+      for (let m = 1; m <= 12; m++) {
+        totals[m - 1] += totalMesTarjetaMinimo(t, m, "RD");
+        if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+          totals[m - 1] += totalMesTarjetaMinimo(t, m, "USD");
+        }
+      }
+    }
+    for (const meta of metasActivas) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesMeta(meta, m);
+    }
+    for (const evento of eventosConGasto) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesEvento(evento, m);
+    }
+    for (const orden of ordenesConGasto) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesOrden(orden, m);
+    }
+    for (const vacacion of vacacionesConGasto) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaVacacion(vacacion, m, "Q1") + getCeldaVacacion(vacacion, m, "Q2");
+    }
+    for (const renovacion of renovacionesConGasto) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaRenovacion(renovacion, m, "Q1") + getCeldaRenovacion(renovacion, m, "Q2");
+    }
+    if (diezmoMensual > 0) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += diezmoMensual;
+    }
+    if (ahorroMensual > 0) {
+      for (let m = 1; m <= 12; m++) totals[m - 1] += ahorroMensual;
+    }
+    return totals;
+  }, [categorias, presupuestoEfectivo, prestamosActivos, contratosActivos, tarjetasConPagoMinimo, tipoCambio, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
+
+  const totalPorQuincenaGlobal = useMemo(() => {
+    const totals = {};
+    for (let m = 1; m <= 12; m++) {
+      totals[`${m}-Q1`] = 0;
+      totals[`${m}-Q2`] = 0;
+      for (const cat of categorias) {
+        totals[`${m}-Q1`] += getCelda(cat.nombre, m, "Q1") || 0;
+        totals[`${m}-Q2`] += getCelda(cat.nombre, m, "Q2") || 0;
+      }
+      for (const p of prestamosActivos) {
+        totals[`${m}-Q1`] += getCeldaPrestamo(p, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaPrestamo(p, m, "Q2");
+      }
+      for (const c of contratosActivos) {
+        totals[`${m}-Q1`] += getCeldaContrato(c, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaContrato(c, m, "Q2");
+      }
+      for (const t of tarjetasConPagoMinimo) {
+        totals[`${m}-Q1`] += getCeldaTarjetaMinimo(t, m, "Q1", "RD");
+        totals[`${m}-Q2`] += getCeldaTarjetaMinimo(t, m, "Q2", "RD");
+        if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+          totals[`${m}-Q1`] += getCeldaTarjetaMinimo(t, m, "Q1", "USD");
+          totals[`${m}-Q2`] += getCeldaTarjetaMinimo(t, m, "Q2", "USD");
+        }
+      }
+      for (const meta of metasActivas) {
+        totals[`${m}-Q1`] += getCeldaMeta(meta, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaMeta(meta, m, "Q2");
+      }
+      for (const evento of eventosConGasto) {
+        totals[`${m}-Q1`] += getCeldaEvento(evento, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaEvento(evento, m, "Q2");
+      }
+      for (const orden of ordenesConGasto) {
+        totals[`${m}-Q1`] += getCeldaOrden(orden, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaOrden(orden, m, "Q2");
+      }
+      for (const vacacion of vacacionesConGasto) {
+        totals[`${m}-Q1`] += getCeldaVacacion(vacacion, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaVacacion(vacacion, m, "Q2");
+      }
+      for (const renovacion of renovacionesConGasto) {
+        totals[`${m}-Q1`] += getCeldaRenovacion(renovacion, m, "Q1");
+        totals[`${m}-Q2`] += getCeldaRenovacion(renovacion, m, "Q2");
+      }
+      if (diezmoMensual > 0) {
+        totals[`${m}-Q1`] += getCeldaDiezmo();
+        totals[`${m}-Q2`] += getCeldaDiezmo();
+      }
+      totals[`${m}-Q1`] += getCeldaTarjetaPendiente(m, "Q1");
+      totals[`${m}-Q2`] += getCeldaTarjetaPendiente(m, "Q2");
+      if (ahorroMensual > 0) {
+        totals[`${m}-Q1`] += getCeldaAhorroAuto();
+        totals[`${m}-Q2`] += getCeldaAhorroAuto();
+      }
+    }
+    return totals;
+  }, [categorias, presupuestoEfectivo, prestamosActivos, contratosActivos, tarjetasConPagoMinimo, tipoCambio, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
+
+
+  const totalPorCategoria = (categoria) => {
+    let total = 0;
+    for (let m = 1; m <= 12; m++) {
+      total += totalMesCategoria(categoria, m) + totalMesEventoCategoria(categoria, m);
+    }
+    return total;
+  };
 
   const totalPorMeta = (meta) => {
     let total = 0;
@@ -2012,7 +2095,7 @@ export default function PresupuestoAnual({
                 </td>
               </tr>
             ))}
-            {prestamosActivos.length > 0 && (
+            {(prestamosActivos.length > 0 || contratosActivos.length > 0 || tarjetasConPagoMinimo.length > 0) && (
               <tr style={{ background: "transparent" }}>
                 <td
                   className="presupuesto-col-sticky"
@@ -2037,7 +2120,7 @@ export default function PresupuestoAnual({
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                   }}
-                  title="Compromisos financieros (clic para ver el detalle de cada préstamo y contrato)"
+                  title="Compromisos financieros (clic para ver el detalle de préstamos, contratos y tarjetas)"
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {mostrarPrestamos ? <ChevronUp size={12} style={{ flexShrink: 0 }} /> : <ChevronDown size={12} style={{ flexShrink: 0 }} />}
@@ -2049,7 +2132,7 @@ export default function PresupuestoAnual({
                   const mes = i + 1;
                   const trimestre = obtenerTrimestreMes(i);
                   return QUINCENAS.map((q) => {
-                    const val = getCeldaPrestamosTodos(mes, q) + getCeldaContratosTodos(mes, q);
+                    const val = getCeldaPrestamosTodos(mes, q) + getCeldaContratosTodos(mes, q) + getCeldaTarjetasTodas(mes, q);
                     const esInicioTrimestre = i % 3 === 0 && q === "Q1";
                     return (
                       <td
@@ -2084,7 +2167,7 @@ export default function PresupuestoAnual({
                     color: "var(--stamp)",
                   }}
                 >
-                  {formatMoney(totalPrestamosTodos()) || "0"}
+                  {formatMoney(totalPrestamosTodos() + totalContratosTodos() + totalTarjetasTodas()) || "0"}
                 </td>
               </tr>
             )}
@@ -2241,6 +2324,167 @@ export default function PresupuestoAnual({
                 </tr>
               );
             })}
+            {mostrarPrestamos &&
+              tarjetasConPagoMinimo.map((t, idx) => {
+                const diaPago = Number(t.fechaPago) || 20;
+                const quincenaEfectiva = diaPago >= 15 ? "Q2" : "Q1";
+                const rowIdx = categorias.length + prestamosActivos.length + contratosActivos.length + idx * 2;
+                const tieneUSD = t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0;
+                const tieneRD = (Number(t.pagoMinimo) || 0) > 0 || !tieneUSD;
+
+                return (
+                  <React.Fragment key={`tarjeta-minimo-${t.id || idx}`}>
+                    {tieneRD && (
+                      <tr style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                        <td
+                          className="presupuesto-col-sticky"
+                          style={{
+                            position: "sticky",
+                            left: 0,
+                            background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
+                            padding: "6px 10px 6px 20px",
+                            borderRight: "1px solid var(--line)",
+                            borderBottom: "1px solid var(--line-soft)",
+                            fontFamily: "Inter, sans-serif",
+                            fontSize: 12,
+                            color: "var(--stamp)",
+                            minWidth: 185,
+                            width: 185,
+                            maxWidth: 185,
+                            boxSizing: "border-box",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={`Pago mínimo de tarjeta: ${t.nombre || "Tarjeta"}${t.banco ? ` · ${t.banco}` : ""} (vence día ${diaPago} · ${quincenaEfectiva})`}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <CreditCard size={10} style={{ flexShrink: 0 }} />
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`Mín. ${t.nombre || "Tarjeta"}`}>
+                              Mín. {abreviarNombreCategoria(t.nombre || "Tarjeta")}
+                            </span>
+                          </div>
+                        </td>
+                        {MESES.map((_, i) => {
+                          const mes = i + 1;
+                          const trimestre = obtenerTrimestreMes(i);
+                          return QUINCENAS.map((q) => {
+                            const val = getCeldaTarjetaMinimo(t, mes, q, "RD");
+                            const esInicioTrimestre = i % 3 === 0 && q === "Q1";
+                            return (
+                              <td
+                                key={`${t.id || idx}-rd-${mes}-${q}`}
+                                style={{
+                                  borderBottom: "1px solid var(--line-soft)",
+                                  borderLeft: esInicioTrimestre
+                                    ? `2.5px solid ${trimestre.bordeColor}55`
+                                    : q === "Q1"
+                                    ? "1px solid var(--line-soft)"
+                                    : "none",
+                                  padding: "6px 4px",
+                                  textAlign: "right",
+                                  color: "var(--stamp)",
+                                  opacity: val ? 1 : 0.35,
+                                }}
+                              >
+                                {formatMoney(val) || "—"}
+                              </td>
+                            );
+                          });
+                        })}
+                        <td
+                          style={{
+                            borderLeft: "1px solid var(--line)",
+                            borderBottom: "1px solid var(--line-soft)",
+                            padding: "7px 10px",
+                            textAlign: "right",
+                            fontWeight: 600,
+                            background: "var(--stamp-bg)",
+                            color: "var(--stamp)",
+                          }}
+                        >
+                          {formatMoney(totalPorTarjetaMinimo(t, "RD")) || "0"}
+                        </td>
+                      </tr>
+                    )}
+                    {tieneUSD && (
+                      <tr style={{ background: (rowIdx + 1) % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                        <td
+                          className="presupuesto-col-sticky"
+                          style={{
+                            position: "sticky",
+                            left: 0,
+                            background: (rowIdx + 1) % 2 === 0 ? "var(--card)" : "var(--paper)",
+                            padding: "6px 10px 6px 20px",
+                            borderRight: "1px solid var(--line)",
+                            borderBottom: "1px solid var(--line-soft)",
+                            fontFamily: "Inter, sans-serif",
+                            fontSize: 12,
+                            color: "var(--stamp)",
+                            minWidth: 185,
+                            width: 185,
+                            maxWidth: 185,
+                            boxSizing: "border-box",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                          title={`Pago mínimo USD: US$ ${Number(t.pagoMinimoUSD || 0).toFixed(2)} (tasa ~${tipoCambio || 60.3}) · vence día ${diaPago} (${quincenaEfectiva})`}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <CreditCard size={10} style={{ flexShrink: 0 }} />
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`Mín. ${t.nombre || "Tarjeta"} (USD)`}>
+                              Mín. {abreviarNombreCategoria(t.nombre || "Tarjeta")} (USD)
+                            </span>
+                          </div>
+                        </td>
+                        {MESES.map((_, i) => {
+                          const mes = i + 1;
+                          const trimestre = obtenerTrimestreMes(i);
+                          return QUINCENAS.map((q) => {
+                            const val = getCeldaTarjetaMinimo(t, mes, q, "USD");
+                            const esInicioTrimestre = i % 3 === 0 && q === "Q1";
+                            return (
+                              <td
+                                key={`${t.id || idx}-usd-${mes}-${q}`}
+                                style={{
+                                  borderBottom: "1px solid var(--line-soft)",
+                                  borderLeft: esInicioTrimestre
+                                    ? `2.5px solid ${trimestre.bordeColor}55`
+                                    : q === "Q1"
+                                    ? "1px solid var(--line-soft)"
+                                    : "none",
+                                  padding: "6px 4px",
+                                  textAlign: "right",
+                                  color: "var(--stamp)",
+                                  opacity: val ? 1 : 0.35,
+                                }}
+                                title={val > 0 ? `US$ ${Number(t.pagoMinimoUSD || 0).toFixed(2)}` : undefined}
+                              >
+                                {formatMoney(val) || "—"}
+                              </td>
+                            );
+                          });
+                        })}
+                        <td
+                          style={{
+                            borderLeft: "1px solid var(--line)",
+                            borderBottom: "1px solid var(--line-soft)",
+                            padding: "7px 10px",
+                            textAlign: "right",
+                            fontWeight: 600,
+                            background: "var(--stamp-bg)",
+                            color: "var(--stamp)",
+                          }}
+                          title={`US$ ${(Number(t.pagoMinimoUSD || 0) * 12).toFixed(2)} / año`}
+                        >
+                          {formatMoney(totalPorTarjetaMinimo(t, "USD")) || "0"}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             {metasActivas.map((meta, idx) => {
               const rowIdx = categorias.length + prestamosActivos.length + idx;
               return (
@@ -2898,6 +3142,8 @@ export default function PresupuestoAnual({
         ingresoMensual={ingresoMensual}
         prestamosActivos={prestamosActivos}
         contratosActivos={contratosActivos}
+        tarjetasActivas={tarjetasConPagoMinimo}
+        tipoCambio={tipoCambio}
         metasActivas={metasActivas}
         movimientos={movimientos}
         diezmoMensual={diezmoMensual}
