@@ -106,11 +106,14 @@ export default function MetodologiaPresupuestoModal({
       if (c.montoEstimado) contratosTotal += Number(c.montoEstimado) || 0;
     }
     let tarjetasTotal = 0;
-    for (const t of tarjetasActivas) {
-      tarjetasTotal += Number(t.pagoMinimo) || 0;
-      if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
-        const factor = tipoCambio && tipoCambio > 0 ? tipoCambio : 60.3;
-        tarjetasTotal += (Number(t.pagoMinimoUSD) || 0) * factor;
+    const aplicaTarjetas = year > 2026 || (year === 2026 && mesParaAnalisis >= 11);
+    if (aplicaTarjetas) {
+      for (const t of tarjetasActivas) {
+        tarjetasTotal += Number(t.pagoMinimo) || 0;
+        if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+          const factor = tipoCambio && tipoCambio > 0 ? tipoCambio : 60.3;
+          tarjetasTotal += (Number(t.pagoMinimoUSD) || 0) * factor;
+        }
       }
     }
     let metasTotal = 0;
@@ -126,7 +129,7 @@ export default function MetodologiaPresupuestoModal({
       diezmoTotal: Number(diezmoMensual) || 0,
       ahorroAutoTotal: Number(ahorroMensual) || 0,
     };
-  }, [prestamosActivos, contratosActivos, tarjetasActivas, tipoCambio, metasActivas, ingresoMensual, diezmoMensual, ahorroMensual]);
+  }, [prestamosActivos, contratosActivos, tarjetasActivas, tipoCambio, metasActivas, ingresoMensual, diezmoMensual, ahorroMensual, year, mesParaAnalisis]);
 
   // Totales por pilar en el mes seleccionado
   const { totales, totalPresupuestado } = useMemo(() => {

@@ -57,22 +57,26 @@ export function calcularResumenQuincena({ year, month, quincena, presupuesto, ca
   }
 
   // Pagos mínimos de tarjetas de crédito correspondientes a esta quincena (ej. día 20 => Q2)
-  for (const t of tarjetas || []) {
-    if (t.estado && t.estado !== "Activa") continue;
-    const diaPago = Number(t.fechaPago) || 20;
-    const quincenaTarjeta = diaPago >= 15 ? "Q2" : "Q1";
-    if (quincenaTarjeta !== quincena) continue;
+  // Se consideran desde noviembre 2026 en adelante a partir del balance actual
+  const aplicaTarjetas = year > 2026 || (year === 2026 && month >= 11);
+  if (aplicaTarjetas) {
+    for (const t of tarjetas || []) {
+      if (t.estado && t.estado !== "Activa") continue;
+      const diaPago = Number(t.fechaPago) || 20;
+      const quincenaTarjeta = diaPago >= 15 ? "Q2" : "Q1";
+      if (quincenaTarjeta !== quincena) continue;
 
-    const saldoRD = Number(t.saldoActual) || 0;
-    const minRD = Number(t.pagoMinimo) || 0;
-    if (saldoRD > 0 && minRD > 0) {
-      presupuestado += minRD;
-    }
-    if (t.tieneMonedaSecundaria) {
-      const saldoUSD = Number(t.saldoActualUSD) || 0;
-      const minUSD = Number(t.pagoMinimoUSD) || 0;
-      if (saldoUSD > 0 && minUSD > 0) {
-        presupuestado += tipoCambio ? minUSD * tipoCambio : minUSD;
+      const saldoRD = Number(t.saldoActual) || 0;
+      const minRD = Number(t.pagoMinimo) || 0;
+      if (saldoRD > 0 && minRD > 0) {
+        presupuestado += minRD;
+      }
+      if (t.tieneMonedaSecundaria) {
+        const saldoUSD = Number(t.saldoActualUSD) || 0;
+        const minUSD = Number(t.pagoMinimoUSD) || 0;
+        if (saldoUSD > 0 && minUSD > 0) {
+          presupuestado += tipoCambio ? minUSD * tipoCambio : minUSD;
+        }
       }
     }
   }

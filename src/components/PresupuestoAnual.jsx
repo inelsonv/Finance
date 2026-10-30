@@ -840,11 +840,17 @@ export default function PresupuestoAnual({
   // Pago mínimo de tarjetas de crédito dentro de Compromisos Financieros:
   // Usa la fecha de pago (por ejemplo, día 20 de cada mes corresponde a la 2da quincena Q2;
   // si el día de pago es < 15, corresponde a la 1ra quincena Q1).
+  // Solo se considera a partir de la quincena de noviembre de 2026 en adelante,
+  // correspondiente al balance y corte actual (vencimiento noviembre 2026).
   const getCeldaTarjetaMinimo = (tarjeta, mes, quincena, moneda = "RD") => {
     if (!tarjeta) return 0;
     const diaPago = Number(tarjeta.fechaPago) || 20;
     const quincenaEfectiva = diaPago >= 15 ? "Q2" : "Q1";
     if (quincena !== quincenaEfectiva) return 0;
+
+    // Solo considerar a partir de la quincena de noviembre de 2026 en adelante
+    if (year < 2026) return 0;
+    if (year === 2026 && mes < 11) return 0;
 
     if (moneda === "USD") {
       if (!tarjeta.tieneMonedaSecundaria) return 0;

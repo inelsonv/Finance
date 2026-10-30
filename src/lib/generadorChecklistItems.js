@@ -340,14 +340,17 @@ export function generarItemsPeriodo({
     }
   }
 
-  for (const t of tarjetas || []) {
-    if (t.estado && t.estado !== "Activa") continue;
-    const diasEnMes = new Date(periodo.year, periodo.month, 0).getDate();
-    const diaPago = Math.min(Number(t.fechaPago) || 20, diasEnMes);
-    const q = diaPago >= 15 ? "Q2" : "Q1";
-    if (q !== periodo.quincena) continue;
+  // Pagos mínimos de tarjetas de crédito basados en el balance y corte actual (primer vencimiento nov 2026 en adelante)
+  const aplicaTarjetas = periodo.year > 2026 || (periodo.year === 2026 && periodo.month >= 11);
+  if (aplicaTarjetas) {
+    for (const t of tarjetas || []) {
+      if (t.estado && t.estado !== "Activa") continue;
+      const diasEnMes = new Date(periodo.year, periodo.month, 0).getDate();
+      const diaPago = Math.min(Number(t.fechaPago) || 20, diasEnMes);
+      const q = diaPago >= 15 ? "Q2" : "Q1";
+      if (q !== periodo.quincena) continue;
 
-    const saldoRD = Number(t.saldoActual) || 0;
+      const saldoRD = Number(t.saldoActual) || 0;
     const pagoMinRD = Number(t.pagoMinimo) || 0;
     if (saldoRD > 0 && pagoMinRD > 0) {
       list.push({
@@ -385,6 +388,7 @@ export function generarItemsPeriodo({
       }
     }
   }
+}
 
   if (pagoRapido?.activo && fuentesIngreso && categoriasGasto && presupuesto) {
     const ingresoQuincenal = ingresoMensualNeto(fuentesIngreso) / 2;
