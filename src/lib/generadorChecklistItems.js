@@ -141,10 +141,12 @@ export function generarItemsPeriodo({
       if (categoriasAgregadas.has(lower)) continue;
 
       let catData = presupuesto?.[nombreCat];
+      let catKeyEnPresupuesto = nombreCat;
       if (!catData) {
         for (const [pk, pv] of Object.entries(presupuesto || {})) {
           if (pk.trim().toLowerCase() === lower) {
             catData = pv;
+            catKeyEnPresupuesto = pk;
             break;
           }
         }
@@ -163,6 +165,16 @@ export function generarItemsPeriodo({
       if (Number.isFinite(numVal) && numVal > 0) {
         categoriasAgregadas.add(lower);
         const c = categoriasMap.get(lower) || { nombre: nombreCat, clasificacion: "Fijo" };
+        const itemKey = c.nombre || nombreCat;
+
+        // Si el usuario eliminó este gasto de esta quincena en el checklist, no mostrarlo
+        const estaEliminado =
+          checklist?.items?.[itemKey]?.eliminado === true ||
+          checklist?.items?.[nombreCat]?.eliminado === true ||
+          (c.nombre && checklist?.items?.[c.nombre]?.eliminado === true) ||
+          (catKeyEnPresupuesto && checklist?.items?.[catKeyEnPresupuesto]?.eliminado === true);
+        if (estaEliminado) continue;
+
         const esVariable = c.clasificacion === "Variable";
         const esGradual = esCategoriaConsumoGradual(c);
         let gastadoReal = 0;
@@ -182,8 +194,9 @@ export function generarItemsPeriodo({
         }
 
         list.push({
-          key: c.nombre || nombreCat,
+          key: itemKey,
           nombre: c.nombre || nombreCat,
+          categoriaPresupuestoKey: catKeyEnPresupuesto || nombreCat,
           monto: numVal,
           icon: Wallet,
           metodoDefault: c.metodoPagoDefault || null,
@@ -212,8 +225,15 @@ export function generarItemsPeriodo({
       if (!contratoActivoEnMes(c, yearFacturacion, mesFacturacion)) continue;
       const efectivo = calcularQuincenaEfectivaContrato(c.diaPago, c.diasGracia, yearFacturacion, mesFacturacion);
       if (efectivo && efectivo.year === periodo.year && efectivo.month === periodo.month && efectivo.quincena === periodo.quincena) {
+        const contractKey = `contrato-${c.id}`;
+        if (
+          checklist?.items?.[contractKey]?.eliminado === true ||
+          checklist?.items?.[`Contrato ${c.nombre}`]?.eliminado === true
+        ) {
+          break;
+        }
         list.push({
-          key: `contrato-${c.id}`,
+          key: contractKey,
           nombre: `Contrato ${c.nombre}${c.entidadName ? " · " + c.entidadName : ""}`,
           monto: Number(c.montoEstimado) || 0,
           icon: FileText,
@@ -434,7 +454,14 @@ export function generarItemsPeriodo({
   const esGastoPrioritario = (item) =>
     item.clasificacion === "Fijo" || /^(combustible|gasolina)$/i.test(item.nombre?.trim() || "");
 
-  return list.sort((a, b) => {
+  const listFiltrada = list.filter((it) => {
+    if (checklist?.items?.[it.key]?.eliminado) return false;
+    if (it.nombre && checklist?.items?.[it.nombre]?.eliminado) return false;
+    if (it.categoriaPresupuestoKey && checklist?.items?.[it.categoriaPresupuestoKey]?.eliminado) return false;
+    return true;
+  });
+
+  return listFiltrada.sort((a, b) => {
     const prioridadA = esGastoPrioritario(a) ? 0 : 1;
     const prioridadB = esGastoPrioritario(b) ? 0 : 1;
     return prioridadA - prioridadB || b.monto - a.monto;

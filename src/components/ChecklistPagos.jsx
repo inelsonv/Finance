@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3, Copy, RotateCcw } from "lucide-react";
 import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
-import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto, watchWhatsappNotifConfig, watchPresupuestoAnual, watchPresupuestoCompartido, watchEstadoPresupuestoCompartido } from "../lib/db";
+import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, setPresupuestoCeldaCompartida, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto, watchWhatsappNotifConfig, watchPresupuestoAnual, watchPresupuestoCompartido, watchEstadoPresupuestoCompartido } from "../lib/db";
 import { abrirNotificacionWhatsapp } from "../lib/whatsappNotif";
 import { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
@@ -366,6 +366,20 @@ export default function ChecklistPagos({
     );
   }, [transferenciasPresupuesto, periodo]);
 
+  const itemsEliminados = useMemo(() => {
+    const listElim = [];
+    const keysVistas = new Set();
+    for (const [k, v] of Object.entries(checklist?.items || {})) {
+      if (v?.eliminado) {
+        const identificador = (v.nombre || k).trim().toLowerCase();
+        if (keysVistas.has(identificador)) continue;
+        keysVistas.add(identificador);
+        listElim.push({ key: k, ...v });
+      }
+    }
+    return listElim;
+  }, [checklist]);
+
   const [moviendoGastoKey, setMoviendoGastoKey] = useState(null);
   const [moviendoGastoTarget, setMoviendoGastoTarget] = useState(null);
   const [moviendoGastoMonto, setMoviendoGastoMonto] = useState("");
@@ -407,20 +421,116 @@ export default function ChecklistPagos({
     const periodoTxt = `${quincenaLabel} quincena de ${MESES[periodo.month - 1]} ${periodo.year}`;
 
     const ok = await confirm(
-      `¿Estás seguro de eliminar el monto presupuestado de ${formatMoney(it.monto)} para "${nombre}" en la ${periodoTxt}? El monto quedará en $0 en el presupuesto de esta quincena.`,
+      `¿Estás seguro de eliminar el monto presupuestado de ${formatMoney(it.monto)} para "${nombre}" en la ${periodoTxt}? El monto quedará en $0 en esta quincena.`,
       { confirmLabel: "Eliminar", danger: true }
     );
     if (!ok) return;
 
     setEliminandoGastoKey(it.key);
+
+    // 1. Inmediatamente actualizar el estado local del checklist para feedback visual instantáneo
+    setChecklist((prev) => {
+      const itemsActuales = { ...(prev?.items || {}) };
+      itemsActuales[it.key] = {
+        ...(itemsActuales[it.key] || {}),
+        eliminado: true,
+        pagado: false,
+        montoOverride: null,
+        montoEliminado: it.monto,
+        nombre: it.nombre,
+        categoriaPresupuestoKey: it.categoriaPresupuestoKey || it.nombre || it.key,
+      };
+      if (it.nombre && it.nombre !== it.key) {
+        itemsActuales[it.nombre] = {
+          ...(itemsActuales[it.nombre] || {}),
+          eliminado: true,
+          pagado: false,
+          montoOverride: null,
+          montoEliminado: it.monto,
+        };
+      }
+      return { ...prev, items: itemsActuales };
+    });
+
     try {
-      // 1. Asigna 0 a la celda de presupuesto para esta quincena
-      await setPresupuestoCelda(periodo.year, nombre, periodo.month, periodo.quincena, 0);
+      // 2. Persistir en Firestore que este ítem está eliminado de esta quincena
+      await setChecklistItem(periodoKey, it.key, {
+        pagado: false,
+        montoOverride: null,
+        eliminado: true,
+        montoEliminado: it.monto,
+        nombre: it.nombre,
+        categoriaPresupuestoKey: it.categoriaPresupuestoKey || it.nombre || it.key,
+      });
+      if (it.nombre && it.nombre !== it.key) {
+        try {
+          await setChecklistItem(periodoKey, it.nombre, {
+            pagado: false,
+            montoOverride: null,
+            eliminado: true,
+            montoEliminado: it.monto,
+          });
+        } catch {}
+      }
 
-      // 2. Limpia el estado de checklist para no dejar residuos
-      await setChecklistItem(periodoKey, it.key, { pagado: false, montoOverride: null });
+      // 3. Si es un rubro de presupuesto (no contrato), poner en 0 en todas las fuentes
+      if (!it.esContrato) {
+        const lowerTarget = (nombre || "").trim().toLowerCase();
+        const keysToZero = new Set([nombre, it.key, it.categoriaPresupuestoKey].filter(Boolean));
 
-      // 3. Si había transferencias pendientes hacia este gasto en este periodo, limpiarlas
+        if (presupuestoEfectivo) {
+          for (const k of Object.keys(presupuestoEfectivo)) {
+            if (k && k.trim().toLowerCase() === lowerTarget) {
+              keysToZero.add(k);
+            }
+          }
+        }
+
+        // Poner en 0 localmente en presupuestoYearLive para que se refleje sin lag
+        setPresupuestoYearLive((prev) => {
+          if (!prev) return prev;
+          const copy = { ...prev };
+          for (const k of keysToZero) {
+            if (copy[k]) {
+              copy[k] = {
+                ...copy[k],
+                [String(periodo.month)]: {
+                  ...(copy[k]?.[String(periodo.month)] || {}),
+                  [periodo.quincena]: 0,
+                },
+              };
+            }
+          }
+          return copy;
+        });
+
+        // Poner en 0 en Firestore en cada key correspondiente
+        for (const k of keysToZero) {
+          try {
+            await setPresupuestoCelda(periodo.year, k, periodo.month, periodo.quincena, 0);
+          } catch (e) {
+            console.warn("Error en setPresupuestoCelda:", e);
+          }
+
+          if (infoCompartido?.tieneAcceso && infoCompartido?.titularEmail) {
+            try {
+              await setPresupuestoCeldaCompartida(
+                periodo.year,
+                k,
+                periodo.month,
+                periodo.quincena,
+                0,
+                infoCompartido.titularEmail,
+                infoCompartido.titularUid
+              );
+            } catch (e) {
+              console.warn("Error en setPresupuestoCeldaCompartida:", e);
+            }
+          }
+        }
+      }
+
+      // 4. Si había transferencias pendientes hacia este gasto en este periodo, limpiarlas
       const transferenciasEsteGasto = (transferenciasPresupuesto || []).filter(
         (t) =>
           t.categoria === nombre &&
@@ -441,6 +551,52 @@ export default function ChecklistPagos({
       console.error("Error al eliminar gasto de la quincena:", err);
     } finally {
       setEliminandoGastoKey(null);
+    }
+  };
+
+  const restaurarGastoQuincena = async (key, itElim) => {
+    // 1. Quitar marca de eliminado en local
+    setChecklist((prev) => {
+      const copy = { ...(prev?.items || {}) };
+      if (copy[key]) {
+        copy[key] = { ...copy[key], eliminado: false };
+      }
+      if (itElim?.nombre && copy[itElim.nombre]) {
+        copy[itElim.nombre] = { ...copy[itElim.nombre], eliminado: false };
+      }
+      return { ...prev, items: copy };
+    });
+
+    try {
+      // 2. Persistir en Firestore
+      await setChecklistItem(periodoKey, key, { eliminado: false });
+      if (itElim?.nombre && itElim.nombre !== key) {
+        try {
+          await setChecklistItem(periodoKey, itElim.nombre, { eliminado: false });
+        } catch {}
+      }
+
+      // 3. Si era gasto de presupuesto y tiene monto anterior, restaurar monto
+      const montoARestaurar = Number(itElim?.montoEliminado) || 0;
+      if (montoARestaurar > 0 && !key.startsWith("contrato-")) {
+        const catKey = itElim?.categoriaPresupuestoKey || itElim?.nombre || key;
+        await setPresupuestoCelda(periodo.year, catKey, periodo.month, periodo.quincena, montoARestaurar);
+        if (infoCompartido?.tieneAcceso && infoCompartido?.titularEmail) {
+          try {
+            await setPresupuestoCeldaCompartida(
+              periodo.year,
+              catKey,
+              periodo.month,
+              periodo.quincena,
+              montoARestaurar,
+              infoCompartido.titularEmail,
+              infoCompartido.titularUid
+            );
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.error("Error al restaurar gasto:", err);
     }
   };
 
@@ -1333,31 +1489,55 @@ export default function ChecklistPagos({
                     <div style={{ height: "100%", width: `${pct}%`, background: excedido ? "var(--stamp)" : "var(--sage)", borderRadius: 4 }} />
                   </div>
 
-                  {/* Fila inferior: Indicador de consumo gradual y botón para cambiar de modo */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 7 }}>
+                  {/* Fila inferior: Indicador de consumo gradual y botones de acción */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 7, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>
                       Consumo gradual ({pct.toFixed(0)}%{excedido ? " — ¡Excedido!" : ""})
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => toggleModoChecklist(it)}
-                      title="Cambiar este gasto a pago único (para marcarlo con casilla como un gasto puntual)"
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: 500,
-                        padding: "2px 8px",
-                        borderRadius: 6,
-                        border: "1px solid var(--line)",
-                        background: "var(--paper)",
-                        color: "var(--ink-soft)",
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        flexShrink: 0,
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      Cambiar a pago único
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => toggleModoChecklist(it)}
+                        title="Cambiar este gasto a pago único (para marcarlo con casilla como un gasto puntual)"
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 500,
+                          padding: "2px 8px",
+                          borderRadius: 6,
+                          border: "1px solid var(--line)",
+                          background: "var(--paper)",
+                          color: "var(--ink-soft)",
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                          flexShrink: 0,
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        Cambiar a pago único
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => eliminarGastoQuincena(it)}
+                        disabled={eliminandoGastoKey === it.key}
+                        title="Eliminar este gasto de esta quincena"
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 600,
+                          padding: "2px 8px",
+                          borderRadius: 6,
+                          border: "1px solid var(--stamp)",
+                          background: "var(--stamp-bg)",
+                          color: "var(--stamp)",
+                          cursor: eliminandoGastoKey === it.key ? "wait" : "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Trash2 size={11} /> {eliminandoGastoKey === it.key ? "…" : "Eliminar"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -1955,6 +2135,72 @@ export default function ChecklistPagos({
                   }}
                 >
                   Devolver a esta quincena
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {itemsEliminados.length > 0 && (
+        <div
+          style={{
+            marginTop: 14,
+            marginBottom: 14,
+            padding: "12px 14px",
+            background: "var(--paper)",
+            border: "1px dashed var(--line)",
+            borderRadius: 10,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: "var(--stamp)", textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 8 }}>
+            <Trash2 size={13} style={{ color: "var(--stamp)" }} />
+            <span>Gastos eliminados de esta quincena ({itemsEliminados.length})</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {itemsEliminados.map((itElim) => (
+              <div
+                key={itElim.key}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  fontSize: 12,
+                  padding: "6px 10px",
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div>
+                  <strong style={{ color: "var(--ink-soft)", textDecoration: "line-through" }}>{itElim.nombre || itElim.key}</strong>
+                  {itElim.montoEliminado ? (
+                    <span className="despensa-mono" style={{ marginLeft: 6, fontSize: 11.5, color: "var(--ink-soft)" }}>
+                      ({formatMoney(itElim.montoEliminado)})
+                    </span>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => restaurarGastoQuincena(itElim.key, itElim)}
+                  title="Restaurar este gasto en esta quincena"
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--sage)",
+                    background: "var(--sage-bg)",
+                    border: "1px solid var(--sage)",
+                    padding: "3px 8px",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <RotateCcw size={11} /> Restaurar
                 </button>
               </div>
             ))}
