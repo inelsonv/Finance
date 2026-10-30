@@ -1372,20 +1372,28 @@ export default function ChecklistPagos({
                   gap: 10,
                   background: estado.pagado
                     ? "rgba(16, 185, 129, 0.22)"
-                    : it.esPrestamo
-                      ? "var(--amber-bg)"
-                      : "var(--card)",
+                    : it.esTarjeta
+                      ? "rgba(147, 51, 234, 0.12)"
+                      : it.esPrestamo
+                        ? "var(--amber-bg)"
+                        : "var(--card)",
                   border: `1px solid ${
                     estado.pagado
                       ? "#10b981"
-                      : it.esPrestamo
-                        ? "var(--amber)"
-                        : "var(--line)"
+                      : it.esTarjeta
+                        ? "rgba(168, 85, 247, 0.55)"
+                        : it.esPrestamo
+                          ? "var(--amber)"
+                          : "var(--line)"
                   }`,
                   borderRadius: 10,
                   padding: "10px 12px",
                   opacity: 1,
-                  boxShadow: estado.pagado ? "0 2px 8px rgba(16, 185, 129, 0.2)" : "none",
+                  boxShadow: estado.pagado
+                    ? "0 2px 8px rgba(16, 185, 129, 0.2)"
+                    : it.esTarjeta
+                      ? "0 2px 10px rgba(147, 51, 234, 0.18)"
+                      : "none",
                   transition: "background 0.2s ease, border-color 0.2s ease",
                 }}
               >
@@ -1420,31 +1428,41 @@ export default function ChecklistPagos({
                     border: modoSeleccion
                       ? seleccionados.has(it.key)
                         ? "2px solid #10b981"
-                        : it.esPrestamo
-                          ? "2px solid var(--amber, #f59e0b)"
-                          : "2px solid var(--ink-soft, #94a3b8)"
+                        : it.esTarjeta
+                          ? "2px solid #a855f7"
+                          : it.esPrestamo
+                            ? "2px solid var(--amber, #f59e0b)"
+                            : "2px solid var(--ink-soft, #94a3b8)"
                       : estado.pagado
                         ? "2px solid #059669"
-                        : it.esPrestamo
-                          ? "2px solid var(--amber, #f59e0b)"
-                          : "2px solid var(--ink-soft, #94a3b8)",
+                        : it.esTarjeta
+                          ? "2px solid #a855f7"
+                          : it.esPrestamo
+                            ? "2px solid var(--amber, #f59e0b)"
+                            : "2px solid var(--ink-soft, #94a3b8)",
                     background: modoSeleccion
                       ? seleccionados.has(it.key)
                         ? "#10b981"
-                        : it.esPrestamo
-                          ? "rgba(245, 158, 11, 0.16)"
-                          : "rgba(148, 163, 184, 0.15)"
+                        : it.esTarjeta
+                          ? "rgba(168, 85, 247, 0.22)"
+                          : it.esPrestamo
+                            ? "rgba(245, 158, 11, 0.16)"
+                            : "rgba(148, 163, 184, 0.15)"
                       : estado.pagado
                         ? "#10b981"
-                        : it.esPrestamo
-                          ? "rgba(245, 158, 11, 0.16)"
-                          : "rgba(148, 163, 184, 0.15)",
+                        : it.esTarjeta
+                          ? "rgba(168, 85, 247, 0.22)"
+                          : it.esPrestamo
+                            ? "rgba(245, 158, 11, 0.16)"
+                            : "rgba(148, 163, 184, 0.15)",
                     color: "#ffffff",
                     boxShadow: (modoSeleccion ? seleccionados.has(it.key) : estado.pagado)
                       ? "0 2px 6px rgba(16, 185, 129, 0.45)"
-                      : it.esPrestamo
-                        ? "0 0 0 1px rgba(245, 158, 11, 0.25)"
-                        : "none",
+                      : it.esTarjeta
+                        ? "0 0 0 1px rgba(168, 85, 247, 0.4)"
+                        : it.esPrestamo
+                          ? "0 0 0 1px rgba(245, 158, 11, 0.25)"
+                          : "none",
                     cursor: it.bloqueadoPagado || (modoSeleccion && estado.pagado) ? "not-allowed" : confirmandoKey === it.key ? "wait" : "pointer",
                     flexShrink: 0,
                     opacity: modoSeleccion && estado.pagado ? 0.4 : 1,
@@ -1460,7 +1478,13 @@ export default function ChecklistPagos({
                 <Icon
                   size={15}
                   style={{
-                    color: estado.pagado ? "#10b981" : it.esPrestamo ? "var(--amber)" : "var(--ink-soft)",
+                    color: estado.pagado
+                      ? "#10b981"
+                      : it.esTarjeta
+                        ? "#a855f7"
+                        : it.esPrestamo
+                          ? "var(--amber)"
+                          : "var(--ink-soft)",
                     flexShrink: 0,
                     marginTop: 5,
                   }}
@@ -1482,6 +1506,25 @@ export default function ChecklistPagos({
                     }}
                   >
                     <span>{it.nombre}</span>
+                    {it.esTarjeta && (
+                      <span
+                        className="despensa-mono"
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: 700,
+                          padding: "1px 7px",
+                          borderRadius: 10,
+                          background: "rgba(168, 85, 247, 0.22)",
+                          color: "#d8b4fe",
+                          border: "1px solid rgba(168, 85, 247, 0.45)",
+                          textDecoration: "none",
+                          display: "inline-block",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        Tarjeta
+                      </span>
+                    )}
                     {it.bloqueadoPagado && (
                       <span className="despensa-mono" style={{ fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--sage-bg)", color: "var(--sage)", textDecoration: "none", display: "inline-block", verticalAlign: "middle" }}>
                         Saldado
@@ -1559,8 +1602,13 @@ export default function ChecklistPagos({
                     </div>
                   )}
                   {(it.esPrestamo || it.esTarjeta) && it.entidadName && (
-                    <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
-                      <Landmark size={10} /> Pagar a: {it.entidadName}
+                    <div style={{ fontSize: 11, color: it.esTarjeta ? "#c084fc" : "var(--ink-soft)", display: "flex", alignItems: "center", gap: 3, marginTop: 1 }}>
+                      {it.esTarjeta ? <CreditCard size={10} style={{ color: "#a855f7" }} /> : <Landmark size={10} />} Pagar a: {it.entidadName}
+                    </div>
+                  )}
+                  {it.esTarjeta && it.monedaOriginal === "USD" && it.montoOriginalUSD > 0 && (
+                    <div style={{ fontSize: 10.5, color: "#d8b4fe", marginTop: 2, fontWeight: 500, display: "flex", alignItems: "center", gap: 4 }}>
+                      <span>Monto en dólares: US${Number(it.montoOriginalUSD).toFixed(2)}</span>
                     </div>
                   )}
                   {it.esPrestamo && (it.cuentaDestinoNumero || it.prestamoNumero === "PT01") && (
@@ -1778,11 +1826,11 @@ export default function ChecklistPagos({
                         border: estado.pagado ? "1px solid rgba(16, 185, 129, 0.4)" : "none",
                         borderRadius: 6,
                         padding: estado.pagado ? "2px 7px" : 0,
-                        color: "var(--ink)",
+                        color: estado.pagado ? "var(--ink)" : it.esTarjeta ? "#c084fc" : "var(--ink)",
                         cursor: it.bloqueadoPagado ? "default" : "pointer",
                         textDecorationLine: it.bloqueadoPagado || estado.pagado ? "none" : "underline",
                         textDecorationStyle: "dotted",
-                        textDecorationColor: "var(--line)",
+                        textDecorationColor: it.esTarjeta ? "rgba(168, 85, 247, 0.5)" : "var(--line)",
                         textUnderlineOffset: 3,
                       }}
                     >
