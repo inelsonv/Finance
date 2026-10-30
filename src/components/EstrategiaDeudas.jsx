@@ -31,6 +31,7 @@ import {
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
+import { ingresoMensualNeto } from "../lib/deduccionesLey";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
