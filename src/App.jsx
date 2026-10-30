@@ -54,6 +54,7 @@ import ChecklistPagos from "./components/ChecklistPagos.jsx";
 import Configuracion from "./components/Configuracion.jsx";
 import EscanearFactura from "./components/EscanearFactura.jsx";
 import NotificationBell from "./components/NotificationBell.jsx";
+import ModalResumenGastosNoPresupuestados from "./components/ModalResumenGastosNoPresupuestados.jsx";
 import Puntos from "./components/Puntos.jsx";
 import HabitTracker from "./components/HabitTracker.jsx";
 import Wallet from "./components/Wallet.jsx";
@@ -252,6 +253,7 @@ export default function App() {
   const cofresCerradosLocalmente = useRef(new Set());
   const [showVersiculoModal, setShowVersiculoModal] = useState(false);
   const [showConsejoModal, setShowConsejoModal] = useState(false);
+  const [showModalGastosNoPresupuestados, setShowModalGastosNoPresupuestados] = useState(false);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [focusProductId, setFocusProductId] = useState(null);
@@ -381,6 +383,10 @@ export default function App() {
   }, [tab, authUser, esPropietario]);
 
   const handleNavigate = (tabId, periodoObjetivo, productId) => {
+    if (tabId === "gastos-no-presupuestados-modal") {
+      setShowModalGastosNoPresupuestados(true);
+      return;
+    }
     if (tabId === "consejo-modal") {
       setShowConsejoModal(true);
       return;
@@ -1798,6 +1804,18 @@ export default function App() {
         </div>
       )}
 
+      {showModalGastosNoPresupuestados && (
+        <ModalResumenGastosNoPresupuestados
+          isOpen={showModalGastosNoPresupuestados}
+          onClose={() => setShowModalGastosNoPresupuestados(false)}
+          presupuesto={presupuestoAnual}
+          movimientos={movimientos}
+          categoriasGasto={categoriasGasto}
+          diasCobro={diasCobro}
+          presupuestoYear={presupuestoYear}
+          onNavigate={handleNavigate}
+        />
+      )}
 
     </div>
   );

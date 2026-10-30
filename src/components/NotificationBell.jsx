@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Landmark, CreditCard, Ticket, AlertCircle, CheckCircle2, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, TrendingDown as TrendingDownIcon, Flame, ListTodo, Lightbulb, BookOpen, FileText, Pill, Zap, Plus } from "lucide-react";
+import { Bell, Landmark, CreditCard, Ticket, AlertCircle, CheckCircle2, Clock, Package, MessageCircle, Settings, Mail, Calendar, Wallet, Shield, Gift, Gauge, TrendingUp, TrendingDown as TrendingDownIcon, Flame, ListTodo, Lightbulb, BookOpen, FileText, Pill, Zap, Plus, Receipt } from "lucide-react";
 import ModalPresupuestarServicio from "./ModalPresupuestarServicio.jsx";
+import ModalResumenGastosNoPresupuestados from "./ModalResumenGastosNoPresupuestados.jsx";
+import { obtenerGastosNoPresupuestados } from "../lib/gastosNoPresupuestados";
 import { watchNotifConfig, saveNotifConfig } from "../lib/db";
 import { periodoDeFecha } from "../lib/rachaHabito";
 import { consumoPresupuesto, quincenaDeFecha } from "../lib/presupuestoConsumo";
@@ -773,6 +775,34 @@ export function useNotificaciones({ prestamos, tarjetas, membresias, contratos, 
       }
     }
 
+    // Alerta de gastos no presupuestados en la quincena actual
+    const periodoAct = periodoActualConfigurado(diasCobro);
+    const noPresup = obtenerGastosNoPresupuestados({
+      presupuesto,
+      movimientos,
+      categoriasGasto,
+      year: periodoAct.year,
+      month: periodoAct.month,
+      quincena: periodoAct.quincena,
+      diasCobro,
+    });
+
+    if (noPresup.totalNoPresupuestado > 0 && noPresup.cantidadGastos > 0) {
+      const topCats = noPresup.porCategoria.slice(0, 3).map((c) => c.categoria).join(", ");
+      const extraCount = noPresup.porCategoria.length > 3 ? ` (+${noPresup.porCategoria.length - 3})` : "";
+      list.push({
+        id: `no-presupuestado-${periodoAct.year}-${periodoAct.month}-${periodoAct.quincena}`,
+        icon: Receipt,
+        color: "var(--amber)",
+        tipoNotif: "advertencia",
+        titulo: `Gastos no presupuestados: ${formatMoneyNotif(noPresup.totalNoPresupuestado)}`,
+        subtitulo: `${noPresup.cantidadGastos} gasto(s) sin presupuestar esta quincena (${topCats}${extraCount}). Toca para ver el resumen.`,
+        dias: 0,
+        tab: "gastos-no-presupuestados-modal",
+        esGastosNoPresupuestados: true,
+      });
+    }
+
     return list.sort((a, b) => a.dias - b.dias);
   }, [prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, inflacionRD, isOwner, checklistTodos]);
 }
@@ -800,6 +830,7 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
   });
   const ref = useRef(null);
   const [contratoParaPresupuestar, setContratoParaPresupuestar] = useState(null);
+  const [showModalNoPresupuestados, setShowModalNoPresupuestados] = useState(false);
   const notificaciones = useNotificaciones({ prestamos, tarjetas, membresias, contratos, movimientos, products, entidades, eventos, fuentesIngreso, presupuesto, presupuestoYear, seguros, categoriasGasto, ingresosPuntuales, ajustesPresupuesto, sugerenciasInversion, diasCobro, habitosPenalizaciones, versiculoHoy, habitos, habitosRegistro, estrategiaDeudas, tipoCambio, isOwner, checklistTodos });
 
   const firma = (n) => `${n.id}:${n.dias}`;
@@ -1000,12 +1031,22 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
                   tabIndex={0}
                   onClick={() => {
                     marcarLeida(n);
+                    if (n.esGastosNoPresupuestados) {
+                      setShowModalNoPresupuestados(true);
+                      setOpen(false);
+                      return;
+                    }
                     onNavigate(n.tab, n.periodoObjetivo, n.productId);
                     setOpen(false);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       marcarLeida(n);
+                      if (n.esGastosNoPresupuestados) {
+                        setShowModalNoPresupuestados(true);
+                        setOpen(false);
+                        return;
+                      }
                       onNavigate(n.tab, n.periodoObjetivo, n.productId);
                       setOpen(false);
                     }
@@ -1043,9 +1084,36 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
                     <div style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {n.titulo}
                     </div>
-                    <div style={{ fontSize: 10.5, color: n.noPresupuestado ? "var(--amber)" : "var(--ink-soft)", fontWeight: n.noPresupuestado ? 600 : 400 }}>
+                    <div style={{ fontSize: 10.5, color: n.noPresupuestado || n.esGastosNoPresupuestados ? "var(--amber)" : "var(--ink-soft)", fontWeight: n.noPresupuestado || n.esGastosNoPresupuestados ? 600 : 400 }}>
                       {n.subtitulo}
                     </div>
+                    {n.esGastosNoPresupuestados && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          marcarLeida(n);
+                          setShowModalNoPresupuestados(true);
+                          setOpen(false);
+                        }}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          marginTop: 4,
+                          padding: "3px 8px",
+                          fontSize: 10.5,
+                          fontWeight: 600,
+                          borderRadius: 5,
+                          background: "var(--amber-bg)",
+                          color: "var(--amber)",
+                          border: "1px solid var(--amber)",
+                          cursor: "pointer",
+                        }}
+                        title="Abrir resumen de gastos no presupuestados"
+                      >
+                        <Receipt size={11} /> Ver resumen
+                      </button>
+                    )}
                     {n.noPresupuestado && n.contrato && (
                       <button
                         onClick={(e) => {
@@ -1124,6 +1192,19 @@ export default function NotificationBell({ prestamos, tarjetas, membresias, cont
           onClose={() => setContratoParaPresupuestar(null)}
           contrato={contratoParaPresupuestar}
           year={presupuestoYear}
+        />
+      )}
+
+      {showModalNoPresupuestados && (
+        <ModalResumenGastosNoPresupuestados
+          isOpen={showModalNoPresupuestados}
+          onClose={() => setShowModalNoPresupuestados(false)}
+          presupuesto={presupuesto}
+          movimientos={movimientos}
+          categoriasGasto={categoriasGasto}
+          diasCobro={diasCobro}
+          presupuestoYear={presupuestoYear}
+          onNavigate={onNavigate}
         />
       )}
     </div>

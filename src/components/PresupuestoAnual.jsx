@@ -20,6 +20,8 @@ import { abreviarNombreCategoria } from "../lib/categoriaAbreviatura";
 import { METODOLOGIAS } from "../lib/metodologiaPresupuesto";
 import MetodologiaPresupuestoModal from "./MetodologiaPresupuestoModal.jsx";
 import ModalCompartirPresupuesto from "./ModalCompartirPresupuesto.jsx";
+import ModalResumenGastosNoPresupuestados from "./ModalResumenGastosNoPresupuestados.jsx";
+import { obtenerGastosNoPresupuestados } from "../lib/gastosNoPresupuestados";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
@@ -381,6 +383,21 @@ export default function PresupuestoAnual({
   const categoriasPersonalizadasEfectivas = (esVistaCompartida && categoriasCompartidas && categoriasCompartidas.length > 0)
     ? categoriasCompartidas
     : categoriasPersonalizadas;
+
+  const [modalNoPresupuestadosAbierto, setModalNoPresupuestadosAbierto] = useState(false);
+  const periodoActualConfig = useMemo(() => periodoActualConfigurado(diasCobro), [diasCobro]);
+
+  const resumenNoPresupuestadosQuincena = useMemo(() => {
+    return obtenerGastosNoPresupuestados({
+      presupuesto: presupuestoEfectivo,
+      movimientos,
+      categoriasGasto: categoriasPersonalizadasEfectivas,
+      year: periodoActualConfig.year,
+      month: periodoActualConfig.month,
+      quincena: periodoActualConfig.quincena,
+      diasCobro,
+    });
+  }, [presupuestoEfectivo, movimientos, categoriasPersonalizadasEfectivas, periodoActualConfig, diasCobro]);
 
   useEffect(() => {
     const unsub = watchMetodologiaPresupuestoConfig(setConfigMetodologia, () => {});
@@ -1322,6 +1339,75 @@ export default function PresupuestoAnual({
           <span>
             <strong>Orden de prioridad (según tu Editor de flujo):</strong> {ordenFlujoReferencia}
           </span>
+        </div>
+      )}
+
+      {/* Banner de alerta de Gastos No Presupuestados */}
+      {resumenNoPresupuestadosQuincena.totalNoPresupuestado > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: "linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(239, 68, 68, 0.08) 100%)",
+            border: "1px solid rgba(245, 158, 11, 0.4)",
+            borderRadius: 12,
+            padding: "10px 16px",
+            marginBottom: 14,
+            flexWrap: "wrap",
+            gap: 10,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                background: "var(--amber-bg)",
+                color: "var(--amber)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+            >
+              <AlertTriangle size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                Gastos no presupuestados en {periodoActualConfig.quincena === "Q1" ? "1ra" : "2da"} quincena:{" "}
+                <span className="despensa-mono" style={{ color: "var(--amber)" }}>
+                  ${Number(resumenNoPresupuestadosQuincena.totalNoPresupuestado).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>{" "}
+                ({resumenNoPresupuestadosQuincena.cantidadGastos} gasto{resumenNoPresupuestadosQuincena.cantidadGastos !== 1 ? "s" : ""})
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                Tienes movimientos registrados en rubros sin monto asignado en este período.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setModalNoPresupuestadosAbierto(true)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 600,
+              background: "var(--amber)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              cursor: "pointer",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+            }}
+          >
+            <Receipt size={14} />
+            <span>Ver resumen de gastos no presupuestados</span>
+          </button>
         </div>
       )}
 
@@ -3155,6 +3241,17 @@ export default function PresupuestoAnual({
         diezmoMensual={diezmoMensual}
         ahorroMensual={ahorroMensual}
         mesSeleccionado={mesActivo || (new Date().getMonth() + 1)}
+      />
+
+      <ModalResumenGastosNoPresupuestados
+        isOpen={modalNoPresupuestadosAbierto}
+        onClose={() => setModalNoPresupuestadosAbierto(false)}
+        presupuesto={presupuestoEfectivo}
+        movimientos={movimientos}
+        categoriasGasto={categoriasPersonalizadasEfectivas}
+        diasCobro={diasCobro}
+        presupuestoYear={year}
+        infoCompartido={infoCompartido}
       />
     </div>
   );
