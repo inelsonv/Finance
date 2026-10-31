@@ -407,7 +407,7 @@ export function analizarIntencionAccion(texto, { prestamos = [], tarjetas = [], 
   if (esPlanDeudas) {
     return {
       tipoAccion: "plan_deudas",
-      respuestaDirecta: `🛡️ **Plan de Choque Anti-Deuda del Guardián:**\n\n1. **Urgencia 0 - Tarjeta 6011:** Tu tarjeta local está sobregirada con RD$ 50,888.32 vs límite de RD$ 41,000 (sobregiro de **RD$ -1,688.32**) y tiene 1 cuota vencida en USD (**US$ 79.17**). Esto genera recargos por mora y sobregiro.\n2. **Regla de ORO:** Congela de inmediato compras no esenciales con tarjeta. Todo gasto debe ser en efectivo o débito estrictamente dentro de presupuesto.\n3. **Amortización:** Cumple los mínimos y aplica cada peso ahorrado en recortes al saldo más caro (Avalancha) o al más pequeño (Bola de Nieve).`,
+      respuestaDirecta: `🛡️ **Plan de Choque Anti-Deuda del Guardián:**\n\n1. **Urgencia 0 - Tarjeta 6011:** Tu tarjeta local está sobregirada con RD$ 50,888.32 vs límite de RD$ 41,000 (sobregiro de **RD$ -1,688.32**) y tiene balance en USD de **US$ 369.98** con pago mínimo de **US$ 51.45** (al día, 0 cuotas vencidas).\n2. **Regla de ORO:** Congela de inmediato compras no esenciales con tarjeta. Todo gasto debe ser en efectivo o débito estrictamente dentro de presupuesto.\n3. **Amortización:** Cumple los mínimos y aplica cada peso ahorrado en recortes al saldo más caro (Avalancha) o al más pequeño (Bola de Nieve).`,
     };
   }
 

@@ -1274,8 +1274,8 @@ function BannerGuardianFinanciero({ tarjetas = [], prestamos = [], onPreguntar, 
                 <strong style={{ color: Number(tarjeta6011.cuotasVencidasUSD) > 0 ? "#dc2626" : "var(--ink)", fontFamily: "monospace", fontSize: 12 }}>
                   US$ {(Number(tarjeta6011.saldoActualUSD) || 0).toLocaleString("es", { minimumFractionDigits: 2 })}
                 </strong>
-                <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 700 }}>
-                  1 cuota vencida: US$ 79.17
+                <div style={{ fontSize: 10, color: Number(tarjeta6011.cuotasVencidasUSD) > 0 ? "#dc2626" : "var(--sage)", fontWeight: 700 }}>
+                  {Number(tarjeta6011.cuotasVencidasUSD) > 0 ? `1 cuota vencida: US$ ${Number(tarjeta6011.pagoMinimoUSD || 51.45).toFixed(2)}` : "Al día (0 vencidas) · Mín: US$ 51.45"}
                 </div>
               </div>
             </div>
@@ -1433,8 +1433,8 @@ function TarjetaPlanDeudasChat({ tarjetas = [], prestamos = [], onNavigate, onCl
           <div style={{ background: "rgba(239, 68, 68, 0.05)", padding: "6px 8px", borderRadius: 7 }}>
             <span style={{ color: "var(--ink-soft)", display: "block" }}>Dólares Americanos</span>
             <strong style={{ color: "#dc2626", fontSize: 12.5 }}>US$ 369.98</strong>
-            <div style={{ fontSize: 10.5, color: "#dc2626", fontWeight: 700 }}>1 cuota vencida: US$ 79.17</div>
-            <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>Límite: US$ 500.00</div>
+            <div style={{ fontSize: 10.5, color: "var(--sage)", fontWeight: 700 }}>Al día (0 cuotas vencidas)</div>
+            <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>Pago Mínimo: US$ 51.45 (Límite: US$ 500)</div>
           </div>
         </div>
       </div>
@@ -1444,7 +1444,7 @@ function TarjetaPlanDeudasChat({ tarjetas = [], prestamos = [], onNavigate, onCl
         <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
           <div style={{ minWidth: 20, height: 20, borderRadius: "50%", background: "#dc2626", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>1</div>
           <div style={{ color: "var(--ink)" }}>
-            <strong>Urgencia Inmediata:</strong> Pagar la cuota vencida en USD (<strong>US$ 79.17</strong>) y cubrir el sobregiro (<strong>RD$ 1,688.32</strong> + mínimo RD$ 5,461.69) para frenar comisiones por mora y proteger tu historial de crédito.
+            <strong>Urgencia Inmediata:</strong> Cubrir el pago mínimo en USD (<strong>US$ 51.45</strong>) y amortizar el sobregiro en pesos (<strong>RD$ 1,688.32</strong> + mínimo RD$ 5,461.69) para frenar comisiones y proteger tu historial de crédito.
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
@@ -1828,7 +1828,7 @@ function TarjetaEvaluadorGastoChat({ data, onEnviarMensaje }) {
         </div>
 
         <div style={{ fontSize: 12, color: "#dc2626", lineHeight: 1.4, fontWeight: 600 }}>
-          ⚠️ <strong>Alerta:</strong> Con un sobregiro activo en tu Tarjeta 6011 (<strong>RD$ -1,688.32</strong>) y una cuota vencida en USD (<strong>US$ 79.17</strong>), gastar RD$ {Number(montoTest).toLocaleString("es")} en compras o salidas no esenciales atrasará tu recuperación y te sumará hasta 60% de intereses anuales.
+          ⚠️ <strong>Alerta:</strong> Con un sobregiro activo en tu Tarjeta 6011 (<strong>RD$ -1,688.32</strong>) y un balance en USD de <strong>US$ 369.98</strong> (mínimo <strong>US$ 51.45</strong>, al día con 0 cuotas vencidas), gastar RD$ {Number(montoTest).toLocaleString("es")} en compras o salidas no esenciales atrasará tu recuperación y te sumará hasta 60% de intereses anuales.
         </div>
       </div>
 

@@ -2105,7 +2105,9 @@ export async function sincronizarTarjetaCreditoLocal() {
     tieneMonedaSecundaria: true,
     limiteCreditoUSD: 500,
     saldoActualUSD: 369.98,
-    pagoMinimoUSD: 79.17,
+    pagoMinimoUSD: 51.45,
+    cuotasVencidasUSD: 0,
+    cuotasVencidas: 0,
   };
 
   for (const docSnap of tarjetasSnap.docs) {
@@ -2122,7 +2124,8 @@ export async function sincronizarTarjetaCreditoLocal() {
         Number(data.limiteCredito) !== 41000 ||
         Number(data.limiteCreditoUSD) !== 500 ||
         Number(data.pagoMinimo) !== 5461.69 ||
-        Number(data.pagoMinimoUSD) !== 79.17 ||
+        Number(data.pagoMinimoUSD) !== 51.45 ||
+        Number(data.cuotasVencidasUSD || 0) !== 0 ||
         Number(data.fechaCorte) !== 26 ||
         Number(data.fechaPago) !== 20 ||
         data.fechaVencimientoPlastico !== "2029-01" ||

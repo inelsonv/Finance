@@ -890,7 +890,8 @@ export default function App() {
         const diffLimiteRD = Math.abs((Number(t.limiteCredito) || 0) - 41000) > 0.001;
         const diffLimiteUSD = Math.abs((Number(t.limiteCreditoUSD) || 0) - 500) > 0.001;
         const diffPagoMinRD = Math.abs((Number(t.pagoMinimo) || 0) - 5461.69) > 0.001;
-        const diffPagoMinUSD = Math.abs((Number(t.pagoMinimoUSD) || 0) - 79.17) > 0.001;
+        const diffPagoMinUSD = Math.abs((Number(t.pagoMinimoUSD) || 0) - 51.45) > 0.001;
+        const diffCuotasVencidas = Number(t.cuotasVencidasUSD || 0) !== 0 || Number(t.cuotasVencidas || 0) !== 0;
         if (
           diffPesos ||
           diffDolares ||
@@ -898,6 +899,7 @@ export default function App() {
           diffLimiteUSD ||
           diffPagoMinRD ||
           diffPagoMinUSD ||
+          diffCuotasVencidas ||
           !t.tieneMonedaSecundaria ||
           u4 !== "6011" ||
           Number(t.fechaCorte) !== 26 ||
@@ -910,7 +912,9 @@ export default function App() {
             limiteCredito: 41000,
             limiteCreditoUSD: 500,
             pagoMinimo: 5461.69,
-            pagoMinimoUSD: 79.17,
+            pagoMinimoUSD: 51.45,
+            cuotasVencidasUSD: 0,
+            cuotasVencidas: 0,
             fechaCorte: 26,
             fechaPago: 20,
             fechaVencimientoPlastico: "2029-01",
