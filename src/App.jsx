@@ -1362,6 +1362,7 @@ export default function App() {
             prestamos={prestamos}
             metasAhorro={metasAhorro}
             fuentesIngreso={fuentesIngreso}
+            ingresosPuntuales={ingresosPuntuales}
             cuentas={cuentas}
             movimientos={movimientos}
             eventos={eventos}

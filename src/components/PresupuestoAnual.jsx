@@ -22,6 +22,8 @@ import MetodologiaPresupuestoModal from "./MetodologiaPresupuestoModal.jsx";
 import ModalCompartirPresupuesto from "./ModalCompartirPresupuesto.jsx";
 import ModalResumenGastosNoPresupuestados from "./ModalResumenGastosNoPresupuestados.jsx";
 import { obtenerGastosNoPresupuestados } from "../lib/gastosNoPresupuestados";
+import ModalDesgloseIngresosAnual from "./ModalDesgloseIngresosAnual.jsx";
+import { calcularPresupuestoIngresosAnual } from "../lib/presupuestoIngreso";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
@@ -279,6 +281,7 @@ export default function PresupuestoAnual({
   prestamos = [],
   metasAhorro = [],
   fuentesIngreso = [],
+  ingresosPuntuales = [],
   cuentas = [],
   movimientos = [],
   eventos = [],
@@ -385,7 +388,18 @@ export default function PresupuestoAnual({
     : categoriasPersonalizadas;
 
   const [modalNoPresupuestadosAbierto, setModalNoPresupuestadosAbierto] = useState(false);
+  const [modalDesgloseIngresosAbierto, setModalDesgloseIngresosAbierto] = useState(false);
   const periodoActualConfig = useMemo(() => periodoActualConfigurado(diasCobro), [diasCobro]);
+
+  const presupuestoIngresosAnual = useMemo(() => {
+    return calcularPresupuestoIngresosAnual({
+      fuentesIngreso,
+      ingresosPuntuales,
+      vacaciones,
+      year,
+      diasCobro,
+    });
+  }, [fuentesIngreso, ingresosPuntuales, vacaciones, year, diasCobro]);
 
   const resumenNoPresupuestadosQuincena = useMemo(() => {
     return obtenerGastosNoPresupuestados({
@@ -552,13 +566,8 @@ export default function PresupuestoAnual({
   );
 
   const ingresoMensual = useMemo(() => {
-    let total = 0;
-    for (const f of fuentesIngreso || []) {
-      if (f.estado !== "Activo" || f.montoEsperado == null) continue;
-      total += f.montoEsperado * (FRECUENCIA_FACTOR[f.frecuencia] ?? 1);
-    }
-    return total;
-  }, [fuentesIngreso]);
+    return presupuestoIngresosAnual.regularNetoMensual;
+  }, [presupuestoIngresosAnual.regularNetoMensual]);
 
   const aportadoPorCuenta = useMemo(() => {
     const map = {};
@@ -1826,20 +1835,88 @@ export default function PresupuestoAnual({
       </div>
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", display: "inline-flex", gap: 6, alignItems: "baseline" }}>
-            <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Presupuesto total {year}:</span>
-            <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 600 }}>${totalAnual.toLocaleString("es")}</span>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "stretch" }}>
+          {/* Presupuesto Total Gastos */}
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "8px 12px", display: "inline-flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Presupuesto total {year}:</span>
+            <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)" }}>${totalAnual.toLocaleString("es")}</span>
           </div>
-          {ingresoQuincenal > 0 && (
-            <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", display: "inline-flex", gap: 6, alignItems: "baseline" }}>
-              <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Ingreso quincenal estimado:</span>
-              <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 600, color: "var(--sage)" }}>{formatMoney(ingresoQuincenal)}</span>
-              {quincenasExcedidas > 0 && (
-                <span className="despensa-tab-font" style={{ fontSize: 10, fontWeight: 600, padding: "1px 7px", borderRadius: 12, background: "var(--stamp-bg)", color: "var(--stamp)" }}>
-                  {quincenasExcedidas} quincena(s) excedida(s)
+
+          {/* Presupuesto Total Ingresos Anual */}
+          <div
+            onClick={() => setModalDesgloseIngresosAbierto(true)}
+            style={{
+              background: "linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(16, 185, 129, 0.04) 100%)",
+              border: "1px solid rgba(16, 185, 129, 0.45)",
+              borderRadius: 10,
+              padding: "8px 12px",
+              display: "inline-flex",
+              flexDirection: "column",
+              gap: 2,
+              cursor: "pointer",
+              boxShadow: "0 1px 4px rgba(16, 185, 129, 0.15)",
+              transition: "transform 0.15s ease",
+            }}
+            title="Toca para ver el desglose anual: sueldos netos con deducciones de ley, regalía pascual, bonificación y bono vacacional"
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+              <span style={{ fontSize: 10.5, color: "var(--sage)", fontWeight: 700 }}>Presupuesto ingresos {year}:</span>
+              <span style={{ fontSize: 9.5, padding: "1px 6px", borderRadius: 4, background: "var(--sage)", color: "#fff", fontWeight: 700 }}>
+                Ver desglose ➔
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+              <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, color: "var(--sage)" }}>
+                ${presupuestoIngresosAnual.totalIngresoAnual.toLocaleString("es")}
+              </span>
+              <span style={{ fontSize: 10, color: "var(--ink-soft)" }}>
+                (12m + Regalía + Bonific. + Vac.)
+              </span>
+            </div>
+          </div>
+
+          {/* Balance Neto Anual (Superávit / Déficit) */}
+          <div
+            style={{
+              background: (presupuestoIngresosAnual.totalIngresoAnual - totalAnual) >= 0 ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)",
+              border: `1px solid ${(presupuestoIngresosAnual.totalIngresoAnual - totalAnual) >= 0 ? "rgba(16, 185, 129, 0.35)" : "rgba(239, 68, 68, 0.35)"}`,
+              borderRadius: 10,
+              padding: "8px 12px",
+              display: "inline-flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
+            <span style={{ fontSize: 10.5, color: (presupuestoIngresosAnual.totalIngresoAnual - totalAnual) >= 0 ? "var(--sage)" : "var(--stamp)", fontWeight: 600 }}>
+              Balance neto {year}:
+            </span>
+            <span
+              className="despensa-mono"
+              style={{
+                fontSize: 15,
+                fontWeight: 700,
+                color: (presupuestoIngresosAnual.totalIngresoAnual - totalAnual) >= 0 ? "var(--sage)" : "var(--stamp)",
+              }}
+            >
+              {(presupuestoIngresosAnual.totalIngresoAnual - totalAnual) >= 0 ? "+" : ""}${(presupuestoIngresosAnual.totalIngresoAnual - totalAnual).toLocaleString("es")}
+            </span>
+          </div>
+
+          {/* Sueldo Regular Quincenal */}
+          {presupuestoIngresosAnual.regularNetoQuincenal > 0 && (
+            <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "8px 12px", display: "inline-flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Sueldo neto regular:</span>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                <span className="despensa-mono" style={{ fontSize: 14.5, fontWeight: 600, color: "var(--ink)" }}>
+                  {formatMoney(presupuestoIngresosAnual.regularNetoQuincenal)}
                 </span>
-              )}
+                <span style={{ fontSize: 9.5, color: "var(--ink-soft)" }}>/quincena</span>
+                {quincenasExcedidas > 0 && (
+                  <span className="despensa-tab-font" style={{ fontSize: 9.5, fontWeight: 600, padding: "1px 6px", borderRadius: 10, background: "var(--stamp-bg)", color: "var(--stamp)" }}>
+                    {quincenasExcedidas} q. excedida(s)
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -3161,6 +3238,7 @@ export default function PresupuestoAnual({
             )}
           </tbody>
           <tfoot>
+            {/* Fila 1: Total Gastos y Compromisos */}
             <tr>
               <td
                 className="presupuesto-col-sticky"
@@ -3173,7 +3251,7 @@ export default function PresupuestoAnual({
                   borderTop: "2px solid var(--line)",
                   fontFamily: "Inter, sans-serif",
                   fontWeight: 600,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   minWidth: 185,
                   width: 185,
                   maxWidth: 185,
@@ -3181,7 +3259,7 @@ export default function PresupuestoAnual({
                   whiteSpace: "nowrap",
                 }}
               >
-                Total
+                Total Gastos
               </td>
               {MESES.map((_, i) => {
                 const mes = i + 1;
@@ -3191,10 +3269,10 @@ export default function PresupuestoAnual({
                   const esInicioTrimestre = i % 3 === 0 && q === "Q1";
                   return (
                     <td
-                      key={`${mes}-${q}`}
-                      title={excedido ? `Supera tu ingreso quincenal estimado (${formatMoney(ingresoQuincenal)})` : undefined}
+                      key={`gasto-${mes}-${q}`}
+                      title={excedido ? `Supera tu ingreso quincenal regular (${formatMoney(ingresoQuincenal)})` : undefined}
                       style={{
-                        padding: "8px 4px",
+                        padding: "7px 4px",
                         borderTop: "2px solid var(--line)",
                         borderLeft: esInicioTrimestre
                           ? `2.5px solid ${trimestre.bordeColor}55`
@@ -3213,8 +3291,159 @@ export default function PresupuestoAnual({
                   );
                 });
               })}
-              <td style={{ padding: "8px 10px", borderTop: "2px solid var(--line)", borderLeft: "1px solid var(--line)", textAlign: "right", fontWeight: 700, background: "var(--sage-bg)", color: "var(--sage)" }}>
+              <td style={{ padding: "7px 10px", borderTop: "2px solid var(--line)", borderLeft: "1px solid var(--line)", textAlign: "right", fontWeight: 700, background: "var(--paper)", color: "var(--ink)" }}>
                 {totalAnual.toLocaleString("es")}
+              </td>
+            </tr>
+
+            {/* Fila 2: Total Ingresos Presupuestados */}
+            <tr style={{ background: "rgba(16, 185, 129, 0.04)" }}>
+              <td
+                className="presupuesto-col-sticky"
+                style={{
+                  position: "sticky",
+                  left: 0,
+                  background: "var(--card)",
+                  padding: "7px 10px",
+                  borderRight: "1px solid var(--line)",
+                  borderTop: "1px solid var(--line-soft)",
+                  fontFamily: "Inter, sans-serif",
+                  fontWeight: 600,
+                  fontSize: 12,
+                  minWidth: 185,
+                  width: 185,
+                  maxWidth: 185,
+                  boxSizing: "border-box",
+                  whiteSpace: "nowrap",
+                  color: "var(--sage)",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span>Ingresos Presupuestados</span>
+                  <button
+                    type="button"
+                    onClick={() => setModalDesgloseIngresosAbierto(true)}
+                    title="Ver desglose detallado de ingresos (regalía, bonificación, vacaciones, ley)"
+                    style={{ background: "transparent", border: "none", color: "var(--sage)", cursor: "pointer", padding: 0, fontSize: 10 }}
+                  >
+                    ℹ️
+                  </button>
+                </div>
+              </td>
+              {MESES.map((_, i) => {
+                const mes = i + 1;
+                const trimestre = obtenerTrimestreMes(i);
+                return QUINCENAS.map((q) => {
+                  const key = `${mes}-${q}`;
+                  const infoQ = presupuestoIngresosAnual.ingresosPorQuincena[key] || { total: 0 };
+                  const esInicioTrimestre = i % 3 === 0 && q === "Q1";
+                  const tieneExtra = (infoQ.detallesPuntuales && infoQ.detallesPuntuales.length > 0);
+                  const tooltipText = tieneExtra
+                    ? `Ingreso quincenal: ${formatMoney(infoQ.total)} (incluye: ${infoQ.detallesPuntuales.map((d) => `${d.tipo} ${formatMoney(d.monto)}`).join(", ")})`
+                    : `Sueldo neto regular: ${formatMoney(infoQ.total)}`;
+
+                  return (
+                    <td
+                      key={`ingreso-${mes}-${q}`}
+                      title={tooltipText}
+                      style={{
+                        padding: "7px 4px",
+                        borderTop: "1px solid var(--line-soft)",
+                        borderLeft: esInicioTrimestre
+                          ? `2.5px solid ${trimestre.bordeColor}55`
+                          : q === "Q1"
+                          ? "1px solid var(--line-soft)"
+                          : "none",
+                        textAlign: "right",
+                        fontWeight: tieneExtra ? 700 : 500,
+                        fontSize: 10.5,
+                        background: tieneExtra ? "rgba(16, 185, 129, 0.16)" : "transparent",
+                        color: "var(--sage)",
+                      }}
+                    >
+                      {formatMoney(infoQ.total) || "0"}
+                    </td>
+                  );
+                });
+              })}
+              <td style={{ padding: "7px 10px", borderTop: "1px solid var(--line-soft)", borderLeft: "1px solid var(--line)", textAlign: "right", fontWeight: 700, background: "var(--sage-bg)", color: "var(--sage)" }}>
+                {presupuestoIngresosAnual.totalIngresoAnual.toLocaleString("es")}
+              </td>
+            </tr>
+
+            {/* Fila 3: Flujo Neto / Balance Quincenal (Ingreso - Gasto) */}
+            <tr style={{ background: "var(--paper)" }}>
+              <td
+                className="presupuesto-col-sticky"
+                style={{
+                  position: "sticky",
+                  left: 0,
+                  background: "var(--card)",
+                  padding: "7px 10px",
+                  borderRight: "1px solid var(--line)",
+                  borderTop: "1px solid var(--line-soft)",
+                  borderBottom: "2px solid var(--line)",
+                  fontFamily: "Inter, sans-serif",
+                  fontWeight: 700,
+                  fontSize: 11.5,
+                  minWidth: 185,
+                  width: 185,
+                  maxWidth: 185,
+                  boxSizing: "border-box",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Balance Neto (Superávit)
+              </td>
+              {MESES.map((_, i) => {
+                const mes = i + 1;
+                const trimestre = obtenerTrimestreMes(i);
+                return QUINCENAS.map((q) => {
+                  const key = `${mes}-${q}`;
+                  const ingresoQ = presupuestoIngresosAnual.ingresosPorQuincena[key]?.total || 0;
+                  const gastoQ = totalPorQuincenaGlobal[key] || 0;
+                  const balanceQ = ingresoQ - gastoQ;
+                  const esInicioTrimestre = i % 3 === 0 && q === "Q1";
+                  const positivo = balanceQ >= 0;
+
+                  return (
+                    <td
+                      key={`balance-${mes}-${q}`}
+                      title={`Ingreso ${formatMoney(ingresoQ)} - Gasto ${formatMoney(gastoQ)} = ${positivo ? "+" : ""}${formatMoney(balanceQ)}`}
+                      style={{
+                        padding: "7px 4px",
+                        borderTop: "1px solid var(--line-soft)",
+                        borderBottom: "2px solid var(--line)",
+                        borderLeft: esInicioTrimestre
+                          ? `2.5px solid ${trimestre.bordeColor}55`
+                          : q === "Q1"
+                          ? "1px solid var(--line-soft)"
+                          : "none",
+                        textAlign: "right",
+                        fontWeight: 700,
+                        fontSize: 10,
+                        color: positivo ? "var(--sage)" : "var(--stamp)",
+                        background: positivo ? "rgba(16, 185, 129, 0.05)" : "rgba(239, 68, 68, 0.08)",
+                      }}
+                    >
+                      {positivo ? "+" : ""}{formatMoney(balanceQ)}
+                    </td>
+                  );
+                });
+              })}
+              <td
+                style={{
+                  padding: "7px 10px",
+                  borderTop: "1px solid var(--line-soft)",
+                  borderBottom: "2px solid var(--line)",
+                  borderLeft: "1px solid var(--line)",
+                  textAlign: "right",
+                  fontWeight: 800,
+                  background: (presupuestoIngresosAnual.totalIngresoAnual - totalAnual) >= 0 ? "var(--sage-bg)" : "var(--stamp-bg)",
+                  color: (presupuestoIngresosAnual.totalIngresoAnual - totalAnual) >= 0 ? "var(--sage)" : "var(--stamp)",
+                }}
+              >
+                {(presupuestoIngresosAnual.totalIngresoAnual - totalAnual) >= 0 ? "+" : ""}{(presupuestoIngresosAnual.totalIngresoAnual - totalAnual).toLocaleString("es")}
               </td>
             </tr>
           </tfoot>
@@ -3252,6 +3481,16 @@ export default function PresupuestoAnual({
         diasCobro={diasCobro}
         presupuestoYear={year}
         infoCompartido={infoCompartido}
+      />
+
+      <ModalDesgloseIngresosAnual
+        isOpen={modalDesgloseIngresosAbierto}
+        onClose={() => setModalDesgloseIngresosAbierto(false)}
+        year={year}
+        resumenIngresos={presupuestoIngresosAnual}
+        totalGastosAnual={totalAnual}
+        fuentesIngreso={fuentesIngreso}
+        ingresosPuntuales={ingresosPuntuales}
       />
     </div>
   );
