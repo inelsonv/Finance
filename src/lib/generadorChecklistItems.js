@@ -304,7 +304,44 @@ export function generarItemsPeriodo({
     const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
 
     const { activo, quincena } = celdaPrestamo(p, periodo.year, periodo.month);
-    if (activo && !overrideEsteMes && quincena === periodo.quincena && p.cuota) {
+
+    if (p.dividirEnQuincenas && p.cuota) {
+      const q1Monto = p.cuotaQ1 != null ? Number(p.cuotaQ1) : Math.round((Number(p.cuota) || 0) / 2);
+      const q2Monto = p.cuotaQ2 != null ? Number(p.cuotaQ2) : (Number(p.cuota) || 0) - q1Monto;
+      const montoQuincena = periodo.quincena === "Q1" ? q1Monto : q2Monto;
+      const parteLabel = periodo.quincena === "Q1" ? "1ra Quincena · Q1" : "2da Quincena · Q2";
+      const diaSugerido = periodo.quincena === "Q1"
+        ? Math.min(Number(p.fechaInicio?.slice(-2)) || 1, 14)
+        : Math.max(Number(p.fechaInicio?.slice(-2)) || 16, 16);
+
+      if (activo && !overrideEsteMes && montoQuincena > 0) {
+        list.push({
+          key: `prestamo-${p.id}-${periodo.quincena.toLowerCase()}`,
+          nombre: `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (${parteLabel})`,
+          monto: montoQuincena,
+          icon: Landmark,
+          metodoDefault: p.metodoPago || "Transferencia",
+          esPrestamo: true,
+          prestamo: p,
+          esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
+          prestamoId: p.id,
+          prestamoNumero: p.numero,
+          fechaCuota: fechaCuotaEnMes(periodo.year, periodo.month, diaSugerido),
+          diaCuota: diaSugerido,
+          entidadId: p.entidadId || "",
+          entidadName: p.entidadName || "",
+          cuentaDestinoNumero: p.cuentaDestinoNumero || (p.numero === "PT01" ? "0002804611" : ""),
+          cuentaDestinoBeneficiario: p.cuentaDestinoBeneficiario || (p.numero === "PT01" ? "Julian Ochoa" : ""),
+          cuentaDestinoBanco: p.cuentaDestinoBanco || (p.numero === "PT01" ? "Banco Popular" : (p.entidadName || "")),
+          cuentaDestinoTipo: p.cuentaDestinoTipo || (p.numero === "PT01" ? "Cuentas de Terceros" : ""),
+          bloqueadoPagado: saldado,
+          origenKey: `${origenKeyEsteMes}-${periodo.quincena.toLowerCase()}`,
+          tieneOverride: false,
+          esCuotaDividida: true,
+          quincenaParte: periodo.quincena,
+        });
+      }
+    } else if (activo && !overrideEsteMes && quincena === periodo.quincena && p.cuota) {
       list.push({
         key: `prestamo-${p.id}`,
         nombre: `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""}`,
@@ -334,10 +371,15 @@ export function generarItemsPeriodo({
       if (!destino || typeof destino !== "object") continue;
       if (destino.year !== periodo.year || destino.month !== periodo.month || destino.quincena !== periodo.quincena) continue;
       const [origMes] = origenKey.split("-").map(Number);
+      const montoMover = p.dividirEnQuincenas
+        ? (destino.quincena === "Q1"
+            ? (p.cuotaQ1 != null ? Number(p.cuotaQ1) : Math.round((Number(p.cuota) || 0) / 2))
+            : (p.cuotaQ2 != null ? Number(p.cuotaQ2) : (Number(p.cuota) || 0) - (p.cuotaQ1 != null ? Number(p.cuotaQ1) : Math.round((Number(p.cuota) || 0) / 2))))
+        : p.cuota;
       list.push({
         key: `prestamo-${p.id}-mov-${origenKey}`,
         nombre: `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (movida de ${MES_NOMBRES[origMes - 1]})`,
-        monto: p.cuota,
+        monto: montoMover,
         icon: Landmark,
         metodoDefault: p.metodoPago || "Transferencia",
         esPrestamo: true,

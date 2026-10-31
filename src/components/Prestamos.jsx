@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw, ChevronDown, ChevronUp, Copy, ArrowLeftRight, CreditCard } from "lucide-react";
+import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw, ChevronDown, ChevronUp, Copy, ArrowLeftRight, CreditCard, Scissors, AlertTriangle } from "lucide-react";
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { calcularProyeccionPago } from "../lib/proyeccionPrestamo";
@@ -86,6 +86,540 @@ export function obtenerInfoCuotasPrestamo(p, movimientos) {
   };
 }
 
+function SeccionDividirCuota({ cuota, dividirEnQuincenas, cuotaQ1, cuotaQ2, onChangeDividir, onChangeQ1, onChangeQ2 }) {
+  const cuotaNum = parseFloat(cuota) || 0;
+  const q1Num = parseFloat(cuotaQ1) || 0;
+  const q2Num = parseFloat(cuotaQ2) || 0;
+  const suma = Math.round((q1Num + q2Num) * 100) / 100;
+  const diferencia = Math.round((cuotaNum - suma) * 100) / 100;
+  const exacto = cuotaNum > 0 && Math.abs(diferencia) < 0.05;
+
+  const aplicar5050 = () => {
+    if (cuotaNum <= 0) return;
+    const mitad1 = Math.round(cuotaNum / 2);
+    const mitad2 = Math.round((cuotaNum - mitad1) * 100) / 100;
+    onChangeQ1(String(mitad1));
+    onChangeQ2(String(mitad2));
+  };
+
+  const balancearQ2 = () => {
+    if (cuotaNum <= 0) return;
+    const resto = Math.max(0, Math.round((cuotaNum - q1Num) * 100) / 100);
+    onChangeQ2(String(resto));
+  };
+
+  return (
+    <div
+      style={{
+        marginBottom: 10,
+        padding: "10px 12px",
+        borderRadius: 10,
+        background: dividirEnQuincenas ? "rgba(16, 185, 129, 0.06)" : "var(--paper)",
+        border: `1px solid ${dividirEnQuincenas ? "rgba(16, 185, 129, 0.3)" : "var(--line)"}`,
+        transition: "all 0.2s ease",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <Scissors size={15} style={{ color: dividirEnQuincenas ? "var(--sage)" : "var(--ink-soft)", flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+              Dividir cuota en ambas quincenas (Q1 y Q2)
+            </div>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+              Divide el pago mensual para ir más desahogado/flojo en cada quincena
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={dividirEnQuincenas}
+          onClick={() => {
+            const nuevo = !dividirEnQuincenas;
+            onChangeDividir(nuevo);
+            if (nuevo && (!cuotaQ1 && !cuotaQ2) && cuotaNum > 0) {
+              const mitad1 = Math.round(cuotaNum / 2);
+              const mitad2 = Math.round((cuotaNum - mitad1) * 100) / 100;
+              onChangeQ1(String(mitad1));
+              onChangeQ2(String(mitad2));
+            }
+          }}
+          style={{
+            width: 40,
+            height: 22,
+            borderRadius: 12,
+            border: "none",
+            cursor: "pointer",
+            background: dividirEnQuincenas ? "var(--sage)" : "var(--line)",
+            position: "relative",
+            transition: "background 0.2s",
+            flexShrink: 0,
+            padding: 0,
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              top: 2,
+              left: dividirEnQuincenas ? 20 : 2,
+              width: 18,
+              height: 18,
+              borderRadius: "50%",
+              background: "#fff",
+              transition: "left 0.2s ease",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            }}
+          />
+        </button>
+      </div>
+
+      {dividirEnQuincenas && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--line)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 4 }}>
+                1ra Quincena (Q1 · días 1-15)
+              </label>
+              <input
+                className="despensa-mono"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Monto Q1"
+                value={cuotaQ1}
+                onChange={(e) => onChangeQ1(e.target.value)}
+                style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, background: "var(--card)" }}
+              />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 4 }}>
+                2da Quincena (Q2 · días 16-fin)
+              </label>
+              <input
+                className="despensa-mono"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Monto Q2"
+                value={cuotaQ2}
+                onChange={(e) => onChangeQ2(e.target.value)}
+                style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, background: "var(--card)" }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                onClick={aplicar5050}
+                style={{
+                  fontSize: 11,
+                  padding: "3px 8px",
+                  borderRadius: 5,
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                }}
+              >
+                Mitad 50 / 50
+              </button>
+              <button
+                type="button"
+                onClick={balancearQ2}
+                style={{
+                  fontSize: 11,
+                  padding: "3px 8px",
+                  borderRadius: 5,
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                }}
+              >
+                Ajustar resto en Q2
+              </button>
+            </div>
+          </div>
+
+          {cuotaNum > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 8px",
+                borderRadius: 6,
+                fontSize: 11.5,
+                fontWeight: 500,
+                background: exacto ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
+                color: exacto ? "var(--sage)" : "var(--stamp)",
+                border: `1px solid ${exacto ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
+              }}
+            >
+              {exacto ? (
+                <>
+                  <Check size={14} style={{ flexShrink: 0 }} />
+                  <span>
+                    ✓ Suma exacta: <strong>RD$ {suma.toLocaleString("es")}</strong> de RD$ {cuotaNum.toLocaleString("es")} (cuota completa)
+                  </span>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle size={14} style={{ flexShrink: 0 }} />
+                  <span>
+                    La suma da <strong>RD$ {suma.toLocaleString("es")}</strong> (diferencia: {diferencia > 0 ? "faltan" : "sobran"} <strong>RD$ {Math.abs(diferencia).toLocaleString("es")}</strong> para completar los RD$ {cuotaNum.toLocaleString("es")}).
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ModalDividirCuotaRapido({ modalDividir, setModalDividir, onGuardar }) {
+  if (!modalDividir || !modalDividir.prestamo) return null;
+  const p = modalDividir.prestamo;
+  const cuotaNum = Number(p.cuota) || 0;
+  const q1Num = parseFloat(modalDividir.cuotaQ1) || 0;
+  const q2Num = parseFloat(modalDividir.cuotaQ2) || 0;
+  const suma = Math.round((q1Num + q2Num) * 100) / 100;
+  const diferencia = Math.round((cuotaNum - suma) * 100) / 100;
+  const exacto = cuotaNum > 0 && Math.abs(diferencia) < 0.05;
+
+  const aplicar5050 = () => {
+    if (cuotaNum <= 0) return;
+    const m1 = Math.round(cuotaNum / 2);
+    const m2 = Math.round((cuotaNum - m1) * 100) / 100;
+    setModalDividir((prev) => ({ ...prev, cuotaQ1: String(m1), cuotaQ2: String(m2), error: null }));
+  };
+
+  const balancearQ2 = () => {
+    if (cuotaNum <= 0) return;
+    const resto = Math.max(0, Math.round((cuotaNum - q1Num) * 100) / 100);
+    setModalDividir((prev) => ({ ...prev, cuotaQ2: String(resto), error: null }));
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "rgba(0, 0, 0, 0.7)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !modalDividir.guardando) setModalDividir(null);
+      }}
+    >
+      <div
+        style={{
+          background: "var(--card)",
+          borderRadius: 14,
+          border: "1px solid var(--line)",
+          maxWidth: 440,
+          width: "100%",
+          boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "14px 16px",
+            borderBottom: "1px solid var(--line-soft)",
+            background: "var(--paper)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Scissors size={18} style={{ color: "var(--sage)" }} />
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>
+                Dividir cuota de Préstamo {p.numero}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+                {p.entidadName ? `${p.entidadName} · ` : ""}Pagar en ambas quincenas para ir más flojo
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setModalDividir(null)}
+            disabled={modalDividir.guardando}
+            style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer", padding: 4 }}
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ padding: 16 }}>
+          {/* Tarjeta de cuota actual */}
+          <div
+            style={{
+              padding: "10px 12px",
+              borderRadius: 8,
+              background: "var(--paper)",
+              border: "1px solid var(--line)",
+              marginBottom: 14,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Cuota mensual completa:</span>
+            <span className="despensa-mono" style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)" }}>
+              {formatMoney(cuotaNum)}
+            </span>
+          </div>
+
+          {/* Switch activar / desactivar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 12px",
+              borderRadius: 8,
+              background: modalDividir.dividirEnQuincenas ? "rgba(16, 185, 129, 0.08)" : "var(--paper)",
+              border: `1px solid ${modalDividir.dividirEnQuincenas ? "rgba(16, 185, 129, 0.3)" : "var(--line)"}`,
+              marginBottom: 14,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>
+                {modalDividir.dividirEnQuincenas ? "División activada" : "División desactivada"}
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+                {modalDividir.dividirEnQuincenas
+                  ? "Se dividirá el pago entre la 1ra y 2da quincena"
+                  : "Se cobrará la cuota entera de una sola vez"}
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={modalDividir.dividirEnQuincenas}
+              onClick={() =>
+                setModalDividir((prev) => {
+                  const nuevo = !prev.dividirEnQuincenas;
+                  return {
+                    ...prev,
+                    dividirEnQuincenas: nuevo,
+                    cuotaQ1: nuevo && (!prev.cuotaQ1 || prev.cuotaQ1 === "0") ? String(Math.round(cuotaNum / 2)) : prev.cuotaQ1,
+                    cuotaQ2: nuevo && (!prev.cuotaQ2 || prev.cuotaQ2 === "0") ? String(cuotaNum - Math.round(cuotaNum / 2)) : prev.cuotaQ2,
+                    error: null,
+                  };
+                })
+              }
+              style={{
+                width: 44,
+                height: 24,
+                borderRadius: 12,
+                border: "none",
+                cursor: "pointer",
+                background: modalDividir.dividirEnQuincenas ? "var(--sage)" : "var(--line)",
+                position: "relative",
+                transition: "background 0.2s",
+                padding: 0,
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: modalDividir.dividirEnQuincenas ? 22 : 2,
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  transition: "left 0.2s ease",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                }}
+              />
+            </button>
+          </div>
+
+          {modalDividir.dividirEnQuincenas && (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 4 }}>
+                    Monto 1ra Quincena (Q1)
+                  </label>
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Monto Q1"
+                    value={modalDividir.cuotaQ1}
+                    onChange={(e) =>
+                      setModalDividir((prev) => ({ ...prev, cuotaQ1: e.target.value, error: null }))
+                    }
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, background: "var(--card)" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 4 }}>
+                    Monto 2da Quincena (Q2)
+                  </label>
+                  <input
+                    className="despensa-mono"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Monto Q2"
+                    value={modalDividir.cuotaQ2}
+                    onChange={(e) =>
+                      setModalDividir((prev) => ({ ...prev, cuotaQ2: e.target.value, error: null }))
+                    }
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13, background: "var(--card)" }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                <button
+                  type="button"
+                  onClick={aplicar5050}
+                  style={{
+                    fontSize: 11,
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    background: "var(--paper)",
+                    border: "1px solid var(--line)",
+                    color: "var(--ink)",
+                    cursor: "pointer",
+                    fontWeight: 500,
+                  }}
+                >
+                  Mitad 50 / 50 ({formatMoney(Math.round(cuotaNum / 2))})
+                </button>
+                <button
+                  type="button"
+                  onClick={balancearQ2}
+                  style={{
+                    fontSize: 11,
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    background: "var(--paper)",
+                    border: "1px solid var(--line)",
+                    color: "var(--ink)",
+                    cursor: "pointer",
+                    fontWeight: 500,
+                  }}
+                >
+                  Ajustar resto en Q2
+                </button>
+              </div>
+
+              {/* Validación de suma */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 10px",
+                  borderRadius: 7,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  background: exacto ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
+                  color: exacto ? "var(--sage)" : "var(--stamp)",
+                  border: `1px solid ${exacto ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
+                  marginBottom: 14,
+                }}
+              >
+                {exacto ? (
+                  <>
+                    <Check size={16} style={{ flexShrink: 0 }} />
+                    <span>
+                      ✓ Suma exacta: <strong>RD$ {suma.toLocaleString("es")}</strong> de RD$ {cuotaNum.toLocaleString("es")}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+                    <span>
+                      La suma da <strong>RD$ {suma.toLocaleString("es")}</strong> (diferencia: {diferencia > 0 ? "faltan" : "sobran"} <strong>RD$ {Math.abs(diferencia).toLocaleString("es")}</strong> para completar los RD$ {cuotaNum.toLocaleString("es")}).
+                    </span>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {modalDividir.error && (
+            <div
+              style={{
+                padding: "8px 10px",
+                borderRadius: 7,
+                fontSize: 12,
+                color: "var(--stamp)",
+                background: "rgba(239, 68, 68, 0.1)",
+                border: "1px solid rgba(239, 68, 68, 0.25)",
+                marginBottom: 14,
+              }}
+            >
+              {modalDividir.error}
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setModalDividir(null)}
+              disabled={modalDividir.guardando}
+              style={{
+                padding: "7px 14px",
+                borderRadius: 7,
+                background: "transparent",
+                border: "1px solid var(--line)",
+                color: "var(--ink-soft)",
+                fontSize: 12.5,
+                cursor: "pointer",
+              }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={onGuardar}
+              disabled={modalDividir.guardando || (modalDividir.dividirEnQuincenas && !exacto)}
+              style={{
+                padding: "7px 16px",
+                borderRadius: 7,
+                background: "var(--sage)",
+                border: "none",
+                color: "#fff",
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: modalDividir.guardando || (modalDividir.dividirEnQuincenas && !exacto) ? "not-allowed" : "pointer",
+                opacity: modalDividir.guardando || (modalDividir.dividirEnQuincenas && !exacto) ? 0.6 : 1,
+              }}
+            >
+              {modalDividir.guardando ? "Guardando..." : "Guardar cambios"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const emptyForm = (numero) => {
   const esPT01 = numero === "PT01";
   return {
@@ -98,6 +632,9 @@ const emptyForm = (numero) => {
     plazoUnidad: "meses",
     tasaInteres: "",
     cuota: "",
+    dividirEnQuincenas: false,
+    cuotaQ1: "",
+    cuotaQ2: "",
     fechaInicio: todayStr(),
     estado: "Activo",
     notas: "",
@@ -137,6 +674,70 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
   const [copiadoId, setCopiadoId] = useState(null);
   const [detallesAbiertos, setDetallesAbiertos] = useState({});
   const toggleDetalles = (id) => setDetallesAbiertos((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const [modalDividir, setModalDividir] = useState(null);
+
+  const abrirModalDividir = (p) => {
+    const cuota = Number(p.cuota) || 0;
+    const mitad1 = Math.round(cuota / 2);
+    const mitad2 = Math.round((cuota - mitad1) * 100) / 100;
+    setModalDividir({
+      prestamo: p,
+      dividirEnQuincenas: p.dividirEnQuincenas ?? true,
+      cuotaQ1: p.cuotaQ1 != null ? String(p.cuotaQ1) : String(mitad1),
+      cuotaQ2: p.cuotaQ2 != null ? String(p.cuotaQ2) : String(mitad2),
+      error: null,
+      guardando: false,
+    });
+  };
+
+  const guardarModalDividir = async () => {
+    if (!modalDividir || !modalDividir.prestamo) return;
+    const p = modalDividir.prestamo;
+    const cuota = Number(p.cuota) || 0;
+
+    if (!modalDividir.dividirEnQuincenas) {
+      setModalDividir((prev) => ({ ...prev, guardando: true, error: null }));
+      try {
+        await updatePrestamo(p.id, {
+          dividirEnQuincenas: false,
+          cuotaQ1: null,
+          cuotaQ2: null,
+        });
+        setModalDividir(null);
+      } catch (e) {
+        setModalDividir((prev) => ({ ...prev, guardando: false, error: e.message || String(e) }));
+      }
+      return;
+    }
+
+    const q1 = parseFloat(modalDividir.cuotaQ1);
+    const q2 = parseFloat(modalDividir.cuotaQ2);
+    const cuotaQ1 = Number.isFinite(q1) ? q1 : Math.round(cuota / 2);
+    const cuotaQ2 = Number.isFinite(q2) ? q2 : cuota - cuotaQ1;
+    const suma = Math.round((cuotaQ1 + cuotaQ2) * 100) / 100;
+    const esperado = Math.round(cuota * 100) / 100;
+
+    if (Math.abs(suma - esperado) > 0.05) {
+      setModalDividir((prev) => ({
+        ...prev,
+        error: `La suma de ambas quincenas (RD$ ${cuotaQ1.toLocaleString("es")} + RD$ ${cuotaQ2.toLocaleString("es")} = RD$ ${suma.toLocaleString("es")}) debe ser exactamente igual a la cuota mensual de RD$ ${esperado.toLocaleString("es")}.`,
+      }));
+      return;
+    }
+
+    setModalDividir((prev) => ({ ...prev, guardando: true, error: null }));
+    try {
+      await updatePrestamo(p.id, {
+        dividirEnQuincenas: true,
+        cuotaQ1,
+        cuotaQ2,
+      });
+      setModalDividir(null);
+    } catch (e) {
+      setModalDividir((prev) => ({ ...prev, guardando: false, error: e.message || String(e) }));
+    }
+  };
 
   const copiarCuenta = async (texto, id) => {
     if (!texto) return;
@@ -193,6 +794,9 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       plazoUnidad: p.plazoUnidad || "meses",
       tasaInteres: p.tasaInteres != null ? String(p.tasaInteres) : "",
       cuota: p.cuota != null ? String(p.cuota) : "",
+      dividirEnQuincenas: !!p.dividirEnQuincenas,
+      cuotaQ1: p.cuotaQ1 != null ? String(p.cuotaQ1) : (p.dividirEnQuincenas && p.cuota ? String(Math.round(p.cuota / 2)) : ""),
+      cuotaQ2: p.cuotaQ2 != null ? String(p.cuotaQ2) : (p.dividirEnQuincenas && p.cuota ? String(p.cuota - Math.round(p.cuota / 2)) : ""),
       fechaInicio: p.fechaInicio || todayStr(),
       estado: p.estado || "Activo",
       notas: p.notas || "",
@@ -238,6 +842,24 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       const plazo = parseFloat(editForm.plazo);
       const tasa = parseFloat(editForm.tasaInteres);
       const cuota = parseFloat(editForm.cuota);
+
+      const dividir = !!editForm.dividirEnQuincenas && editForm.frecuenciaCuota === "Mensual";
+      let cuotaQ1 = null;
+      let cuotaQ2 = null;
+      if (dividir) {
+        const q1 = parseFloat(editForm.cuotaQ1);
+        const q2 = parseFloat(editForm.cuotaQ2);
+        cuotaQ1 = Number.isFinite(q1) ? q1 : Math.round((cuota || 0) / 2);
+        cuotaQ2 = Number.isFinite(q2) ? q2 : (cuota || 0) - cuotaQ1;
+        const suma = Math.round((cuotaQ1 + cuotaQ2) * 100) / 100;
+        const esperado = Math.round((cuota || 0) * 100) / 100;
+        if (Math.abs(suma - esperado) > 0.05) {
+          setEditError(`La suma de ambas quincenas (RD$ ${cuotaQ1.toLocaleString("es")} + RD$ ${cuotaQ2.toLocaleString("es")} = RD$ ${suma.toLocaleString("es")}) debe ser exactamente igual a la cuota mensual de RD$ ${esperado.toLocaleString("es")}`);
+          setEditSaving(false);
+          return;
+        }
+      }
+
       await updatePrestamo(editingId, {
         tipo: editForm.tipo,
         entidadId: editForm.entidadId,
@@ -252,6 +874,9 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         plazoUnidad: editForm.plazoUnidad,
         tasaInteres: Number.isFinite(tasa) ? tasa : null,
         cuota: Number.isFinite(cuota) ? cuota : null,
+        dividirEnQuincenas: dividir,
+        cuotaQ1: dividir ? cuotaQ1 : null,
+        cuotaQ2: dividir ? cuotaQ2 : null,
         fechaInicio: editForm.fechaInicio,
         estado: editForm.estado,
         notas: editForm.notas.trim(),
@@ -346,6 +971,24 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       const entidad = entidades.find((e) => e.docId === form.entidadId);
       const activoSel = activos.find((a) => a.id === form.activoId);
       const cuota = parseFloat(form.cuota);
+
+      const dividir = !!form.dividirEnQuincenas && form.frecuenciaCuota === "Mensual";
+      let cuotaQ1 = null;
+      let cuotaQ2 = null;
+      if (dividir) {
+        const q1 = parseFloat(form.cuotaQ1);
+        const q2 = parseFloat(form.cuotaQ2);
+        cuotaQ1 = Number.isFinite(q1) ? q1 : Math.round((cuota || 0) / 2);
+        cuotaQ2 = Number.isFinite(q2) ? q2 : (cuota || 0) - cuotaQ1;
+        const suma = Math.round((cuotaQ1 + cuotaQ2) * 100) / 100;
+        const esperado = Math.round((cuota || 0) * 100) / 100;
+        if (Math.abs(suma - esperado) > 0.05) {
+          setFormError(`La suma de ambas quincenas (RD$ ${cuotaQ1.toLocaleString("es")} + RD$ ${cuotaQ2.toLocaleString("es")} = RD$ ${suma.toLocaleString("es")}) debe ser exactamente igual a la cuota mensual de RD$ ${esperado.toLocaleString("es")}`);
+          setSaving(false);
+          return;
+        }
+      }
+
       await addPrestamo({
         numero: form.numero,
         tipo: form.tipo,
@@ -361,6 +1004,9 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         plazoUnidad: form.plazoUnidad,
         tasaInteres: Number.isFinite(tasa) ? tasa : null,
         cuota: Number.isFinite(cuota) ? cuota : null,
+        dividirEnQuincenas: dividir,
+        cuotaQ1: dividir ? cuotaQ1 : null,
+        cuotaQ2: dividir ? cuotaQ2 : null,
         fechaInicio: form.fechaInicio,
         estado: form.estado,
         notas: form.notas.trim(),
@@ -605,7 +1251,16 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                 placeholder="Cuota mensual"
                 value={form.cuota}
                 onChange={(e) => setForm({ ...form, cuota: e.target.value })}
-                style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+              />
+              <SeccionDividirCuota
+                cuota={form.cuota}
+                dividirEnQuincenas={form.dividirEnQuincenas}
+                cuotaQ1={form.cuotaQ1}
+                cuotaQ2={form.cuotaQ2}
+                onChangeDividir={(val) => setForm((prev) => ({ ...prev, dividirEnQuincenas: val }))}
+                onChangeQ1={(val) => setForm((prev) => ({ ...prev, cuotaQ1: val }))}
+                onChangeQ2={(val) => setForm((prev) => ({ ...prev, cuotaQ2: val }))}
               />
             </div>
           ) : (
@@ -896,7 +1551,16 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                         placeholder="Cuota mensual"
                         value={editForm.cuota}
                         onChange={(e) => setEditForm({ ...editForm, cuota: e.target.value })}
-                        style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 8 }}
+                      />
+                      <SeccionDividirCuota
+                        cuota={editForm.cuota}
+                        dividirEnQuincenas={editForm.dividirEnQuincenas}
+                        cuotaQ1={editForm.cuotaQ1}
+                        cuotaQ2={editForm.cuotaQ2}
+                        onChangeDividir={(val) => setEditForm((prev) => ({ ...prev, dividirEnQuincenas: val }))}
+                        onChangeQ1={(val) => setEditForm((prev) => ({ ...prev, cuotaQ1: val }))}
+                        onChangeQ2={(val) => setEditForm((prev) => ({ ...prev, cuotaQ2: val }))}
                       />
                     </div>
                   ) : (
@@ -1217,6 +1881,35 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                             <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", marginTop: 1 }}>
                               {p.cuota != null ? formatMoney(p.cuota) : "—"}
                             </div>
+                            {p.dividirEnQuincenas && p.cuota != null && (
+                              <div style={{ fontSize: 10, color: "var(--sage)", fontWeight: 600, marginTop: 2 }}>
+                                Q1: {formatMoney(p.cuotaQ1 != null ? p.cuotaQ1 : Math.round(p.cuota / 2))} · Q2: {formatMoney(p.cuotaQ2 != null ? p.cuotaQ2 : p.cuota - Math.round(p.cuota / 2))}
+                              </div>
+                            )}
+                            {p.frecuenciaCuota === "Mensual" && p.cuota > 0 && p.estado !== "Pagado" && (
+                              <button
+                                type="button"
+                                onClick={() => abrirModalDividir(p)}
+                                title={p.dividirEnQuincenas ? "Modificar división de cuota entre quincenas" : "Dividir cuota entre Q1 y Q2 para ir más flojo"}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  marginTop: 4,
+                                  padding: "2px 7px",
+                                  borderRadius: 5,
+                                  border: `1px solid ${p.dividirEnQuincenas ? "rgba(16, 185, 129, 0.35)" : "var(--line)"}`,
+                                  background: p.dividirEnQuincenas ? "rgba(16, 185, 129, 0.12)" : "var(--paper)",
+                                  color: p.dividirEnQuincenas ? "var(--sage)" : "var(--ink-soft)",
+                                  fontSize: 10.5,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <Scissors size={10} />
+                                {p.dividirEnQuincenas ? "Dividida (Ajustar)" : "Dividir en 2 quincenas"}
+                              </button>
+                            )}
                           </div>
                           <div>
                             <div style={{ fontSize: 9.5, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Falta por pagar</div>
@@ -1474,6 +2167,14 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
             </div>
           )}
         </div>
+      )}
+
+      {modalDividir && (
+        <ModalDividirCuotaRapido
+          modalDividir={modalDividir}
+          setModalDividir={setModalDividir}
+          onGuardar={guardarModalDividir}
+        />
       )}
     </div>
   );

@@ -1887,6 +1887,9 @@ export async function addPrestamo({
   cuentaDestinoNumero,
   cuentaDestinoBeneficiario,
   cuentaDestinoTipo,
+  dividirEnQuincenas,
+  cuotaQ1,
+  cuotaQ2,
 }) {
   await addDoc(collection(db, "prestamos"), {
     numero,
@@ -1909,6 +1912,9 @@ export async function addPrestamo({
     notificarWhatsapp: !!notificarWhatsapp,
     frecuenciaCuota: frecuenciaCuota || "Mensual",
     cuotasPersonalizadas: cuotasPersonalizadas || [],
+    dividirEnQuincenas: !!dividirEnQuincenas,
+    cuotaQ1: cuotaQ1 != null ? Number(cuotaQ1) : null,
+    cuotaQ2: cuotaQ2 != null ? Number(cuotaQ2) : null,
     metodoPago: metodoPago || "Transferencia",
     cuentaDestinoId: cuentaDestinoId || null,
     cuentaDestinoBanco: cuentaDestinoBanco || "",

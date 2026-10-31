@@ -772,6 +772,28 @@ export default function PresupuestoAnual({
     const overrideEsteMesRaw = overrides[`${mes}-${year}`];
     const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
 
+    if (prestamo.dividirEnQuincenas && prestamo.cuota) {
+      const q1Monto = prestamo.cuotaQ1 != null ? Number(prestamo.cuotaQ1) : Math.round((Number(prestamo.cuota) || 0) / 2);
+      const q2Monto = prestamo.cuotaQ2 != null ? Number(prestamo.cuotaQ2) : (Number(prestamo.cuota) || 0) - q1Monto;
+      const montoQuincena = quincena === "Q1" ? q1Monto : q2Monto;
+
+      let total = 0;
+      const { activo } = celdaPrestamo(prestamo, year, mes);
+      if (activo && !overrideEsteMes) {
+        total += montoQuincena;
+      }
+      for (const destino of Object.values(overrides)) {
+        if (!destino || typeof destino !== "object") continue;
+        if (destino.year === year && destino.month === mes && destino.quincena === quincena) {
+          total += montoQuincena;
+        }
+      }
+      if (pagoRapido?.activo && pagoRapido.deudaId === `p-${prestamo.id}` && total > 0) {
+        total += calcularExtraPagoRapido(mes, quincena);
+      }
+      return total;
+    }
+
     let total = 0;
     const { activo, quincena: q } = celdaPrestamo(prestamo, year, mes);
     if (activo && !overrideEsteMes && q === quincena) {
@@ -2776,6 +2798,22 @@ export default function PresupuestoAnual({
                       >
                         Préstamo {p.numero}
                       </span>
+                      {p.dividirEnQuincenas && !desactivada && (
+                        <span
+                          title={`Cuota dividida en 2 quincenas: Q1 RD$ ${(p.cuotaQ1 != null ? Number(p.cuotaQ1) : (Number(p.cuota) || 0) / 2).toLocaleString("es")} / Q2 RD$ ${(p.cuotaQ2 != null ? Number(p.cuotaQ2) : (Number(p.cuota) || 0) / 2).toLocaleString("es")}`}
+                          style={{
+                            fontSize: 9,
+                            fontWeight: 700,
+                            padding: "1px 4px",
+                            borderRadius: 4,
+                            background: "rgba(16, 185, 129, 0.15)",
+                            color: "var(--sage)",
+                            flexShrink: 0,
+                          }}
+                        >
+                          ½+½
+                        </span>
+                      )}
                       {desactivada && (
                         <span style={{ fontSize: 9, opacity: 0.75, marginLeft: 3, fontStyle: "italic", flexShrink: 0, color: "var(--ink-soft)" }}>
                           (Off)
