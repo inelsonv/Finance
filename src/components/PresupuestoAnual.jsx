@@ -168,6 +168,53 @@ const ICONOS_CATEGORIA = {
   plane: Plane, bus: Bus, music: Music, film: Film, gamepad: Gamepad2, book: BookOpen, receipt: Receipt,
 };
 
+const COL_CATEGORIA_WIDTH = 215;
+
+function MiniSwitch({ checked, onChange, title }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange(!checked);
+      }}
+      title={title || (checked ? "Desactivar de la emulación de presupuesto" : "Activar en el presupuesto")}
+      style={{
+        width: 24,
+        height: 13,
+        borderRadius: 7,
+        border: "none",
+        background: checked ? "var(--sage)" : "rgba(148, 163, 184, 0.35)",
+        position: "relative",
+        cursor: "pointer",
+        padding: 0,
+        flexShrink: 0,
+        transition: "background 0.18s ease",
+        marginRight: 6,
+        outline: "none",
+        display: "inline-block",
+        verticalAlign: "middle",
+      }}
+    >
+      <span
+        style={{
+          position: "absolute",
+          top: 1.5,
+          left: checked ? 12 : 1.5,
+          width: 10,
+          height: 10,
+          borderRadius: "50%",
+          background: "#ffffff",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.35)",
+          transition: "left 0.18s ease",
+        }}
+      />
+    </button>
+  );
+}
+
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
   if (v === 0) return "";
@@ -565,6 +612,79 @@ export default function PresupuestoAnual({
     [tarjetas]
   );
 
+  // Estado de emulación de presupuesto (desactivar / activar categorías y compromisos para simulación de escenarios, ej. saldar deudas en 2027)
+  const [desactivadasEmulacion, setDesactivadasEmulacion] = useState(() => {
+    try {
+      const raw = localStorage.getItem(`smart-finance-emulacion-desactivadas-${year}`);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Al cambiar de año en la navegación, cargar las desactivadas correspondientes a ese año específico
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`smart-finance-emulacion-desactivadas-${year}`);
+      setDesactivadasEmulacion(raw ? new Set(JSON.parse(raw)) : new Set());
+    } catch {
+      setDesactivadasEmulacion(new Set());
+    }
+  }, [year]);
+
+  const toggleEmulacion = (key) => {
+    setDesactivadasEmulacion((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      try {
+        localStorage.setItem(`smart-finance-emulacion-desactivadas-${year}`, JSON.stringify([...next]));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const restablecerEmulacion = () => {
+    setDesactivadasEmulacion(new Set());
+    try {
+      localStorage.removeItem(`smart-finance-emulacion-desactivadas-${year}`);
+    } catch (e) {}
+  };
+
+  const todosCompromisosKeys = useMemo(() => {
+    const keys = [];
+    for (const p of prestamosActivos) keys.push(`prestamo:${p.id}`);
+    for (const c of contratosActivos) keys.push(`contrato:${c.id}`);
+    for (let idx = 0; idx < tarjetasConPagoMinimo.length; idx++) {
+      const t = tarjetasConPagoMinimo[idx];
+      keys.push(`tarjeta:${t.id || idx}-rd`);
+      if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+        keys.push(`tarjeta:${t.id || idx}-usd`);
+      }
+    }
+    return keys;
+  }, [prestamosActivos, contratosActivos, tarjetasConPagoMinimo]);
+
+  const algunCompromisoActivo = todosCompromisosKeys.some((k) => !desactivadasEmulacion.has(k));
+
+  const toggleTodosCompromisos = () => {
+    setDesactivadasEmulacion((prev) => {
+      const next = new Set(prev);
+      if (algunCompromisoActivo) {
+        for (const k of todosCompromisosKeys) next.add(k);
+      } else {
+        for (const k of todosCompromisosKeys) next.delete(k);
+      }
+      try {
+        localStorage.setItem(`smart-finance-emulacion-desactivadas-${year}`, JSON.stringify([...next]));
+      } catch (e) {}
+      return next;
+    });
+  };
+
   const ingresoMensual = useMemo(() => {
     return presupuestoIngresosAnual.regularNetoMensual;
   }, [presupuestoIngresosAnual.regularNetoMensual]);
@@ -818,11 +938,16 @@ export default function PresupuestoAnual({
   };
 
   // Suma de TODOS los préstamos activos juntos, para la fila resumen
-  // colapsable "Compromisos financieros".
+  // colapsable "Compromisos financieros". Excluye los desactivados en la emulación.
   const getCeldaPrestamosTodos = (mes, quincena) =>
-    prestamosActivos.reduce((s, p) => s + getCeldaPrestamo(p, mes, quincena), 0);
+    prestamosActivos
+      .filter((p) => !desactivadasEmulacion.has(`prestamo:${p.id}`))
+      .reduce((s, p) => s + getCeldaPrestamo(p, mes, quincena), 0);
 
-  const totalPrestamosTodos = () => prestamosActivos.reduce((s, p) => s + totalPorPrestamo(p), 0);
+  const totalPrestamosTodos = () =>
+    prestamosActivos
+      .filter((p) => !desactivadasEmulacion.has(`prestamo:${p.id}`))
+      .reduce((s, p) => s + totalPorPrestamo(p), 0);
 
   // Igual que getCeldaPrestamo, pero para un contrato de servicio — usa el
   // día de pago + días de gracia para saber en qué quincena vence
@@ -859,9 +984,14 @@ export default function PresupuestoAnual({
   };
 
   const getCeldaContratosTodos = (mes, quincena) =>
-    contratosActivos.reduce((s, c) => s + getCeldaContrato(c, mes, quincena), 0);
+    contratosActivos
+      .filter((c) => !desactivadasEmulacion.has(`contrato:${c.id}`))
+      .reduce((s, c) => s + getCeldaContrato(c, mes, quincena), 0);
 
-  const totalContratosTodos = () => contratosActivos.reduce((s, c) => s + totalPorContrato(c), 0);
+  const totalContratosTodos = () =>
+    contratosActivos
+      .filter((c) => !desactivadasEmulacion.has(`contrato:${c.id}`))
+      .reduce((s, c) => s + totalPorContrato(c), 0);
 
   // Pago mínimo de tarjetas de crédito dentro de Compromisos Financieros:
   // Usa la fecha de pago (por ejemplo, día 20 de cada mes corresponde a la 2da quincena Q2;
@@ -899,18 +1029,24 @@ export default function PresupuestoAnual({
   };
 
   const getCeldaTarjetasTodas = (mes, quincena) =>
-    tarjetasConPagoMinimo.reduce((s, t) => {
-      let sum = s + getCeldaTarjetaMinimo(t, mes, quincena, "RD");
-      if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+    tarjetasConPagoMinimo.reduce((s, t, idx) => {
+      let sum = s;
+      if (!desactivadasEmulacion.has(`tarjeta:${t.id || idx}-rd`)) {
+        sum += getCeldaTarjetaMinimo(t, mes, quincena, "RD");
+      }
+      if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0 && !desactivadasEmulacion.has(`tarjeta:${t.id || idx}-usd`)) {
         sum += getCeldaTarjetaMinimo(t, mes, quincena, "USD");
       }
       return sum;
     }, 0);
 
   const totalTarjetasTodas = () =>
-    tarjetasConPagoMinimo.reduce((s, t) => {
-      let sum = s + totalPorTarjetaMinimo(t, "RD");
-      if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+    tarjetasConPagoMinimo.reduce((s, t, idx) => {
+      let sum = s;
+      if (!desactivadasEmulacion.has(`tarjeta:${t.id || idx}-rd`)) {
+        sum += totalPorTarjetaMinimo(t, "RD");
+      }
+      if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0 && !desactivadasEmulacion.has(`tarjeta:${t.id || idx}-usd`)) {
         sum += totalPorTarjetaMinimo(t, "USD");
       }
       return sum;
@@ -919,45 +1055,66 @@ export default function PresupuestoAnual({
   const totalPorMes = useMemo(() => {
     const totals = Array(12).fill(0);
     for (const cat of categorias) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesCategoria(cat.nombre, m);
+      if (!desactivadasEmulacion.has(`cat:${cat.nombre}`)) {
+        for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesCategoria(cat.nombre, m);
+      }
     }
     for (const p of prestamosActivos) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesPrestamo(p, m);
+      if (!desactivadasEmulacion.has(`prestamo:${p.id}`)) {
+        for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesPrestamo(p, m);
+      }
     }
     for (const c of contratosActivos) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesContrato(c, m);
+      if (!desactivadasEmulacion.has(`contrato:${c.id}`)) {
+        for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesContrato(c, m);
+      }
     }
-    for (const t of tarjetasConPagoMinimo) {
+    for (let idx = 0; idx < tarjetasConPagoMinimo.length; idx++) {
+      const t = tarjetasConPagoMinimo[idx];
+      const keyRD = `tarjeta:${t.id || idx}-rd`;
+      const keyUSD = `tarjeta:${t.id || idx}-usd`;
       for (let m = 1; m <= 12; m++) {
-        totals[m - 1] += totalMesTarjetaMinimo(t, m, "RD");
-        if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+        if (!desactivadasEmulacion.has(keyRD)) {
+          totals[m - 1] += totalMesTarjetaMinimo(t, m, "RD");
+        }
+        if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0 && !desactivadasEmulacion.has(keyUSD)) {
           totals[m - 1] += totalMesTarjetaMinimo(t, m, "USD");
         }
       }
     }
     for (const meta of metasActivas) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesMeta(meta, m);
+      if (!desactivadasEmulacion.has(`meta:${meta.id}`)) {
+        for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesMeta(meta, m);
+      }
     }
     for (const evento of eventosConGasto) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesEvento(evento, m);
+      if (!desactivadasEmulacion.has(`evento:${evento.categoriaGasto}`)) {
+        for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesEvento(evento, m);
+      }
     }
     for (const orden of ordenesConGasto) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesOrden(orden, m);
+      if (!desactivadasEmulacion.has(`orden:${orden.id}`)) {
+        for (let m = 1; m <= 12; m++) totals[m - 1] += totalMesOrden(orden, m);
+      }
     }
     for (const vacacion of vacacionesConGasto) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaVacacion(vacacion, m, "Q1") + getCeldaVacacion(vacacion, m, "Q2");
+      if (!desactivadasEmulacion.has(`vacacion:${vacacion.categoriaGasto}`)) {
+        for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaVacacion(vacacion, m, "Q1") + getCeldaVacacion(vacacion, m, "Q2");
+      }
     }
     for (const renovacion of renovacionesConGasto) {
-      for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaRenovacion(renovacion, m, "Q1") + getCeldaRenovacion(renovacion, m, "Q2");
+      if (!desactivadasEmulacion.has(`renovacion:${renovacion.categoriaGasto}`)) {
+        for (let m = 1; m <= 12; m++) totals[m - 1] += getCeldaRenovacion(renovacion, m, "Q1") + getCeldaRenovacion(renovacion, m, "Q2");
+      }
     }
-    if (diezmoMensual > 0) {
+    if (diezmoMensual > 0 && !desactivadasEmulacion.has("diezmo")) {
       for (let m = 1; m <= 12; m++) totals[m - 1] += diezmoMensual;
     }
-    if (ahorroMensual > 0) {
+    if (ahorroMensual > 0 && !desactivadasEmulacion.has("ahorro")) {
       for (let m = 1; m <= 12; m++) totals[m - 1] += ahorroMensual;
     }
     return totals;
-  }, [categorias, presupuestoEfectivo, prestamosActivos, contratosActivos, tarjetasConPagoMinimo, tipoCambio, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuestoEfectivo, prestamosActivos, contratosActivos, tarjetasConPagoMinimo, tipoCambio, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta, desactivadasEmulacion]);
 
   const totalPorQuincenaGlobal = useMemo(() => {
     const totals = {};
@@ -965,58 +1122,81 @@ export default function PresupuestoAnual({
       totals[`${m}-Q1`] = 0;
       totals[`${m}-Q2`] = 0;
       for (const cat of categorias) {
-        totals[`${m}-Q1`] += getCelda(cat.nombre, m, "Q1") || 0;
-        totals[`${m}-Q2`] += getCelda(cat.nombre, m, "Q2") || 0;
+        if (!desactivadasEmulacion.has(`cat:${cat.nombre}`)) {
+          totals[`${m}-Q1`] += getCelda(cat.nombre, m, "Q1") || 0;
+          totals[`${m}-Q2`] += getCelda(cat.nombre, m, "Q2") || 0;
+        }
       }
       for (const p of prestamosActivos) {
-        totals[`${m}-Q1`] += getCeldaPrestamo(p, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaPrestamo(p, m, "Q2");
+        if (!desactivadasEmulacion.has(`prestamo:${p.id}`)) {
+          totals[`${m}-Q1`] += getCeldaPrestamo(p, m, "Q1");
+          totals[`${m}-Q2`] += getCeldaPrestamo(p, m, "Q2");
+        }
       }
       for (const c of contratosActivos) {
-        totals[`${m}-Q1`] += getCeldaContrato(c, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaContrato(c, m, "Q2");
+        if (!desactivadasEmulacion.has(`contrato:${c.id}`)) {
+          totals[`${m}-Q1`] += getCeldaContrato(c, m, "Q1");
+          totals[`${m}-Q2`] += getCeldaContrato(c, m, "Q2");
+        }
       }
-      for (const t of tarjetasConPagoMinimo) {
-        totals[`${m}-Q1`] += getCeldaTarjetaMinimo(t, m, "Q1", "RD");
-        totals[`${m}-Q2`] += getCeldaTarjetaMinimo(t, m, "Q2", "RD");
-        if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+      for (let idx = 0; idx < tarjetasConPagoMinimo.length; idx++) {
+        const t = tarjetasConPagoMinimo[idx];
+        const keyRD = `tarjeta:${t.id || idx}-rd`;
+        const keyUSD = `tarjeta:${t.id || idx}-usd`;
+        if (!desactivadasEmulacion.has(keyRD)) {
+          totals[`${m}-Q1`] += getCeldaTarjetaMinimo(t, m, "Q1", "RD");
+          totals[`${m}-Q2`] += getCeldaTarjetaMinimo(t, m, "Q2", "RD");
+        }
+        if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0 && !desactivadasEmulacion.has(keyUSD)) {
           totals[`${m}-Q1`] += getCeldaTarjetaMinimo(t, m, "Q1", "USD");
           totals[`${m}-Q2`] += getCeldaTarjetaMinimo(t, m, "Q2", "USD");
         }
       }
       for (const meta of metasActivas) {
-        totals[`${m}-Q1`] += getCeldaMeta(meta, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaMeta(meta, m, "Q2");
+        if (!desactivadasEmulacion.has(`meta:${meta.id}`)) {
+          totals[`${m}-Q1`] += getCeldaMeta(meta, m, "Q1");
+          totals[`${m}-Q2`] += getCeldaMeta(meta, m, "Q2");
+        }
       }
       for (const evento of eventosConGasto) {
-        totals[`${m}-Q1`] += getCeldaEvento(evento, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaEvento(evento, m, "Q2");
+        if (!desactivadasEmulacion.has(`evento:${evento.categoriaGasto}`)) {
+          totals[`${m}-Q1`] += getCeldaEvento(evento, m, "Q1");
+          totals[`${m}-Q2`] += getCeldaEvento(evento, m, "Q2");
+        }
       }
       for (const orden of ordenesConGasto) {
-        totals[`${m}-Q1`] += getCeldaOrden(orden, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaOrden(orden, m, "Q2");
+        if (!desactivadasEmulacion.has(`orden:${orden.id}`)) {
+          totals[`${m}-Q1`] += getCeldaOrden(orden, m, "Q1");
+          totals[`${m}-Q2`] += getCeldaOrden(orden, m, "Q2");
+        }
       }
       for (const vacacion of vacacionesConGasto) {
-        totals[`${m}-Q1`] += getCeldaVacacion(vacacion, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaVacacion(vacacion, m, "Q2");
+        if (!desactivadasEmulacion.has(`vacacion:${vacacion.categoriaGasto}`)) {
+          totals[`${m}-Q1`] += getCeldaVacacion(vacacion, m, "Q1");
+          totals[`${m}-Q2`] += getCeldaVacacion(vacacion, m, "Q2");
+        }
       }
       for (const renovacion of renovacionesConGasto) {
-        totals[`${m}-Q1`] += getCeldaRenovacion(renovacion, m, "Q1");
-        totals[`${m}-Q2`] += getCeldaRenovacion(renovacion, m, "Q2");
+        if (!desactivadasEmulacion.has(`renovacion:${renovacion.categoriaGasto}`)) {
+          totals[`${m}-Q1`] += getCeldaRenovacion(renovacion, m, "Q1");
+          totals[`${m}-Q2`] += getCeldaRenovacion(renovacion, m, "Q2");
+        }
       }
-      if (diezmoMensual > 0) {
+      if (diezmoMensual > 0 && !desactivadasEmulacion.has("diezmo")) {
         totals[`${m}-Q1`] += getCeldaDiezmo();
         totals[`${m}-Q2`] += getCeldaDiezmo();
       }
-      totals[`${m}-Q1`] += getCeldaTarjetaPendiente(m, "Q1");
-      totals[`${m}-Q2`] += getCeldaTarjetaPendiente(m, "Q2");
-      if (ahorroMensual > 0) {
+      if (!desactivadasEmulacion.has("tarjeta-pendiente")) {
+        totals[`${m}-Q1`] += getCeldaTarjetaPendiente(m, "Q1");
+        totals[`${m}-Q2`] += getCeldaTarjetaPendiente(m, "Q2");
+      }
+      if (ahorroMensual > 0 && !desactivadasEmulacion.has("ahorro")) {
         totals[`${m}-Q1`] += getCeldaAhorroAuto();
         totals[`${m}-Q2`] += getCeldaAhorroAuto();
       }
     }
     return totals;
-  }, [categorias, presupuestoEfectivo, prestamosActivos, contratosActivos, tarjetasConPagoMinimo, tipoCambio, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta]);
+  }, [categorias, presupuestoEfectivo, prestamosActivos, contratosActivos, tarjetasConPagoMinimo, tipoCambio, metasActivas, eventosConGasto, ordenesConGasto, vacacionesConGasto, renovacionesConGasto, diezmoMensual, ahorroMensual, year, ingresoMensual, aportadoPorCuenta, desactivadasEmulacion]);
 
 
   const totalPorCategoria = (categoria) => {
@@ -1064,6 +1244,66 @@ export default function PresupuestoAnual({
   };
 
   const totalAnual = totalPorMes.reduce((s, v) => s + v, 0);
+
+  // Total anual base sin emulación (para calcular la reducción de gastos simulada)
+  const totalAnualBase = useMemo(() => {
+    let sum = 0;
+    for (const cat of categorias) {
+      for (let m = 1; m <= 12; m++) sum += totalMesCategoria(cat.nombre, m);
+    }
+    for (const p of prestamosActivos) {
+      for (let m = 1; m <= 12; m++) sum += totalMesPrestamo(p, m);
+    }
+    for (const c of contratosActivos) {
+      for (let m = 1; m <= 12; m++) sum += totalMesContrato(c, m);
+    }
+    for (let idx = 0; idx < tarjetasConPagoMinimo.length; idx++) {
+      const t = tarjetasConPagoMinimo[idx];
+      for (let m = 1; m <= 12; m++) {
+        sum += totalMesTarjetaMinimo(t, m, "RD");
+        if (t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0) {
+          sum += totalMesTarjetaMinimo(t, m, "USD");
+        }
+      }
+    }
+    for (const meta of metasActivas) {
+      for (let m = 1; m <= 12; m++) sum += totalMesMeta(meta, m);
+    }
+    for (const evento of eventosConGasto) {
+      for (let m = 1; m <= 12; m++) sum += totalMesEvento(evento, m);
+    }
+    for (const orden of ordenesConGasto) {
+      for (let m = 1; m <= 12; m++) sum += totalMesOrden(orden, m);
+    }
+    for (const vacacion of vacacionesConGasto) {
+      for (let m = 1; m <= 12; m++) sum += getCeldaVacacion(vacacion, m, "Q1") + getCeldaVacacion(vacacion, m, "Q2");
+    }
+    for (const renovacion of renovacionesConGasto) {
+      for (let m = 1; m <= 12; m++) sum += getCeldaRenovacion(renovacion, m, "Q1") + getCeldaRenovacion(renovacion, m, "Q2");
+    }
+    if (diezmoMensual > 0) sum += diezmoMensual * 12;
+    if (ahorroMensual > 0) sum += ahorroMensual * 12;
+    return sum;
+  }, [
+    categorias,
+    presupuestoEfectivo,
+    prestamosActivos,
+    contratosActivos,
+    tarjetasConPagoMinimo,
+    tipoCambio,
+    metasActivas,
+    eventosConGasto,
+    ordenesConGasto,
+    vacacionesConGasto,
+    renovacionesConGasto,
+    diezmoMensual,
+    ahorroMensual,
+    year,
+    ingresoMensual,
+    aportadoPorCuenta,
+  ]);
+
+  const reduccionTotalAnual = Math.max(totalAnualBase - totalAnual, 0);
 
   const ingresoQuincenal = ingresoMensual / 2;
 
@@ -1929,6 +2169,85 @@ export default function PresupuestoAnual({
         </div>
       </div>
 
+      {/* Banner de Emulación / Simulación activa */}
+      {desactivadasEmulacion.size > 0 && (
+        <div
+          style={{
+            marginBottom: 14,
+            padding: "10px 14px",
+            borderRadius: 10,
+            background: "linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%)",
+            border: "1.5px dashed rgba(139, 92, 246, 0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 10,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "#8b5cf6",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                boxShadow: "0 2px 6px rgba(139, 92, 246, 0.3)",
+              }}
+            >
+              <Sliders size={16} />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span>Simulación de presupuesto {year} activa</span>
+                <span
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 700,
+                    padding: "2px 7px",
+                    borderRadius: 8,
+                    background: "rgba(139, 92, 246, 0.2)",
+                    color: "#8b5cf6",
+                  }}
+                >
+                  {desactivadasEmulacion.size} {desactivadasEmulacion.size === 1 ? "concepto desactivado" : "conceptos desactivados"}
+                </span>
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 2 }}>
+                Gasto reducido: <strong style={{ color: "var(--sage)" }}>-${formatMoney(reduccionTotalAnual)} / año</strong> (unos <strong style={{ color: "var(--sage)" }}>-${formatMoney(Math.round(reduccionTotalAnual / 24))} / quincena</strong>). El presupuesto y balance neto reflejan este escenario.
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={restablecerEmulacion}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 8,
+              border: "1px solid rgba(139, 92, 246, 0.4)",
+              background: "var(--card)",
+              color: "#8b5cf6",
+              fontWeight: 600,
+              fontSize: 11.5,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
+              transition: "all 0.15s ease",
+            }}
+            title={`Restablecer todas las categorías y compromisos al presupuesto base de ${year}`}
+          >
+            <Repeat size={12} />
+            Restablecer todas ({year})
+          </button>
+        </div>
+      )}
+
       {comparacionActual.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <button
@@ -1998,14 +2317,19 @@ export default function PresupuestoAnual({
                   fontFamily: "Inter, sans-serif",
                   fontWeight: 600,
                   fontSize: 12,
-                  minWidth: 185,
-                  width: 185,
-                  maxWidth: 185,
+                  minWidth: COL_CATEGORIA_WIDTH,
+                  width: COL_CATEGORIA_WIDTH,
+                  maxWidth: COL_CATEGORIA_WIDTH,
                   boxSizing: "border-box",
                   whiteSpace: "nowrap",
                 }}
               >
-                Categoría
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                  <span>Categoría / Obligación</span>
+                  <span style={{ fontSize: 9.5, color: "var(--ink-soft)", fontWeight: 500 }} title="Usa el switch junto a cada concepto para simular exclusiones">
+                    Simular
+                  </span>
+                </div>
               </th>
               {CONFIG_TRIMESTRES.map((t, tIdx) => (
                 <th
@@ -2137,164 +2461,218 @@ export default function PresupuestoAnual({
             </tr>
           </thead>
           <tbody>
-            {categorias.map((cat, rowIdx) => (
-              <tr key={cat.nombre} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
-                <td
-                  className="presupuesto-col-sticky"
+            {categorias.map((cat, rowIdx) => {
+              const desactivada = desactivadasEmulacion.has(`cat:${cat.nombre}`);
+              return (
+                <tr
+                  key={cat.nombre}
                   style={{
-                    position: "sticky",
-                    left: 0,
-                    background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                    padding: "6px 10px",
-                    borderRight: "1px solid var(--line)",
-                    borderBottom: "1px solid var(--line-soft)",
-                    fontFamily: "Inter, sans-serif",
-                    fontSize: 12.5,
-                    color: cat.color || (cat.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)"),
-                    minWidth: 185,
-                    width: 185,
-                    maxWidth: 185,
-                    boxSizing: "border-box",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
+                    background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                    opacity: desactivada ? 0.45 : 1,
+                    transition: "opacity 0.2s ease",
                   }}
-                  title={`${cat.nombre} (${cat.clasificacion || "Categoría"})`}
                 >
-                  <div style={{ display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {(() => {
-                      const IconoCategoria = ICONOS_CATEGORIA[iconoParaCategoria(cat.nombre)] || Receipt;
-                      return <IconoCategoria size={13} style={{ display: "inline-block", flexShrink: 0, marginRight: 6, color: cat.color || "var(--ink-soft)" }} />;
-                    })()}
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={cat.nombre}>{abreviarNombreCategoria(cat.nombre)}</span>
-                    {eventosConGasto.some((e) => e.categoriaGasto === cat.nombre) && (
-                      <span title="Esta categoría también tiene eventos del calendario sumados a su total" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
-                        <CalendarIcon size={10} style={{ display: "inline-block" }} />
-                      </span>
-                    )}
-                    {cat.agruparConCompromisos && (
-                      <span title="Agrupada junto a Compromisos financieros" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
-                        <Landmark size={10} style={{ display: "inline-block" }} />
-                      </span>
-                    )}
-                    {cat.soloAsignablePorPuntos && (
-                      <span title="Solo se puede asignar presupuesto canjeando puntos" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
-                        <Lock size={10} style={{ display: "inline-block" }} />
-                      </span>
-                    )}
-                  </div>
-                </td>
-                {MESES.map((_, i) => {
-                  const mes = i + 1;
-                  const trimestre = obtenerTrimestreMes(i);
-                  return QUINCENAS.map((q) => {
-                    const key = `${cat.nombre}-${mes}-${q}`;
-                    const val = getCelda(cat.nombre, mes, q);
-                    const montoEvento = getCeldaEventoCategoria(cat.nombre, mes, q);
-                    const nota = notasPorCelda[key];
-                    const bloqueada = cat.soloAsignablePorPuntos;
-                    const tooltipTexto = bloqueada
-                      ? "Esta categoría solo se puede asignar canjeando puntos, en el módulo de Puntos"
-                      : montoEvento > 0
-                      ? `Presupuesto base: ${val != null ? formatMoney(val) : "—"} · Agendado en Calendario: ${formatMoney(montoEvento)} (Total quincena: ${formatMoney((val || 0) + montoEvento)})`
-                      : nota || undefined;
-                    const esInicioTrimestre = i % 3 === 0 && q === "Q1";
-                    return (
-                      <td
-                        key={key}
+                  <td
+                    className="presupuesto-col-sticky"
+                    style={{
+                      position: "sticky",
+                      left: 0,
+                      background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
+                      padding: "6px 8px",
+                      borderRight: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      fontFamily: "Inter, sans-serif",
+                      fontSize: 12.5,
+                      color: cat.color || (cat.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)"),
+                      minWidth: COL_CATEGORIA_WIDTH,
+                      width: COL_CATEGORIA_WIDTH,
+                      maxWidth: COL_CATEGORIA_WIDTH,
+                      boxSizing: "border-box",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                    title={`${cat.nombre} (${cat.clasificacion || "Categoría"})${desactivada ? " — Desactivada en la simulación" : ""}`}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <MiniSwitch
+                        checked={!desactivada}
+                        onChange={() => toggleEmulacion(`cat:${cat.nombre}`)}
+                        title={desactivada ? `Activar ${cat.nombre} en el presupuesto` : `Desactivar ${cat.nombre} de la simulación`}
+                      />
+                      {(() => {
+                        const IconoCategoria = ICONOS_CATEGORIA[iconoParaCategoria(cat.nombre)] || Receipt;
+                        return <IconoCategoria size={13} style={{ display: "inline-block", flexShrink: 0, marginRight: 6, color: cat.color || "var(--ink-soft)" }} />;
+                      })()}
+                      <span
                         style={{
-                          borderBottom: "1px solid var(--line-soft)",
-                          borderLeft: esInicioTrimestre
-                            ? `2.5px solid ${trimestre.bordeColor}55`
-                            : q === "Q1"
-                            ? "1px solid var(--line-soft)"
-                            : "none",
-                          padding: 0,
-                          position: "relative",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          textDecoration: desactivada ? "line-through" : "none",
                         }}
-                        title={tooltipTexto}
+                        title={cat.nombre}
                       >
-                        <CeldaPresupuestoInput
-                          val={val}
-                          montoEvento={montoEvento}
-                          bloqueada={bloqueada}
-                          tooltipTexto={tooltipTexto}
-                          savingKey={savingKey}
-                          cellKey={key}
-                          cellStyle={cellStyle}
-                          nota={nota}
-                          onSave={(num) => handleBlur(cat.nombre, mes, q, num)}
-                        />
-                        {montoEvento > 0 && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              bottom: 1,
-                              right: 2,
-                              fontSize: 8.5,
-                              fontWeight: 700,
-                              color: "var(--amber)",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                              pointerEvents: "none",
-                              lineHeight: 1,
+                        {abreviarNombreCategoria(cat.nombre)}
+                      </span>
+                      {desactivada && (
+                        <span style={{ fontSize: 9, opacity: 0.75, marginLeft: 3, fontStyle: "italic", flexShrink: 0, color: "var(--ink-soft)" }}>
+                          (Off)
+                        </span>
+                      )}
+                      {eventosConGasto.some((e) => e.categoriaGasto === cat.nombre) && (
+                        <span title="Esta categoría también tiene eventos del calendario sumados a su total" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
+                          <CalendarIcon size={10} style={{ display: "inline-block" }} />
+                        </span>
+                      )}
+                      {cat.agruparConCompromisos && (
+                        <span title="Agrupada junto a Compromisos financieros" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
+                          <Landmark size={10} style={{ display: "inline-block" }} />
+                        </span>
+                      )}
+                      {cat.soloAsignablePorPuntos && (
+                        <span title="Solo se puede asignar presupuesto canjeando puntos" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
+                          <Lock size={10} style={{ display: "inline-block" }} />
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  {MESES.map((_, i) => {
+                    const mes = i + 1;
+                    const trimestre = obtenerTrimestreMes(i);
+                    return QUINCENAS.map((q) => {
+                      const key = `${cat.nombre}-${mes}-${q}`;
+                      const val = getCelda(cat.nombre, mes, q);
+                      const montoEvento = getCeldaEventoCategoria(cat.nombre, mes, q);
+                      const nota = notasPorCelda[key];
+                      const bloqueada = cat.soloAsignablePorPuntos;
+                      const tooltipTexto = bloqueada
+                        ? "Esta categoría solo se puede asignar canjeando puntos, en el módulo de Puntos"
+                        : montoEvento > 0
+                        ? `Presupuesto base: ${val != null ? formatMoney(val) : "—"} · Agendado en Calendario: ${formatMoney(montoEvento)} (Total quincena: ${formatMoney((val || 0) + montoEvento)})`
+                        : nota || undefined;
+                      const esInicioTrimestre = i % 3 === 0 && q === "Q1";
+                      return (
+                        <td
+                          key={key}
+                          style={{
+                            borderBottom: "1px solid var(--line-soft)",
+                            borderLeft: esInicioTrimestre
+                              ? `2.5px solid ${trimestre.bordeColor}55`
+                              : q === "Q1"
+                              ? "1px solid var(--line-soft)"
+                              : "none",
+                            padding: 0,
+                            position: "relative",
+                          }}
+                          title={tooltipTexto}
+                        >
+                          <CeldaPresupuestoInput
+                            val={val}
+                            montoEvento={montoEvento}
+                            bloqueada={bloqueada}
+                            tooltipTexto={tooltipTexto}
+                            savingKey={savingKey}
+                            cellKey={key}
+                            cellStyle={{
+                              ...cellStyle,
+                              textDecoration: desactivada ? "line-through" : "none",
                             }}
-                            title={`Agendado en Calendario: +${formatMoney(montoEvento)}`}
-                          >
-                            <CalendarIcon size={8} />+{Math.round(montoEvento).toLocaleString()}
-                          </div>
-                        )}
-                      </td>
-                    );
-                  });
-                })}
-                <td
-                  style={{
-                    borderLeft: "1px solid var(--line)",
-                    borderBottom: "1px solid var(--line-soft)",
-                    padding: "7px 10px",
-                    textAlign: "right",
-                    fontWeight: 600,
-                    background: "var(--sage-bg)",
-                    color: "var(--sage)",
-                  }}
-                >
-                  {formatMoney(totalPorCategoria(cat.nombre)) || "0"}
-                </td>
-              </tr>
-            ))}
+                            nota={nota}
+                            onSave={(num) => handleBlur(cat.nombre, mes, q, num)}
+                          />
+                          {montoEvento > 0 && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                bottom: 1,
+                                right: 2,
+                                fontSize: 8.5,
+                                fontWeight: 700,
+                                color: "var(--amber)",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                                pointerEvents: "none",
+                                lineHeight: 1,
+                              }}
+                              title={`Agendado en Calendario: +${formatMoney(montoEvento)}`}
+                            >
+                              <CalendarIcon size={8} />+{Math.round(montoEvento).toLocaleString()}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    });
+                  })}
+                  <td
+                    style={{
+                      borderLeft: "1px solid var(--line)",
+                      borderBottom: "1px solid var(--line-soft)",
+                      padding: "7px 10px",
+                      textAlign: "right",
+                      fontWeight: 600,
+                      background: "var(--sage-bg)",
+                      color: "var(--sage)",
+                      textDecoration: desactivada ? "line-through" : "none",
+                      opacity: desactivada ? 0.45 : 1,
+                    }}
+                    title={desactivada ? "Excluido de la suma de presupuesto (simulación en $0)" : undefined}
+                  >
+                    {formatMoney(totalPorCategoria(cat.nombre)) || "0"}
+                  </td>
+                </tr>
+              );
+            })}
             {(prestamosActivos.length > 0 || contratosActivos.length > 0 || tarjetasConPagoMinimo.length > 0) && (
               <tr style={{ background: "transparent" }}>
                 <td
                   className="presupuesto-col-sticky"
-                  onClick={() => setMostrarPrestamos((s) => !s)}
                   style={{
                     position: "sticky",
                     left: 0,
                     background: "var(--stamp-bg)",
-                    padding: "6px 10px",
+                    padding: "6px 8px",
                     borderRight: "1px solid var(--line)",
                     borderBottom: "1px solid var(--line-soft)",
                     fontFamily: "Inter, sans-serif",
                     fontSize: 12.5,
                     fontWeight: 600,
                     color: "var(--stamp)",
-                    cursor: "pointer",
-                    minWidth: 185,
-                    width: 185,
-                    maxWidth: 185,
+                    minWidth: COL_CATEGORIA_WIDTH,
+                    width: COL_CATEGORIA_WIDTH,
+                    maxWidth: COL_CATEGORIA_WIDTH,
                     boxSizing: "border-box",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                   }}
-                  title="Compromisos financieros (clic para ver el detalle de préstamos, contratos y tarjetas)"
+                  title="Compromisos financieros (usa el switch para activar o desactivar todos juntos, o despliega para elegir individualmente)"
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {mostrarPrestamos ? <ChevronUp size={12} style={{ flexShrink: 0 }} /> : <ChevronDown size={12} style={{ flexShrink: 0 }} />}
-                    <Landmark size={11} style={{ flexShrink: 0 }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title="Compromisos financieros">{abreviarNombreCategoria("Compromisos financieros")}</span>
+                    <MiniSwitch
+                      checked={algunCompromisoActivo}
+                      onChange={toggleTodosCompromisos}
+                      title={algunCompromisoActivo ? "Desactivar todos los compromisos financieros de la simulación" : "Activar todos los compromisos financieros"}
+                    />
+                    <div
+                      onClick={() => setMostrarPrestamos((s) => !s)}
+                      style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}
+                    >
+                      {mostrarPrestamos ? <ChevronUp size={12} style={{ flexShrink: 0 }} /> : <ChevronDown size={12} style={{ flexShrink: 0 }} />}
+                      <Landmark size={11} style={{ flexShrink: 0 }} />
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          textDecoration: !algunCompromisoActivo ? "line-through" : "none",
+                        }}
+                        title="Compromisos financieros"
+                      >
+                        {abreviarNombreCategoria("Compromisos financieros")}
+                      </span>
+                    </div>
                   </div>
                 </td>
                 {MESES.map((_, i) => {
@@ -2317,7 +2695,8 @@ export default function PresupuestoAnual({
                           textAlign: "right",
                           fontWeight: 600,
                           color: "var(--stamp)",
-                          opacity: val ? 1 : 0.35,
+                          opacity: !algunCompromisoActivo ? 0.25 : (val ? 1 : 0.35),
+                          textDecoration: !algunCompromisoActivo ? "line-through" : "none",
                         }}
                       >
                         {formatMoney(val) || "—"}
@@ -2334,6 +2713,8 @@ export default function PresupuestoAnual({
                     fontWeight: 700,
                     background: "var(--stamp-bg)",
                     color: "var(--stamp)",
+                    opacity: !algunCompromisoActivo ? 0.45 : 1,
+                    textDecoration: !algunCompromisoActivo ? "line-through" : "none",
                   }}
                 >
                   {formatMoney(totalPrestamosTodos() + totalContratosTodos() + totalTarjetasTodas()) || "0"}
@@ -2343,23 +2724,31 @@ export default function PresupuestoAnual({
             {mostrarPrestamos &&
               prestamosActivos.map((p, idx) => {
               const rowIdx = categorias.length + idx;
+              const desactivada = desactivadasEmulacion.has(`prestamo:${p.id}`);
               return (
-                <tr key={`prestamo-${p.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                <tr
+                  key={`prestamo-${p.id}`}
+                  style={{
+                    background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                    opacity: desactivada ? 0.45 : 1,
+                    transition: "opacity 0.2s ease",
+                  }}
+                >
                   <td
                     className="presupuesto-col-sticky"
                     style={{
                       position: "sticky",
                       left: 0,
                       background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                      padding: "6px 10px 6px 20px",
+                      padding: "6px 8px 6px 14px",
                       borderRight: "1px solid var(--line)",
                       borderBottom: "1px solid var(--line-soft)",
                       fontFamily: "Inter, sans-serif",
                       fontSize: 12,
                       color: "var(--stamp)",
-                      minWidth: 185,
-                      width: 185,
-                      maxWidth: 185,
+                      minWidth: COL_CATEGORIA_WIDTH,
+                      width: COL_CATEGORIA_WIDTH,
+                      maxWidth: COL_CATEGORIA_WIDTH,
                       boxSizing: "border-box",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -2368,11 +2757,30 @@ export default function PresupuestoAnual({
                     title={`Calculado automáticamente desde Préstamos${(() => {
                       const entidad = entidades.find((e) => e.docId === p.entidadId);
                       return entidad ? ` — Entidad: ${entidad.name}` : "";
-                    })()}`}
+                    })()}${desactivada ? " — Desactivado en la simulación" : ""}`}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <MiniSwitch
+                        checked={!desactivada}
+                        onChange={() => toggleEmulacion(`prestamo:${p.id}`)}
+                        title={desactivada ? `Activar Préstamo ${p.numero} en el presupuesto` : `Desactivar Préstamo ${p.numero} de la simulación`}
+                      />
                       <Landmark size={10} style={{ flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Préstamo {p.numero}</span>
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          textDecoration: desactivada ? "line-through" : "none",
+                        }}
+                      >
+                        Préstamo {p.numero}
+                      </span>
+                      {desactivada && (
+                        <span style={{ fontSize: 9, opacity: 0.75, marginLeft: 3, fontStyle: "italic", flexShrink: 0, color: "var(--ink-soft)" }}>
+                          (Off)
+                        </span>
+                      )}
                     </div>
                   </td>
                   {MESES.map((_, i) => {
@@ -2394,7 +2802,8 @@ export default function PresupuestoAnual({
                             padding: "6px 4px",
                             textAlign: "right",
                             color: "var(--stamp)",
-                            opacity: val ? 1 : 0.35,
+                            opacity: desactivada ? 0.25 : (val ? 1 : 0.35),
+                            textDecoration: desactivada ? "line-through" : "none",
                           }}
                         >
                           {formatMoney(val) || "—"}
@@ -2411,7 +2820,10 @@ export default function PresupuestoAnual({
                       fontWeight: 600,
                       background: "var(--stamp-bg)",
                       color: "var(--stamp)",
+                      opacity: desactivada ? 0.45 : 1,
+                      textDecoration: desactivada ? "line-through" : "none",
                     }}
+                    title={desactivada ? "Excluido del presupuesto (simulación en $0)" : undefined}
                   >
                     {formatMoney(totalPorPrestamo(p)) || "0"}
                   </td>
@@ -2421,33 +2833,61 @@ export default function PresupuestoAnual({
             {mostrarPrestamos &&
               contratosActivos.map((c, idx) => {
               const rowIdx = categorias.length + prestamosActivos.length + idx;
+              const desactivada = desactivadasEmulacion.has(`contrato:${c.id}`);
               return (
-                <tr key={`contrato-${c.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                <tr
+                  key={`contrato-${c.id}`}
+                  style={{
+                    background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                    opacity: desactivada ? 0.45 : 1,
+                    transition: "opacity 0.2s ease",
+                  }}
+                >
                   <td
                     className="presupuesto-col-sticky"
                     style={{
                       position: "sticky",
                       left: 0,
                       background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                      padding: "6px 10px 6px 20px",
+                      padding: "6px 8px 6px 14px",
                       borderRight: "1px solid var(--line)",
                       borderBottom: "1px solid var(--line-soft)",
                       fontFamily: "Inter, sans-serif",
                       fontSize: 12,
                       color: "var(--stamp)",
-                      minWidth: 185,
-                      width: 185,
-                      maxWidth: 185,
+                      minWidth: COL_CATEGORIA_WIDTH,
+                      width: COL_CATEGORIA_WIDTH,
+                      maxWidth: COL_CATEGORIA_WIDTH,
                       boxSizing: "border-box",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                     }}
-                    title={`Calculado automáticamente desde Contratos (día ${c.diaPago}${c.diasGracia ? ` + ${c.diasGracia} días de gracia` : ""})${c.entidadName ? ` — Entidad: ${c.entidadName}` : ""}`}
+                    title={`Calculado automáticamente desde Contratos (día ${c.diaPago}${c.diasGracia ? ` + ${c.diasGracia} días de gracia` : ""})${c.entidadName ? ` — Entidad: ${c.entidadName}` : ""}${desactivada ? " — Desactivado en la simulación" : ""}`}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <MiniSwitch
+                        checked={!desactivada}
+                        onChange={() => toggleEmulacion(`contrato:${c.id}`)}
+                        title={desactivada ? `Activar Contrato ${c.nombre} en el presupuesto` : `Desactivar Contrato ${c.nombre} de la simulación`}
+                      />
                       <FileText size={10} style={{ flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`Contrato ${c.nombre}`}>Contrato {abreviarNombreCategoria(c.nombre)}</span>
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          textDecoration: desactivada ? "line-through" : "none",
+                        }}
+                        title={`Contrato ${c.nombre}`}
+                      >
+                        Contrato {abreviarNombreCategoria(c.nombre)}
+                      </span>
+                      {desactivada && (
+                        <span style={{ fontSize: 9, opacity: 0.75, marginLeft: 3, fontStyle: "italic", flexShrink: 0, color: "var(--ink-soft)" }}>
+                          (Off)
+                        </span>
+                      )}
                     </div>
                   </td>
                   {MESES.map((_, i) => {
@@ -2469,7 +2909,8 @@ export default function PresupuestoAnual({
                             padding: "6px 4px",
                             textAlign: "right",
                             color: "var(--stamp)",
-                            opacity: val ? 1 : 0.35,
+                            opacity: desactivada ? 0.25 : (val ? 1 : 0.35),
+                            textDecoration: desactivada ? "line-through" : "none",
                           }}
                         >
                           {formatMoney(val) || "—"}
@@ -2486,7 +2927,10 @@ export default function PresupuestoAnual({
                       fontWeight: 600,
                       background: "var(--stamp-bg)",
                       color: "var(--stamp)",
+                      opacity: desactivada ? 0.45 : 1,
+                      textDecoration: desactivada ? "line-through" : "none",
                     }}
+                    title={desactivada ? "Excluido del presupuesto (simulación en $0)" : undefined}
                   >
                     {formatMoney(totalPorContrato(c)) || "0"}
                   </td>
@@ -2500,38 +2944,64 @@ export default function PresupuestoAnual({
                 const rowIdx = categorias.length + prestamosActivos.length + contratosActivos.length + idx * 2;
                 const tieneUSD = t.tieneMonedaSecundaria && Number(t.pagoMinimoUSD) > 0;
                 const tieneRD = (Number(t.pagoMinimo) || 0) > 0 || !tieneUSD;
+                const desactivadaRD = desactivadasEmulacion.has(`tarjeta:${t.id || idx}-rd`);
+                const desactivadaUSD = desactivadasEmulacion.has(`tarjeta:${t.id || idx}-usd`);
 
                 return (
                   <React.Fragment key={`tarjeta-minimo-${t.id || idx}`}>
                     {tieneRD && (
-                      <tr style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                      <tr
+                        style={{
+                          background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                          opacity: desactivadaRD ? 0.45 : 1,
+                          transition: "opacity 0.2s ease",
+                        }}
+                      >
                         <td
                           className="presupuesto-col-sticky"
                           style={{
                             position: "sticky",
                             left: 0,
                             background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                            padding: "6px 10px 6px 20px",
+                            padding: "6px 8px 6px 14px",
                             borderRight: "1px solid var(--line)",
                             borderBottom: "1px solid var(--line-soft)",
                             fontFamily: "Inter, sans-serif",
                             fontSize: 12,
                             color: "var(--stamp)",
-                            minWidth: 185,
-                            width: 185,
-                            maxWidth: 185,
+                            minWidth: COL_CATEGORIA_WIDTH,
+                            width: COL_CATEGORIA_WIDTH,
+                            maxWidth: COL_CATEGORIA_WIDTH,
                             boxSizing: "border-box",
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                           }}
-                          title={`Pago mínimo de tarjeta: ${t.nombre || "Tarjeta"}${t.banco ? ` · ${t.banco}` : ""} (vence día ${diaPago} · ${quincenaEfectiva})`}
+                          title={`Pago mínimo de tarjeta: ${t.nombre || "Tarjeta"}${t.banco ? ` · ${t.banco}` : ""} (vence día ${diaPago} · ${quincenaEfectiva})${desactivadaRD ? " — Desactivado en la simulación" : ""}`}
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <MiniSwitch
+                              checked={!desactivadaRD}
+                              onChange={() => toggleEmulacion(`tarjeta:${t.id || idx}-rd`)}
+                              title={desactivadaRD ? `Activar pago mínimo de ${t.nombre || "Tarjeta"} en el presupuesto` : `Desactivar pago mínimo de ${t.nombre || "Tarjeta"} de la simulación`}
+                            />
                             <CreditCard size={10} style={{ flexShrink: 0 }} />
-                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`Mín. ${t.nombre || "Tarjeta"}`}>
+                            <span
+                              style={{
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                textDecoration: desactivadaRD ? "line-through" : "none",
+                              }}
+                              title={`Mín. ${t.nombre || "Tarjeta"}`}
+                            >
                               Mín. {abreviarNombreCategoria(t.nombre || "Tarjeta")}
                             </span>
+                            {desactivadaRD && (
+                              <span style={{ fontSize: 9, opacity: 0.75, marginLeft: 3, fontStyle: "italic", flexShrink: 0, color: "var(--ink-soft)" }}>
+                                (Off)
+                              </span>
+                            )}
                           </div>
                         </td>
                         {MESES.map((_, i) => {
@@ -2553,7 +3023,8 @@ export default function PresupuestoAnual({
                                   padding: "6px 4px",
                                   textAlign: "right",
                                   color: "var(--stamp)",
-                                  opacity: val ? 1 : 0.35,
+                                  opacity: desactivadaRD ? 0.25 : (val ? 1 : 0.35),
+                                  textDecoration: desactivadaRD ? "line-through" : "none",
                                 }}
                               >
                                 {formatMoney(val) || "—"}
@@ -2570,41 +3041,68 @@ export default function PresupuestoAnual({
                             fontWeight: 600,
                             background: "var(--stamp-bg)",
                             color: "var(--stamp)",
+                            opacity: desactivadaRD ? 0.45 : 1,
+                            textDecoration: desactivadaRD ? "line-through" : "none",
                           }}
+                          title={desactivadaRD ? "Excluido del presupuesto (simulación en $0)" : undefined}
                         >
                           {formatMoney(totalPorTarjetaMinimo(t, "RD")) || "0"}
                         </td>
                       </tr>
                     )}
                     {tieneUSD && (
-                      <tr style={{ background: (rowIdx + 1) % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                      <tr
+                        style={{
+                          background: (rowIdx + 1) % 2 === 0 ? "transparent" : "var(--paper)",
+                          opacity: desactivadaUSD ? 0.45 : 1,
+                          transition: "opacity 0.2s ease",
+                        }}
+                      >
                         <td
                           className="presupuesto-col-sticky"
                           style={{
                             position: "sticky",
                             left: 0,
                             background: (rowIdx + 1) % 2 === 0 ? "var(--card)" : "var(--paper)",
-                            padding: "6px 10px 6px 20px",
+                            padding: "6px 8px 6px 14px",
                             borderRight: "1px solid var(--line)",
                             borderBottom: "1px solid var(--line-soft)",
                             fontFamily: "Inter, sans-serif",
                             fontSize: 12,
                             color: "var(--stamp)",
-                            minWidth: 185,
-                            width: 185,
-                            maxWidth: 185,
+                            minWidth: COL_CATEGORIA_WIDTH,
+                            width: COL_CATEGORIA_WIDTH,
+                            maxWidth: COL_CATEGORIA_WIDTH,
                             boxSizing: "border-box",
                             whiteSpace: "nowrap",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                           }}
-                          title={`Pago mínimo USD: US$ ${Number(t.pagoMinimoUSD || 0).toFixed(2)} (tasa ~${tipoCambio || 60.3}) · vence día ${diaPago} (${quincenaEfectiva})`}
+                          title={`Pago mínimo USD: US$ ${Number(t.pagoMinimoUSD || 0).toFixed(2)} (tasa ~${tipoCambio || 60.3}) · vence día ${diaPago} (${quincenaEfectiva})${desactivadaUSD ? " — Desactivado en la simulación" : ""}`}
                         >
                           <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <MiniSwitch
+                              checked={!desactivadaUSD}
+                              onChange={() => toggleEmulacion(`tarjeta:${t.id || idx}-usd`)}
+                              title={desactivadaUSD ? `Activar pago mínimo USD de ${t.nombre || "Tarjeta"} en el presupuesto` : `Desactivar pago mínimo USD de ${t.nombre || "Tarjeta"} de la simulación`}
+                            />
                             <CreditCard size={10} style={{ flexShrink: 0 }} />
-                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`Mín. ${t.nombre || "Tarjeta"} (USD)`}>
+                            <span
+                              style={{
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                textDecoration: desactivadaUSD ? "line-through" : "none",
+                              }}
+                              title={`Mín. ${t.nombre || "Tarjeta"} (USD)`}
+                            >
                               Mín. {abreviarNombreCategoria(t.nombre || "Tarjeta")} (USD)
                             </span>
+                            {desactivadaUSD && (
+                              <span style={{ fontSize: 9, opacity: 0.75, marginLeft: 3, fontStyle: "italic", flexShrink: 0, color: "var(--ink-soft)" }}>
+                                (Off)
+                              </span>
+                            )}
                           </div>
                         </td>
                         {MESES.map((_, i) => {
@@ -2626,7 +3124,8 @@ export default function PresupuestoAnual({
                                   padding: "6px 4px",
                                   textAlign: "right",
                                   color: "var(--stamp)",
-                                  opacity: val ? 1 : 0.35,
+                                  opacity: desactivadaUSD ? 0.25 : (val ? 1 : 0.35),
+                                  textDecoration: desactivadaUSD ? "line-through" : "none",
                                 }}
                                 title={val > 0 ? `US$ ${Number(t.pagoMinimoUSD || 0).toFixed(2)}` : undefined}
                               >
@@ -2644,8 +3143,10 @@ export default function PresupuestoAnual({
                             fontWeight: 600,
                             background: "var(--stamp-bg)",
                             color: "var(--stamp)",
+                            opacity: desactivadaUSD ? 0.45 : 1,
+                            textDecoration: desactivadaUSD ? "line-through" : "none",
                           }}
-                          title={`US$ ${(Number(t.pagoMinimoUSD || 0) * 12).toFixed(2)} / año`}
+                          title={`US$ ${(Number(t.pagoMinimoUSD || 0) * 12).toFixed(2)} / año${desactivadaUSD ? " (excluido en simulación)" : ""}`}
                         >
                           {formatMoney(totalPorTarjetaMinimo(t, "USD")) || "0"}
                         </td>
@@ -2656,33 +3157,61 @@ export default function PresupuestoAnual({
               })}
             {metasActivas.map((meta, idx) => {
               const rowIdx = categorias.length + prestamosActivos.length + idx;
+              const desactivada = desactivadasEmulacion.has(`meta:${meta.id}`);
               return (
-                <tr key={`meta-${meta.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                <tr
+                  key={`meta-${meta.id}`}
+                  style={{
+                    background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                    opacity: desactivada ? 0.45 : 1,
+                    transition: "opacity 0.2s ease",
+                  }}
+                >
                   <td
                     className="presupuesto-col-sticky"
                     style={{
                       position: "sticky",
                       left: 0,
                       background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                      padding: "6px 10px",
+                      padding: "6px 8px",
                       borderRight: "1px solid var(--line)",
                       borderBottom: "1px solid var(--line-soft)",
                       fontFamily: "Inter, sans-serif",
                       fontSize: 12.5,
                       color: "var(--sage)",
-                      minWidth: 185,
-                      width: 185,
-                      maxWidth: 185,
+                      minWidth: COL_CATEGORIA_WIDTH,
+                      width: COL_CATEGORIA_WIDTH,
+                      maxWidth: COL_CATEGORIA_WIDTH,
                       boxSizing: "border-box",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                     }}
-                    title="Calculado automáticamente desde Ahorro"
+                    title={`Calculado automáticamente desde Ahorro${desactivada ? " — Desactivada en la simulación" : ""}`}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <MiniSwitch
+                        checked={!desactivada}
+                        onChange={() => toggleEmulacion(`meta:${meta.id}`)}
+                        title={desactivada ? `Activar Meta ${meta.nombre} en el presupuesto` : `Desactivar Meta ${meta.nombre} de la simulación`}
+                      />
                       <PiggyBank size={11} style={{ flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`Meta: ${meta.nombre}`}>Meta: {abreviarNombreCategoria(meta.nombre)}</span>
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          textDecoration: desactivada ? "line-through" : "none",
+                        }}
+                        title={`Meta: ${meta.nombre}`}
+                      >
+                        Meta: {abreviarNombreCategoria(meta.nombre)}
+                      </span>
+                      {desactivada && (
+                        <span style={{ fontSize: 9, opacity: 0.75, marginLeft: 3, fontStyle: "italic", flexShrink: 0, color: "var(--ink-soft)" }}>
+                          (Off)
+                        </span>
+                      )}
                     </div>
                   </td>
                   {MESES.map((_, i) => {
@@ -2704,7 +3233,8 @@ export default function PresupuestoAnual({
                             padding: "6px 4px",
                             textAlign: "right",
                             color: "var(--sage)",
-                            opacity: val ? 1 : 0.35,
+                            opacity: desactivada ? 0.25 : (val ? 1 : 0.35),
+                            textDecoration: desactivada ? "line-through" : "none",
                           }}
                         >
                           {formatMoney(val) || "—"}
@@ -2721,7 +3251,10 @@ export default function PresupuestoAnual({
                       fontWeight: 600,
                       background: "var(--sage-bg)",
                       color: "var(--sage)",
+                      opacity: desactivada ? 0.45 : 1,
+                      textDecoration: desactivada ? "line-through" : "none",
                     }}
+                    title={desactivada ? "Excluido del presupuesto (simulación en $0)" : undefined}
                   >
                     {formatMoney(totalPorMeta(meta)) || "0"}
                   </td>
@@ -2730,33 +3263,61 @@ export default function PresupuestoAnual({
             })}
             {categoriasEventosUnicas.map((catNombre, idx) => {
               const rowIdx = categorias.length + prestamosActivos.length + metasActivas.length + idx;
+              const desactivada = desactivadasEmulacion.has(`evento:${catNombre}`);
               return (
-                <tr key={`evento-cat-${catNombre}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                <tr
+                  key={`evento-cat-${catNombre}`}
+                  style={{
+                    background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                    opacity: desactivada ? 0.45 : 1,
+                    transition: "opacity 0.2s ease",
+                  }}
+                >
                   <td
                     className="presupuesto-col-sticky"
                     style={{
                       position: "sticky",
                       left: 0,
                       background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                      padding: "6px 10px",
+                      padding: "6px 8px",
                       borderRight: "1px solid var(--line)",
                       borderBottom: "1px solid var(--line-soft)",
                       fontFamily: "Inter, sans-serif",
                       fontSize: 12.5,
                       color: "var(--amber)",
-                      minWidth: 185,
-                      width: 185,
-                      maxWidth: 185,
+                      minWidth: COL_CATEGORIA_WIDTH,
+                      width: COL_CATEGORIA_WIDTH,
+                      maxWidth: COL_CATEGORIA_WIDTH,
                       boxSizing: "border-box",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                     }}
-                    title={`Evento: ${catNombre}`}
+                    title={`Evento: ${catNombre}${desactivada ? " — Desactivado en la simulación" : ""}`}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <MiniSwitch
+                        checked={!desactivada}
+                        onChange={() => toggleEmulacion(`evento:${catNombre}`)}
+                        title={desactivada ? `Activar Evento ${catNombre} en el presupuesto` : `Desactivar Evento ${catNombre} de la simulación`}
+                      />
                       <CalendarIcon size={11} style={{ flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={catNombre}>{abreviarNombreCategoria(catNombre)}</span>
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          textDecoration: desactivada ? "line-through" : "none",
+                        }}
+                        title={catNombre}
+                      >
+                        {abreviarNombreCategoria(catNombre)}
+                      </span>
+                      {desactivada && (
+                        <span style={{ fontSize: 9, opacity: 0.75, marginLeft: 3, fontStyle: "italic", flexShrink: 0, color: "var(--ink-soft)" }}>
+                          (Off)
+                        </span>
+                      )}
                     </div>
                   </td>
                   {MESES.map((_, i) => {
@@ -2778,7 +3339,8 @@ export default function PresupuestoAnual({
                             padding: "6px 4px",
                             textAlign: "right",
                             color: "var(--amber)",
-                            opacity: val ? 1 : 0.35,
+                            opacity: desactivada ? 0.25 : (val ? 1 : 0.35),
+                            textDecoration: desactivada ? "line-through" : "none",
                           }}
                         >
                           {formatMoney(val) || "—"}
@@ -2795,7 +3357,10 @@ export default function PresupuestoAnual({
                       fontWeight: 600,
                       background: "var(--amber-bg)",
                       color: "var(--amber)",
+                      opacity: desactivada ? 0.45 : 1,
+                      textDecoration: desactivada ? "line-through" : "none",
                     }}
+                    title={desactivada ? "Excluido del presupuesto (simulación en $0)" : undefined}
                   >
                     {formatMoney(totalPorEventoCategoria(catNombre)) || "0"}
                   </td>
@@ -2804,23 +3369,31 @@ export default function PresupuestoAnual({
             })}
             {ordenesConGasto.map((orden, idx) => {
               const rowIdx = categorias.length + prestamosActivos.length + metasActivas.length + categoriasEventosUnicas.length + idx;
+              const emuKey = `orden:${orden.id}`;
+              const desactivada = !!desactivadasEmulacion[emuKey];
               return (
-                <tr key={`orden-${orden.id}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                <tr
+                  key={`orden-${orden.id}`}
+                  style={{
+                    background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                    opacity: desactivada ? 0.45 : 1,
+                  }}
+                >
                   <td
                     className="presupuesto-col-sticky"
                     style={{
                       position: "sticky",
                       left: 0,
                       background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                      padding: "6px 10px",
+                      padding: "6px 8px",
                       borderRight: "1px solid var(--line)",
                       borderBottom: "1px solid var(--line-soft)",
                       fontFamily: "Inter, sans-serif",
                       fontSize: 12.5,
                       color: "var(--amber)",
-                      minWidth: 185,
-                      width: 185,
-                      maxWidth: 185,
+                      minWidth: COL_CATEGORIA_WIDTH,
+                      width: COL_CATEGORIA_WIDTH,
+                      maxWidth: COL_CATEGORIA_WIDTH,
                       boxSizing: "border-box",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -2828,11 +3401,29 @@ export default function PresupuestoAnual({
                     }}
                     title={`Orden: ${orden.folio} (${orden.categoriaGasto})`}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <MiniSwitch
+                        checked={!desactivada}
+                        onChange={() => toggleEmulacion(emuKey)}
+                        title={desactivada ? "Activar en presupuesto" : "Desactivar de presupuesto (simulación)"}
+                      />
                       <ClipboardListIcon size={11} style={{ flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`${orden.folio} (${orden.categoriaGasto})`}>
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          textDecoration: desactivada ? "line-through" : "none",
+                        }}
+                        title={`${orden.folio} (${orden.categoriaGasto})`}
+                      >
                         {orden.folio} ({abreviarNombreCategoria(orden.categoriaGasto)})
                       </span>
+                      {desactivada && (
+                        <span style={{ fontSize: 9.5, opacity: 0.65, fontWeight: 700, color: "var(--stamp)", flexShrink: 0 }}>
+                          (Off)
+                        </span>
+                      )}
                     </div>
                   </td>
                   {MESES.map((_, i) => {
@@ -2854,7 +3445,8 @@ export default function PresupuestoAnual({
                             padding: "6px 4px",
                             textAlign: "right",
                             color: "var(--amber)",
-                            opacity: val ? 1 : 0.35,
+                            opacity: desactivada ? 0.3 : val ? 1 : 0.35,
+                            textDecoration: desactivada ? "line-through" : "none",
                           }}
                         >
                           {formatMoney(val) || "—"}
@@ -2871,7 +3463,10 @@ export default function PresupuestoAnual({
                       fontWeight: 600,
                       background: "var(--amber-bg)",
                       color: "var(--amber)",
+                      opacity: desactivada ? 0.45 : 1,
+                      textDecoration: desactivada ? "line-through" : "none",
                     }}
+                    title={desactivada ? "Excluido del presupuesto (simulación en $0)" : undefined}
                   >
                     {formatMoney(totalPorOrden(orden)) || "0"}
                   </td>
@@ -2880,23 +3475,31 @@ export default function PresupuestoAnual({
             })}
             {categoriasVacacionesUnicas.map((catNombre, idx) => {
               const rowIdx = categorias.length + prestamosActivos.length + metasActivas.length + categoriasEventosUnicas.length + ordenesConGasto.length + idx;
+              const emuKey = `vacacion:${catNombre}`;
+              const desactivada = !!desactivadasEmulacion[emuKey];
               return (
-                <tr key={`vacacion-${catNombre}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                <tr
+                  key={`vacacion-${catNombre}`}
+                  style={{
+                    background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                    opacity: desactivada ? 0.45 : 1,
+                  }}
+                >
                   <td
                     className="presupuesto-col-sticky"
                     style={{
                       position: "sticky",
                       left: 0,
                       background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                      padding: "6px 10px",
+                      padding: "6px 8px",
                       borderRight: "1px solid var(--line)",
                       borderBottom: "1px solid var(--line-soft)",
                       fontFamily: "Inter, sans-serif",
                       fontSize: 12.5,
                       color: "var(--amber)",
-                      minWidth: 185,
-                      width: 185,
-                      maxWidth: 185,
+                      minWidth: COL_CATEGORIA_WIDTH,
+                      width: COL_CATEGORIA_WIDTH,
+                      maxWidth: COL_CATEGORIA_WIDTH,
                       boxSizing: "border-box",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -2904,9 +3507,29 @@ export default function PresupuestoAnual({
                     }}
                     title={`Vacaciones: ${catNombre}`}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <MiniSwitch
+                        checked={!desactivada}
+                        onChange={() => toggleEmulacion(emuKey)}
+                        title={desactivada ? "Activar en presupuesto" : "Desactivar de presupuesto (simulación)"}
+                      />
                       <PalmtreeIcon size={11} style={{ flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={catNombre}>{abreviarNombreCategoria(catNombre)}</span>
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          textDecoration: desactivada ? "line-through" : "none",
+                        }}
+                        title={catNombre}
+                      >
+                        {abreviarNombreCategoria(catNombre)}
+                      </span>
+                      {desactivada && (
+                        <span style={{ fontSize: 9.5, opacity: 0.65, fontWeight: 700, color: "var(--stamp)", flexShrink: 0 }}>
+                          (Off)
+                        </span>
+                      )}
                     </div>
                   </td>
                   {MESES.map((_, i) => {
@@ -2928,7 +3551,8 @@ export default function PresupuestoAnual({
                             padding: "6px 4px",
                             textAlign: "right",
                             color: "var(--amber)",
-                            opacity: val ? 1 : 0.35,
+                            opacity: desactivada ? 0.3 : val ? 1 : 0.35,
+                            textDecoration: desactivada ? "line-through" : "none",
                           }}
                         >
                           {formatMoney(val) || "—"}
@@ -2945,7 +3569,10 @@ export default function PresupuestoAnual({
                       fontWeight: 600,
                       background: "var(--amber-bg)",
                       color: "var(--amber)",
+                      opacity: desactivada ? 0.45 : 1,
+                      textDecoration: desactivada ? "line-through" : "none",
                     }}
+                    title={desactivada ? "Excluido del presupuesto (simulación en $0)" : undefined}
                   >
                     {formatMoney(totalPorVacacionCategoria(catNombre)) || "0"}
                   </td>
@@ -2955,23 +3582,31 @@ export default function PresupuestoAnual({
             {categoriasRenovacionesUnicas.map((catNombre, idx) => {
               const rowIdx =
                 categorias.length + prestamosActivos.length + metasActivas.length + categoriasEventosUnicas.length + ordenesConGasto.length + categoriasVacacionesUnicas.length + idx;
+              const emuKey = `renovacion:${catNombre}`;
+              const desactivada = !!desactivadasEmulacion[emuKey];
               return (
-                <tr key={`renovacion-${catNombre}`} style={{ background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)" }}>
+                <tr
+                  key={`renovacion-${catNombre}`}
+                  style={{
+                    background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                    opacity: desactivada ? 0.45 : 1,
+                  }}
+                >
                   <td
                     className="presupuesto-col-sticky"
                     style={{
                       position: "sticky",
                       left: 0,
                       background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                      padding: "6px 10px",
+                      padding: "6px 8px",
                       borderRight: "1px solid var(--line)",
                       borderBottom: "1px solid var(--line-soft)",
                       fontFamily: "Inter, sans-serif",
                       fontSize: 12.5,
                       color: "var(--amber)",
-                      minWidth: 185,
-                      width: 185,
-                      maxWidth: 185,
+                      minWidth: COL_CATEGORIA_WIDTH,
+                      width: COL_CATEGORIA_WIDTH,
+                      maxWidth: COL_CATEGORIA_WIDTH,
                       boxSizing: "border-box",
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -2979,9 +3614,29 @@ export default function PresupuestoAnual({
                     }}
                     title={`Trámite: ${catNombre}`}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <MiniSwitch
+                        checked={!desactivada}
+                        onChange={() => toggleEmulacion(emuKey)}
+                        title={desactivada ? "Activar en presupuesto" : "Desactivar de presupuesto (simulación)"}
+                      />
                       <ScrollTextIcon size={11} style={{ flexShrink: 0 }} />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={catNombre}>{abreviarNombreCategoria(catNombre)}</span>
+                      <span
+                        style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          textDecoration: desactivada ? "line-through" : "none",
+                        }}
+                        title={catNombre}
+                      >
+                        {abreviarNombreCategoria(catNombre)}
+                      </span>
+                      {desactivada && (
+                        <span style={{ fontSize: 9.5, opacity: 0.65, fontWeight: 700, color: "var(--stamp)", flexShrink: 0 }}>
+                          (Off)
+                        </span>
+                      )}
                     </div>
                   </td>
                   {MESES.map((_, i) => {
@@ -3003,7 +3658,8 @@ export default function PresupuestoAnual({
                             padding: "6px 4px",
                             textAlign: "right",
                             color: "var(--amber)",
-                            opacity: val ? 1 : 0.35,
+                            opacity: desactivada ? 0.3 : val ? 1 : 0.35,
+                            textDecoration: desactivada ? "line-through" : "none",
                           }}
                         >
                           {formatMoney(val) || "—"}
@@ -3020,7 +3676,10 @@ export default function PresupuestoAnual({
                       fontWeight: 600,
                       background: "var(--amber-bg)",
                       color: "var(--amber)",
+                      opacity: desactivada ? 0.45 : 1,
+                      textDecoration: desactivada ? "line-through" : "none",
                     }}
+                    title={desactivada ? "Excluido del presupuesto (simulación en $0)" : undefined}
                   >
                     {formatMoney(totalPorRenovacionCategoria(catNombre)) || "0"}
                   </td>
@@ -3028,22 +3687,27 @@ export default function PresupuestoAnual({
               );
             })}
             {diezmoMensual > 0 && (
-              <tr style={{ background: "var(--paper)" }}>
+              <tr
+                style={{
+                  background: "var(--paper)",
+                  opacity: desactivadasEmulacion["diezmo"] ? 0.45 : 1,
+                }}
+              >
                 <td
                   className="presupuesto-col-sticky"
                   style={{
                     position: "sticky",
                     left: 0,
                     background: "var(--paper)",
-                    padding: "6px 10px",
+                    padding: "6px 8px",
                     borderRight: "1px solid var(--line)",
                     borderBottom: "1px solid var(--line-soft)",
                     fontFamily: "Inter, sans-serif",
                     fontSize: 12.5,
                     color: "var(--sage)",
-                    minWidth: 185,
-                    width: 185,
-                    maxWidth: 185,
+                    minWidth: COL_CATEGORIA_WIDTH,
+                    width: COL_CATEGORIA_WIDTH,
+                    maxWidth: COL_CATEGORIA_WIDTH,
                     boxSizing: "border-box",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -3051,9 +3715,28 @@ export default function PresupuestoAnual({
                   }}
                   title="Calculado automáticamente desde Configuración → Diezmo automático"
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <MiniSwitch
+                      checked={!desactivadasEmulacion["diezmo"]}
+                      onChange={() => toggleEmulacion("diezmo")}
+                      title={desactivadasEmulacion["diezmo"] ? "Activar en presupuesto" : "Desactivar de presupuesto (simulación)"}
+                    />
                     <HandCoinsIcon size={11} style={{ flexShrink: 0 }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Diezmo ({diezmoConfig.porcentaje}%)</span>
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        textDecoration: desactivadasEmulacion["diezmo"] ? "line-through" : "none",
+                      }}
+                    >
+                      Diezmo ({diezmoConfig.porcentaje}%)
+                    </span>
+                    {desactivadasEmulacion["diezmo"] && (
+                      <span style={{ fontSize: 9.5, opacity: 0.65, fontWeight: 700, color: "var(--stamp)", flexShrink: 0 }}>
+                        (Off)
+                      </span>
+                    )}
                   </div>
                 </td>
                 {MESES.map((_, i) => {
@@ -3074,6 +3757,8 @@ export default function PresupuestoAnual({
                           padding: "6px 4px",
                           textAlign: "right",
                           color: "var(--sage)",
+                          opacity: desactivadasEmulacion["diezmo"] ? 0.3 : 1,
+                          textDecoration: desactivadasEmulacion["diezmo"] ? "line-through" : "none",
                         }}
                       >
                         {formatMoney(getCeldaDiezmo())}
@@ -3090,29 +3775,37 @@ export default function PresupuestoAnual({
                     fontWeight: 600,
                     background: "var(--sage-bg)",
                     color: "var(--sage)",
+                    opacity: desactivadasEmulacion["diezmo"] ? 0.45 : 1,
+                    textDecoration: desactivadasEmulacion["diezmo"] ? "line-through" : "none",
                   }}
+                  title={desactivadasEmulacion["diezmo"] ? "Excluido del presupuesto (simulación en $0)" : undefined}
                 >
                   {formatMoney(diezmoMensual * 12)}
                 </td>
               </tr>
             )}
             {tarjetaPendienteAnual > 0 && (
-              <tr style={{ background: "transparent" }}>
+              <tr
+                style={{
+                  background: "transparent",
+                  opacity: desactivadasEmulacion["tarjeta-pendiente"] ? 0.45 : 1,
+                }}
+              >
                 <td
                   className="presupuesto-col-sticky"
                   style={{
                     position: "sticky",
                     left: 0,
                     background: "var(--card)",
-                    padding: "6px 10px",
+                    padding: "6px 8px",
                     borderRight: "1px solid var(--line)",
                     borderBottom: "1px solid var(--line-soft)",
                     fontFamily: "Inter, sans-serif",
                     fontSize: 12.5,
                     color: "var(--amber)",
-                    minWidth: 185,
-                    width: 185,
-                    maxWidth: 185,
+                    minWidth: COL_CATEGORIA_WIDTH,
+                    width: COL_CATEGORIA_WIDTH,
+                    maxWidth: COL_CATEGORIA_WIDTH,
                     boxSizing: "border-box",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -3120,9 +3813,29 @@ export default function PresupuestoAnual({
                   }}
                   title="Calculado automáticamente desde los consumos registrados con tarjeta de crédito, según el corte y días de gracia de cada tarjeta"
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <MiniSwitch
+                      checked={!desactivadasEmulacion["tarjeta-pendiente"]}
+                      onChange={() => toggleEmulacion("tarjeta-pendiente")}
+                      title={desactivadasEmulacion["tarjeta-pendiente"] ? "Activar en presupuesto" : "Desactivar de presupuesto (simulación)"}
+                    />
                     <CreditCard size={11} style={{ flexShrink: 0 }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title="Pago de tarjeta pendiente">{abreviarNombreCategoria("Pago de tarjeta pendiente")}</span>
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        textDecoration: desactivadasEmulacion["tarjeta-pendiente"] ? "line-through" : "none",
+                      }}
+                      title="Pago de tarjeta pendiente"
+                    >
+                      {abreviarNombreCategoria("Pago de tarjeta pendiente")}
+                    </span>
+                    {desactivadasEmulacion["tarjeta-pendiente"] && (
+                      <span style={{ fontSize: 9.5, opacity: 0.65, fontWeight: 700, color: "var(--stamp)", flexShrink: 0 }}>
+                        (Off)
+                      </span>
+                    )}
                   </div>
                 </td>
                 {MESES.map((_, i) => {
@@ -3144,7 +3857,8 @@ export default function PresupuestoAnual({
                           padding: "6px 4px",
                           textAlign: "right",
                           color: "var(--amber)",
-                          opacity: val ? 1 : 0.35,
+                          opacity: desactivadasEmulacion["tarjeta-pendiente"] ? 0.3 : val ? 1 : 0.35,
+                          textDecoration: desactivadasEmulacion["tarjeta-pendiente"] ? "line-through" : "none",
                         }}
                       >
                         {formatMoney(val) || "—"}
@@ -3161,29 +3875,37 @@ export default function PresupuestoAnual({
                     fontWeight: 600,
                     background: "var(--amber-bg)",
                     color: "var(--amber)",
+                    opacity: desactivadasEmulacion["tarjeta-pendiente"] ? 0.45 : 1,
+                    textDecoration: desactivadasEmulacion["tarjeta-pendiente"] ? "line-through" : "none",
                   }}
+                  title={desactivadasEmulacion["tarjeta-pendiente"] ? "Excluido del presupuesto (simulación en $0)" : undefined}
                 >
                   {formatMoney(tarjetaPendienteAnual)}
                 </td>
               </tr>
             )}
             {ahorroMensual > 0 && (
-              <tr style={{ background: "transparent" }}>
+              <tr
+                style={{
+                  background: "transparent",
+                  opacity: desactivadasEmulacion["ahorro"] ? 0.45 : 1,
+                }}
+              >
                 <td
                   className="presupuesto-col-sticky"
                   style={{
                     position: "sticky",
                     left: 0,
                     background: "var(--card)",
-                    padding: "6px 10px",
+                    padding: "6px 8px",
                     borderRight: "1px solid var(--line)",
                     borderBottom: "1px solid var(--line-soft)",
                     fontFamily: "Inter, sans-serif",
                     fontSize: 12.5,
                     color: "var(--blue)",
-                    minWidth: 185,
-                    width: 185,
-                    maxWidth: 185,
+                    minWidth: COL_CATEGORIA_WIDTH,
+                    width: COL_CATEGORIA_WIDTH,
+                    maxWidth: COL_CATEGORIA_WIDTH,
                     boxSizing: "border-box",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -3191,9 +3913,28 @@ export default function PresupuestoAnual({
                   }}
                   title="Calculado automáticamente desde Configuración → Modo Ahorro"
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <MiniSwitch
+                      checked={!desactivadasEmulacion["ahorro"]}
+                      onChange={() => toggleEmulacion("ahorro")}
+                      title={desactivadasEmulacion["ahorro"] ? "Activar en presupuesto" : "Desactivar de presupuesto (simulación)"}
+                    />
                     <PiggyBank size={11} style={{ flexShrink: 0 }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Modo Ahorro ({ahorroConfig.porcentaje}%)</span>
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        textDecoration: desactivadasEmulacion["ahorro"] ? "line-through" : "none",
+                      }}
+                    >
+                      Modo Ahorro ({ahorroConfig.porcentaje}%)
+                    </span>
+                    {desactivadasEmulacion["ahorro"] && (
+                      <span style={{ fontSize: 9.5, opacity: 0.65, fontWeight: 700, color: "var(--stamp)", flexShrink: 0 }}>
+                        (Off)
+                      </span>
+                    )}
                   </div>
                 </td>
                 {MESES.map((_, i) => {
@@ -3214,6 +3955,8 @@ export default function PresupuestoAnual({
                           padding: "6px 4px",
                           textAlign: "right",
                           color: "var(--blue)",
+                          opacity: desactivadasEmulacion["ahorro"] ? 0.3 : 1,
+                          textDecoration: desactivadasEmulacion["ahorro"] ? "line-through" : "none",
                         }}
                       >
                         {formatMoney(getCeldaAhorroAuto())}
@@ -3230,7 +3973,10 @@ export default function PresupuestoAnual({
                     fontWeight: 600,
                     background: "var(--blue-bg)",
                     color: "var(--blue)",
+                    opacity: desactivadasEmulacion["ahorro"] ? 0.45 : 1,
+                    textDecoration: desactivadasEmulacion["ahorro"] ? "line-through" : "none",
                   }}
+                  title={desactivadasEmulacion["ahorro"] ? "Excluido del presupuesto (simulación en $0)" : undefined}
                 >
                   {formatMoney(ahorroMensual * 12)}
                 </td>
@@ -3252,9 +3998,9 @@ export default function PresupuestoAnual({
                   fontFamily: "Inter, sans-serif",
                   fontWeight: 600,
                   fontSize: 12,
-                  minWidth: 185,
-                  width: 185,
-                  maxWidth: 185,
+                  minWidth: COL_CATEGORIA_WIDTH,
+                  width: COL_CATEGORIA_WIDTH,
+                  maxWidth: COL_CATEGORIA_WIDTH,
                   boxSizing: "border-box",
                   whiteSpace: "nowrap",
                 }}
@@ -3310,9 +4056,9 @@ export default function PresupuestoAnual({
                   fontFamily: "Inter, sans-serif",
                   fontWeight: 600,
                   fontSize: 12,
-                  minWidth: 185,
-                  width: 185,
-                  maxWidth: 185,
+                  minWidth: COL_CATEGORIA_WIDTH,
+                  width: COL_CATEGORIA_WIDTH,
+                  maxWidth: COL_CATEGORIA_WIDTH,
                   boxSizing: "border-box",
                   whiteSpace: "nowrap",
                   color: "var(--sage)",
@@ -3386,9 +4132,9 @@ export default function PresupuestoAnual({
                   fontFamily: "Inter, sans-serif",
                   fontWeight: 700,
                   fontSize: 11.5,
-                  minWidth: 185,
-                  width: 185,
-                  maxWidth: 185,
+                  minWidth: COL_CATEGORIA_WIDTH,
+                  width: COL_CATEGORIA_WIDTH,
+                  maxWidth: COL_CATEGORIA_WIDTH,
                   boxSizing: "border-box",
                   whiteSpace: "nowrap",
                 }}
