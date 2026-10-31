@@ -2104,7 +2104,7 @@ export async function sincronizarTarjetaCreditoLocal() {
     fechaVencimientoPlastico: "2029-01",
     tieneMonedaSecundaria: true,
     limiteCreditoUSD: 500,
-    saldoActualUSD: 397.70,
+    saldoActualUSD: 369.98,
     pagoMinimoUSD: 79.17,
   };
 
@@ -2118,7 +2118,7 @@ export async function sincronizarTarjetaCreditoLocal() {
       encontrada = true;
       const necesitaActualizar =
         Number(data.saldoActual) !== 50888.32 ||
-        Number(data.saldoActualUSD) !== 397.70 ||
+        Number(data.saldoActualUSD) !== 369.98 ||
         Number(data.limiteCredito) !== 41000 ||
         Number(data.limiteCreditoUSD) !== 500 ||
         Number(data.pagoMinimo) !== 5461.69 ||

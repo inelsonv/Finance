@@ -886,7 +886,7 @@ export default function App() {
       const match = u4 === "6011" || nom.includes("local");
       if (match) {
         const diffPesos = Math.abs((Number(t.saldoActual) || 0) - 50888.32) > 0.001;
-        const diffDolares = Math.abs((Number(t.saldoActualUSD) || 0) - 397.70) > 0.001;
+        const diffDolares = Math.abs((Number(t.saldoActualUSD) || 0) - 369.98) > 0.001;
         const diffLimiteRD = Math.abs((Number(t.limiteCredito) || 0) - 41000) > 0.001;
         const diffLimiteUSD = Math.abs((Number(t.limiteCreditoUSD) || 0) - 500) > 0.001;
         const diffPagoMinRD = Math.abs((Number(t.pagoMinimo) || 0) - 5461.69) > 0.001;
@@ -906,7 +906,7 @@ export default function App() {
         ) {
           updateTarjeta(t.id, {
             saldoActual: 50888.32,
-            saldoActualUSD: 397.70,
+            saldoActualUSD: 369.98,
             limiteCredito: 41000,
             limiteCreditoUSD: 500,
             pagoMinimo: 5461.69,

@@ -1432,7 +1432,7 @@ function TarjetaPlanDeudasChat({ tarjetas = [], prestamos = [], onNavigate, onCl
           </div>
           <div style={{ background: "rgba(239, 68, 68, 0.05)", padding: "6px 8px", borderRadius: 7 }}>
             <span style={{ color: "var(--ink-soft)", display: "block" }}>Dólares Americanos</span>
-            <strong style={{ color: "#dc2626", fontSize: 12.5 }}>US$ 397.70</strong>
+            <strong style={{ color: "#dc2626", fontSize: 12.5 }}>US$ 369.98</strong>
             <div style={{ fontSize: 10.5, color: "#dc2626", fontWeight: 700 }}>1 cuota vencida: US$ 79.17</div>
             <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>Límite: US$ 500.00</div>
           </div>

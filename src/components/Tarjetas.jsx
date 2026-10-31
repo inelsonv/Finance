@@ -168,7 +168,7 @@ const emptyForm = () => ({
   tieneMonedaSecundaria: true,
   limiteCreditoUSD: "500",
   pagoMinimoUSD: "79.17",
-  saldoActualUSD: "397.70",
+  saldoActualUSD: "369.98",
   tasaTAE: "",
   montoMora: "",
   diasGracia: "22",
