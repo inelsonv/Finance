@@ -41,6 +41,10 @@ export function calcularResumenQuincena({ year, month, quincena, presupuesto, ca
     const activo = offset >= 0 && offset < mesesTotales;
     const quincenaCuota = sd && sd >= 15 ? "Q2" : "Q1";
 
+    const overrides = p.quincenaOverrides || {};
+    const overrideEsteMesRaw = overrides[`${month}-${year}`];
+    const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
+
     // Si la cuota está dividida entre ambas quincenas en este mes (según su escenario: anual, semestral, trimestral, etc.):
     if (esCuotaDivididaEnMes(p, month, year)) {
       const q1Monto = p.cuotaQ1 != null ? Number(p.cuotaQ1) : Math.round((Number(p.cuota) || 0) / 2);
@@ -60,9 +64,6 @@ export function calcularResumenQuincena({ year, month, quincena, presupuesto, ca
     // quincena" en el Checklist), no debe seguir contando en su posición
     // original — y si se movió una cuota de OTRO mes hacia esta quincena,
     // sí debe contar aquí.
-    const overrides = p.quincenaOverrides || {};
-    const overrideEsteMesRaw = overrides[`${month}-${year}`];
-    const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
     if (activo && !overrideEsteMes && quincenaCuota === quincena) presupuestado += Number(p.cuota) || 0;
     for (const destino of Object.values(overrides)) {
       if (!destino || typeof destino !== "object") continue;
