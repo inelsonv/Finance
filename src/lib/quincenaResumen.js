@@ -2,6 +2,7 @@
 // fechas de una quincena específica (year, month, quincena). Reutilizado por
 // la tarjeta "Quincena actual" y por la evaluación de cumplimiento de puntos.
 import { rangoFechasQuincenaConfigurado } from "./quincenaConfig";
+import { esCuotaDivididaEnMes } from "./prestamoDivision";
 
 export function rangoFechasQuincena(year, month, quincena, diasCobro) {
   return rangoFechasQuincenaConfigurado(year, month, quincena, diasCobro);
@@ -40,8 +41,8 @@ export function calcularResumenQuincena({ year, month, quincena, presupuesto, ca
     const activo = offset >= 0 && offset < mesesTotales;
     const quincenaCuota = sd && sd >= 15 ? "Q2" : "Q1";
 
-    // Si la cuota está dividida entre ambas quincenas (para ir más flojo):
-    if (p.dividirEnQuincenas) {
+    // Si la cuota está dividida entre ambas quincenas en este mes (según su escenario: anual, semestral, trimestral, etc.):
+    if (esCuotaDivididaEnMes(p, month, year)) {
       const q1Monto = p.cuotaQ1 != null ? Number(p.cuotaQ1) : Math.round((Number(p.cuota) || 0) / 2);
       const q2Monto = p.cuotaQ2 != null ? Number(p.cuotaQ2) : (Number(p.cuota) || 0) - q1Monto;
       const montoQuincena = quincena === "Q1" ? q1Monto : q2Monto;

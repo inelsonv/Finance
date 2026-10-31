@@ -3,6 +3,14 @@ import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCir
 import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { calcularProyeccionPago } from "../lib/proyeccionPrestamo";
+import {
+  ESCENARIOS_DIVISION,
+  TRIMESTRES_INFO,
+  SEMESTRES_INFO,
+  NOMBRES_MESES_CORTOS,
+  describirEscenarioDivision,
+  contarMesesDivision,
+} from "../lib/prestamoDivision";
 
 const PLAZO_UNIDADES = ["meses", "años"];
 const TIPOS_PRESTAMO = ["Vehículo", "Hipotecario / Vivienda", "Personal", "Estudiantil", "Consolidación de deuda", "Negocio", "Otro"];
@@ -86,7 +94,331 @@ export function obtenerInfoCuotasPrestamo(p, movimientos) {
   };
 }
 
-function SeccionDividirCuota({ cuota, dividirEnQuincenas, cuotaQ1, cuotaQ2, onChangeDividir, onChangeQ1, onChangeQ2 }) {
+function SelectorEscenarioDivision({
+  escenario = "anual",
+  semestres = [1, 2],
+  trimestres = [1],
+  meses = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+  onChangeEscenario,
+  onChangeSemestres,
+  onChangeTrimestres,
+  onChangeMeses,
+}) {
+  const toggleSemestre = (s) => {
+    const list = Array.isArray(semestres) ? [...semestres] : [];
+    const idx = list.indexOf(s);
+    if (idx >= 0) {
+      if (list.length > 1) list.splice(idx, 1);
+    } else {
+      list.push(s);
+      list.sort((a, b) => a - b);
+    }
+    onChangeSemestres(list);
+  };
+
+  const toggleTrimestre = (t) => {
+    const list = Array.isArray(trimestres) ? [...trimestres] : [];
+    const idx = list.indexOf(t);
+    if (idx >= 0) {
+      if (list.length > 1) list.splice(idx, 1);
+    } else {
+      list.push(t);
+      list.sort((a, b) => a - b);
+    }
+    onChangeTrimestres(list);
+  };
+
+  const toggleMes = (m) => {
+    const list = Array.isArray(meses) ? [...meses] : [];
+    const idx = list.indexOf(m);
+    if (idx >= 0) {
+      if (list.length > 1) list.splice(idx, 1);
+    } else {
+      list.push(m);
+      list.sort((a, b) => a - b);
+    }
+    onChangeMeses(list);
+  };
+
+  const mesesDivididosTotal = useMemo(() => {
+    if (escenario === "anual") return 12;
+    if (escenario === "semestral") {
+      let count = 0;
+      if ((semestres || []).includes(1)) count += 6;
+      if ((semestres || []).includes(2)) count += 6;
+      return count;
+    }
+    if (escenario === "trimestral") {
+      return (trimestres || []).length * 3;
+    }
+    if (escenario === "personalizado") {
+      return (meses || []).length;
+    }
+    return 12;
+  }, [escenario, semestres, trimestres, meses]);
+
+  return (
+    <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px dashed var(--line)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+        <label style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          Escenario de aplicación
+        </label>
+        <span
+          style={{
+            fontSize: 10.5,
+            fontWeight: 600,
+            padding: "2px 7px",
+            borderRadius: 10,
+            background: "rgba(16, 185, 129, 0.12)",
+            color: "var(--sage)",
+          }}
+        >
+          {mesesDivididosTotal} de 12 meses divididos
+        </span>
+      </div>
+
+      {/* Selector de modo: Anual, Semestral, Trimestral, Meses específicos */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, marginBottom: 8 }}>
+        {ESCENARIOS_DIVISION.map((esc) => {
+          const activo = escenario === esc.id;
+          return (
+            <button
+              key={esc.id}
+              type="button"
+              onClick={() => onChangeEscenario(esc.id)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "6px 2px",
+                borderRadius: 7,
+                background: activo ? "var(--sage)" : "var(--paper)",
+                color: activo ? "#fff" : "var(--ink)",
+                border: `1px solid ${activo ? "var(--sage)" : "var(--line)"}`,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <span style={{ fontSize: 13, lineHeight: 1 }}>{esc.icon}</span>
+              <span style={{ fontSize: 10.5, fontWeight: activo ? 700 : 500, marginTop: 2, textAlign: "center" }}>
+                {esc.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Contenido condicional según escenario */}
+      {escenario === "anual" && (
+        <div style={{ padding: "8px 10px", borderRadius: 6, background: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.2)", fontSize: 11, color: "var(--ink)" }}>
+          📅 <strong>Todo el año (Enero a Diciembre):</strong> La cuota se divide en Q1 y Q2 en los 12 meses del año.
+        </div>
+      )}
+
+      {escenario === "semestral" && (
+        <div>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+            Selecciona en qué semestre(s) deseas dividir la cuota:
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 6 }}>
+            {SEMESTRES_INFO.map((s) => {
+              const seleccionado = (semestres || []).includes(s.id);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => toggleSemestre(s.id)}
+                  style={{
+                    padding: "7px 9px",
+                    borderRadius: 6,
+                    border: `1.5px solid ${seleccionado ? "var(--sage)" : "var(--line)"}`,
+                    background: seleccionado ? "rgba(16, 185, 129, 0.12)" : "var(--paper)",
+                    color: seleccionado ? "var(--sage)" : "var(--ink)",
+                    fontSize: 11.5,
+                    fontWeight: seleccionado ? 700 : 500,
+                    cursor: "pointer",
+                    textAlign: "center",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
+                >
+                  <span>{s.nombre}</span>
+                  <span style={{ fontSize: 9.5, opacity: 0.8, fontWeight: 400 }}>{s.mesesTexto}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => onChangeSemestres([1, 2])}
+              style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              Ambos semestres
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeSemestres([1])}
+              style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              Solo 1er Semestre
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeSemestres([2])}
+              style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              Solo 2do Semestre
+            </button>
+          </div>
+        </div>
+      )}
+
+      {escenario === "trimestral" && (
+        <div>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+            Elige en qué trimestres dividir la cuota:
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, marginBottom: 6 }}>
+            {TRIMESTRES_INFO.map((t) => {
+              const sel = (trimestres || []).includes(t.id);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => toggleTrimestre(t.id)}
+                  style={{
+                    padding: "6px 2px",
+                    borderRadius: 6,
+                    border: `1.5px solid ${sel ? "var(--sage)" : "var(--line)"}`,
+                    background: sel ? "rgba(16, 185, 129, 0.12)" : "var(--paper)",
+                    color: sel ? "var(--sage)" : "var(--ink)",
+                    fontSize: 11,
+                    fontWeight: sel ? 700 : 500,
+                    cursor: "pointer",
+                    textAlign: "center",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 1,
+                  }}
+                >
+                  <span>{t.label}</span>
+                  <span style={{ fontSize: 9, opacity: 0.8, fontWeight: 400 }}>{t.mesesTexto}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => onChangeTrimestres([1, 2, 3, 4])}
+              style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              Todos (T1 a T4)
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeTrimestres([1, 2])}
+              style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              Solo T1 y T2
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeTrimestres([3, 4])}
+              style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              Solo T3 y T4
+            </button>
+          </div>
+        </div>
+      )}
+
+      {escenario === "personalizado" && (
+        <div>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6 }}>
+            Haz clic en los meses en los que deseas dividir la cuota:
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 4, marginBottom: 6 }}>
+            {NOMBRES_MESES_CORTOS.map((mesNombre, idx) => {
+              const numMes = idx + 1;
+              const sel = (meses || []).includes(numMes);
+              return (
+                <button
+                  key={numMes}
+                  type="button"
+                  onClick={() => toggleMes(numMes)}
+                  style={{
+                    padding: "5px 2px",
+                    borderRadius: 5,
+                    border: `1.5px solid ${sel ? "var(--sage)" : "var(--line)"}`,
+                    background: sel ? "rgba(16, 185, 129, 0.15)" : "var(--paper)",
+                    color: sel ? "var(--sage)" : "var(--ink-soft)",
+                    fontSize: 10.5,
+                    fontWeight: sel ? 700 : 500,
+                    cursor: "pointer",
+                    textAlign: "center",
+                  }}
+                >
+                  {mesNombre}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <button
+              type="button"
+              onClick={() => onChangeMeses([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
+              style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              Todos los meses
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeMeses([1, 2, 3, 4, 5, 6])}
+              style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              Ene - Jun
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeMeses([7, 8, 9, 10, 11, 12])}
+              style={{ fontSize: 10, padding: "2px 7px", borderRadius: 4, background: "var(--card)", border: "1px solid var(--line)", color: "var(--ink-soft)", cursor: "pointer" }}
+            >
+              Jul - Dic
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginTop: 6, fontStyle: "italic" }}>
+        * En los meses no seleccionados se cobrará la cuota completa estándar en una sola quincena.
+      </div>
+    </div>
+  );
+}
+
+function SeccionDividirCuota({
+  cuota,
+  dividirEnQuincenas,
+  cuotaQ1,
+  cuotaQ2,
+  escenarioDivision = "anual",
+  semestresDivision = [1, 2],
+  trimestresDivision = [1],
+  mesesDivision = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+  onChangeDividir,
+  onChangeQ1,
+  onChangeQ2,
+  onChangeEscenario,
+  onChangeSemestres,
+  onChangeTrimestres,
+  onChangeMeses,
+}) {
   const cuotaNum = parseFloat(cuota) || 0;
   const q1Num = parseFloat(cuotaQ1) || 0;
   const q2Num = parseFloat(cuotaQ2) || 0;
@@ -278,6 +610,17 @@ function SeccionDividirCuota({ cuota, dividirEnQuincenas, cuotaQ1, cuotaQ2, onCh
               )}
             </div>
           )}
+
+          <SelectorEscenarioDivision
+            escenario={escenarioDivision}
+            semestres={semestresDivision}
+            trimestres={trimestresDivision}
+            meses={mesesDivision}
+            onChangeEscenario={onChangeEscenario}
+            onChangeSemestres={onChangeSemestres}
+            onChangeTrimestres={onChangeTrimestres}
+            onChangeMeses={onChangeMeses}
+          />
         </div>
       )}
     </div>
@@ -329,8 +672,11 @@ function ModalDividirCuotaRapido({ modalDividir, setModalDividir, onGuardar }) {
           background: "var(--card)",
           borderRadius: 14,
           border: "1px solid var(--line)",
-          maxWidth: 440,
+          maxWidth: 480,
           width: "100%",
+          maxHeight: "92vh",
+          display: "flex",
+          flexDirection: "column",
           boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
           overflow: "hidden",
         }}
@@ -343,6 +689,7 @@ function ModalDividirCuotaRapido({ modalDividir, setModalDividir, onGuardar }) {
             padding: "14px 16px",
             borderBottom: "1px solid var(--line-soft)",
             background: "var(--paper)",
+            flexShrink: 0,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -366,7 +713,7 @@ function ModalDividirCuotaRapido({ modalDividir, setModalDividir, onGuardar }) {
           </button>
         </div>
 
-        <div style={{ padding: 16 }}>
+        <div style={{ padding: 16, overflowY: "auto", flex: 1 }}>
           {/* Tarjeta de cuota actual */}
           <div
             style={{
@@ -540,7 +887,7 @@ function ModalDividirCuotaRapido({ modalDividir, setModalDividir, onGuardar }) {
                   background: exacto ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
                   color: exacto ? "var(--sage)" : "var(--stamp)",
                   border: `1px solid ${exacto ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
-                  marginBottom: 14,
+                  marginBottom: 10,
                 }}
               >
                 {exacto ? (
@@ -559,61 +906,73 @@ function ModalDividirCuotaRapido({ modalDividir, setModalDividir, onGuardar }) {
                   </>
                 )}
               </div>
+
+              {/* Selector de Escenarios */}
+              <SelectorEscenarioDivision
+                escenario={modalDividir.escenarioDivision || "anual"}
+                semestres={modalDividir.semestresDivision || [1, 2]}
+                trimestres={modalDividir.trimestresDivision || [1]}
+                meses={modalDividir.mesesDivision || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]}
+                onChangeEscenario={(val) => setModalDividir((prev) => ({ ...prev, escenarioDivision: val }))}
+                onChangeSemestres={(val) => setModalDividir((prev) => ({ ...prev, semestresDivision: val }))}
+                onChangeTrimestres={(val) => setModalDividir((prev) => ({ ...prev, trimestresDivision: val }))}
+                onChangeMeses={(val) => setModalDividir((prev) => ({ ...prev, mesesDivision: val }))}
+              />
             </>
           )}
 
           {modalDividir.error && (
             <div
               style={{
+                marginTop: 12,
                 padding: "8px 10px",
                 borderRadius: 7,
                 fontSize: 12,
                 color: "var(--stamp)",
                 background: "rgba(239, 68, 68, 0.1)",
                 border: "1px solid rgba(239, 68, 68, 0.25)",
-                marginBottom: 14,
               }}
             >
               {modalDividir.error}
             </div>
           )}
+        </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
-            <button
-              type="button"
-              onClick={() => setModalDividir(null)}
-              disabled={modalDividir.guardando}
-              style={{
-                padding: "7px 14px",
-                borderRadius: 7,
-                background: "transparent",
-                border: "1px solid var(--line)",
-                color: "var(--ink-soft)",
-                fontSize: 12.5,
-                cursor: "pointer",
-              }}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={onGuardar}
-              disabled={modalDividir.guardando || (modalDividir.dividirEnQuincenas && !exacto)}
-              style={{
-                padding: "7px 16px",
-                borderRadius: 7,
-                background: "var(--sage)",
-                border: "none",
-                color: "#fff",
-                fontSize: 12.5,
-                fontWeight: 600,
-                cursor: modalDividir.guardando || (modalDividir.dividirEnQuincenas && !exacto) ? "not-allowed" : "pointer",
-                opacity: modalDividir.guardando || (modalDividir.dividirEnQuincenas && !exacto) ? 0.6 : 1,
-              }}
-            >
-              {modalDividir.guardando ? "Guardando..." : "Guardar cambios"}
-            </button>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, padding: "12px 16px", borderTop: "1px solid var(--line-soft)", background: "var(--paper)", flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setModalDividir(null)}
+            disabled={modalDividir.guardando}
+            style={{
+              padding: "7px 14px",
+              borderRadius: 7,
+              background: "transparent",
+              border: "1px solid var(--line)",
+              color: "var(--ink-soft)",
+              fontSize: 12.5,
+              cursor: "pointer",
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onGuardar}
+            disabled={modalDividir.guardando || (modalDividir.dividirEnQuincenas && !exacto)}
+            style={{
+              padding: "7px 16px",
+              borderRadius: 7,
+              background: "var(--sage)",
+              border: "none",
+              color: "#fff",
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: modalDividir.guardando || (modalDividir.dividirEnQuincenas && !exacto) ? "not-allowed" : "pointer",
+              opacity: modalDividir.guardando || (modalDividir.dividirEnQuincenas && !exacto) ? 0.6 : 1,
+            }}
+          >
+            {modalDividir.guardando ? "Guardando..." : "Guardar cambios"}
+          </button>
         </div>
       </div>
     </div>
@@ -635,6 +994,10 @@ const emptyForm = (numero) => {
     dividirEnQuincenas: false,
     cuotaQ1: "",
     cuotaQ2: "",
+    escenarioDivision: "anual",
+    semestresDivision: [1, 2],
+    trimestresDivision: [1],
+    mesesDivision: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     fechaInicio: todayStr(),
     estado: "Activo",
     notas: "",
@@ -686,6 +1049,10 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       dividirEnQuincenas: p.dividirEnQuincenas ?? true,
       cuotaQ1: p.cuotaQ1 != null ? String(p.cuotaQ1) : String(mitad1),
       cuotaQ2: p.cuotaQ2 != null ? String(p.cuotaQ2) : String(mitad2),
+      escenarioDivision: p.escenarioDivision || "anual",
+      semestresDivision: Array.isArray(p.semestresDivision) && p.semestresDivision.length > 0 ? p.semestresDivision : [1, 2],
+      trimestresDivision: Array.isArray(p.trimestresDivision) && p.trimestresDivision.length > 0 ? p.trimestresDivision : [1],
+      mesesDivision: Array.isArray(p.mesesDivision) && p.mesesDivision.length > 0 ? p.mesesDivision : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
       error: null,
       guardando: false,
     });
@@ -732,6 +1099,10 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         dividirEnQuincenas: true,
         cuotaQ1,
         cuotaQ2,
+        escenarioDivision: modalDividir.escenarioDivision || "anual",
+        semestresDivision: modalDividir.semestresDivision || [1, 2],
+        trimestresDivision: modalDividir.trimestresDivision || [1],
+        mesesDivision: modalDividir.mesesDivision || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
       });
       setModalDividir(null);
     } catch (e) {
@@ -797,6 +1168,10 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       dividirEnQuincenas: !!p.dividirEnQuincenas,
       cuotaQ1: p.cuotaQ1 != null ? String(p.cuotaQ1) : (p.dividirEnQuincenas && p.cuota ? String(Math.round(p.cuota / 2)) : ""),
       cuotaQ2: p.cuotaQ2 != null ? String(p.cuotaQ2) : (p.dividirEnQuincenas && p.cuota ? String(p.cuota - Math.round(p.cuota / 2)) : ""),
+      escenarioDivision: p.escenarioDivision || "anual",
+      semestresDivision: Array.isArray(p.semestresDivision) && p.semestresDivision.length > 0 ? p.semestresDivision : [1, 2],
+      trimestresDivision: Array.isArray(p.trimestresDivision) && p.trimestresDivision.length > 0 ? p.trimestresDivision : [1],
+      mesesDivision: Array.isArray(p.mesesDivision) && p.mesesDivision.length > 0 ? p.mesesDivision : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
       fechaInicio: p.fechaInicio || todayStr(),
       estado: p.estado || "Activo",
       notas: p.notas || "",
@@ -877,6 +1252,10 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         dividirEnQuincenas: dividir,
         cuotaQ1: dividir ? cuotaQ1 : null,
         cuotaQ2: dividir ? cuotaQ2 : null,
+        escenarioDivision: dividir ? (editForm.escenarioDivision || "anual") : "anual",
+        semestresDivision: dividir ? (editForm.semestresDivision || [1, 2]) : [1, 2],
+        trimestresDivision: dividir ? (editForm.trimestresDivision || [1]) : [1],
+        mesesDivision: dividir ? (editForm.mesesDivision || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
         fechaInicio: editForm.fechaInicio,
         estado: editForm.estado,
         notas: editForm.notas.trim(),
@@ -1007,6 +1386,10 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         dividirEnQuincenas: dividir,
         cuotaQ1: dividir ? cuotaQ1 : null,
         cuotaQ2: dividir ? cuotaQ2 : null,
+        escenarioDivision: dividir ? (form.escenarioDivision || "anual") : "anual",
+        semestresDivision: dividir ? (form.semestresDivision || [1, 2]) : [1, 2],
+        trimestresDivision: dividir ? (form.trimestresDivision || [1]) : [1],
+        mesesDivision: dividir ? (form.mesesDivision || [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
         fechaInicio: form.fechaInicio,
         estado: form.estado,
         notas: form.notas.trim(),
@@ -1258,9 +1641,17 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                 dividirEnQuincenas={form.dividirEnQuincenas}
                 cuotaQ1={form.cuotaQ1}
                 cuotaQ2={form.cuotaQ2}
+                escenarioDivision={form.escenarioDivision}
+                semestresDivision={form.semestresDivision}
+                trimestresDivision={form.trimestresDivision}
+                mesesDivision={form.mesesDivision}
                 onChangeDividir={(val) => setForm((prev) => ({ ...prev, dividirEnQuincenas: val }))}
                 onChangeQ1={(val) => setForm((prev) => ({ ...prev, cuotaQ1: val }))}
                 onChangeQ2={(val) => setForm((prev) => ({ ...prev, cuotaQ2: val }))}
+                onChangeEscenario={(val) => setForm((prev) => ({ ...prev, escenarioDivision: val }))}
+                onChangeSemestres={(val) => setForm((prev) => ({ ...prev, semestresDivision: val }))}
+                onChangeTrimestres={(val) => setForm((prev) => ({ ...prev, trimestresDivision: val }))}
+                onChangeMeses={(val) => setForm((prev) => ({ ...prev, mesesDivision: val }))}
               />
             </div>
           ) : (
@@ -1558,9 +1949,17 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                         dividirEnQuincenas={editForm.dividirEnQuincenas}
                         cuotaQ1={editForm.cuotaQ1}
                         cuotaQ2={editForm.cuotaQ2}
+                        escenarioDivision={editForm.escenarioDivision}
+                        semestresDivision={editForm.semestresDivision}
+                        trimestresDivision={editForm.trimestresDivision}
+                        mesesDivision={editForm.mesesDivision}
                         onChangeDividir={(val) => setEditForm((prev) => ({ ...prev, dividirEnQuincenas: val }))}
                         onChangeQ1={(val) => setEditForm((prev) => ({ ...prev, cuotaQ1: val }))}
                         onChangeQ2={(val) => setEditForm((prev) => ({ ...prev, cuotaQ2: val }))}
+                        onChangeEscenario={(val) => setEditForm((prev) => ({ ...prev, escenarioDivision: val }))}
+                        onChangeSemestres={(val) => setEditForm((prev) => ({ ...prev, semestresDivision: val }))}
+                        onChangeTrimestres={(val) => setEditForm((prev) => ({ ...prev, trimestresDivision: val }))}
+                        onChangeMeses={(val) => setEditForm((prev) => ({ ...prev, mesesDivision: val }))}
                       />
                     </div>
                   ) : (
@@ -1882,15 +2281,20 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                               {p.cuota != null ? formatMoney(p.cuota) : "—"}
                             </div>
                             {p.dividirEnQuincenas && p.cuota != null && (
-                              <div style={{ fontSize: 10, color: "var(--sage)", fontWeight: 600, marginTop: 2 }}>
-                                Q1: {formatMoney(p.cuotaQ1 != null ? p.cuotaQ1 : Math.round(p.cuota / 2))} · Q2: {formatMoney(p.cuotaQ2 != null ? p.cuotaQ2 : p.cuota - Math.round(p.cuota / 2))}
-                              </div>
+                              <>
+                                <div style={{ fontSize: 10, color: "var(--sage)", fontWeight: 600, marginTop: 2 }}>
+                                  Q1: {formatMoney(p.cuotaQ1 != null ? p.cuotaQ1 : Math.round(p.cuota / 2))} · Q2: {formatMoney(p.cuotaQ2 != null ? p.cuotaQ2 : p.cuota - Math.round(p.cuota / 2))}
+                                </div>
+                                <div style={{ fontSize: 9.5, color: "var(--ink-soft)", marginTop: 1 }}>
+                                  {describirEscenarioDivision(p)}
+                                </div>
+                              </>
                             )}
                             {p.frecuenciaCuota === "Mensual" && p.cuota > 0 && p.estado !== "Pagado" && (
                               <button
                                 type="button"
                                 onClick={() => abrirModalDividir(p)}
-                                title={p.dividirEnQuincenas ? "Modificar división de cuota entre quincenas" : "Dividir cuota entre Q1 y Q2 para ir más flojo"}
+                                title={p.dividirEnQuincenas ? "Modificar división de cuota entre quincenas y escenarios" : "Dividir cuota entre Q1 y Q2 para ir más flojo"}
                                 style={{
                                   display: "inline-flex",
                                   alignItems: "center",

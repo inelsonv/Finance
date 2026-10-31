@@ -3,6 +3,7 @@ import { ingresoMensualNeto } from "./deduccionesLey";
 import { calcularResumenQuincena } from "./quincenaResumen";
 import { consumoPresupuesto } from "./presupuestoConsumo";
 import { contratoActivoEnMes, calcularQuincenaEfectivaContrato } from "../components/Contratos";
+import { esCuotaDivididaEnMes } from "./prestamoDivision";
 
 const MES_NOMBRES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -304,8 +305,9 @@ export function generarItemsPeriodo({
     const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
 
     const { activo, quincena } = celdaPrestamo(p, periodo.year, periodo.month);
+    const estaDivididaEsteMes = esCuotaDivididaEnMes(p, periodo.month, periodo.year);
 
-    if (p.dividirEnQuincenas && p.cuota) {
+    if (estaDivididaEsteMes && p.cuota) {
       const q1Monto = p.cuotaQ1 != null ? Number(p.cuotaQ1) : Math.round((Number(p.cuota) || 0) / 2);
       const q2Monto = p.cuotaQ2 != null ? Number(p.cuotaQ2) : (Number(p.cuota) || 0) - q1Monto;
       const montoQuincena = periodo.quincena === "Q1" ? q1Monto : q2Monto;
@@ -371,7 +373,8 @@ export function generarItemsPeriodo({
       if (!destino || typeof destino !== "object") continue;
       if (destino.year !== periodo.year || destino.month !== periodo.month || destino.quincena !== periodo.quincena) continue;
       const [origMes] = origenKey.split("-").map(Number);
-      const montoMover = p.dividirEnQuincenas
+      const estaDivididaDestino = esCuotaDivididaEnMes(p, destino.month, destino.year);
+      const montoMover = estaDivididaDestino
         ? (destino.quincena === "Q1"
             ? (p.cuotaQ1 != null ? Number(p.cuotaQ1) : Math.round((Number(p.cuota) || 0) / 2))
             : (p.cuotaQ2 != null ? Number(p.cuotaQ2) : (Number(p.cuota) || 0) - (p.cuotaQ1 != null ? Number(p.cuotaQ1) : Math.round((Number(p.cuota) || 0) / 2))))

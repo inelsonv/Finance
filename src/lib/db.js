@@ -1890,6 +1890,10 @@ export async function addPrestamo({
   dividirEnQuincenas,
   cuotaQ1,
   cuotaQ2,
+  escenarioDivision,
+  semestresDivision,
+  trimestresDivision,
+  mesesDivision,
 }) {
   await addDoc(collection(db, "prestamos"), {
     numero,
@@ -1915,6 +1919,10 @@ export async function addPrestamo({
     dividirEnQuincenas: !!dividirEnQuincenas,
     cuotaQ1: cuotaQ1 != null ? Number(cuotaQ1) : null,
     cuotaQ2: cuotaQ2 != null ? Number(cuotaQ2) : null,
+    escenarioDivision: escenarioDivision || "anual",
+    semestresDivision: Array.isArray(semestresDivision) ? semestresDivision : [1],
+    trimestresDivision: Array.isArray(trimestresDivision) ? trimestresDivision : [1],
+    mesesDivision: Array.isArray(mesesDivision) ? mesesDivision : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     metodoPago: metodoPago || "Transferencia",
     cuentaDestinoId: cuentaDestinoId || null,
     cuentaDestinoBanco: cuentaDestinoBanco || "",

@@ -23,6 +23,7 @@ import ModalCompartirPresupuesto from "./ModalCompartirPresupuesto.jsx";
 import ModalResumenGastosNoPresupuestados from "./ModalResumenGastosNoPresupuestados.jsx";
 import { obtenerGastosNoPresupuestados } from "../lib/gastosNoPresupuestados";
 import ModalDesgloseIngresosAnual from "./ModalDesgloseIngresosAnual.jsx";
+import { esCuotaDivididaEnMes, describirEscenarioDivision } from "../lib/prestamoDivision";
 import { calcularPresupuestoIngresosAnual } from "../lib/presupuestoIngreso";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -772,7 +773,7 @@ export default function PresupuestoAnual({
     const overrideEsteMesRaw = overrides[`${mes}-${year}`];
     const overrideEsteMes = overrideEsteMesRaw && typeof overrideEsteMesRaw === "object" ? overrideEsteMesRaw : null;
 
-    if (prestamo.dividirEnQuincenas && prestamo.cuota) {
+    if (prestamo.cuota && esCuotaDivididaEnMes(prestamo, mes, year)) {
       const q1Monto = prestamo.cuotaQ1 != null ? Number(prestamo.cuotaQ1) : Math.round((Number(prestamo.cuota) || 0) / 2);
       const q2Monto = prestamo.cuotaQ2 != null ? Number(prestamo.cuotaQ2) : (Number(prestamo.cuota) || 0) - q1Monto;
       const montoQuincena = quincena === "Q1" ? q1Monto : q2Monto;
@@ -2800,18 +2801,18 @@ export default function PresupuestoAnual({
                       </span>
                       {p.dividirEnQuincenas && !desactivada && (
                         <span
-                          title={`Cuota dividida en 2 quincenas: Q1 RD$ ${(p.cuotaQ1 != null ? Number(p.cuotaQ1) : (Number(p.cuota) || 0) / 2).toLocaleString("es")} / Q2 RD$ ${(p.cuotaQ2 != null ? Number(p.cuotaQ2) : (Number(p.cuota) || 0) / 2).toLocaleString("es")}`}
+                          title={`Cuota dividida en 2 quincenas (${describirEscenarioDivision(p)}): Q1 RD$ ${(p.cuotaQ1 != null ? Number(p.cuotaQ1) : (Number(p.cuota) || 0) / 2).toLocaleString("es")} / Q2 RD$ ${(p.cuotaQ2 != null ? Number(p.cuotaQ2) : (Number(p.cuota) || 0) / 2).toLocaleString("es")}`}
                           style={{
                             fontSize: 9,
                             fontWeight: 700,
-                            padding: "1px 4px",
+                            padding: "1px 5px",
                             borderRadius: 4,
                             background: "rgba(16, 185, 129, 0.15)",
                             color: "var(--sage)",
                             flexShrink: 0,
                           }}
                         >
-                          ½+½
+                          ½+½ {p.escenarioDivision === "semestral" ? "Sem" : p.escenarioDivision === "trimestral" ? "Trim" : p.escenarioDivision === "personalizado" ? "Meses" : "Anual"}
                         </span>
                       )}
                       {desactivada && (
