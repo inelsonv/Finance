@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Pencil, Check, PiggyBank, Landmark, Calendar } from "lucide-react";
+import { Plus, Trash2, X, Pencil, Check, PiggyBank, Landmark, Calendar, Sparkles, Search, ShoppingBag } from "lucide-react";
 import { addMetaAhorro, deleteMetaAhorro, updateMetaAhorroEstado, updateMetaAhorro } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { CATEGORIAS_META, obtenerIconoYDetalleMeta } from "../lib/metaIconos";
+import BuscadorOfertasMetasModal from "./BuscadorOfertasMetasModal.jsx";
 
 const TIPOS_META = ["Meta específica", "Porcentaje de ingreso"];
 const ESTADOS = ["Activa", "Completada", "Pausada"];
@@ -93,6 +94,7 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, ac
   const [editForm, setEditForm] = useState(null);
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [modalOfertasAbierto, setModalOfertasAbierto] = useState(false);
 
   const cuentasAhorro = useMemo(() => cuentas.filter((c) => TIPOS_CUENTA_AHORRO.includes(c.tipo)), [cuentas]);
 
@@ -237,6 +239,33 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, ac
 
   const renderForm = (f, setF, onSave, savingFlag, error, onCancel, isEdit) => (
     <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+      {!isEdit && (
+        <div
+          onClick={() => setModalOfertasAbierto(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "8px 12px",
+            borderRadius: 8,
+            background: "rgba(2, 132, 199, 0.1)",
+            border: "1px solid rgba(2, 132, 199, 0.25)",
+            marginBottom: 12,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+          title="Abrir buscador de ofertas en tiendas de República Dominicana"
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#38bdf8" }}>
+            <Sparkles size={14} style={{ flexShrink: 0 }} />
+            <span>¿Quieres cotizar un electrodoméstico o artículo (ej. Samsung, LG)? Busca ofertas locales</span>
+          </div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "#38bdf8", textDecoration: "underline", flexShrink: 0, marginLeft: 8 }}>
+            Cotizar ofertas ↗
+          </span>
+        </div>
+      )}
+
       <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 8, marginBottom: 8 }}>
         <input
           autoFocus
@@ -473,7 +502,28 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, ac
         Metas y planes de ahorro
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+        <button
+          type="button"
+          onClick={() => setModalOfertasAbierto(true)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "8px 14px",
+            fontSize: 13,
+            fontWeight: 600,
+            background: "rgba(5, 150, 105, 0.15)",
+            color: "var(--sage)",
+            border: "1px solid rgba(5, 150, 105, 0.35)",
+            borderRadius: 8,
+            cursor: "pointer",
+            transition: "all 0.15s ease",
+          }}
+          title="Buscar ofertas de artículos en tiendas de República Dominicana y crear una meta de ahorro"
+        >
+          <Sparkles size={14} /> Buscar ofertas locales (RD)
+        </button>
         <button
           onClick={() => {
             if (!showForm) setForm(emptyForm());
@@ -607,6 +657,12 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, ac
           })}
         </div>
       )}
+
+      <BuscadorOfertasMetasModal
+        isOpen={modalOfertasAbierto}
+        onClose={() => setModalOfertasAbierto(false)}
+        cuentas={cuentas}
+      />
     </div>
   );
 }
