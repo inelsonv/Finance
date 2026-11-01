@@ -11,6 +11,7 @@ const PAGE_SIZE = 10;
 import { quincenaDeFecha, consumoPresupuesto, consumoPresupuestoConTarjeta } from "../lib/presupuestoConsumo";
 import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
 import { confirm } from "../lib/confirm";
+import { inferirCategoriaSuperior } from "../lib/categoriaSuperior";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
 const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
@@ -1041,15 +1042,34 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                   style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
                 >
-                  {(form.tipo === "Ingreso"
-                    ? INGRESO_CATS
-                    : [
+                  {form.tipo === "Ingreso" ? (
+                    INGRESO_CATS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))
+                  ) : (
+                    (() => {
+                      const rawList = Array.from(new Set([
                         ...(form.clasificacion === "Fijo" ? GASTO_CATS_FIJO : GASTO_CATS_VARIABLE),
                         ...categoriasGasto.filter((c) => c.clasificacion === form.clasificacion).map((c) => c.nombre),
-                      ]
-                  ).map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
+                      ]));
+
+                      const grupos = {};
+                      for (const nombre of rawList) {
+                        const catObj = categoriasGasto.find((c) => c.nombre === nombre);
+                        const sup = inferirCategoriaSuperior(nombre, catObj?.categoriaSuperior);
+                        if (!grupos[sup]) grupos[sup] = [];
+                        grupos[sup].push(nombre);
+                      }
+
+                      return Object.entries(grupos).map(([sup, cats]) => (
+                        <optgroup key={sup} label={sup}>
+                          {cats.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </optgroup>
+                      ));
+                    })()
+                  )}
                 </select>
                 <select
                   value={form.entidadId}

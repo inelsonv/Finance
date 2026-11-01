@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useRef, useEffect } from "react";
-import { Plus, X, Trash2, Landmark, Lock, Unlock, Search, CreditCard, Banknote, ArrowRightLeft, HelpCircle, ChevronDown, Check } from "lucide-react";
+import { Plus, X, Trash2, Landmark, Lock, Unlock, Search, CreditCard, Banknote, ArrowRightLeft, HelpCircle, ChevronDown, Check, Car, Home, UtensilsCrossed, Wifi, HeartPulse, User, Film, Layers, Tag } from "lucide-react";
 import { addCategoriaGasto, deleteCategoriaGasto, updateCategoriaGasto } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import { inferirCategoriaSuperior, iconoParaCategoriaSuperior, CATEGORIAS_SUPERIORES_PREDEFINIDAS } from "../lib/categoriaSuperior";
 
 const FLOW_COLORS = [
   "#a23e2e", "#b8892b", "#5b7a5b", "#4a6a8a", "#8a5b8a", "#6a8a5b", "#8a6a4a",
@@ -26,6 +27,230 @@ function getIconMetodoPago(metodo) {
     return <Banknote size={12} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />;
   }
   return <HelpCircle size={12} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />;
+}
+
+export function IconoSuperior({ nombre, size = 12, style = {} }) {
+  const iconName = iconoParaCategoriaSuperior(nombre);
+  if (iconName === "car") return <Car size={size} style={style} />;
+  if (iconName === "home") return <Home size={size} style={style} />;
+  if (iconName === "utensils") return <UtensilsCrossed size={size} style={style} />;
+  if (iconName === "wifi") return <Wifi size={size} style={style} />;
+  if (iconName === "heartpulse") return <HeartPulse size={size} style={style} />;
+  if (iconName === "user") return <User size={size} style={style} />;
+  if (iconName === "film") return <Film size={size} style={style} />;
+  if (iconName === "landmark") return <Landmark size={size} style={style} />;
+  return <Layers size={size} style={style} />;
+}
+
+export function CustomCategoriaSuperiorSelect({ value, onChange, fullWidth = false }) {
+  const [open, setOpen] = useState(false);
+  const [escribiendoPersonalizado, setEscribiendoPersonalizado] = useState(false);
+  const [nuevoValor, setNuevoValor] = useState("");
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) {
+      setEscribiendoPersonalizado(false);
+      setNuevoValor("");
+      return;
+    }
+    const handleOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("touchstart", handleOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("touchstart", handleOutside);
+    };
+  }, [open]);
+
+  const displayLabel = value || "Vehículo";
+
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        position: "relative",
+        display: fullWidth ? "block" : "inline-block",
+        width: fullWidth ? "100%" : "auto",
+        flexShrink: 0,
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        title={`Categoría Principal: ${displayLabel} (clic para cambiar)`}
+        style={{
+          width: fullWidth ? "100%" : "auto",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 5,
+          background: "rgba(16, 185, 129, 0.12)",
+          border: `1px solid ${open ? "var(--sage)" : "rgba(16, 185, 129, 0.35)"}`,
+          borderRadius: 20,
+          padding: fullWidth ? "8px 12px" : "2px 8px",
+          cursor: "pointer",
+          color: "var(--sage)",
+          fontSize: fullWidth ? 13 : 10.5,
+          fontWeight: 600,
+          textAlign: "left",
+          boxSizing: "border-box",
+          transition: "all 0.15s ease",
+        }}
+      >
+        <IconoSuperior nombre={displayLabel} size={fullWidth ? 14 : 11} style={{ flexShrink: 0 }} />
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {displayLabel}
+        </span>
+        <ChevronDown size={10} style={{ flexShrink: 0, opacity: 0.8 }} />
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: 0,
+            width: fullWidth ? "100%" : 230,
+            minWidth: 210,
+            maxHeight: 280,
+            overflowY: "auto",
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            boxShadow: "0 12px 32px rgba(0, 0, 0, 0.6)",
+            zIndex: 130,
+            padding: "4px 0",
+          }}
+        >
+          <div
+            style={{
+              padding: "4px 10px 2px",
+              fontSize: 9.5,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "var(--ink-soft)",
+            }}
+          >
+            Categoría principal / superior
+          </div>
+          {CATEGORIAS_SUPERIORES_PREDEFINIDAS.map((catSup) => {
+            const isSel = (value || "").toLowerCase() === catSup.toLowerCase();
+            return (
+              <button
+                key={catSup}
+                type="button"
+                onClick={() => {
+                  onChange(catSup);
+                  setOpen(false);
+                }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: "6px 10px",
+                  fontSize: 11.5,
+                  fontWeight: isSel ? 600 : 400,
+                  color: isSel ? "var(--sage)" : "var(--ink)",
+                  background: isSel ? "rgba(16, 185, 129, 0.12)" : "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSel) e.currentTarget.style.background = "var(--paper)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSel) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                  <IconoSuperior nombre={catSup} size={12} style={{ color: isSel ? "var(--sage)" : "var(--ink-soft)" }} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {catSup}
+                  </span>
+                </div>
+                {isSel && <Check size={12} style={{ flexShrink: 0, color: "var(--sage)" }} />}
+              </button>
+            );
+          })}
+
+          <div style={{ borderTop: "1px solid var(--line-soft)", padding: "6px 8px 4px", marginTop: 4 }}>
+            {escribiendoPersonalizado ? (
+              <div style={{ display: "flex", gap: 4 }}>
+                <input
+                  autoFocus
+                  placeholder="Nueva categoría superior..."
+                  value={nuevoValor}
+                  onChange={(e) => setNuevoValor(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && nuevoValor.trim()) {
+                      onChange(nuevoValor.trim());
+                      setOpen(false);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "4px 6px",
+                    fontSize: 11,
+                    borderRadius: 5,
+                    border: "1px solid var(--line)",
+                    background: "var(--paper)",
+                    color: "var(--ink)",
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (nuevoValor.trim()) {
+                      onChange(nuevoValor.trim());
+                      setOpen(false);
+                    }
+                  }}
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    borderRadius: 5,
+                    background: "var(--sage)",
+                    color: "#fff",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  OK
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setEscribiendoPersonalizado(true)}
+                style={{
+                  width: "100%",
+                  textAlign: "left",
+                  background: "transparent",
+                  border: "none",
+                  fontSize: 11,
+                  color: "var(--sage)",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  padding: "3px 4px",
+                }}
+              >
+                + Escribir otra categoría principal…
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function CustomMetodoPagoSelect({ value, onChange, tarjetas = [], fullWidth = false }) {
@@ -264,7 +489,10 @@ export default function CategoriaGasto({
 }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
+  const [filtroSuperior, setFiltroSuperior] = useState("todas");
   const [nombre, setNombre] = useState("");
+  const [categoriaSuperior, setCategoriaSuperior] = useState("Vehículo");
+  const [superiorModificadaManualmente, setSuperiorModificadaManualmente] = useState(false);
   const [clasificacion, setClasificacion] = useState("Variable");
   const [tipoGastoChecklist, setTipoGastoChecklist] = useState("pago_unico");
   const [metodoPagoDefault, setMetodoPagoDefault] = useState("Efectivo");
@@ -311,6 +539,7 @@ export default function CategoriaGasto({
         color: c.color || FLOW_COLORS[lista.length % FLOW_COLORS.length],
         agruparConCompromisos: !!c.agruparConCompromisos,
         soloAsignablePorPuntos: !!c.soloAsignablePorPuntos,
+        categoriaSuperior: c.categoriaSuperior ? c.categoriaSuperior.trim() : inferirCategoriaSuperior(nombreNorm, null),
         amount: spent,
         esPersonalizada: true,
       });
@@ -329,6 +558,7 @@ export default function CategoriaGasto({
         color: FLOW_COLORS[lista.length % FLOW_COLORS.length],
         agruparConCompromisos: false,
         soloAsignablePorPuntos: false,
+        categoriaSuperior: inferirCategoriaSuperior(catName, null),
         amount: spent,
         esPersonalizada: false,
       });
@@ -345,16 +575,22 @@ export default function CategoriaGasto({
     return lista;
   }, [categoriasPersonalizadas, gastosPorCategoriaMap]);
 
-  // Filtro de búsqueda
+  // Filtro de búsqueda y categoría superior
   const categoriasFiltradas = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return categoriasUnificadas;
-    return categoriasUnificadas.filter((c) =>
-      c.nombre.toLowerCase().includes(q) ||
-      (c.metodoPagoDefault && c.metodoPagoDefault.toLowerCase().includes(q)) ||
-      (c.clasificacion && c.clasificacion.toLowerCase().includes(q))
-    );
-  }, [categoriasUnificadas, search]);
+    return categoriasUnificadas.filter((c) => {
+      if (filtroSuperior !== "todas") {
+        if ((c.categoriaSuperior || "").toLowerCase() !== filtroSuperior.toLowerCase()) return false;
+      }
+      if (!q) return true;
+      return (
+        c.nombre.toLowerCase().includes(q) ||
+        (c.categoriaSuperior && c.categoriaSuperior.toLowerCase().includes(q)) ||
+        (c.metodoPagoDefault && c.metodoPagoDefault.toLowerCase().includes(q)) ||
+        (c.clasificacion && c.clasificacion.toLowerCase().includes(q))
+      );
+    });
+  }, [categoriasUnificadas, search, filtroSuperior]);
 
   const handleAdd = async () => {
     const nombreTrim = nombre.trim();
@@ -372,14 +608,18 @@ export default function CategoriaGasto({
     setSaving(true);
     setError(null);
     try {
+      const superiorFinal = (categoriaSuperior || "").trim() || inferirCategoriaSuperior(nombreTrim, "");
       await addCategoriaGasto({
         nombre: nombreTrim,
         clasificacion,
         metodoPagoDefault,
         color,
         tipoGastoChecklist,
+        categoriaSuperior: superiorFinal,
       });
       setNombre("");
+      setCategoriaSuperior("Vehículo");
+      setSuperiorModificadaManualmente(false);
       setClasificacion("Variable");
       setTipoGastoChecklist("pago_unico");
       setMetodoPagoDefault("Efectivo");
@@ -389,6 +629,25 @@ export default function CategoriaGasto({
       setError(err.message || String(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCambiarCategoriaSuperior = async (cat, nuevaSuperior) => {
+    try {
+      if (cat.id) {
+        await updateCategoriaGasto(cat.id, { categoriaSuperior: nuevaSuperior });
+      } else {
+        await addCategoriaGasto({
+          nombre: cat.nombre,
+          clasificacion: cat.clasificacion || "Variable",
+          metodoPagoDefault: cat.metodoPagoDefault || "Efectivo",
+          color: cat.color || FLOW_COLORS[0],
+          tipoGastoChecklist: cat.tipoGastoChecklist || "pago_unico",
+          categoriaSuperior: nuevaSuperior,
+        });
+      }
+    } catch (e) {
+      console.error("Error al asignar categoría superior:", e);
     }
   };
 
@@ -583,6 +842,68 @@ export default function CategoriaGasto({
               ))}
             </div>
           </div>
+
+          {/* Categoría Superior / Principal (Grupo en Presupuesto) */}
+          <div style={{ marginBottom: 10, background: "var(--paper)", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--line)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "var(--ink)", display: "flex", alignItems: "center", gap: 5 }}>
+                <IconoSuperior nombre={categoriaSuperior} size={12} style={{ color: "var(--sage)" }} />
+                Categoría principal / superior (para segmentar en Presupuesto):
+              </label>
+              <span style={{ fontSize: 9.5, color: "var(--sage)", fontWeight: 700 }}>
+                {categoriaSuperior}
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 6 }}>
+              {CATEGORIAS_SUPERIORES_PREDEFINIDAS.filter((cs) => cs !== "Compromisos financieros").map((cs) => {
+                const esActiva = (categoriaSuperior || "").toLowerCase() === cs.toLowerCase();
+                return (
+                  <button
+                    key={cs}
+                    type="button"
+                    onClick={() => {
+                      setCategoriaSuperior(cs);
+                      setSuperiorModificadaManualmente(true);
+                    }}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                      padding: "3px 8px",
+                      borderRadius: 16,
+                      fontSize: 10.5,
+                      fontWeight: esActiva ? 700 : 500,
+                      border: `1px solid ${esActiva ? "var(--sage)" : "var(--line)"}`,
+                      background: esActiva ? "rgba(16, 185, 129, 0.15)" : "var(--card)",
+                      color: esActiva ? "var(--sage)" : "var(--ink-soft)",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                    }}
+                  >
+                    <IconoSuperior nombre={cs} size={11} style={{ color: esActiva ? "var(--sage)" : "var(--ink-soft)" }} />
+                    {cs}
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              placeholder="O escribe una personalizada (ej. Vehículo, Hogar, Personal...)"
+              value={categoriaSuperior}
+              onChange={(e) => {
+                setCategoriaSuperior(e.target.value);
+                setSuperiorModificadaManualmente(true);
+              }}
+              style={{
+                width: "100%",
+                padding: "6px 9px",
+                border: "1px solid var(--line)",
+                borderRadius: 6,
+                fontSize: 12,
+                background: "var(--card)",
+                color: "var(--ink)",
+              }}
+            />
+          </div>
           <div style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
               Formato en el Checklist de pagos:
@@ -667,27 +988,66 @@ export default function CategoriaGasto({
         </div>
       )}
 
-      {/* Buscador rápido de categorías */}
-      {categoriasUnificadas.length > 4 && (
-        <div style={{ position: "relative", marginBottom: 12 }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--ink-soft)" }} />
-          <input
-            type="text"
-            placeholder="Buscar categoría o método de pago…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "7px 10px 7px 32px",
-              fontSize: 12.5,
-              borderRadius: 8,
-              border: "1px solid var(--line)",
-              background: "var(--card)",
-              color: "var(--ink)",
-            }}
-          />
+      {/* Buscador rápido de categorías y píldoras por categoría principal */}
+      <div style={{ marginBottom: 12 }}>
+        {categoriasUnificadas.length > 4 && (
+          <div style={{ position: "relative", marginBottom: 8 }}>
+            <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--ink-soft)" }} />
+            <input
+              type="text"
+              placeholder="Buscar categoría o método de pago…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "7px 10px 7px 32px",
+                fontSize: 12.5,
+                borderRadius: 8,
+                border: "1px solid var(--line)",
+                background: "var(--card)",
+                color: "var(--ink)",
+              }}
+            />
+          </div>
+        )}
+
+        {/* Píldoras de filtro por categoría principal */}
+        <div style={{ display: "flex", gap: 5, overflowX: "auto", paddingBottom: 4 }}>
+          {["todas", ...CATEGORIAS_SUPERIORES_PREDEFINIDAS].map((sup) => {
+            const esActivo = filtroSuperior.toLowerCase() === sup.toLowerCase();
+            const count = sup === "todas"
+              ? categoriasUnificadas.length
+              : categoriasUnificadas.filter((c) => (c.categoriaSuperior || "").toLowerCase() === sup.toLowerCase()).length;
+            if (sup !== "todas" && count === 0) return null;
+            return (
+              <button
+                key={sup}
+                type="button"
+                onClick={() => setFiltroSuperior(sup)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "3px 9px",
+                  borderRadius: 16,
+                  fontSize: 10.5,
+                  fontWeight: esActivo ? 700 : 500,
+                  border: `1px solid ${esActivo ? "var(--sage)" : "var(--line)"}`,
+                  background: esActivo ? "rgba(16, 185, 129, 0.16)" : "var(--card)",
+                  color: esActivo ? "var(--sage)" : "var(--ink-soft)",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}
+              >
+                {sup !== "todas" && <IconoSuperior nombre={sup} size={11} />}
+                {sup === "todas" ? "Todas" : sup}
+                <span style={{ fontSize: 9.5, opacity: 0.85 }}>({count})</span>
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
 
       {/* Lista unificada donde cada fila tiene la categoría, su método de pago asignable, el monto consumido y su barra de progreso */}
       {categoriasFiltradas.length === 0 ? (
@@ -715,7 +1075,7 @@ export default function CategoriaGasto({
                 {/* Fila principal: Información de categoría, selector de método de pago, monto consumido y acciones */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                   
-                  {/* Bloque izquierdo: Color, Nombre y Etiquetas */}
+                  {/* Bloque izquierdo: Color, Nombre, Categoría Superior y Etiquetas */}
                   <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", flex: "1 1 auto", minWidth: 200 }}>
                     {/* Botón de color (clic para alternar paleta) */}
                     <button
@@ -738,6 +1098,13 @@ export default function CategoriaGasto({
                     <span style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>
                       {c.nombre}
                     </span>
+
+                    {/* Badge y selector de Categoría Superior asignable con 1 clic */}
+                    <CustomCategoriaSuperiorSelect
+                      value={c.categoriaSuperior || "Vehículo"}
+                      onChange={(nueva) => handleCambiarCategoriaSuperior(c, nueva)}
+                      fullWidth={false}
+                    />
 
                     {/* Badge Fijo / Variable */}
                     <button

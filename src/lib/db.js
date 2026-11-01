@@ -2410,13 +2410,14 @@ export function watchCategoriasGasto(onChange, onError) {
   );
 }
 
-export async function addCategoriaGasto({ nombre, clasificacion, metodoPagoDefault, color, tipoGastoChecklist }) {
+export async function addCategoriaGasto({ nombre, clasificacion, metodoPagoDefault, color, tipoGastoChecklist, categoriaSuperior }) {
   await addDoc(collection(db, "categoriasGasto"), {
     nombre,
     clasificacion,
     metodoPagoDefault: metodoPagoDefault || "Efectivo",
     color: color || null,
     tipoGastoChecklist: tipoGastoChecklist || null,
+    categoriaSuperior: categoriaSuperior || null,
     createdAt: serverTimestamp(),
   });
 }

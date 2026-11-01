@@ -25,6 +25,8 @@ import { obtenerGastosNoPresupuestados } from "../lib/gastosNoPresupuestados";
 import ModalDesgloseIngresosAnual from "./ModalDesgloseIngresosAnual.jsx";
 import { esCuotaDivididaEnMes, describirEscenarioDivision } from "../lib/prestamoDivision";
 import { calcularPresupuestoIngresosAnual } from "../lib/presupuestoIngreso";
+import { inferirCategoriaSuperior, iconoParaCategoriaSuperior } from "../lib/categoriaSuperior";
+import { IconoSuperior } from "./CategoriaGasto.jsx";
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const QUINCENAS = ["Q1", "Q2"];
@@ -806,6 +808,16 @@ export default function PresupuestoAnual({
     return Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
   };
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
+  const [gruposColapsados, setGruposColapsados] = useState(() => new Set());
+
+  const toggleColapsarGrupo = (nombreGrupo) => {
+    setGruposColapsados((prev) => {
+      const next = new Set(prev);
+      if (next.has(nombreGrupo)) next.delete(nombreGrupo);
+      else next.add(nombreGrupo);
+      return next;
+    });
+  };
 
   const categorias = useMemo(() => {
     const list = (categoriasPersonalizadasEfectivas || []).map((c) => ({
@@ -814,12 +826,67 @@ export default function PresupuestoAnual({
       agruparConCompromisos: !!c.agruparConCompromisos,
       color: c.color || null,
       soloAsignablePorPuntos: !!c.soloAsignablePorPuntos,
+      categoriaSuperior: inferirCategoriaSuperior(c.nombre, c.categoriaSuperior),
     }));
-    // Las categorías marcadas para agruparse con "Compromisos financieros" se
-    // ordenan al final, para que queden justo antes de esa sección en la
-    // tabla (sin fusionarse — solo se acomodan una al lado de la otra).
     return [...list].sort((a, b) => (a.agruparConCompromisos ? 1 : 0) - (b.agruparConCompromisos ? 1 : 0));
   }, [categoriasPersonalizadasEfectivas]);
+
+  const gruposSuperiores = useMemo(() => {
+    const categoriasRegulares = categorias.filter((c) => !c.agruparConCompromisos);
+    const categoriasCompromisos = categorias.filter((c) => c.agruparConCompromisos);
+
+    const ordenPredefinido = [
+      "Vehículo",
+      "Hogar y Vivienda",
+      "Alimentación",
+      "Servicios y Conectividad",
+      "Salud y Bienestar",
+      "Personal y Familia",
+      "Entretenimiento y Ocio",
+    ];
+
+    const map = new Map();
+    for (const cat of categoriasRegulares) {
+      const sup = cat.categoriaSuperior || "Otras Categorías";
+      if (!map.has(sup)) {
+        map.set(sup, []);
+      }
+      map.get(sup).push(cat);
+    }
+
+    const grupos = [];
+    for (const nombreSup of ordenPredefinido) {
+      if (map.has(nombreSup)) {
+        grupos.push({
+          nombre: nombreSup,
+          categorias: map.get(nombreSup),
+        });
+        map.delete(nombreSup);
+      }
+    }
+
+    const otrosGrupos = [...map.keys()].filter((k) => k !== "Otras Categorías").sort((a, b) => a.localeCompare(b, "es"));
+    for (const sup of otrosGrupos) {
+      grupos.push({
+        nombre: sup,
+        categorias: map.get(sup),
+      });
+      map.delete(sup);
+    }
+
+    if (map.has("Otras Categorías")) {
+      grupos.push({
+        nombre: "Otras Categorías",
+        categorias: map.get("Otras Categorías"),
+      });
+      map.delete("Otras Categorías");
+    }
+
+    return {
+      grupos,
+      categoriasCompromisos,
+    };
+  }, [categorias]);
 
   const prestamosActivos = useMemo(
     () =>
@@ -1543,6 +1610,52 @@ export default function PresupuestoAnual({
       total += totalMesCategoria(categoria, m) + totalMesEventoCategoria(categoria, m);
     }
     return total;
+  };
+
+  const getCeldaGrupoSuperior = (catsDelGrupo, mes, quincena) => {
+    return (catsDelGrupo || [])
+      .filter((c) => !desactivadasEmulacion.has(`cat:${c.nombre}`))
+      .reduce((sum, c) => sum + (getCelda(c.nombre, mes, quincena) || 0) + getCeldaEventoCategoria(c.nombre, mes, quincena), 0);
+  };
+
+  const totalGrupoSuperior = (catsDelGrupo) => {
+    return (catsDelGrupo || [])
+      .filter((c) => !desactivadasEmulacion.has(`cat:${c.nombre}`))
+      .reduce((sum, c) => sum + (totalPorCategoria(c.nombre) || 0), 0);
+  };
+
+  const toggleGrupoSuperior = (grupo) => {
+    const catsDelGrupo = grupo.categorias || [];
+    const algunActivo = catsDelGrupo.some((c) => !desactivadasEmulacion.has(`cat:${c.nombre}`));
+    const desactivar = algunActivo;
+    const anios = [2025, 2026, 2027, 2028, 2029, 2030];
+    const anioObjetivo = Math.max(year + 1, 2027);
+
+    if (modoAnioEmulacion === "este_anio") {
+      setDesactivadasEmulacion((prev) => {
+        const next = new Set(prev);
+        catsDelGrupo.forEach((c) => {
+          if (desactivar) next.add(`cat:${c.nombre}`);
+          else next.delete(`cat:${c.nombre}`);
+        });
+        try {
+          localStorage.setItem(`smart-finance-emulacion-desactivadas-${year}`, JSON.stringify([...next]));
+        } catch (e) {}
+        return next;
+      });
+    } else if (modoAnioEmulacion === "a_partir_de_2027" || modoAnioEmulacion === "a_partir_de") {
+      anios.forEach((y) => {
+        catsDelGrupo.forEach((c) => {
+          actualizarDesactivadasParaAnio(y, `cat:${c.nombre}`, y >= anioObjetivo ? desactivar : false);
+        });
+      });
+    } else if (modoAnioEmulacion === "todos") {
+      anios.forEach((y) => {
+        catsDelGrupo.forEach((c) => {
+          actualizarDesactivadasParaAnio(y, `cat:${c.nombre}`, desactivar);
+        });
+      });
+    }
   };
 
   const totalPorMeta = (meta) => {
@@ -2886,211 +2999,521 @@ export default function PresupuestoAnual({
             </tr>
           </thead>
           <tbody>
-            {categorias.map((cat, rowIdx) => {
-              const desactivada = desactivadasEmulacion.has(`cat:${cat.nombre}`);
+            {gruposSuperiores.grupos.map((grupo) => {
+              const colapsado = gruposColapsados.has(grupo.nombre);
+              const algunActivo = grupo.categorias.some((c) => !desactivadasEmulacion.has(`cat:${c.nombre}`));
+              const totalGrupo = totalGrupoSuperior(grupo.categorias);
+
               return (
-                <tr
-                  key={cat.nombre}
-                  style={{
-                    background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
-                    opacity: desactivada ? 0.45 : 1,
-                    transition: "opacity 0.2s ease",
-                  }}
-                >
-                  <td
-                    className="presupuesto-col-sticky"
+                <React.Fragment key={`grupo-sup-${grupo.nombre}`}>
+                  {/* Fila Encabezado de Segmento / Categoría Principal (Vehículo, Hogar, Alimentación, etc.) */}
+                  <tr
                     style={{
-                      position: "sticky",
-                      left: 0,
-                      background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
-                      padding: "6px 8px",
-                      borderRight: "1px solid var(--line)",
-                      borderBottom: "1px solid var(--line-soft)",
-                      fontFamily: "Inter, sans-serif",
-                      fontSize: 12.5,
-                      color: cat.color || (cat.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)"),
-                      minWidth: COL_CATEGORIA_WIDTH,
-                      width: COL_CATEGORIA_WIDTH,
-                      maxWidth: COL_CATEGORIA_WIDTH,
-                      boxSizing: "border-box",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      background: "var(--card)",
+                      borderTop: "2px solid var(--line)",
                     }}
-                    title={`${cat.nombre} (${cat.clasificacion || "Categoría"})${desactivada ? " — Desactivada en la simulación" : ""}`}
                   >
-                    <div style={{ display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <MiniSwitch
-                        checked={!desactivada}
-                        onChange={() => toggleEmulacion(`cat:${cat.nombre}`)}
-                        title={desactivada ? `Activar ${cat.nombre} en el presupuesto` : `Desactivar ${cat.nombre} de la simulación`}
-                      />
-                      {(() => {
-                        const IconoCategoria = ICONOS_CATEGORIA[iconoParaCategoria(cat.nombre)] || Receipt;
-                        return <IconoCategoria size={13} style={{ display: "inline-block", flexShrink: 0, marginRight: 6, color: cat.color || "var(--ink-soft)" }} />;
-                      })()}
-                      <span
-                        style={{
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          textDecoration: desactivada ? "line-through" : "none",
-                        }}
-                        title={cat.nombre}
-                      >
-                        {abreviarNombreCategoria(cat.nombre)}
-                      </span>
-                      {desactivada ? (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            abrirModalConfigurar(`cat:${cat.nombre}`, cat.nombre, cat.clasificacion);
-                          }}
+                    <td
+                      className="presupuesto-col-sticky"
+                      style={{
+                        position: "sticky",
+                        left: 0,
+                        background: "var(--card)",
+                        padding: "6px 8px",
+                        borderRight: "1px solid var(--line)",
+                        borderBottom: "1.5px solid var(--line)",
+                        fontFamily: "Inter, sans-serif",
+                        fontSize: 12.5,
+                        fontWeight: 700,
+                        color: "var(--ink)",
+                        minWidth: COL_CATEGORIA_WIDTH,
+                        width: COL_CATEGORIA_WIDTH,
+                        maxWidth: COL_CATEGORIA_WIDTH,
+                        boxSizing: "border-box",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={`Categoría Principal: ${grupo.nombre} (${grupo.categorias.length} categorías). Clic para contraer/expandir o usa el switch para simular.`}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <MiniSwitch
+                          checked={algunActivo}
+                          onChange={() => toggleGrupoSuperior(grupo)}
+                          title={algunActivo ? `Desactivar todo ${grupo.nombre} de la simulación` : `Activar todo ${grupo.nombre}`}
+                        />
+                        <div
+                          onClick={() => toggleColapsarGrupo(grupo.nombre)}
                           style={{
-                            background: "rgba(139, 92, 246, 0.16)",
-                            border: "1px solid rgba(139, 92, 246, 0.3)",
-                            borderRadius: 4,
-                            padding: "0 4px",
-                            fontSize: 8.5,
-                            fontWeight: 700,
-                            marginLeft: 4,
-                            color: "#8b5cf6",
-                            cursor: "pointer",
-                            flexShrink: 0,
-                          }}
-                          title="Clic para cambiar el año de la simulación"
-                        >
-                          Off · Año
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            abrirModalConfigurar(`cat:${cat.nombre}`, cat.nombre, cat.clasificacion);
-                          }}
-                          style={{
-                            background: "transparent",
-                            border: "none",
-                            padding: "0 2px",
-                            color: "var(--ink-soft)",
-                            opacity: 0.45,
-                            cursor: "pointer",
-                            display: "inline-flex",
+                            display: "flex",
                             alignItems: "center",
-                            marginLeft: 2,
-                            flexShrink: 0,
+                            gap: 5,
+                            cursor: "pointer",
+                            minWidth: 0,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            userSelect: "none",
                           }}
-                          title={`Configurar año de simulación para ${cat.nombre}`}
                         >
-                          <Sliders size={8.5} />
-                        </button>
-                      )}
-                      {eventosConGasto.some((e) => e.categoriaGasto === cat.nombre) && (
-                        <span title="Esta categoría también tiene eventos del calendario sumados a su total" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
-                          <CalendarIcon size={10} style={{ display: "inline-block" }} />
+                          {colapsado ? (
+                            <ChevronRight size={12} style={{ flexShrink: 0, color: "var(--ink-soft)" }} />
+                          ) : (
+                            <ChevronDown size={12} style={{ flexShrink: 0, color: "var(--sage)" }} />
+                          )}
+                          <IconoSuperior nombre={grupo.nombre} size={13} style={{ flexShrink: 0, color: "var(--sage)" }} />
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              fontWeight: 700,
+                              textDecoration: !algunActivo ? "line-through" : "none",
+                              opacity: !algunActivo ? 0.6 : 1,
+                            }}
+                          >
+                            {grupo.nombre}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 9.5,
+                              fontWeight: 700,
+                              padding: "1px 5px",
+                              borderRadius: 8,
+                              background: "rgba(255, 255, 255, 0.06)",
+                              border: "1px solid var(--line-soft)",
+                              color: "var(--ink-soft)",
+                              flexShrink: 0,
+                              marginLeft: 2,
+                            }}
+                          >
+                            {grupo.categorias.length}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    {MESES.map((_, i) => {
+                      const mes = i + 1;
+                      const trimestre = obtenerTrimestreMes(i);
+                      return QUINCENAS.map((q) => {
+                        const val = getCeldaGrupoSuperior(grupo.categorias, mes, q);
+                        const esInicioTrimestre = i % 3 === 0 && q === "Q1";
+                        return (
+                          <td
+                            key={`grupo-${grupo.nombre}-${mes}-${q}`}
+                            style={{
+                              borderBottom: "1.5px solid var(--line)",
+                              borderLeft: esInicioTrimestre
+                                ? `2.5px solid ${trimestre.bordeColor}55`
+                                : q === "Q1"
+                                ? "1px solid var(--line-soft)"
+                                : "none",
+                              padding: "6px 5px",
+                              textAlign: "right",
+                              fontWeight: 700,
+                              color: val > 0 ? "var(--ink)" : "var(--ink-soft)",
+                              fontSize: 11,
+                              background: "var(--card)",
+                              opacity: val > 0 ? (algunActivo ? 1 : 0.45) : 0.35,
+                            }}
+                          >
+                            {val > 0 ? formatMoney(val) : "—"}
+                          </td>
+                        );
+                      });
+                    })}
+                    <td
+                      style={{
+                        borderLeft: "1px solid var(--line)",
+                        borderBottom: "1.5px solid var(--line)",
+                        padding: "7px 10px",
+                        textAlign: "right",
+                        fontWeight: 700,
+                        background: "var(--card)",
+                        color: "var(--sage)",
+                        fontSize: 12,
+                        textDecoration: !algunActivo ? "line-through" : "none",
+                        opacity: !algunActivo ? 0.5 : 1,
+                      }}
+                    >
+                      {formatMoney(totalGrupo) || "0"}
+                    </td>
+                  </tr>
+
+                  {/* Subcategorías dentro del segmento (abiertas/visibles por defecto, indentadas) */}
+                  {!colapsado &&
+                    grupo.categorias.map((cat, rowIdx) => {
+                      const desactivada = desactivadasEmulacion.has(`cat:${cat.nombre}`);
+                      return (
+                        <tr
+                          key={cat.nombre}
+                          style={{
+                            background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                            opacity: desactivada ? 0.45 : 1,
+                            transition: "opacity 0.2s ease",
+                          }}
+                        >
+                          <td
+                            className="presupuesto-col-sticky"
+                            style={{
+                              position: "sticky",
+                              left: 0,
+                              background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
+                              padding: "6px 8px 6px 22px",
+                              borderRight: "1px solid var(--line)",
+                              borderBottom: "1px solid var(--line-soft)",
+                              fontFamily: "Inter, sans-serif",
+                              fontSize: 12.5,
+                              color: cat.color || (cat.clasificacion === "Fijo" ? "var(--stamp)" : "var(--sage)"),
+                              minWidth: COL_CATEGORIA_WIDTH,
+                              width: COL_CATEGORIA_WIDTH,
+                              maxWidth: COL_CATEGORIA_WIDTH,
+                              boxSizing: "border-box",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                            title={`${cat.nombre} (${cat.clasificacion || "Categoría"})${desactivada ? " — Desactivada en la simulación" : ""}`}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              <MiniSwitch
+                                checked={!desactivada}
+                                onChange={() => toggleEmulacion(`cat:${cat.nombre}`)}
+                                title={desactivada ? `Activar ${cat.nombre} en el presupuesto` : `Desactivar ${cat.nombre} de la simulación`}
+                              />
+                              {(() => {
+                                const IconoCategoria = ICONOS_CATEGORIA[iconoParaCategoria(cat.nombre)] || Receipt;
+                                return <IconoCategoria size={13} style={{ display: "inline-block", flexShrink: 0, marginRight: 6, color: cat.color || "var(--ink-soft)" }} />;
+                              })()}
+                              <span
+                                style={{
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  textDecoration: desactivada ? "line-through" : "none",
+                                }}
+                                title={cat.nombre}
+                              >
+                                {abreviarNombreCategoria(cat.nombre)}
+                              </span>
+                              {desactivada ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    abrirModalConfigurar(`cat:${cat.nombre}`, cat.nombre, cat.clasificacion);
+                                  }}
+                                  style={{
+                                    background: "rgba(139, 92, 246, 0.16)",
+                                    border: "1px solid rgba(139, 92, 246, 0.3)",
+                                    borderRadius: 4,
+                                    padding: "0 4px",
+                                    fontSize: 8.5,
+                                    fontWeight: 700,
+                                    marginLeft: 4,
+                                    color: "#8b5cf6",
+                                    cursor: "pointer",
+                                    flexShrink: 0,
+                                  }}
+                                  title="Clic para cambiar el año de la simulación"
+                                >
+                                  Off · Año
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    abrirModalConfigurar(`cat:${cat.nombre}`, cat.nombre, cat.clasificacion);
+                                  }}
+                                  style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    padding: "0 2px",
+                                    color: "var(--ink-soft)",
+                                    opacity: 0.45,
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    marginLeft: 2,
+                                    flexShrink: 0,
+                                  }}
+                                  title={`Configurar año de simulación para ${cat.nombre}`}
+                                >
+                                  <Sliders size={8.5} />
+                                </button>
+                              )}
+                              {eventosConGasto.some((e) => e.categoriaGasto === cat.nombre) && (
+                                <span title="Esta categoría también tiene eventos del calendario sumados a su total" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
+                                  <CalendarIcon size={10} style={{ display: "inline-block" }} />
+                                </span>
+                              )}
+                              {cat.agruparConCompromisos && (
+                                <span title="Agrupada junto a Compromisos financieros" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
+                                  <Landmark size={10} style={{ display: "inline-block" }} />
+                                </span>
+                              )}
+                              {cat.soloAsignablePorPuntos && (
+                                <span title="Solo se puede asignar presupuesto canjeando puntos" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
+                                  <Lock size={10} style={{ display: "inline-block" }} />
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          {MESES.map((_, i) => {
+                            const mes = i + 1;
+                            const trimestre = obtenerTrimestreMes(i);
+                            return QUINCENAS.map((q) => {
+                              const key = `${cat.nombre}-${mes}-${q}`;
+                              const val = getCelda(cat.nombre, mes, q);
+                              const montoEvento = getCeldaEventoCategoria(cat.nombre, mes, q);
+                              const nota = notasPorCelda[key];
+                              const bloqueada = cat.soloAsignablePorPuntos;
+                              const tooltipTexto = bloqueada
+                                ? "Esta categoría solo se puede asignar canjeando puntos, en el módulo de Puntos"
+                                : montoEvento > 0
+                                ? `Presupuesto base: ${val != null ? formatMoney(val) : "—"} · Agendado en Calendario: ${formatMoney(montoEvento)} (Total quincena: ${formatMoney((val || 0) + montoEvento)})`
+                                : nota || undefined;
+                              const esInicioTrimestre = i % 3 === 0 && q === "Q1";
+                              return (
+                                <td
+                                  key={key}
+                                  style={{
+                                    borderBottom: "1px solid var(--line-soft)",
+                                    borderLeft: esInicioTrimestre
+                                      ? `2.5px solid ${trimestre.bordeColor}55`
+                                      : q === "Q1"
+                                      ? "1px solid var(--line-soft)"
+                                      : "none",
+                                    padding: 0,
+                                    position: "relative",
+                                  }}
+                                  title={tooltipTexto}
+                                >
+                                  <CeldaPresupuestoInput
+                                    val={val}
+                                    montoEvento={montoEvento}
+                                    bloqueada={bloqueada}
+                                    tooltipTexto={tooltipTexto}
+                                    savingKey={savingKey}
+                                    cellKey={key}
+                                    cellStyle={{
+                                      ...cellStyle,
+                                      textDecoration: desactivada ? "line-through" : "none",
+                                    }}
+                                    nota={nota}
+                                    onSave={(num) => handleBlur(cat.nombre, mes, q, num)}
+                                  />
+                                  {montoEvento > 0 && (
+                                    <div
+                                      style={{
+                                        position: "absolute",
+                                        bottom: 1,
+                                        right: 2,
+                                        fontSize: 8.5,
+                                        fontWeight: 700,
+                                        color: "var(--amber)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 1,
+                                        pointerEvents: "none",
+                                        lineHeight: 1,
+                                      }}
+                                      title={`Agendado en Calendario: +${formatMoney(montoEvento)}`}
+                                    >
+                                      <CalendarIcon size={8} />+{Math.round(montoEvento).toLocaleString()}
+                                    </div>
+                                  )}
+                                </td>
+                              );
+                            });
+                          })}
+                          <td
+                            style={{
+                              borderLeft: "1px solid var(--line)",
+                              borderBottom: "1px solid var(--line-soft)",
+                              padding: "7px 10px",
+                              textAlign: "right",
+                              fontWeight: 600,
+                              background: "var(--sage-bg)",
+                              color: "var(--sage)",
+                              textDecoration: desactivada ? "line-through" : "none",
+                              opacity: desactivada ? 0.45 : 1,
+                            }}
+                            title={desactivada ? "Excluido de la suma de presupuesto (simulación en $0)" : undefined}
+                          >
+                            {formatMoney(totalPorCategoria(cat.nombre)) || "0"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </React.Fragment>
+              );
+            })}
+            {gruposSuperiores.categoriasCompromisos && gruposSuperiores.categoriasCompromisos.length > 0 && (
+              gruposSuperiores.categoriasCompromisos.map((cat, rowIdx) => {
+                const desactivada = desactivadasEmulacion.has(`cat:${cat.nombre}`);
+                return (
+                  <tr
+                    key={cat.nombre}
+                    style={{
+                      background: rowIdx % 2 === 0 ? "transparent" : "var(--paper)",
+                      opacity: desactivada ? 0.45 : 1,
+                      transition: "opacity 0.2s ease",
+                    }}
+                  >
+                    <td
+                      className="presupuesto-col-sticky"
+                      style={{
+                        position: "sticky",
+                        left: 0,
+                        background: rowIdx % 2 === 0 ? "var(--card)" : "var(--paper)",
+                        padding: "6px 8px 6px 22px",
+                        borderRight: "1px solid var(--line)",
+                        borderBottom: "1px solid var(--line-soft)",
+                        fontFamily: "Inter, sans-serif",
+                        fontSize: 12.5,
+                        color: cat.color || "var(--stamp)",
+                        minWidth: COL_CATEGORIA_WIDTH,
+                        width: COL_CATEGORIA_WIDTH,
+                        maxWidth: COL_CATEGORIA_WIDTH,
+                        boxSizing: "border-box",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={`${cat.nombre} (${cat.clasificacion || "Categoría"})${desactivada ? " — Desactivada en la simulación" : ""}`}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <MiniSwitch
+                          checked={!desactivada}
+                          onChange={() => toggleEmulacion(`cat:${cat.nombre}`)}
+                          title={desactivada ? `Activar ${cat.nombre} en el presupuesto` : `Desactivar ${cat.nombre} de la simulación`}
+                        />
+                        {(() => {
+                          const IconoCategoria = ICONOS_CATEGORIA[iconoParaCategoria(cat.nombre)] || Receipt;
+                          return <IconoCategoria size={13} style={{ display: "inline-block", flexShrink: 0, marginRight: 6, color: cat.color || "var(--ink-soft)" }} />;
+                        })()}
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            textDecoration: desactivada ? "line-through" : "none",
+                          }}
+                          title={cat.nombre}
+                        >
+                          {abreviarNombreCategoria(cat.nombre)}
                         </span>
-                      )}
-                      {cat.agruparConCompromisos && (
+                        {desactivada ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              abrirModalConfigurar(`cat:${cat.nombre}`, cat.nombre, cat.clasificacion);
+                            }}
+                            style={{
+                              background: "rgba(139, 92, 246, 0.16)",
+                              border: "1px solid rgba(139, 92, 246, 0.3)",
+                              borderRadius: 4,
+                              padding: "0 4px",
+                              fontSize: 8.5,
+                              fontWeight: 700,
+                              marginLeft: 4,
+                              color: "#8b5cf6",
+                              cursor: "pointer",
+                              flexShrink: 0,
+                            }}
+                            title="Clic para cambiar el año de la simulación"
+                          >
+                            Off · Año
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              abrirModalConfigurar(`cat:${cat.nombre}`, cat.nombre, cat.clasificacion);
+                            }}
+                            style={{
+                              background: "transparent",
+                              border: "none",
+                              padding: "0 2px",
+                              color: "var(--ink-soft)",
+                              opacity: 0.45,
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              marginLeft: 2,
+                              flexShrink: 0,
+                            }}
+                            title={`Configurar año de simulación para ${cat.nombre}`}
+                          >
+                            <Sliders size={8.5} />
+                          </button>
+                        )}
                         <span title="Agrupada junto a Compromisos financieros" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
                           <Landmark size={10} style={{ display: "inline-block" }} />
                         </span>
-                      )}
-                      {cat.soloAsignablePorPuntos && (
-                        <span title="Solo se puede asignar presupuesto canjeando puntos" style={{ marginLeft: 4, opacity: 0.7, flexShrink: 0 }}>
-                          <Lock size={10} style={{ display: "inline-block" }} />
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  {MESES.map((_, i) => {
-                    const mes = i + 1;
-                    const trimestre = obtenerTrimestreMes(i);
-                    return QUINCENAS.map((q) => {
-                      const key = `${cat.nombre}-${mes}-${q}`;
-                      const val = getCelda(cat.nombre, mes, q);
-                      const montoEvento = getCeldaEventoCategoria(cat.nombre, mes, q);
-                      const nota = notasPorCelda[key];
-                      const bloqueada = cat.soloAsignablePorPuntos;
-                      const tooltipTexto = bloqueada
-                        ? "Esta categoría solo se puede asignar canjeando puntos, en el módulo de Puntos"
-                        : montoEvento > 0
-                        ? `Presupuesto base: ${val != null ? formatMoney(val) : "—"} · Agendado en Calendario: ${formatMoney(montoEvento)} (Total quincena: ${formatMoney((val || 0) + montoEvento)})`
-                        : nota || undefined;
-                      const esInicioTrimestre = i % 3 === 0 && q === "Q1";
-                      return (
-                        <td
-                          key={key}
-                          style={{
-                            borderBottom: "1px solid var(--line-soft)",
-                            borderLeft: esInicioTrimestre
-                              ? `2.5px solid ${trimestre.bordeColor}55`
-                              : q === "Q1"
-                              ? "1px solid var(--line-soft)"
-                              : "none",
-                            padding: 0,
-                            position: "relative",
-                          }}
-                          title={tooltipTexto}
-                        >
-                          <CeldaPresupuestoInput
-                            val={val}
-                            montoEvento={montoEvento}
-                            bloqueada={bloqueada}
-                            tooltipTexto={tooltipTexto}
-                            savingKey={savingKey}
-                            cellKey={key}
-                            cellStyle={{
-                              ...cellStyle,
-                              textDecoration: desactivada ? "line-through" : "none",
+                      </div>
+                    </td>
+                    {MESES.map((_, i) => {
+                      const mes = i + 1;
+                      const trimestre = obtenerTrimestreMes(i);
+                      return QUINCENAS.map((q) => {
+                        const key = `${cat.nombre}-${mes}-${q}`;
+                        const val = getCelda(cat.nombre, mes, q);
+                        const montoEvento = getCeldaEventoCategoria(cat.nombre, mes, q);
+                        const nota = notasPorCelda[key];
+                        const esInicioTrimestre = i % 3 === 0 && q === "Q1";
+                        return (
+                          <td
+                            key={key}
+                            style={{
+                              borderBottom: "1px solid var(--line-soft)",
+                              borderLeft: esInicioTrimestre
+                                ? `2.5px solid ${trimestre.bordeColor}55`
+                                : q === "Q1"
+                                ? "1px solid var(--line-soft)"
+                                : "none",
+                              padding: 0,
+                              position: "relative",
                             }}
-                            nota={nota}
-                            onSave={(num) => handleBlur(cat.nombre, mes, q, num)}
-                          />
-                          {montoEvento > 0 && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                bottom: 1,
-                                right: 2,
-                                fontSize: 8.5,
-                                fontWeight: 700,
-                                color: "var(--amber)",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 1,
-                                pointerEvents: "none",
-                                lineHeight: 1,
+                          >
+                            <CeldaPresupuestoInput
+                              val={val}
+                              montoEvento={montoEvento}
+                              savingKey={savingKey}
+                              cellKey={key}
+                              cellStyle={{
+                                ...cellStyle,
+                                textDecoration: desactivada ? "line-through" : "none",
                               }}
-                              title={`Agendado en Calendario: +${formatMoney(montoEvento)}`}
-                            >
-                              <CalendarIcon size={8} />+{Math.round(montoEvento).toLocaleString()}
-                            </div>
-                          )}
-                        </td>
-                      );
-                    });
-                  })}
-                  <td
-                    style={{
-                      borderLeft: "1px solid var(--line)",
-                      borderBottom: "1px solid var(--line-soft)",
-                      padding: "7px 10px",
-                      textAlign: "right",
-                      fontWeight: 600,
-                      background: "var(--sage-bg)",
-                      color: "var(--sage)",
-                      textDecoration: desactivada ? "line-through" : "none",
-                      opacity: desactivada ? 0.45 : 1,
-                    }}
-                    title={desactivada ? "Excluido de la suma de presupuesto (simulación en $0)" : undefined}
-                  >
-                    {formatMoney(totalPorCategoria(cat.nombre)) || "0"}
-                  </td>
-                </tr>
-              );
-            })}
+                              nota={nota}
+                              onSave={(num) => handleBlur(cat.nombre, mes, q, num)}
+                            />
+                          </td>
+                        );
+                      });
+                    })}
+                    <td
+                      style={{
+                        borderLeft: "1px solid var(--line)",
+                        borderBottom: "1px solid var(--line-soft)",
+                        padding: "7px 10px",
+                        textAlign: "right",
+                        fontWeight: 600,
+                        background: "var(--sage-bg)",
+                        color: "var(--sage)",
+                        textDecoration: desactivada ? "line-through" : "none",
+                        opacity: desactivada ? 0.45 : 1,
+                      }}
+                    >
+                      {formatMoney(totalPorCategoria(cat.nombre)) || "0"}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
             {(prestamosActivos.length > 0 || contratosActivos.length > 0 || tarjetasConPagoMinimo.length > 0) && (
               <tr style={{ background: "transparent" }}>
                 <td
