@@ -1,0 +1,992 @@
+import React, { useMemo, useState } from "react";
+import {
+  Plus,
+  Trash2,
+  X,
+  Check,
+  ClipboardList,
+  Download,
+  Store,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  Send,
+  RotateCcw,
+  Pencil,
+  Package,
+  ShoppingCart,
+} from "lucide-react";
+import { addOrdenCompra, updateOrdenCompra, deleteOrdenCompra, registrarCompraProducto, deleteHistorialCompra, addMovimiento, deleteMovimiento, agregarItemABorrador } from "../lib/db";
+import { confirm } from "../lib/confirm";
+
+const ESTADO_COLORES = {
+  Borrador: { bg: "var(--line-soft)", color: "var(--ink-soft)" },
+  "Enviada a proveedor": { bg: "var(--stamp-bg)", color: "var(--stamp)" },
+  "Compra presencial": { bg: "var(--amber-bg)", color: "var(--amber)" },
+  Completada: { bg: "var(--sage-bg)", color: "var(--sage)" },
+  Cancelada: { bg: "var(--line-soft)", color: "var(--ink-soft)" },
+};
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatMoney(n) {
+  const v = Number.isFinite(n) ? n : 0;
+  return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function totalOrden(orden) {
+  return (orden.items || []).reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
+}
+
+function descargarCSV(orden) {
+  const header = "Producto,Cantidad,Precio unitario,Subtotal\n";
+  const rows = (orden.items || [])
+    .map((it) => {
+      const nombre = (it.productName || "").replace(/"/g, '""');
+      const subtotal = (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0);
+      return `"${nombre}",${it.cantidad},${it.precioUnitario ?? ""},${subtotal.toFixed(2)}`;
+    })
+    .join("\n");
+  const csv = "\uFEFF" + header + rows;
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${orden.folio}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export default function OrdenesCompra({ ordenes, products, entidades, categoriasGasto }) {
+  const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState("");
+  const [seleccion, setSeleccion] = useState({}); // { productId: cantidad }
+  const [proveedorId, setProveedorId] = useState("");
+  const [notas, setNotas] = useState("");
+  const [categoriaGasto, setCategoriaGasto] = useState("");
+  const [fechaPlaneada, setFechaPlaneada] = useState("");
+  const [formError, setFormError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [editandoId, setEditandoId] = useState(null);
+  const [buscarAgregar, setBuscarAgregar] = useState("");
+  const [busy, setBusy] = useState(null);
+  const [modoCompraId, setModoCompraId] = useState(null);
+  const [verHistorial, setVerHistorial] = useState(false);
+
+  const filteredProducts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p) => p.name.toLowerCase().includes(q));
+  }, [products, search]);
+
+  const toggleSeleccion = (productId) => {
+    setSeleccion((prev) => {
+      const next = { ...prev };
+      if (next[productId] != null) delete next[productId];
+      else next[productId] = 1;
+      return next;
+    });
+  };
+
+  const cambiarCantidad = (productId, cantidad) => {
+    setSeleccion((prev) => ({ ...prev, [productId]: cantidad }));
+  };
+
+  const resetForm = () => {
+    setSeleccion({});
+    setProveedorId("");
+    setNotas("");
+    setCategoriaGasto("");
+    setFechaPlaneada("");
+    setSearch("");
+    setFormError(null);
+  };
+
+  const crearOrden = async () => {
+    const items = Object.entries(seleccion)
+      .filter(([, cant]) => cant > 0)
+      .map(([productId, cantidad]) => {
+        const p = products.find((pr) => pr.id === productId);
+        return { productId, productName: p?.name || "", cantidad: Number(cantidad), precioUnitario: p?.price ?? null };
+      });
+    if (items.length === 0) {
+      setFormError("Selecciona al menos un producto");
+      return;
+    }
+    setSaving(true);
+    setFormError(null);
+    try {
+      const proveedor = entidades.find((e) => e.docId === proveedorId);
+      await addOrdenCompra({
+        items,
+        proveedorId: proveedorId || null,
+        proveedorNombre: proveedor ? proveedor.name : "",
+        notas: notas.trim(),
+        categoriaGasto: categoriaGasto || null,
+        fechaPlaneada: fechaPlaneada || null,
+      });
+      resetForm();
+      setShowForm(false);
+    } catch (err) {
+      setFormError(err.message || String(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const solicitarAProveedor = async (orden) => {
+    if (!orden.proveedorId) {
+      alert("Esta orden no tiene proveedor asignado. Edítala o crea una nueva con proveedor seleccionado.");
+      return;
+    }
+    setBusy(orden.id);
+    try {
+      descargarCSV(orden);
+      await updateOrdenCompra(orden.id, { estado: "Enviada a proveedor", modalidad: "Proveedor" });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const iniciarCompraPresencial = async (orden) => {
+    setBusy(orden.id);
+    try {
+      await updateOrdenCompra(orden.id, {
+        estado: "Compra presencial",
+        modalidad: "Presencial",
+        items: orden.items.map((it) => ({ ...it, comprado: it.comprado || false })),
+      });
+      setModoCompraId(orden.id);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const cancelarCompraPresencial = async (orden) => {
+    setBusy(orden.id);
+    try {
+      await updateOrdenCompra(orden.id, { estado: "Borrador", modalidad: null });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const toggleCompradoItem = async (orden, idx) => {
+    const nuevosItems = orden.items.map((it, i) => (i === idx ? { ...it, comprado: !it.comprado } : it));
+    await updateOrdenCompra(orden.id, { items: nuevosItems });
+  };
+
+  const eliminarItemOrden = async (orden, idx) => {
+    const nuevosItems = orden.items.filter((_, i) => i !== idx);
+    await updateOrdenCompra(orden.id, { items: nuevosItems });
+  };
+
+  const cambiarCantidadItem = async (orden, idx, cantidad) => {
+    const cant = Math.max(1, parseInt(cantidad, 10) || 1);
+    const nuevosItems = orden.items.map((it, i) => (i === idx ? { ...it, cantidad: cant } : it));
+    await updateOrdenCompra(orden.id, { items: nuevosItems });
+  };
+
+  const agregarProductoAOrden = async (orden, product) => {
+    await agregarItemABorrador(orden, { productId: product.id, productName: product.name, precioUnitario: product.price });
+    setBuscarAgregar("");
+  };
+
+  const cambiarProveedorOrden = async (orden, proveedorId) => {
+    const proveedor = entidades.find((e) => e.docId === proveedorId);
+    await updateOrdenCompra(orden.id, { proveedorId: proveedorId || null, proveedorNombre: proveedor ? proveedor.name : "" });
+  };
+
+  const cambiarPlaneacionOrden = async (orden, fields) => {
+    await updateOrdenCompra(orden.id, fields);
+  };
+
+  const finalizarCompraPresencial = async (orden) => {
+    setBusy(orden.id);
+    try {
+      const fecha = todayStr();
+      const historialIds = [];
+      for (const it of orden.items) {
+        if (it.comprado && it.productId) {
+          const ref = await registrarCompraProducto({ productId: it.productId, productName: it.productName, fecha, cantidad: it.cantidad });
+          if (ref?.id) historialIds.push(ref.id);
+        }
+      }
+      const total = orden.items
+        .filter((it) => it.comprado)
+        .reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
+      let movimientoId = null;
+      if (total > 0) {
+        const ref = await addMovimiento({
+          type: "Gasto",
+          category: "Alimentos",
+          amount: total,
+          description: `Compra presencial - ${orden.folio}`,
+          date: fecha,
+          clasificacion: "Variable",
+          metodoPago: "Efectivo",
+        });
+        movimientoId = ref?.id || null;
+      }
+      await updateOrdenCompra(orden.id, { estado: "Completada", historialIds, movimientoId });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const revertirCompletada = async (orden) => {
+    if (!(await confirm("Esto deshace el gasto y el historial registrados por esta compra, y la regresa al checklist para que la ajustes. ¿Continuar?"))) return;
+    setBusy(orden.id);
+    try {
+      for (const hId of orden.historialIds || []) {
+        await deleteHistorialCompra(hId).catch(() => {});
+      }
+      if (orden.movimientoId) {
+        await deleteMovimiento(orden.movimientoId).catch(() => {});
+      }
+      await updateOrdenCompra(orden.id, {
+        estado: "Compra presencial",
+        modalidad: "Presencial",
+        historialIds: [],
+        movimientoId: null,
+      });
+      setModoCompraId(orden.id);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const totalSeleccionado = Object.entries(seleccion).reduce((s, [id, cant]) => {
+    const p = products.find((pr) => pr.id === id);
+    return s + (p?.price || 0) * (Number(cant) || 0);
+  }, 0);
+
+  const ordenEnModoCompra = modoCompraId ? (ordenes || []).find((o) => o.id === modoCompraId) : null;
+  if (ordenEnModoCompra) {
+    const items = ordenEnModoCompra.items || [];
+    const totalItems = items.length;
+    const compradosCount = items.filter((it) => it.comprado).length;
+    const busyThis = busy === ordenEnModoCompra.id;
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+          <button
+            onClick={() => setModoCompraId(null)}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)", cursor: "pointer", flexShrink: 0 }}
+          >
+            <ChevronUp size={18} style={{ transform: "rotate(-90deg)" }} />
+          </button>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {ordenEnModoCompra.proveedorNombre || "Compra presencial"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+              {ordenEnModoCompra.folio} · {compradosCount} de {totalItems} comprados
+            </div>
+          </div>
+        </div>
+
+        <div style={{ height: 8, background: "var(--line-soft)", borderRadius: 4, overflow: "hidden", marginBottom: 18 }}>
+          <div
+            style={{
+              height: "100%",
+              width: totalItems > 0 ? `${(compradosCount / totalItems) * 100}%` : "0%",
+              background: "var(--sage)",
+              borderRadius: 4,
+              transition: "width 0.25s",
+            }}
+          />
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 90 }}>
+          {items.length === 0 && (
+            <div style={{ fontSize: 13, color: "var(--ink-soft)", textAlign: "center", padding: "2rem 0" }}>Sin productos en esta orden.</div>
+          )}
+          {items.map((it, idx) => {
+            const producto = it.productId ? (products || []).find((p) => p.id === it.productId) : null;
+            return (
+              <button
+                key={idx}
+                onClick={() => toggleCompradoItem(ordenEnModoCompra, idx)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  width: "100%",
+                  textAlign: "left",
+                  background: it.comprado ? "var(--sage-bg)" : "var(--card)",
+                  border: it.comprado ? "1px solid var(--sage)" : "1px solid var(--line)",
+                  borderRadius: 12,
+                  padding: 14,
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 10,
+                    flexShrink: 0,
+                    background: producto?.imageUrl ? `url(${producto.imageUrl}) center/cover` : "var(--line-soft)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {!producto?.imageUrl && <Package size={24} style={{ color: "var(--ink-soft)" }} />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, textDecoration: it.comprado ? "line-through" : "none", color: it.comprado ? "var(--ink-soft)" : "var(--ink)" }}>
+                    {it.productName}
+                  </div>
+                  <div className="despensa-mono" style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 2 }}>
+                    x{it.cantidad}
+                    {it.precioUnitario != null && ` · ${formatMoney(it.precioUnitario * it.cantidad)}`}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    flexShrink: 0,
+                    border: it.comprado ? "none" : "2px solid var(--line)",
+                    background: it.comprado ? "var(--sage)" : "transparent",
+                    color: "#fff",
+                  }}
+                >
+                  {it.comprado && <Check size={22} />}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ position: "sticky", bottom: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {ordenEnModoCompra.estado === "Borrador" && (
+            <>
+              <button
+                onClick={() => solicitarAProveedor(ordenEnModoCompra)}
+                disabled={busyThis}
+                style={{
+                  flex: 1,
+                  minWidth: 140,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "14px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  background: "var(--stamp)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor: busyThis ? "wait" : "pointer",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+                }}
+              >
+                <Send size={16} /> Solicitar al proveedor
+              </button>
+              <button
+                onClick={async () => {
+                  await iniciarCompraPresencial(ordenEnModoCompra);
+                }}
+                disabled={busyThis}
+                style={{
+                  flex: 1,
+                  minWidth: 140,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "14px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  background: "var(--amber)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor: busyThis ? "wait" : "pointer",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+                }}
+              >
+                <Store size={16} /> Iniciar compra presencial
+              </button>
+            </>
+          )}
+          {ordenEnModoCompra.estado === "Enviada a proveedor" && (
+            <>
+              <button
+                onClick={() => descargarCSV(ordenEnModoCompra)}
+                style={{
+                  flex: 1,
+                  minWidth: 140,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "14px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  background: "var(--card)",
+                  color: "var(--ink-soft)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                }}
+              >
+                <Download size={16} /> Descargar CSV
+              </button>
+              <button
+                onClick={async () => {
+                  await updateOrdenCompra(ordenEnModoCompra.id, { estado: "Completada" });
+                  setModoCompraId(null);
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: 140,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "14px",
+                  fontSize: 13.5,
+                  fontWeight: 600,
+                  background: "var(--sage)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+                }}
+              >
+                <Check size={16} /> Marcar como recibida
+              </button>
+            </>
+          )}
+          {ordenEnModoCompra.estado === "Compra presencial" && (
+            <button
+              onClick={async () => {
+                await finalizarCompraPresencial(ordenEnModoCompra);
+                setModoCompraId(null);
+              }}
+              disabled={busyThis}
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                padding: "14px",
+                fontSize: 14,
+                fontWeight: 600,
+                background: "var(--sage)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 10,
+                cursor: busyThis ? "wait" : "pointer",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.15)",
+              }}
+            >
+              <Check size={16} /> Finalizar compra
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const ordenesVisibles = (ordenes || []).filter((o) => (verHistorial ? o.estado === "Completada" : o.estado !== "Completada"));
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button
+          onClick={() => {
+            if (!showForm) resetForm();
+            setShowForm((s) => !s);
+          }}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 500, background: "var(--ink)", color: "var(--paper)", border: "none", borderRadius: 8, cursor: "pointer" }}
+        >
+          {showForm ? <X size={14} /> : <Plus size={14} />}
+          {showForm ? "Cancelar" : "Nueva orden de compra"}
+        </button>
+      </div>
+
+      {showForm && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+          <div style={{ position: "relative", marginBottom: 8 }}>
+            <Search size={13} style={{ position: "absolute", left: 10, top: 10, color: "var(--ink-soft)" }} />
+            <input
+              placeholder="Buscar producto en tu catálogo"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px 8px 30px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+
+          <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid var(--line-soft)", borderRadius: 8, marginBottom: 8 }}>
+            {filteredProducts.length === 0 ? (
+              <div style={{ padding: 12, fontSize: 12, color: "var(--ink-soft)", textAlign: "center" }}>Sin productos que coincidan.</div>
+            ) : (
+              filteredProducts.map((p) => {
+                const seleccionado = seleccion[p.id] != null;
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "7px 10px",
+                      borderBottom: "1px solid var(--line-soft)",
+                      background: seleccionado ? "var(--sage-bg)" : "transparent",
+                    }}
+                  >
+                    <input type="checkbox" checked={seleccionado} onChange={() => toggleSeleccion(p.id)} />
+                    <span style={{ flex: 1, fontSize: 12.5, minWidth: 0 }}>{p.name}</span>
+                    <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)", flexShrink: 0 }}>{formatMoney(p.price)}</span>
+                    {seleccionado && (
+                      <input
+                        className="despensa-mono"
+                        type="number"
+                        min="1"
+                        value={seleccion[p.id]}
+                        onChange={(e) => cambiarCantidad(p.id, parseInt(e.target.value, 10) || 1)}
+                        style={{ width: 50, padding: "4px 6px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12, flexShrink: 0 }}
+                      />
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div style={{ marginBottom: 8 }}>
+            <select
+              value={proveedorId}
+              onChange={(e) => setProveedorId(e.target.value)}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              <option value="">Proveedor (opcional, necesario para solicitar por CSV)</option>
+              {entidades.map((e) => (
+                <option key={e.docId} value={e.docId}>{e.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 8, marginBottom: 8 }}>
+            <select
+              value={categoriaGasto}
+              onChange={(e) => setCategoriaGasto(e.target.value)}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              <option value="">Categoría de gasto (opcional)…</option>
+              {(categoriasGasto || []).map((c) => (
+                <option key={c.id} value={c.nombre}>{c.nombre}</option>
+              ))}
+            </select>
+            <input
+              type="date"
+              value={fechaPlaneada}
+              onChange={(e) => setFechaPlaneada(e.target.value)}
+              title="Fecha en la que piensas hacer esta compra"
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+          {categoriaGasto && fechaPlaneada && (
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: -4, marginBottom: 8 }}>
+              El total de esta orden se sumará automáticamente al Presupuesto mensual, en la quincena que corresponda a esa fecha.
+            </div>
+          )}
+
+          <input
+            placeholder="Notas (opcional)"
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
+          />
+
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+              {Object.keys(seleccion).length} producto(s) seleccionado(s)
+            </span>
+            <span className="despensa-mono" style={{ fontSize: 14, fontWeight: 600 }}>{formatMoney(totalSeleccionado)}</span>
+          </div>
+
+          <button
+            onClick={crearOrden}
+            disabled={saving}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", fontSize: 13, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: saving ? "not-allowed" : "pointer" }}
+          >
+            <ClipboardList size={14} /> {saving ? "Creando…" : "Crear orden"}
+          </button>
+          {formError && <div style={{ marginTop: 10, fontSize: 12, color: "var(--stamp)" }}>{formError}</div>}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+        <button
+          onClick={() => setVerHistorial(false)}
+          style={{
+            padding: "6px 14px",
+            fontSize: 12.5,
+            fontWeight: 600,
+            background: !verHistorial ? "var(--ink)" : "var(--card)",
+            color: !verHistorial ? "var(--paper)" : "var(--ink-soft)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            cursor: "pointer",
+          }}
+        >
+          Activas
+        </button>
+        <button
+          onClick={() => setVerHistorial(true)}
+          style={{
+            padding: "6px 14px",
+            fontSize: 12.5,
+            fontWeight: 600,
+            background: verHistorial ? "var(--ink)" : "var(--card)",
+            color: verHistorial ? "var(--paper)" : "var(--ink-soft)",
+            border: "1px solid var(--line)",
+            borderRadius: 8,
+            cursor: "pointer",
+          }}
+        >
+          Historial
+        </button>
+      </div>
+
+      {ordenesVisibles.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
+          {verHistorial ? "Todavía no tienes órdenes completadas." : "Todavía no has creado ninguna orden de compra."}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {ordenesVisibles.map((o) => {
+            const estadoStyle = ESTADO_COLORES[o.estado] || ESTADO_COLORES.Borrador;
+            const busyThis = busy === o.id;
+            return (
+              <div key={o.id} data-record-id={o.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span className="despensa-mono" style={{ fontSize: 13.5, fontWeight: 700 }}>{o.folio}</span>
+                      <span
+                        className="despensa-tab-font"
+                        style={{ fontSize: 10.5, fontWeight: 600, padding: "1px 8px", borderRadius: 20, background: estadoStyle.bg, color: estadoStyle.color }}
+                      >
+                        {o.estado}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 3 }}>
+                      {formatDateDisplay(o.fecha)} · {(o.items || []).length} producto(s) · {formatMoney(totalOrden(o))}
+                      {o.proveedorNombre && <> · {o.proveedorNombre}</>}
+                    </div>
+                    {o.categoriaGasto && o.fechaPlaneada && (
+                      <div style={{ marginTop: 4 }}>
+                        <span
+                          className="despensa-mono"
+                          style={{ fontSize: 10.5, fontWeight: 600, padding: "1px 7px", borderRadius: 12, background: "var(--sage-bg)", color: "var(--sage)" }}
+                        >
+                          {o.categoriaGasto} · planeada para {formatDateDisplay(o.fechaPlaneada)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={async () => {
+                      if (await confirm(`¿Eliminar la orden ${o.folio}?`)) deleteOrdenCompra(o.id);
+                    }}
+                    title="Eliminar orden"
+                    style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, background: "transparent", color: "var(--stamp)", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+                  {o.estado !== "Completada" && o.estado !== "Cancelada" && (
+                    <button
+                      onClick={() => setModoCompraId(o.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--sage)", background: "transparent", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}
+                    >
+                      <ShoppingCart size={12} /> Abrir
+                    </button>
+                  )}
+                  {o.estado !== "Completada" && o.estado !== "Cancelada" && (
+                    <button
+                      onClick={() => setEditandoId(editandoId === o.id ? null : o.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11.5, color: editandoId === o.id ? "var(--sage)" : "var(--ink-soft)", background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                    >
+                      <Pencil size={12} /> {editandoId === o.id ? "Listo" : "Editar"}
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {editandoId === o.id && (
+                      <div style={{ marginBottom: 6 }}>
+                        <select
+                          value={o.proveedorId || ""}
+                          onChange={(e) => cambiarProveedorOrden(o, e.target.value)}
+                          style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12, background: "var(--card)" }}
+                        >
+                          <option value="">Sin proveedor asignado</option>
+                          {entidades.map((e) => (
+                            <option key={e.docId} value={e.docId}>{e.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    {editandoId === o.id && (
+                      <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 6, marginBottom: 6 }}>
+                        <select
+                          value={o.categoriaGasto || ""}
+                          onChange={(e) => cambiarPlaneacionOrden(o, { categoriaGasto: e.target.value || null })}
+                          style={{ padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12, background: "var(--card)" }}
+                        >
+                          <option value="">Sin categoría de gasto</option>
+                          {(categoriasGasto || []).map((c) => (
+                            <option key={c.id} value={c.nombre}>{c.nombre}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="date"
+                          value={o.fechaPlaneada || ""}
+                          onChange={(e) => cambiarPlaneacionOrden(o, { fechaPlaneada: e.target.value || null })}
+                          title="Fecha en la que piensas hacer esta compra"
+                          style={{ padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12 }}
+                        />
+                      </div>
+                    )}
+                    {(o.items || []).length === 0 && (
+                      <div style={{ fontSize: 11.5, color: "var(--ink-soft)", padding: "6px 0" }}>Sin productos en esta orden.</div>
+                    )}
+                    {(o.items || []).map((it, idx) => {
+                      const producto = it.productId ? (products || []).find((p) => p.id === it.productId) : null;
+                      const modoCompra = o.estado === "Compra presencial" && editandoId !== o.id;
+                      return (
+                        <div
+                          key={idx}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 10,
+                            background: modoCompra && it.comprado ? "var(--sage-bg)" : "var(--paper)",
+                            border: modoCompra && it.comprado ? "1px solid var(--sage)" : "1px solid transparent",
+                            borderRadius: 7,
+                            padding: modoCompra ? "8px 10px" : "6px 9px",
+                          }}
+                        >
+                          {modoCompra && (
+                            <div
+                              style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 6,
+                                flexShrink: 0,
+                                background: producto?.imageUrl ? `url(${producto.imageUrl}) center/cover` : "var(--line-soft)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              {!producto?.imageUrl && <Package size={16} style={{ color: "var(--ink-soft)" }} />}
+                            </div>
+                          )}
+                          {!modoCompra && o.estado === "Compra presencial" && (
+                            <input type="checkbox" checked={!!it.comprado} onChange={() => toggleCompradoItem(o, idx)} />
+                          )}
+                          <span style={{ flex: 1, fontSize: 12, minWidth: 0, textDecoration: it.comprado ? "line-through" : "none", color: it.comprado ? "var(--ink-soft)" : "var(--ink)" }}>
+                            {it.productName}
+                          </span>
+                          {editandoId === o.id ? (
+                            <input
+                              className="despensa-mono"
+                              type="number"
+                              min="1"
+                              value={it.cantidad}
+                              onChange={(e) => cambiarCantidadItem(o, idx, e.target.value)}
+                              style={{ width: 48, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 11, flexShrink: 0 }}
+                            />
+                          ) : (
+                            <span className="despensa-mono" style={{ fontSize: 11, color: "var(--ink-soft)", flexShrink: 0 }}>x{it.cantidad}</span>
+                          )}
+                          {it.precioUnitario != null && (
+                            <span className="despensa-mono" style={{ fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
+                              {formatMoney(it.precioUnitario * it.cantidad)}
+                            </span>
+                          )}
+                          {editandoId === o.id && (
+                            <button
+                              onClick={() => eliminarItemOrden(o, idx)}
+                              title="Quitar de la orden"
+                              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, background: "transparent", color: "var(--stamp)", border: "none", cursor: "pointer", flexShrink: 0 }}
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                          {modoCompra && (
+                            <button
+                              onClick={() => toggleCompradoItem(o, idx)}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: 30,
+                                height: 30,
+                                borderRadius: "50%",
+                                flexShrink: 0,
+                                border: it.comprado ? "none" : "2px solid var(--line)",
+                                background: it.comprado ? "var(--sage)" : "transparent",
+                                color: "#fff",
+                                cursor: "pointer",
+                              }}
+                            >
+                              {it.comprado && <Check size={18} />}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {editandoId === o.id && (
+                      <div style={{ marginTop: 6, position: "relative" }}>
+                        <Search size={12} style={{ position: "absolute", left: 9, top: 9, color: "var(--ink-soft)" }} />
+                        <input
+                          placeholder="Buscar producto para agregar…"
+                          value={buscarAgregar}
+                          onChange={(e) => setBuscarAgregar(e.target.value)}
+                          style={{ width: "100%", padding: "7px 9px 7px 28px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12 }}
+                        />
+                        {buscarAgregar.trim() && (
+                          <div style={{ marginTop: 4, maxHeight: 160, overflowY: "auto", border: "1px solid var(--line-soft)", borderRadius: 7 }}>
+                            {products
+                              .filter((p) => p.name.toLowerCase().includes(buscarAgregar.trim().toLowerCase()))
+                              .filter((p) => !(o.items || []).some((it) => it.productId === p.id))
+                              .slice(0, 8)
+                              .map((p) => (
+                                <button
+                                  key={p.id}
+                                  onClick={() => agregarProductoAOrden(o, p)}
+                                  style={{
+                                    display: "flex",
+                                    width: "100%",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 8,
+                                    padding: "6px 9px",
+                                    background: "var(--card)",
+                                    border: "none",
+                                    borderBottom: "1px solid var(--line-soft)",
+                                    fontSize: 12,
+                                    cursor: "pointer",
+                                    textAlign: "left",
+                                  }}
+                                >
+                                  <span>{p.name}</span>
+                                  <Plus size={12} style={{ color: "var(--sage)", flexShrink: 0 }} />
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                {o.estado === "Borrador" && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => solicitarAProveedor(o)}
+                      disabled={busyThis}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--stamp)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}
+                    >
+                      <Send size={12} /> Solicitar al proveedor (CSV)
+                    </button>
+                    <button
+                      onClick={() => iniciarCompraPresencial(o)}
+                      disabled={busyThis}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 700, background: "var(--amber)", color: "#18181b", border: "none", borderRadius: 7, cursor: "pointer" }}
+                    >
+                      <Store size={12} /> Iniciar compra presencial
+                    </button>
+                  </div>
+                )}
+
+                {o.estado === "Enviada a proveedor" && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => descargarCSV(o)}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 7, cursor: "pointer" }}
+                    >
+                      <Download size={12} /> Descargar CSV de nuevo
+                    </button>
+                    <button
+                      onClick={() => updateOrdenCompra(o.id, { estado: "Completada" })}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}
+                    >
+                      <Check size={12} /> Marcar como recibida
+                    </button>
+                  </div>
+                )}
+
+                {o.estado === "Compra presencial" && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => setModoCompraId(o.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 700, background: "var(--amber)", color: "#18181b", border: "none", borderRadius: 7, cursor: "pointer" }}
+                    >
+                      <ShoppingCart size={12} /> Continuar comprando
+                    </button>
+                    <button
+                      onClick={() => finalizarCompraPresencial(o)}
+                      disabled={busyThis}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}
+                    >
+                      <Check size={12} /> {busyThis ? "Finalizando…" : "Finalizar compra presencial"}
+                    </button>
+                    <button
+                      onClick={() => cancelarCompraPresencial(o)}
+                      disabled={busyThis}
+                      title="Vuelve a Borrador para hacerla después"
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 7, cursor: "pointer" }}
+                    >
+                      <X size={12} /> Cancelar (para después)
+                    </button>
+                  </div>
+                )}
+
+                {o.estado === "Completada" && (
+                  <button
+                    onClick={() => revertirCompletada(o)}
+                    disabled={busyThis}
+                    title="Deshace el gasto y el historial registrados"
+                    style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 10, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--card)", color: "var(--stamp)", border: "1px solid var(--line)", borderRadius: 7, cursor: "pointer" }}
+                  >
+                    <RotateCcw size={12} /> {busyThis ? "Revirtiendo…" : "Revertir compra"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

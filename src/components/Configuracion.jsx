@@ -1,0 +1,1350 @@
+import React, { useEffect, useState } from "react";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bot, Palette, Heart, Sparkles, AlertTriangle, Trash2, Lock, Phone, Landmark, MessageSquare } from "lucide-react";
+import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig, watchUsuariosRegistrados, eliminarCuentaUsuario, watchWhatsappNotifConfig, saveWhatsappNotifConfig, updateEntidad, updatePrestamo } from "../lib/db";
+import { confirm } from "../lib/confirm";
+import { GASTO_CATS_FIJO } from "../lib/categorias";
+import Switch from "./Switch.jsx";
+import ThemeSelector from "./ThemeSelector.jsx";
+import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
+import WhatsAppGroupButton, { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
+
+export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante, planActual, isOwner, entidades = [], prestamos = [], onNavigate }) {
+  const [showPlanesModal, setShowPlanesModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+  const [usuariosRegistrados, setUsuariosRegistrados] = useState([]);
+  const [emailConfig, setEmailConfig] = useState(undefined);
+  const [emailInput, setEmailInput] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [savedEmail, setSavedEmail] = useState(false);
+
+  const [accionesConfig, setAccionesConfig] = useState(undefined);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [savingKey, setSavingKey] = useState(false);
+  const [savedKey, setSavedKey] = useState(false);
+
+  const [diezmoConfig, setDiezmoConfig] = useState(undefined);
+  const [perfilPersonal, setPerfilPersonal] = useState(undefined);
+  const [fechaNacimientoInput, setFechaNacimientoInput] = useState("");
+  const [savingFechaNacimiento, setSavingFechaNacimiento] = useState(false);
+  const [savedFechaNacimiento, setSavedFechaNacimiento] = useState(false);
+  const [actualizacionPreciosConfig, setActualizacionPreciosConfig] = useState({ activo: false, frecuencia: "semanal" });
+  const [savingActualizacionPrecios, setSavingActualizacionPrecios] = useState(false);
+  const [diezmoPorcentaje, setDiezmoPorcentaje] = useState("10");
+  const [savingDiezmo, setSavingDiezmo] = useState(false);
+
+  const [ahorroConfig, setAhorroConfig] = useState(undefined);
+  const [ahorroPorcentaje, setAhorroPorcentaje] = useState("10");
+  const [savingAhorro, setSavingAhorro] = useState(false);
+
+  const [categoriasPuntos, setCategoriasPuntos] = useState([]);
+  const [savingCategoriasPuntos, setSavingCategoriasPuntos] = useState(false);
+  const [topesAjuste, setTopesAjuste] = useState({});
+  const [diasCobro, setDiasCobro] = useState([15, 30]);
+  const [diasCobroInput, setDiasCobroInput] = useState("15, 30");
+  const [savingDiasCobro, setSavingDiasCobro] = useState(false);
+  const [diasCobroError, setDiasCobroError] = useState(null);
+
+  const [integracionCorreoConfig, setIntegracionCorreoConfig] = useState(undefined);
+  const [integracionCorreoEstado, setIntegracionCorreoEstado] = useState(undefined);
+  const [tarjetasHabilitadasInput, setTarjetasHabilitadasInput] = useState("");
+  const [savingIntegracionCorreo, setSavingIntegracionCorreo] = useState(false);
+  const [reportesEmailConfig, setReportesEmailConfig] = useState({ email: "iventuramena@gmail.com", activoDiasCobro: true, ultimoEnvio: null });
+  const [whatsappConfig, setWhatsappConfig] = useState({ activo: true });
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
+  const [telefonosEntidad, setTelefonosEntidad] = useState({});
+  const [guardandoTelId, setGuardandoTelId] = useState(null);
+  const [guardadoTelId, setGuardadoTelId] = useState(null);
+
+  useEffect(() => {
+    const unsub1 = watchNotifConfig(setEmailConfig, () => {});
+    const unsub2 = watchAccionesConfig(setAccionesConfig, () => {});
+    const unsub3 = watchDiezmoConfig(setDiezmoConfig, () => {});
+    const unsub4 = watchAhorroAutoConfig(setAhorroConfig, () => {});
+    const unsub5 = watchCategoriasPuntosConfig(setCategoriasPuntos, () => {});
+    const unsub6 = watchTopesAjusteConfig(setTopesAjuste, () => {});
+    const unsub7 = watchDiasCobroConfig(setDiasCobro, () => {});
+    const unsub8 = watchIntegracionCorreoConfig((c) => {
+      setIntegracionCorreoConfig(c);
+      setTarjetasHabilitadasInput((c.tarjetas || []).join(", "));
+    }, () => {});
+    const unsub9 = watchIntegracionCorreoEstado(setIntegracionCorreoEstado, () => {});
+    const unsub10 = watchPerfilPersonal((p) => {
+      setPerfilPersonal(p);
+      setFechaNacimientoInput(p?.fechaNacimiento || "");
+    }, () => {});
+    const unsub11 = watchActualizacionPreciosAutoConfig(setActualizacionPreciosConfig, () => {});
+    const unsub12 = watchReportesQuincenaConfig(setReportesEmailConfig, () => {});
+    const unsub13 = watchWhatsappNotifConfig(setWhatsappConfig, () => {});
+    return () => {
+      unsub1();
+      unsub2();
+      unsub3();
+      unsub4();
+      unsub5();
+      unsub6();
+      unsub7();
+      unsub8();
+      unsub9();
+      unsub10();
+      unsub11();
+      unsub12();
+      unsub13();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (showPlanesModal) {
+      const unsub = watchUsuariosRegistrados(setUsuariosRegistrados, () => {});
+      return () => unsub();
+    }
+  }, [showPlanesModal]);
+
+  useEffect(() => {
+    setDiasCobroInput(diasCobro.join(", "));
+  }, [diasCobro]);
+
+  useEffect(() => {
+    if (emailConfig?.email) setEmailInput(emailConfig.email);
+  }, [emailConfig]);
+
+  useEffect(() => {
+    if (accionesConfig?.apiKey) setApiKeyInput(accionesConfig.apiKey);
+  }, [accionesConfig]);
+
+  useEffect(() => {
+    if (diezmoConfig?.porcentaje != null) setDiezmoPorcentaje(String(diezmoConfig.porcentaje));
+  }, [diezmoConfig]);
+
+  useEffect(() => {
+    if (ahorroConfig?.porcentaje != null) setAhorroPorcentaje(String(ahorroConfig.porcentaje));
+  }, [ahorroConfig]);
+
+  const handleSaveEmail = async () => {
+    if (!emailInput.trim()) return;
+    setSavingEmail(true);
+    try {
+      await saveNotifConfig(emailInput.trim());
+      setSavedEmail(true);
+      setTimeout(() => setSavedEmail(false), 2000);
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleToggleReportesEmail = async () => {
+    try {
+      const nuevoValor = reportesEmailConfig?.activoDiasCobro === false ? true : false;
+      await saveReportesQuincenaConfig({
+        email: "iventuramena@gmail.com",
+        activoDiasCobro: nuevoValor,
+      });
+      setReportesEmailConfig((prev) => ({ ...prev, activoDiasCobro: nuevoValor }));
+    } catch (e) {
+      console.error("Error al actualizar configuración de reportes:", e);
+    }
+  };
+
+  const handleToggleWhatsapp = async () => {
+    setSavingWhatsapp(true);
+    try {
+      const nuevoActivo = !(whatsappConfig?.activo !== false);
+      await saveWhatsappNotifConfig({ activo: nuevoActivo });
+      setWhatsappConfig((prev) => ({ ...(prev || {}), activo: nuevoActivo }));
+    } catch (e) {
+      console.error("Error al actualizar configuración de WhatsApp:", e);
+    } finally {
+      setSavingWhatsapp(false);
+    }
+  };
+
+  const handleGuardarTelefonoEntidad = async (entidad) => {
+    const valor = telefonosEntidad[entidad.docId] !== undefined ? telefonosEntidad[entidad.docId] : (entidad.phone || "");
+    setGuardandoTelId(entidad.docId);
+    try {
+      await updateEntidad(entidad.docId, { phone: valor.trim() });
+      setGuardadoTelId(entidad.docId);
+      setTimeout(() => setGuardadoTelId(null), 2500);
+    } catch (e) {
+      console.error("Error al guardar teléfono de entidad:", e);
+    } finally {
+      setGuardandoTelId(null);
+    }
+  };
+
+  const handleTogglePrestamoWhatsapp = async (prestamo) => {
+    try {
+      await updatePrestamo(prestamo.id, { notificarWhatsapp: !prestamo.notificarWhatsapp });
+    } catch (e) {
+      console.error("Error al cambiar notificación de préstamo:", e);
+    }
+  };
+
+  const handleSaveApiKey = async () => {
+    if (!apiKeyInput.trim()) return;
+    setSavingKey(true);
+    try {
+      await saveAccionesConfig(apiKeyInput.trim());
+      setSavedKey(true);
+      setTimeout(() => setSavedKey(false), 2000);
+    } finally {
+      setSavingKey(false);
+    }
+  };
+
+  const handleToggleDiezmo = async () => {
+    setSavingDiezmo(true);
+    try {
+      await saveDiezmoConfig({ activo: !diezmoConfig?.activo, porcentaje: parseFloat(diezmoPorcentaje) || 10 });
+    } finally {
+      setSavingDiezmo(false);
+    }
+  };
+
+  const handleToggleIntegracionCorreo = async () => {
+    setSavingIntegracionCorreo(true);
+    try {
+      await saveIntegracionCorreoConfig({
+        activo: !integracionCorreoConfig?.activo,
+        tarjetas: integracionCorreoConfig?.tarjetas || [],
+      });
+    } finally {
+      setSavingIntegracionCorreo(false);
+    }
+  };
+
+  const handleGuardarTarjetasHabilitadas = async () => {
+    setSavingIntegracionCorreo(true);
+    try {
+      const lista = tarjetasHabilitadasInput
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      await saveIntegracionCorreoConfig({ activo: integracionCorreoConfig?.activo !== false, tarjetas: lista });
+    } finally {
+      setSavingIntegracionCorreo(false);
+    }
+  };
+
+  const handleSaveDiezmoPorcentaje = async () => {
+    setSavingDiezmo(true);
+    try {
+      await saveDiezmoConfig({ activo: !!diezmoConfig?.activo, porcentaje: parseFloat(diezmoPorcentaje) || 10 });
+    } finally {
+      setSavingDiezmo(false);
+    }
+  };
+
+  const handleSaveFechaNacimiento = async () => {
+    setSavingFechaNacimiento(true);
+    setSavedFechaNacimiento(false);
+    try {
+      await savePerfilPersonal({ fechaNacimiento: fechaNacimientoInput || null });
+      setSavedFechaNacimiento(true);
+      setTimeout(() => setSavedFechaNacimiento(false), 2000);
+    } finally {
+      setSavingFechaNacimiento(false);
+    }
+  };
+
+  const handleToggleActualizacionPrecios = async () => {
+    setSavingActualizacionPrecios(true);
+    try {
+      await saveActualizacionPreciosAutoConfig({ activo: !actualizacionPreciosConfig.activo, frecuencia: actualizacionPreciosConfig.frecuencia || "semanal" });
+    } finally {
+      setSavingActualizacionPrecios(false);
+    }
+  };
+
+  const handleChangeFrecuenciaPrecios = async (frecuencia) => {
+    setSavingActualizacionPrecios(true);
+    try {
+      await saveActualizacionPreciosAutoConfig({ activo: !!actualizacionPreciosConfig.activo, frecuencia });
+    } finally {
+      setSavingActualizacionPrecios(false);
+    }
+  };
+
+  const handleToggleAhorro = async () => {
+    setSavingAhorro(true);
+    try {
+      await saveAhorroAutoConfig({
+        activo: !ahorroConfig?.activo,
+        porcentaje: parseFloat(ahorroPorcentaje) || 10,
+        condicionadoADeuda: ahorroConfig?.condicionadoADeuda !== false,
+      });
+    } finally {
+      setSavingAhorro(false);
+    }
+  };
+
+  const handleSaveAhorroPorcentaje = async () => {
+    setSavingAhorro(true);
+    try {
+      await saveAhorroAutoConfig({
+        activo: !!ahorroConfig?.activo,
+        porcentaje: parseFloat(ahorroPorcentaje) || 10,
+        condicionadoADeuda: ahorroConfig?.condicionadoADeuda !== false,
+      });
+    } finally {
+      setSavingAhorro(false);
+    }
+  };
+
+  const handleToggleCondicionado = async () => {
+    setSavingAhorro(true);
+    try {
+      await saveAhorroAutoConfig({
+        activo: !!ahorroConfig?.activo,
+        porcentaje: parseFloat(ahorroPorcentaje) || 10,
+        condicionadoADeuda: !(ahorroConfig?.condicionadoADeuda !== false),
+      });
+    } finally {
+      setSavingAhorro(false);
+    }
+  };
+
+  const toggleCategoriaPuntos = async (nombre) => {
+    setSavingCategoriasPuntos(true);
+    try {
+      const nuevaLista = categoriasPuntos.includes(nombre)
+        ? categoriasPuntos.filter((n) => n !== nombre)
+        : [...categoriasPuntos, nombre];
+      await saveCategoriasPuntosConfig(nuevaLista);
+    } finally {
+      setSavingCategoriasPuntos(false);
+    }
+  };
+
+  const handleGuardarDiasCobro = async () => {
+    setDiasCobroError(null);
+    const dias = diasCobroInput
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => parseInt(s, 10));
+    if (dias.some((d) => !Number.isFinite(d) || d < 1 || d > 31)) {
+      setDiasCobroError("Cada día debe ser un número entre 1 y 31");
+      return;
+    }
+    setSavingDiasCobro(true);
+    try {
+      await saveDiasCobroConfig(dias);
+    } catch (err) {
+      setDiasCobroError(err.message || String(err));
+    } finally {
+      setSavingDiasCobro(false);
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 520 }}>
+      <Section icon={UserIcon} title="Cuenta">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {user?.photoURL && (
+            <img
+              src={user.photoURL}
+              alt={user.displayName || user.email}
+              referrerPolicy="no-referrer"
+              style={{ width: 44, height: 44, borderRadius: "50%", border: "1px solid var(--line)", objectFit: "cover" }}
+            />
+          )}
+          <div style={{ minWidth: 0 }}>
+            {user?.displayName && <div style={{ fontSize: 13.5, fontWeight: 600 }}>{user.displayName}</div>}
+            <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>{user?.email}</div>
+          </div>
+        </div>
+        <button
+          onClick={async () => {
+            if (await confirm("¿Cerrar sesión?", { confirmLabel: "Cerrar sesión", danger: false })) onSignOut();
+          }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            marginTop: 14,
+            padding: "8px 14px",
+            fontSize: 12.5,
+            fontWeight: 500,
+            background: "var(--stamp-bg)",
+            color: "var(--stamp)",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+          }}
+        >
+          <LogOut size={13} /> Cerrar sesión
+        </button>
+      </Section>
+
+      <Section icon={Heart} title="Plan de Cuenta & Finanzas en Pareja">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ maxWidth: 360 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>
+                {planActual?.planId === "duo" ? "Plan Dúo Activo" : planActual?.planId === "familiar" ? "Plan Familiar Activo" : "Plan Individual"}
+              </span>
+              <span
+                style={{
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  padding: "2px 8px",
+                  borderRadius: 12,
+                  background: planActual?.planId === "duo" ? "rgba(139, 92, 246, 0.16)" : "var(--sage-bg)",
+                  color: planActual?.planId === "duo" ? "#8b5cf6" : "var(--sage)",
+                  border: `1px solid ${planActual?.planId === "duo" ? "#8b5cf6" : "var(--sage)"}`,
+                }}
+              >
+                {planActual?.planId === "duo" ? "2 Cuentas Compartidas" : "1 Cuenta"}
+              </span>
+            </div>
+            <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "4px 0 0", lineHeight: 1.45 }}>
+              {planActual?.planId === "duo"
+                ? "Tienes el Plan Dúo habilitado. Puedes asociar a tu pareja para registrar y ver finanzas juntos."
+                : "Gestionas tus finanzas de manera individual. Cambia al Plan Dúo para agregar a tu pareja."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPlanesModal(true)}
+            style={{
+              padding: "8px 16px",
+              borderRadius: 8,
+              background: planActual?.planId === "duo" ? "linear-gradient(135deg, #8b5cf6, #7c3aed)" : "var(--ink)",
+              color: "#fff",
+              border: "none",
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              boxShadow: planActual?.planId === "duo" ? "0 2px 8px rgba(139, 92, 246, 0.3)" : "none",
+            }}
+          >
+            <Heart size={14} fill="#fff" />
+            {planActual?.planId === "duo" ? "Administrar Pareja & Plan" : "Ver Planes / Plan Dúo"}
+          </button>
+        </div>
+      </Section>
+
+      <Section icon={UserIcon} title="Perfil personal">
+        <div>
+          <label style={{ fontSize: 11.5, color: "var(--ink-soft)", display: "block", marginBottom: 4 }}>Fecha de nacimiento</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="date"
+              value={fechaNacimientoInput}
+              onChange={(e) => setFechaNacimientoInput(e.target.value)}
+              style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+            <button
+              onClick={handleSaveFechaNacimiento}
+              disabled={savingFechaNacimiento}
+              style={{ padding: "8px 14px", fontSize: 12.5, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: savingFechaNacimiento ? "wait" : "pointer", whiteSpace: "nowrap" }}
+            >
+              {savingFechaNacimiento ? "Guardando…" : savedFechaNacimiento ? "✓ Guardado" : "Guardar"}
+            </button>
+          </div>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6, lineHeight: 1.5 }}>
+            Se usa para calcular tu edad automáticamente en Salud, en vez de tener que escribirla a mano.
+          </div>
+        </div>
+      </Section>
+
+      <Section icon={LineChart} title="Actualización automática de precios">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ fontSize: 12.5 }}>
+            {actualizacionPreciosConfig.activo ? "Activa" : "Desactivada"}
+          </div>
+          <button
+            onClick={handleToggleActualizacionPrecios}
+            disabled={savingActualizacionPrecios}
+            style={{
+              padding: "6px 14px",
+              fontSize: 12,
+              fontWeight: 600,
+              background: actualizacionPreciosConfig.activo ? "var(--sage)" : "var(--line)",
+              color: actualizacionPreciosConfig.activo ? "#fff" : "var(--ink-soft)",
+              border: "none",
+              borderRadius: 8,
+              cursor: savingActualizacionPrecios ? "wait" : "pointer",
+            }}
+          >
+            {actualizacionPreciosConfig.activo ? "Desactivar" : "Activar"}
+          </button>
+        </div>
+        <label style={{ fontSize: 11.5, color: "var(--ink-soft)", display: "block", marginBottom: 4 }}>Frecuencia</label>
+        <select
+          value={actualizacionPreciosConfig.frecuencia || "semanal"}
+          onChange={(e) => handleChangeFrecuenciaPrecios(e.target.value)}
+          disabled={!actualizacionPreciosConfig.activo || savingActualizacionPrecios}
+          style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+        >
+          <option value="diario">Diario</option>
+          <option value="semanal">Semanal</option>
+          <option value="mensual">Mensual</option>
+        </select>
+        <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 8, lineHeight: 1.5 }}>
+          Revisa automáticamente los productos que importaste desde una URL (Catálogo → Importar desde URL) y actualiza su precio si cambió. Corre en segundo plano, no necesitas tener la app abierta.
+        </div>
+        {actualizacionPreciosConfig.ultimoResultado && (
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6 }}>
+            Última corrida: {actualizacionPreciosConfig.ultimoResultado.actualizados} precio(s) actualizado(s) de {actualizacionPreciosConfig.ultimoResultado.total} revisado(s).
+          </div>
+        )}
+      </Section>
+
+      <Section icon={Palette} title="Apariencia y Temas">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)", flex: 1, minWidth: 240 }}>
+            Personaliza los colores y el estilo visual de Smart Finance. Cada tema incluye una miniatura con vista previa real.
+          </div>
+          {user && (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 10px",
+                background: "var(--sage-bg)",
+                border: "1px solid var(--line-soft)",
+                borderRadius: 20,
+                fontSize: 11.5,
+                fontWeight: 500,
+                color: "var(--sage)",
+              }}
+            >
+              <UserIcon size={12} />
+              <span>Preferencia individual de <strong>{user.displayName || user.email?.split("@")[0] || "tu usuario"}</strong></span>
+            </div>
+          )}
+        </div>
+        <ThemeSelector currentTheme={theme} onSelectTheme={onSelectTheme || onToggleTheme} />
+      </Section>
+
+      <Section icon={Bot} title="Consultor financiero flotante en escritorio">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 4 }}>
+              {asistenteFlotanteActivo ? "Botón flotante activado" : "Botón flotante desactivado"}
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+              Muestra el acceso al consultor financiero en la esquina inferior de la versión web. El menú móvil seguirá disponible.
+            </div>
+          </div>
+          <Switch checked={asistenteFlotanteActivo} onChange={onToggleAsistenteFlotante} />
+        </div>
+      </Section>
+
+      <Section icon={Mail} title="Notificaciones por correo">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 10, lineHeight: 1.5 }}>
+          Correo donde recibes el resumen diario de alertas (pagos, membresías, contratos, productos por
+          agotarse). Requiere tener configurada la Cloud Function del aviso diario.
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            type="email"
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            placeholder="tu@correo.com"
+            style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+          />
+          <button
+            onClick={handleSaveEmail}
+            disabled={savingEmail}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "8px 14px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              background: savedEmail ? "var(--sage)" : "var(--ink)",
+              color: savedEmail ? "#fff" : "var(--paper)",
+              border: "none",
+              borderRadius: 8,
+              cursor: savingEmail ? "not-allowed" : "pointer",
+            }}
+          >
+            {savedEmail && <Check size={13} />}
+            {savingEmail ? "Guardando…" : savedEmail ? "Guardado" : "Guardar"}
+          </button>
+        </div>
+      </Section>
+
+      <Section icon={Mail} title="Reporte Quincenal de Pagos por Email (Gmail)">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Envío automático de un correo estructurado tipo <strong>dashboard ejecutivo</strong> con el desglose de lo que debes pagar en la quincena (segmentado por categoría y por método: transferencia, efectivo, tarjeta, nómina).
+        </div>
+        <div style={{ background: "var(--card-subtle, rgba(0,0,0,0.02))", border: "1px solid var(--line)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600 }}>Destinatario oficial:</span>
+            <span style={{ fontSize: 13, color: "var(--accent, #3b82f6)", fontWeight: 700 }}>iventuramena@gmail.com</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 13 }}>Frecuencia programada:</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--sage)" }}>Días 15 y 30 de cada mes</span>
+          </div>
+          {reportesEmailConfig?.ultimoEnvio && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, color: "var(--ink-soft)" }}>
+              <span>Último reporte enviado:</span>
+              <span>{new Date(reportesEmailConfig.ultimoEnvio.timestamp || reportesEmailConfig.ultimoEnvio.fecha).toLocaleString("es-DO")}</span>
+            </div>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Activar envíos los días de cobro (15 y 30)</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Recibir automáticamente el dashboard en tu Gmail en cada fecha de pago</div>
+          </div>
+          <Switch checked={reportesEmailConfig?.activoDiasCobro !== false} onChange={handleToggleReportesEmail} />
+        </div>
+      </Section>
+
+      <Section icon={WhatsAppIcon} title="Notificaciones de Pago por WhatsApp">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Al marcar el pago de una cuota de préstamo en el <strong>Checklist</strong> (por ejemplo PT01 para Ochoa Finauto),
+          se genera y abre automáticamente una notificación de WhatsApp con el comprobante detallado para enviarlo al número configurado de la entidad.
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>Notificar pagos vía WhatsApp</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+              {whatsappConfig?.activo !== false ? "Activado — se notificará por WhatsApp al marcar en el Checklist" : "Desactivado"}
+            </div>
+          </div>
+          <Switch checked={whatsappConfig?.activo !== false} onChange={handleToggleWhatsapp} disabled={savingWhatsapp} />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, padding: "8px 10px", background: "var(--card-subtle, rgba(0,0,0,0.02))", border: "1px solid var(--line)", borderRadius: 8, marginBottom: 12 }}>
+          <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+            💡 También puedes activar o desactivar la notificación individualmente en cada entidad desde el módulo <strong>Entidades</strong>.
+          </div>
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate("entidades")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "4px 10px",
+                fontSize: 11.5,
+                fontWeight: 600,
+                background: "var(--sage-bg)",
+                color: "var(--sage)",
+                border: "1px solid var(--sage)",
+                borderRadius: 6,
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Ir a Entidades →
+            </button>
+          )}
+        </div>
+
+        {whatsappConfig?.activo !== false && (
+          <div style={{ marginTop: 14, borderTop: "1px solid var(--line-soft)", paddingTop: 14 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <Landmark size={14} style={{ color: "var(--amber)" }} />
+              <span>Número de WhatsApp asignado a cada entidad de préstamo:</span>
+            </div>
+
+            {entidades.length === 0 ? (
+              <div style={{ fontSize: 12, color: "var(--ink-soft)", fontStyle: "italic" }}>
+                Aún no tienes entidades registradas. Ve a la sección Entidades para agregarlas.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {entidades
+                  .filter((e) => {
+                    const tienePrestamo = (prestamos || []).some(
+                      (p) => p.entidadId === e.docId || (p.entidadName && p.entidadName.toLowerCase() === e.name.toLowerCase())
+                    );
+                    return tienePrestamo || entidades.length <= 8;
+                  })
+                  .map((e) => {
+                    const prestamosAsociados = (prestamos || []).filter(
+                      (p) => p.entidadId === e.docId || (p.entidadName && p.entidadName.toLowerCase() === e.name.toLowerCase())
+                    );
+                    const telActual = telefonosEntidad[e.docId] !== undefined ? telefonosEntidad[e.docId] : (e.phone || "");
+                    const guardando = guardandoTelId === e.docId;
+                    const guardado = guardadoTelId === e.docId;
+
+                    return (
+                      <div
+                        key={e.docId}
+                        style={{
+                          background: "var(--card-subtle, rgba(0,0,0,0.02))",
+                          border: "1px solid var(--line)",
+                          borderRadius: 9,
+                          padding: "10px 12px",
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>{e.name}</div>
+                            <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+                              {prestamosAsociados.length > 0 ? (
+                                <span style={{ color: "var(--amber)", fontWeight: 500 }}>
+                                  Asociada a {prestamosAsociados.map((p) => `Préstamo ${p.numero || ""}`).join(", ")}
+                                </span>
+                              ) : (
+                                <span>{e.type || "Entidad financiera"}</span>
+                              )}
+                            </div>
+                          </div>
+                          {e.phone ? (
+                            <span
+                              style={{
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                padding: "2px 7px",
+                                borderRadius: 10,
+                                background: "rgba(16, 185, 129, 0.15)",
+                                color: "#10b981",
+                                border: "1px solid rgba(16, 185, 129, 0.35)",
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                              }}
+                            >
+                              <WhatsAppIcon size={11} color="#10b981" /> Listo
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                padding: "2px 7px",
+                                borderRadius: 10,
+                                background: "var(--stamp-bg)",
+                                color: "var(--stamp)",
+                              }}
+                            >
+                              Sin número
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <div style={{ position: "relative", flex: 1 }}>
+                            <input
+                              type="tel"
+                              placeholder="Ej. 809-555-1234"
+                              value={telActual}
+                              onChange={(ev) =>
+                                setTelefonosEntidad((prev) => ({ ...prev, [e.docId]: ev.target.value }))
+                              }
+                              style={{
+                                width: "100%",
+                                padding: "6px 8px 6px 26px",
+                                border: "1px solid var(--line)",
+                                borderRadius: 7,
+                                fontSize: 12.5,
+                                background: "var(--card)",
+                              }}
+                            />
+                            <Phone
+                              size={12}
+                              style={{
+                                position: "absolute",
+                                left: 8,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                color: "var(--ink-soft)",
+                              }}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleGuardarTelefonoEntidad(e)}
+                            disabled={guardando}
+                            style={{
+                              padding: "6px 12px",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              background: guardado ? "var(--sage)" : "var(--ink)",
+                              color: guardado ? "#fff" : "var(--paper)",
+                              border: "none",
+                              borderRadius: 7,
+                              cursor: guardando ? "wait" : "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {guardando ? "…" : guardado ? "✓ Guardado" : "Guardar"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            <div
+              style={{
+                marginTop: 12,
+                padding: "8px 10px",
+                borderRadius: 8,
+                background: "rgba(37, 211, 102, 0.08)",
+                border: "1px solid rgba(37, 211, 102, 0.25)",
+                fontSize: 11.5,
+                color: "var(--ink)",
+                lineHeight: 1.45,
+              }}
+            >
+              <div style={{ fontWeight: 600, color: "#10b981", marginBottom: 2, display: "flex", alignItems: "center", gap: 4 }}>
+                <WhatsAppIcon size={12} color="#10b981" /> Mensaje automático generado:
+              </div>
+              <div style={{ fontStyle: "italic", color: "var(--ink-soft)" }}>
+                "Hola *[Entidad]*, le notificamos que se ha registrado el pago de la cuota del préstamo *[PT01]* por un monto de *RD$ [Monto]* en fecha [Día/Mes/Año]. ¡Muchas gracias!"
+              </div>
+            </div>
+          </div>
+        )}
+      </Section>
+
+      <Section icon={LineChart} title="Precios de acciones">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 10, lineHeight: 1.5 }}>
+          Clave de API de{" "}
+          <a href="https://finnhub.io/register" target="_blank" rel="noreferrer" style={{ color: "var(--sage)" }}>
+            finnhub.io
+          </a>{" "}
+          (plan gratis) usada para mostrar precios en Inicio → Acciones.
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <input
+            value={apiKeyInput}
+            onChange={(e) => setApiKeyInput(e.target.value)}
+            placeholder="Tu API key de Finnhub"
+            style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+          />
+          <button
+            onClick={handleSaveApiKey}
+            disabled={savingKey}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "8px 14px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              background: savedKey ? "var(--sage)" : "var(--ink)",
+              color: savedKey ? "#fff" : "var(--paper)",
+              border: "none",
+              borderRadius: 8,
+              cursor: savingKey ? "not-allowed" : "pointer",
+            }}
+          >
+            {savedKey && <Check size={13} />}
+            {savingKey ? "Guardando…" : savedKey ? "Guardado" : "Guardar"}
+          </button>
+        </div>
+      </Section>
+
+      <Section icon={HandCoins} title="Diezmo automático">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Si lo activas, se calcula un porcentaje de tu ingreso mensual neto y se suma automáticamente a Presupuesto
+          mensual, repartido entre las dos quincenas.
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: diezmoConfig?.activo ? 12 : 0 }}>
+          <span style={{ fontSize: 13 }}>Activar diezmo automático</span>
+          <Switch checked={!!diezmoConfig?.activo} onChange={handleToggleDiezmo} disabled={savingDiezmo} />
+        </div>
+        {diezmoConfig?.activo && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              className="despensa-mono"
+              type="number"
+              min="0"
+              max="100"
+              step="0.5"
+              value={diezmoPorcentaje}
+              onChange={(e) => setDiezmoPorcentaje(e.target.value)}
+              onBlur={handleSaveDiezmoPorcentaje}
+              style={{ width: 80, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+            <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>% del ingreso mensual</span>
+          </div>
+        )}
+      </Section>
+
+      <Section icon={Mail} title="Registro automático desde correo (Banco Popular)">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Cuando llega un correo de notificaciones@popularenlinea.com aprobando un consumo, se registra
+          automáticamente como gasto — controlado por un Google Apps Script en tu Gmail, que corre cada 15
+          minutos. Este interruptor no activa el script en sí (eso se configura una sola vez en Google), pero
+          controla si debe registrar algo o ignorarlo.
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+          <span style={{ fontSize: 13 }}>Activar registro automático</span>
+          <Switch checked={integracionCorreoConfig?.activo !== false} onChange={handleToggleIntegracionCorreo} disabled={savingIntegracionCorreo} />
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginBottom: 6 }}>
+            Tarjetas habilitadas (últimos 4 dígitos, separados por coma — vacío = todas)
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              value={tarjetasHabilitadasInput}
+              onChange={(e) => setTarjetasHabilitadasInput(e.target.value)}
+              placeholder="ej. 6011, 5513"
+              style={{ flex: 1, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+            <button
+              onClick={handleGuardarTarjetasHabilitadas}
+              disabled={savingIntegracionCorreo}
+              style={{ padding: "7px 12px", fontSize: 12, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
+            >
+              Guardar
+            </button>
+          </div>
+        </div>
+
+        {integracionCorreoEstado && (
+          <div style={{ background: "var(--paper)", borderRadius: 8, padding: "10px 12px", fontSize: 12 }}>
+            <div style={{ color: "var(--ink-soft)", marginBottom: 4 }}>
+              Última sincronización:{" "}
+              {integracionCorreoEstado.ultimaEjecucion?.toDate
+                ? integracionCorreoEstado.ultimaEjecucion.toDate().toLocaleString("es")
+                : "—"}
+            </div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              <span>
+                Registrados: <strong className="despensa-mono">{integracionCorreoEstado.correosRegistrados || 0}</strong>
+              </span>
+              <span>
+                Errores: <strong className="despensa-mono" style={{ color: integracionCorreoEstado.errores ? "var(--stamp)" : "inherit" }}>{integracionCorreoEstado.errores || 0}</strong>
+              </span>
+            </div>
+            {integracionCorreoEstado.ultimoResultado && (
+              <div style={{ color: "var(--ink-soft)", marginTop: 4 }}>Último resultado: {integracionCorreoEstado.ultimoResultado}</div>
+            )}
+          </div>
+        )}
+      </Section>
+
+      <Section icon={PiggyBank} title="Modo Ahorro">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Reserva un porcentaje de tu ingreso mensual neto como ahorro, sumado automáticamente a Presupuesto
+          mensual, repartido entre las dos quincenas.
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: ahorroConfig?.activo ? 10 : 0 }}>
+          <span style={{ fontSize: 13 }}>Activar Modo Ahorro</span>
+          <Switch checked={!!ahorroConfig?.activo} onChange={handleToggleAhorro} disabled={savingAhorro} />
+        </div>
+        {ahorroConfig?.activo && (
+          <>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 12 }}>
+              <input
+                className="despensa-mono"
+                type="number"
+                min="0"
+                max="100"
+                step="0.5"
+                value={ahorroPorcentaje}
+                onChange={(e) => setAhorroPorcentaje(e.target.value)}
+                onBlur={handleSaveAhorroPorcentaje}
+                style={{ width: 80, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+              />
+              <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>% del ingreso mensual</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+              <span style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+                Priorizar gastos fijos y deudas primero: si tu nivel de endeudamiento está "Alto" o "Crítico"
+                (más de 35% de tu ingreso comprometido), no aplicar el ahorro esa quincena.
+              </span>
+              <Switch checked={ahorroConfig?.condicionadoADeuda !== false} onChange={handleToggleCondicionado} disabled={savingAhorro} />
+            </div>
+          </>
+        )}
+      </Section>
+
+      <Section icon={Trophy} title="Categorías que generan puntos">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Elige exactamente qué categorías de gasto otorgan puntos al pagarlas (además de los préstamos y aportes a
+          metas de ahorro, que siempre generan puntos). Estas categorías no podrán recibir puntos por canje.
+        </div>
+        {(categoriasGasto || []).length === 0 ? (
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+            Todavía no tienes categorías de gasto creadas. Ve a Presupuesto → Categoría de gasto para crear una.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {categoriasGasto.map((c) => (
+              <label
+                key={c.id}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "7px 2px", cursor: "pointer" }}
+              >
+                <span style={{ fontSize: 13 }}>{c.nombre}</span>
+                <Switch
+                  checked={categoriasPuntos.includes(c.nombre)}
+                  onChange={() => toggleCategoriaPuntos(c.nombre)}
+                  disabled={savingCategoriasPuntos}
+                />
+              </label>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section icon={Gauge} title="Tope de ajuste automático de presupuesto">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Si tienes un gasto variable que fluctúa (como combustible o supermercado), la app puede ajustar automáticamente el
+          presupuesto de la <strong>próxima</strong> quincena para reflejar lo que realmente gastas, sin pasar del tope que definas aquí.
+          Los <strong>gastos fijos</strong> (como alquiler, estacionamiento o cuotas) no tienen tope porque son obligaciones acordadas de monto fijo; pagar lo pactado es cumplir el compromiso.
+        </div>
+        {(categoriasGasto || []).length === 0 ? (
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+            Todavía no tienes categorías de gasto creadas. Ve a Presupuesto → Categoría de gasto para crear una.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {categoriasGasto.map((c) => {
+              const esFijo =
+                c.clasificacion === "Fijo" ||
+                c.tipoGastoChecklist === "pago_unico" ||
+                GASTO_CATS_FIJO.includes(c.nombre) ||
+                /^(estacionamiento|parqueo|alquiler|renta|mantenimiento|colegiatura|universidad|colegio|gym|gimnasio|internet|telefono|celular|seguro|cuota|vivienda|servicios)/i.test(c.nombre);
+
+              return (
+                <div key={c.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: esFijo ? 600 : 400 }}>{c.nombre}</span>
+                    {esFijo && (
+                      <span style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, background: "var(--stamp-bg)", color: "var(--stamp)", fontWeight: 600 }}>
+                        Gasto fijo (no aplica tope)
+                      </span>
+                    )}
+                  </div>
+                  {esFijo ? (
+                    <span style={{ fontSize: 11.5, color: "var(--ink-soft)", fontStyle: "italic" }}>
+                      Monto fijo pactado
+                    </span>
+                  ) : (
+                    <input
+                      className="despensa-mono"
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="Sin tope"
+                      defaultValue={topesAjuste[c.nombre] || ""}
+                      onBlur={(e) => saveTopeAjuste(c.nombre, e.target.value)}
+                      style={{ width: 100, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5, textAlign: "right" }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Section>
+
+      <Section icon={Gauge} title="Días de cobro">
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 12, lineHeight: 1.5 }}>
+          Los días en que recibes tu ingreso definen cómo se dividen tus quincenas. Por ejemplo, con 15 y 30: los días
+          1-14 son la quincena que empezó con el cobro del 30 del mes anterior, y los días 15-29 son la quincena
+          financiada por el cobro del 15 — el día 30/31 ya pertenece a la siguiente quincena, no a la de ese mes.
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            className="despensa-mono"
+            placeholder="Ej. 15, 30"
+            value={diasCobroInput}
+            onChange={(e) => setDiasCobroInput(e.target.value)}
+            style={{ flex: 1, minWidth: 140, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+          />
+          <button
+            onClick={handleGuardarDiasCobro}
+            disabled={savingDiasCobro}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: savingDiasCobro ? "not-allowed" : "pointer" }}
+          >
+            <Check size={13} /> {savingDiasCobro ? "Guardando…" : "Guardar"}
+          </button>
+        </div>
+        {diasCobroError && <div style={{ marginTop: 8, fontSize: 12, color: "var(--stamp)" }}>{diasCobroError}</div>}
+        <div style={{ marginTop: 10, fontSize: 11, color: "var(--sage)" }}>
+          Nota: por ahora este ajuste solo está guardado — todavía estamos migrando las pantallas de la app para que lo
+          usen (empezando por el Checklist de pagos). Te avisaré a medida que cada una quede lista.
+        </div>
+      </Section>
+
+      <Section icon={WhatsAppIcon} title="Comunidad y Soporte">
+        <WhatsAppGroupButton variant="card" />
+      </Section>
+
+      <Section icon={AlertTriangle} title="Zona de Peligro" danger>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+            {isOwner
+              ? "Esta es la cuenta del Administrador / Propietario principal del sistema. Está protegida contra eliminación para garantizar la continuidad del servicio."
+              : "Al eliminar tu cuenta se borrarán permanentemente todos tus datos personales, movimientos, cuentas, presupuestos, tarjetas, metas y configuraciones. Esta acción es definitiva e irreversible."}
+          </p>
+
+          {isOwner ? (
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "8px 12px",
+                background: "var(--amber-bg)",
+                border: "1px solid var(--amber)",
+                borderRadius: 8,
+                fontSize: 12.5,
+                color: "var(--amber)",
+                fontWeight: 600,
+                alignSelf: "flex-start",
+              }}
+            >
+              <Lock size={15} />
+              Cuenta de Administrador Principal protegida
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                setDeleteConfirmInput("");
+                setDeleteError(null);
+                setShowDeleteModal(true);
+              }}
+              style={{
+                alignSelf: "flex-start",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "9px 16px",
+                background: "rgba(239, 68, 68, 0.08)",
+                color: "var(--stamp)",
+                border: "1px solid var(--stamp)",
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+            >
+              <Trash2 size={15} />
+              Eliminar mi cuenta definitivamente
+            </button>
+          )}
+        </div>
+      </Section>
+
+      <ModalPlanesSuscripcion
+        isOpen={showPlanesModal}
+        onClose={() => setShowPlanesModal(false)}
+        user={user}
+        isOwner={isOwner}
+        planActual={planActual}
+        usuariosRegistrados={usuariosRegistrados}
+      />
+
+      {showDeleteModal && (
+        <div
+          onClick={() => !deletingAccount && setShowDeleteModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.65)",
+            backdropFilter: "blur(4px)",
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(460px, 94vw)",
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              borderRadius: 16,
+              padding: "24px 22px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+              boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: "50%",
+                  background: "rgba(239, 68, 68, 0.12)",
+                  border: "1px solid var(--stamp)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "var(--stamp)",
+                  flexShrink: 0,
+                }}
+              >
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3 className="despensa-tab-font" style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--stamp)" }}>
+                  ¿Eliminar cuenta definitivamente?
+                </h3>
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                  Esta acción es permanente e irreversible
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--ink)",
+                lineHeight: 1.5,
+                background: "var(--paper)",
+                padding: "12px 14px",
+                borderRadius: 10,
+                border: "1px solid var(--line-soft)",
+              }}
+            >
+              Se eliminarán para siempre:
+              <ul style={{ margin: "6px 0 0", paddingLeft: 18, color: "var(--ink-soft)", fontSize: 12 }}>
+                <li>Todos tus movimientos, transacciones e ingresos.</li>
+                <li>Tus presupuestos, cuentas bancarias, tarjetas y préstamos.</li>
+                <li>Metas de ahorro, activos, contratos y hábitos.</li>
+                <li>Tu perfil de usuario en la base de datos y autenticación.</li>
+              </ul>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: 12.5, fontWeight: 600, color: "var(--ink)", marginBottom: 6 }}>
+                Para confirmar, escribe <strong style={{ color: "var(--stamp)" }}>ELIMINAR</strong> a continuación:
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmInput}
+                onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                placeholder="ELIMINAR"
+                disabled={deletingAccount}
+                style={{
+                  width: "100%",
+                  padding: "9px 12px",
+                  background: "var(--card)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  color: "var(--ink)",
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            {deleteError && (
+              <div
+                style={{
+                  padding: "9px 12px",
+                  borderRadius: 8,
+                  background: "rgba(239, 68, 68, 0.1)",
+                  color: "var(--stamp)",
+                  fontSize: 12,
+                  lineHeight: 1.4,
+                }}
+              >
+                {deleteError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={deletingAccount}
+                style={{
+                  padding: "9px 16px",
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: deletingAccount ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (deleteConfirmInput.trim() !== "ELIMINAR" || deletingAccount) return;
+                  setDeletingAccount(true);
+                  setDeleteError(null);
+                  try {
+                    await eliminarCuentaUsuario(user);
+                    setShowDeleteModal(false);
+                    window.location.reload();
+                  } catch (err) {
+                    console.error("Error al eliminar la cuenta:", err);
+                    setDeleteError(err.message || "Error al eliminar la cuenta. Por favor intenta de nuevo.");
+                    setDeletingAccount(false);
+                  }
+                }}
+                disabled={deleteConfirmInput.trim() !== "ELIMINAR" || deletingAccount}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "9px 18px",
+                  background:
+                    deleteConfirmInput.trim() === "ELIMINAR" && !deletingAccount
+                      ? "var(--stamp)"
+                      : "var(--line)",
+                  color: "#ffffff",
+                  border: "none",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor:
+                    deleteConfirmInput.trim() === "ELIMINAR" && !deletingAccount
+                      ? "pointer"
+                      : "not-allowed",
+                }}
+              >
+                {deletingAccount ? "Eliminando cuenta…" : "Eliminar definitivamente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Section({ icon: Icon, title, danger = false, children }) {
+  return (
+    <div
+      style={{
+        background: "var(--card)",
+        border: danger ? "1px solid rgba(239, 68, 68, 0.35)" : "1px solid var(--line)",
+        borderRadius: 12,
+        padding: "1.1rem",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <Icon size={15} style={{ color: danger ? "var(--stamp)" : "var(--ink-soft)" }} />
+        <span
+          className="despensa-tab-font"
+          style={{ fontSize: 13.5, fontWeight: 600, color: danger ? "var(--stamp)" : "var(--ink)" }}
+        >
+          {title}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
