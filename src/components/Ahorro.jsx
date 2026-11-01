@@ -4,6 +4,7 @@ import { addMetaAhorro, deleteMetaAhorro, updateMetaAhorroEstado, updateMetaAhor
 import { confirm } from "../lib/confirm";
 import { CATEGORIAS_META, obtenerIconoYDetalleMeta } from "../lib/metaIconos";
 import BuscadorOfertasMetasModal from "./BuscadorOfertasMetasModal.jsx";
+import CustomDatePicker from "./CustomDatePicker.jsx";
 
 const TIPOS_META = ["Meta específica", "Porcentaje de ingreso"];
 const ESTADOS = ["Activa", "Completada", "Pausada"];
@@ -341,20 +342,18 @@ export default function Ahorro({ metas, cuentas, movimientos, fuentesIngreso, ac
       <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
         <div>
           <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Fecha de inicio</div>
-          <input
-            type="date"
+          <CustomDatePicker
             value={f.fechaInicio}
-            onChange={(e) => setF({ ...f, fechaInicio: e.target.value })}
-            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            onChange={(val) => setF({ ...f, fechaInicio: val })}
+            placeholder="Seleccionar fecha..."
           />
         </div>
         <div>
           <div style={{ fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 3 }}>Fecha final (opcional)</div>
-          <input
-            type="date"
+          <CustomDatePicker
             value={f.fechaObjetivo}
-            onChange={(e) => setF({ ...f, fechaObjetivo: e.target.value })}
-            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            onChange={(val) => setF({ ...f, fechaObjetivo: val })}
+            placeholder="Seleccionar fecha..."
           />
         </div>
       </div>

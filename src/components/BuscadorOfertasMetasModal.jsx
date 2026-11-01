@@ -18,6 +18,7 @@ import {
   Landmark,
 } from "lucide-react";
 import { addMetaAhorro } from "../lib/db";
+import CustomDatePicker from "./CustomDatePicker.jsx";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -554,19 +555,10 @@ export default function BuscadorOfertasMetasModal({
                   <label style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-soft, #94a3b8)", display: "block", marginBottom: 4 }}>
                     Fecha meta objetivo
                   </label>
-                  <input
-                    type="date"
+                  <CustomDatePicker
                     value={fechaObjetivoCustom}
-                    onChange={(e) => setFechaObjetivoCustom(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "7.5px 10px",
-                      borderRadius: 8,
-                      border: "1px solid var(--line, #334155)",
-                      background: "var(--paper, #1e293b)",
-                      color: "var(--ink, #fff)",
-                      fontSize: 12.5,
-                    }}
+                    onChange={(val) => setFechaObjetivoCustom(val)}
+                    placeholder="Seleccionar fecha meta..."
                   />
                 </div>
               </div>
