@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from "react";
-import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText, Fuel, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Receipt, Sliders, PieChart, Sparkles, Heart, Users, Share2, Eye, X } from "lucide-react";
+import { Landmark, PiggyBank, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Calendar as CalendarIcon, ClipboardList as ClipboardListIcon, Palmtree as PalmtreeIcon, HandCoins as HandCoinsIcon, ScrollText as ScrollTextIcon, ListOrdered, CreditCard, Lock, FileText, Fuel, SquareParking, UtensilsCrossed, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Receipt, Sliders, PieChart, Sparkles, Heart, Users, Share2, Eye, X, WashingMachine, Refrigerator, Tv, Fan, Flame, Zap } from "lucide-react";
 import {
   setPresupuestoCelda,
   watchPagoRapido,
@@ -169,6 +169,7 @@ const ICONOS_CATEGORIA = {
   stethoscope: Stethoscope, pill: Pill, repeat: Repeat, creditcard: CreditCard, wifi: Wifi, home: Home,
   shoppingbag: ShoppingBag, shirt: Shirt, graduationcap: GraduationCap, baby: Baby, dog: Dog, gift: Gift,
   plane: Plane, bus: Bus, music: Music, film: Film, gamepad: Gamepad2, book: BookOpen, receipt: Receipt,
+  washingmachine: WashingMachine, refrigerator: Refrigerator, tv: Tv, fan: Fan, flame: Flame, zap: Zap,
 };
 
 const COL_CATEGORIA_WIDTH = 215;

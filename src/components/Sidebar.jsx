@@ -164,15 +164,28 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
                 onClick={() => setTab(item.id === "presupuesto" ? "presupuesto-mensual" : item.id)}
                 onDoubleClick={hasChildren ? () => setExpandedId(expanded ? null : item.id) : undefined}
                 title={collapsed ? item.label : hasChildren ? `${item.label} (doble clic para ver subcategorías)` : undefined}
-                className="despensa-tab-font despensa-navitem"
+                className={`despensa-tab-font despensa-navitem${active ? " is-active" : ""}`}
                 style={{
-                  background: active ? "var(--sage-bg)" : "transparent",
+                  background: "transparent",
                   color: active ? "var(--sage)" : "var(--ink)",
                   justifyContent: collapsed ? "center" : "flex-start",
                 }}
               >
-                <Icon size={16} style={{ flexShrink: 0 }} />
-                {!collapsed && <span className="despensa-navlabel">{item.label}</span>}
+                <Icon
+                  size={16}
+                  style={{
+                    flexShrink: 0,
+                    fill: active ? "currentColor" : "none",
+                  }}
+                />
+                {!collapsed && (
+                  <span
+                    className="despensa-navlabel"
+                    style={{ fontWeight: active ? 700 : 500 }}
+                  >
+                    {item.label}
+                  </span>
+                )}
                 {!collapsed && count > 0 && (
                   <span
                     className="despensa-mono"
@@ -225,17 +238,27 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
                       <button
                         key={child.id}
                         onClick={() => setTab(child.id)}
-                        className="despensa-tab-font despensa-navitem"
+                        className={`despensa-tab-font despensa-navitem${childActive ? " is-active" : ""}`}
                         style={{
-                          background: childActive ? "var(--sage-bg)" : "transparent",
+                          background: "transparent",
                           color: childActive ? "var(--sage)" : "var(--ink-soft)",
                           justifyContent: "flex-start",
                           paddingLeft: 30,
                           fontSize: 12.5,
                         }}
                       >
-                        <span style={{ width: 4, height: 4, borderRadius: "50%", background: "currentColor", flexShrink: 0 }} />
-                        <span className="despensa-navlabel">{child.label}</span>
+                        <span
+                          style={{
+                            width: childActive ? 6 : 4,
+                            height: childActive ? 6 : 4,
+                            borderRadius: "50%",
+                            background: "currentColor",
+                            flexShrink: 0,
+                            boxShadow: childActive ? "0 0 6px rgba(16, 185, 129, 0.6)" : "none",
+                            transition: "all 0.15s ease",
+                          }}
+                        />
+                        <span className="despensa-navlabel" style={{ fontWeight: childActive ? 700 : 400 }}>{child.label}</span>
                         {childCount > 0 && (
                           <span
                             className="despensa-mono"

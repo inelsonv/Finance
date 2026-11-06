@@ -33,6 +33,12 @@ import {
   Gamepad2,
   BookOpen,
   Receipt,
+  WashingMachine,
+  Refrigerator,
+  Tv,
+  Fan,
+  Flame,
+  Zap,
 } from "lucide-react";
 import { addMovimiento } from "../lib/db";
 import { GASTO_CATS_VARIABLE, GASTO_CATS_FIJO } from "../lib/categorias";
@@ -73,6 +79,12 @@ const ICONOS_CATEGORIA = {
   gamepad: Gamepad2,
   book: BookOpen,
   receipt: Receipt,
+  washingmachine: WashingMachine,
+  refrigerator: Refrigerator,
+  tv: Tv,
+  fan: Fan,
+  flame: Flame,
+  zap: Zap,
 };
 
 const METODOS = ["Efectivo", "Transferencia", "Tarjeta de crédito", "Débito", "Otro"];

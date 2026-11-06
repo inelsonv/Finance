@@ -32,6 +32,8 @@ const REGLAS_SUPERIORES = [
       "vivienda", "alquiler", "renta", "hipoteca", "casa", "hogar", "apartamento",
       "luz", "electricidad", "energia", "energía", "agua", "coraasan", "caasd",
       "basura", "gas", "mantenimiento hogar", "mantenimiento casa", "reparacion",
+      "electrodomestico", "electrodoméstico", "lavadora", "secadora", "nevera",
+      "refrigerador", "estufa", "horno", "microondas", "aire acondicionado", "inversor",
     ],
   },
   {

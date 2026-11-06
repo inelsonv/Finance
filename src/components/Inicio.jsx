@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Calendar, Target, SlidersHorizontal, Eye, EyeOff, LayoutGrid, Check, Shield } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Calendar, Target, SlidersHorizontal, Eye, EyeOff, LayoutGrid, Check, Shield, WashingMachine, Refrigerator, Tv, Fan, Flame, Zap } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { fetchInflacionRD } from "../lib/inflacionRD";
@@ -193,6 +193,7 @@ const ICONOS_CATEGORIA_GASTO = {
   stethoscope: Stethoscope, pill: Pill, repeat: Repeat, creditcard: CreditCard, wifi: Wifi, home: Home,
   shoppingbag: ShoppingBag, shirt: Shirt, graduationcap: GraduationCap, baby: Baby, dog: Dog, gift: Gift,
   plane: Plane, bus: Bus, music: Music, film: Film, gamepad: Gamepad2, book: BookOpen, receipt: Receipt,
+  washingmachine: WashingMachine, refrigerator: Refrigerator, tv: Tv, fan: Fan, flame: Flame, zap: Zap,
 };
 
 function SelectorAnio({ year, setYear, anioActual }) {

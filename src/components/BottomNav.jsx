@@ -92,97 +92,145 @@ export default function BottomNav({
   return (
     <>
       <nav className={`despensa-bottomnav${tab === "asistente" ? " despensa-bottomnav--assistant" : ""}`}>
-        <button
-          onClick={() => setTab("calendario")}
-          className="despensa-bottomnav-item"
-          title="Calendario"
-          style={{ color: activoEnGrupo(tab, "calendario") ? "var(--sage)" : "var(--ink-soft)" }}
-        >
-          <CalendarDays size={22} />
-          {activoEnGrupo(tab, "calendario") && <span className="despensa-bottomnav-dot" />}
-        </button>
+        {(() => {
+          const act = activoEnGrupo(tab, "calendario");
+          return (
+            <button
+              onClick={() => setTab("calendario")}
+              className={`despensa-bottomnav-item${act ? " is-active" : ""}`}
+              title="Calendario"
+              style={{ color: act ? "var(--sage)" : "var(--ink-soft)" }}
+            >
+              <CalendarDays
+                size={22}
+                style={{ fill: act ? "currentColor" : "none" }}
+              />
+              {act && <span className="despensa-bottomnav-dot" />}
+            </button>
+          );
+        })()}
 
-        <button
-          onClick={() => setShowOpciones(true)}
-          className="despensa-bottomnav-item"
-          title="Registrar gasto o Checklist de pagos"
-          style={{ color: tab === "checklist-pagos" ? "var(--sage)" : "var(--ink-soft)" }}
-        >
-          <TrendingDown size={22} />
-          {tab === "checklist-pagos" && <span className="despensa-bottomnav-dot" />}
-        </button>
+        {(() => {
+          const act = tab === "checklist-pagos";
+          return (
+            <button
+              onClick={() => setShowOpciones(true)}
+              className={`despensa-bottomnav-item${act ? " is-active" : ""}`}
+              title="Registrar gasto o Checklist de pagos"
+              style={{ color: act ? "var(--sage)" : "var(--ink-soft)" }}
+            >
+              <TrendingDown
+                size={22}
+                style={{ fill: act ? "currentColor" : "none" }}
+              />
+              {act && <span className="despensa-bottomnav-dot" />}
+            </button>
+          );
+        })()}
 
-        <button
-          onClick={() => setTab("inicio")}
-          className="despensa-bottomnav-item"
-          title="Inicio"
-          style={{ color: tab === "inicio" ? "var(--sage)" : "var(--ink-soft)" }}
-        >
-          <Home size={22} />
-          {tab === "inicio" && <span className="despensa-bottomnav-dot" />}
-        </button>
+        {(() => {
+          const act = tab === "inicio";
+          return (
+            <button
+              onClick={() => setTab("inicio")}
+              className={`despensa-bottomnav-item${act ? " is-active" : ""}`}
+              title="Inicio"
+              style={{ color: act ? "var(--sage)" : "var(--ink-soft)" }}
+            >
+              <Home
+                size={22}
+                style={{ fill: act ? "currentColor" : "none" }}
+              />
+              {act && <span className="despensa-bottomnav-dot" />}
+            </button>
+          );
+        })()}
 
         {isOwner ? (
-          <button
-            onClick={() => setTab("compras")}
-            className="despensa-bottomnav-item"
-            title="Compras"
-            style={{ color: activoEnGrupo(tab, "compras") ? "var(--sage)" : "var(--ink-soft)" }}
-          >
-            <ShoppingCart size={22} />
-            {activoEnGrupo(tab, "compras") && <span className="despensa-bottomnav-dot" />}
-          </button>
+          (() => {
+            const act = activoEnGrupo(tab, "compras");
+            return (
+              <button
+                onClick={() => setTab("compras")}
+                className={`despensa-bottomnav-item${act ? " is-active" : ""}`}
+                title="Compras"
+                style={{ color: act ? "var(--sage)" : "var(--ink-soft)" }}
+              >
+                <ShoppingCart
+                  size={22}
+                  style={{ fill: act ? "currentColor" : "none" }}
+                />
+                {act && <span className="despensa-bottomnav-dot" />}
+              </button>
+            );
+          })()
         ) : (
-          <button
-            onClick={() => setTab("movimientos")}
-            className="despensa-bottomnav-item"
-            title="Movimientos"
-            style={{ color: tab === "movimientos" ? "var(--sage)" : "var(--ink-soft)" }}
-          >
-            <ArrowLeftRight size={22} />
-            {tab === "movimientos" && <span className="despensa-bottomnav-dot" />}
-          </button>
+          (() => {
+            const act = tab === "movimientos";
+            return (
+              <button
+                onClick={() => setTab("movimientos")}
+                className={`despensa-bottomnav-item${act ? " is-active" : ""}`}
+                title="Movimientos"
+                style={{ color: act ? "var(--sage)" : "var(--ink-soft)" }}
+              >
+                <ArrowLeftRight
+                  size={22}
+                  style={{ fill: act ? "currentColor" : "none" }}
+                />
+                {act && <span className="despensa-bottomnav-dot" />}
+              </button>
+            );
+          })()
         )}
 
-        <button
-          onClick={() => setTab("notificaciones")}
-          className="despensa-bottomnav-item"
-          title="Notificaciones"
-          style={{ color: tab === "notificaciones" ? "var(--sage)" : "var(--ink-soft)" }}
-        >
-          <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-            <Bell size={22} />
-            {noLeidas > 0 && (
-              <span
-                className="despensa-mono"
-                style={{
-                  position: "absolute",
-                  top: -4,
-                  right: -7,
-                  minWidth: 16,
-                  height: 16,
-                  borderRadius: 10,
-                  background: "var(--stamp)",
-                  color: "#fff",
-                  fontSize: 9.5,
-                  fontWeight: 700,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "0 3.5px",
-                  border: "1.5px solid var(--card)",
-                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.35)",
-                  lineHeight: 1,
-                  pointerEvents: "none",
-                  zIndex: 2,
-                }}
-              >
-                {noLeidas > 99 ? "99+" : noLeidas}
-              </span>
-            )}
-          </div>
-          {tab === "notificaciones" && <span className="despensa-bottomnav-dot" />}
-        </button>
+        {(() => {
+          const act = tab === "notificaciones";
+          return (
+            <button
+              onClick={() => setTab("notificaciones")}
+              className={`despensa-bottomnav-item${act ? " is-active" : ""}`}
+              title="Notificaciones"
+              style={{ color: act ? "var(--sage)" : "var(--ink-soft)" }}
+            >
+              <div style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                <Bell
+                  size={22}
+                  style={{ fill: act ? "currentColor" : "none" }}
+                />
+                {noLeidas > 0 && (
+                  <span
+                    className="despensa-mono"
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -7,
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 10,
+                      background: "var(--stamp)",
+                      color: "#fff",
+                      fontSize: 9.5,
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "0 3.5px",
+                      border: "1.5px solid var(--card)",
+                      boxShadow: "0 1px 3px rgba(0, 0, 0, 0.35)",
+                      lineHeight: 1,
+                      pointerEvents: "none",
+                      zIndex: 2,
+                    }}
+                  >
+                    {noLeidas > 99 ? "99+" : noLeidas}
+                  </span>
+                )}
+              </div>
+              {act && <span className="despensa-bottomnav-dot" />}
+            </button>
+          );
+        })()}
       </nav>
 
       {showOpciones && (

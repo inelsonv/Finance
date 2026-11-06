@@ -515,11 +515,37 @@ button:active {
   cursor: pointer;
   text-align: left;
   width: 100%;
-  transition: background-color 0.14s ease, color 0.14s ease;
+  background: transparent !important;
+  transition: color 0.15s ease;
 }
 
+.despensa-navitem svg {
+  transition: stroke 0.18s ease, stroke-width 0.18s ease, fill 0.18s ease, filter 0.18s ease, transform 0.18s ease;
+}
+
+/* Hover: resalta SOLO el borde del ícono sin rellenar fondo */
 .despensa-navitem:hover {
-  background: var(--line-soft) !important;
+  background: transparent !important;
+  color: var(--sage) !important;
+}
+
+.despensa-navitem:hover svg {
+  stroke: var(--sage) !important;
+  stroke-width: 2.25px !important;
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.65));
+  transform: translateY(-1px) scale(1.08);
+}
+
+/* Activo / Seleccionado: el ícono se rellena, sin fondo en el botón */
+.despensa-navitem.is-active {
+  background: transparent !important;
+  color: var(--sage) !important;
+}
+
+.despensa-navitem.is-active svg {
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  filter: drop-shadow(0 2px 5px rgba(16, 185, 129, 0.28));
 }
 
 .despensa-navlabel {
@@ -734,7 +760,7 @@ button:active {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  background: transparent;
+  background: transparent !important;
   border: none;
   cursor: pointer;
   padding: 6px 10px;
@@ -742,6 +768,36 @@ button:active {
   font-family: Inter, sans-serif;
   position: relative;
   flex: 1;
+  transition: color 0.15s ease;
+}
+
+.despensa-bottomnav-item svg {
+  transition: stroke 0.18s ease, stroke-width 0.18s ease, fill 0.18s ease, filter 0.18s ease, transform 0.18s ease;
+}
+
+/* Hover: resalta SOLO el borde del ícono sin fondo */
+.despensa-bottomnav-item:hover {
+  background: transparent !important;
+  color: var(--sage) !important;
+}
+
+.despensa-bottomnav-item:hover svg {
+  stroke: var(--sage) !important;
+  stroke-width: 2.35px !important;
+  filter: drop-shadow(0 0 7px rgba(16, 185, 129, 0.7));
+  transform: translateY(-2px) scale(1.1);
+}
+
+/* Activo: ícono relleno con color, sin fondo en el botón */
+.despensa-bottomnav-item.is-active {
+  background: transparent !important;
+  color: var(--sage) !important;
+}
+
+.despensa-bottomnav-item.is-active svg {
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  filter: drop-shadow(0 2px 6px rgba(16, 185, 129, 0.35));
 }
 
 .despensa-bottomnav-dot {
