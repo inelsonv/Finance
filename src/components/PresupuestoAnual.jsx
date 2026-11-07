@@ -809,15 +809,24 @@ export default function PresupuestoAnual({
     return Math.max(ingresoQuincenal - resumenQuincena.presupuestado - minimoTarjetasQuincena, 0);
   };
   const [mostrarPrestamos, setMostrarPrestamos] = useState(false);
-  const [gruposColapsados, setGruposColapsados] = useState(() => new Set());
+  const [gruposExpandidos, setGruposExpandidos] = useState(() => new Set());
 
-  const toggleColapsarGrupo = (nombreGrupo) => {
-    setGruposColapsados((prev) => {
+  const toggleExpandirGrupo = (nombreGrupo) => {
+    setGruposExpandidos((prev) => {
       const next = new Set(prev);
       if (next.has(nombreGrupo)) next.delete(nombreGrupo);
       else next.add(nombreGrupo);
       return next;
     });
+  };
+
+  const expandirTodosLosGrupos = () => {
+    const todos = new Set(gruposSuperiores.grupos.map((g) => g.nombre));
+    setGruposExpandidos(todos);
+  };
+
+  const colapsarTodosLosGrupos = () => {
+    setGruposExpandidos(new Set());
   };
 
   const categorias = useMemo(() => {
@@ -2856,18 +2865,43 @@ export default function PresupuestoAnual({
                   whiteSpace: "nowrap",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
-                  <span>Categoría / Obligación</span>
-                  <span
-                    onClick={() => {
-                      const nuevo = modoAnioEmulacion === "a_partir_de_2027" ? "este_anio" : modoAnioEmulacion === "este_anio" ? "todos" : "a_partir_de_2027";
-                      cambiarModoAnioEmulacion(nuevo);
-                    }}
-                    style={{ fontSize: 9.5, color: "#8b5cf6", fontWeight: 700, cursor: "pointer", background: "rgba(139, 92, 246, 0.14)", padding: "1px 6px", borderRadius: 4 }}
-                    title={`Modo de simulación actual: ${modoAnioEmulacion === "a_partir_de_2027" ? "Desde 2027+" : modoAnioEmulacion === "este_anio" ? `Solo ${year}` : "Todos los años"}. Clic para alternar.`}
-                  >
-                    {modoAnioEmulacion === "a_partir_de_2027" ? "Desde 2027+" : modoAnioEmulacion === "este_anio" ? `Solo ${year}` : "Todos"} ▾
-                  </span>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Categoría</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (gruposExpandidos.size > 0) {
+                          colapsarTodosLosGrupos();
+                        } else {
+                          expandirTodosLosGrupos();
+                        }
+                      }}
+                      style={{
+                        fontSize: 9.5,
+                        color: gruposExpandidos.size > 0 ? "var(--sage)" : "var(--ink-soft)",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        background: gruposExpandidos.size > 0 ? "rgba(16, 185, 129, 0.12)" : "var(--card)",
+                        border: "1px solid var(--line-soft)",
+                        padding: "1px 5px",
+                        borderRadius: 4,
+                      }}
+                      title={gruposExpandidos.size > 0 ? "Recoger todas las categorías principales" : "Desplegar todas las categorías principales"}
+                    >
+                      {gruposExpandidos.size > 0 ? "Recoger" : "Desplegar"}
+                    </button>
+                    <span
+                      onClick={() => {
+                        const nuevo = modoAnioEmulacion === "a_partir_de_2027" ? "este_anio" : modoAnioEmulacion === "este_anio" ? "todos" : "a_partir_de_2027";
+                        cambiarModoAnioEmulacion(nuevo);
+                      }}
+                      style={{ fontSize: 9.5, color: "#8b5cf6", fontWeight: 700, cursor: "pointer", background: "rgba(139, 92, 246, 0.14)", padding: "1px 6px", borderRadius: 4 }}
+                      title={`Modo de simulación actual: ${modoAnioEmulacion === "a_partir_de_2027" ? "Desde 2027+" : modoAnioEmulacion === "este_anio" ? `Solo ${year}` : "Todos los años"}. Clic para alternar.`}
+                    >
+                      {modoAnioEmulacion === "a_partir_de_2027" ? "2027+" : modoAnioEmulacion === "este_anio" ? `${year}` : "Todos"} ▾
+                    </span>
+                  </div>
                 </div>
               </th>
               {CONFIG_TRIMESTRES.map((t, tIdx) => (
@@ -3001,7 +3035,7 @@ export default function PresupuestoAnual({
           </thead>
           <tbody>
             {gruposSuperiores.grupos.map((grupo) => {
-              const colapsado = gruposColapsados.has(grupo.nombre);
+              const expandido = gruposExpandidos.has(grupo.nombre);
               const algunActivo = grupo.categorias.some((c) => !desactivadasEmulacion.has(`cat:${c.nombre}`));
               const totalGrupo = totalGrupoSuperior(grupo.categorias);
 
@@ -3035,7 +3069,7 @@ export default function PresupuestoAnual({
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                       }}
-                      title={`Categoría Principal: ${grupo.nombre} (${grupo.categorias.length} categorías). Clic para contraer/expandir o usa el switch para simular.`}
+                      title={`Categoría Principal: ${grupo.nombre} (${grupo.categorias.length} categorías). Clic para ${expandido ? "recoger" : "desplegar"} o usa el switch para simular.`}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         <MiniSwitch
@@ -3044,7 +3078,7 @@ export default function PresupuestoAnual({
                           title={algunActivo ? `Desactivar todo ${grupo.nombre} de la simulación` : `Activar todo ${grupo.nombre}`}
                         />
                         <div
-                          onClick={() => toggleColapsarGrupo(grupo.nombre)}
+                          onClick={() => toggleExpandirGrupo(grupo.nombre)}
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -3054,12 +3088,13 @@ export default function PresupuestoAnual({
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             userSelect: "none",
+                            flex: 1,
                           }}
                         >
-                          {colapsado ? (
-                            <ChevronRight size={12} style={{ flexShrink: 0, color: "var(--ink-soft)" }} />
-                          ) : (
+                          {expandido ? (
                             <ChevronDown size={12} style={{ flexShrink: 0, color: "var(--sage)" }} />
+                          ) : (
+                            <ChevronRight size={12} style={{ flexShrink: 0, color: "var(--ink-soft)" }} />
                           )}
                           <IconoSuperior nombre={grupo.nombre} size={13} style={{ flexShrink: 0, color: "var(--sage)" }} />
                           <span
@@ -3070,6 +3105,7 @@ export default function PresupuestoAnual({
                               fontWeight: 700,
                               textDecoration: !algunActivo ? "line-through" : "none",
                               opacity: !algunActivo ? 0.6 : 1,
+                              color: expandido ? "var(--sage)" : "var(--ink)",
                             }}
                           >
                             {grupo.nombre}
@@ -3080,9 +3116,9 @@ export default function PresupuestoAnual({
                               fontWeight: 700,
                               padding: "1px 5px",
                               borderRadius: 8,
-                              background: "rgba(255, 255, 255, 0.06)",
-                              border: "1px solid var(--line-soft)",
-                              color: "var(--ink-soft)",
+                              background: expandido ? "rgba(16, 185, 129, 0.14)" : "rgba(255, 255, 255, 0.06)",
+                              border: `1px solid ${expandido ? "rgba(16, 185, 129, 0.3)" : "var(--line-soft)"}`,
+                              color: expandido ? "var(--sage)" : "var(--ink-soft)",
                               flexShrink: 0,
                               marginLeft: 2,
                             }}
@@ -3140,8 +3176,8 @@ export default function PresupuestoAnual({
                     </td>
                   </tr>
 
-                  {/* Subcategorías dentro del segmento (abiertas/visibles por defecto, indentadas) */}
-                  {!colapsado &&
+                  {/* Subcategorías dentro del segmento (ocultas por defecto, sólo visibles al expandir) */}
+                  {expandido &&
                     grupo.categorias.map((cat, rowIdx) => {
                       const desactivada = desactivadasEmulacion.has(`cat:${cat.nombre}`);
                       return (
