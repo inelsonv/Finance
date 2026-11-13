@@ -26,7 +26,6 @@ import {
   Bot,
 } from "lucide-react";
 import SmartFinanceLogo, { SmartFinanceMark } from "./SmartFinanceLogo.jsx";
-import WhatsAppGroupButton from "./WhatsAppGroupButton.jsx";
 
 const NAV_ITEMS = [
   { id: "inicio", label: "Inicio", icon: Home },
@@ -282,10 +281,6 @@ export default function Sidebar({ tab, setTab, listCount, prestamosActivosCount,
             </div>
           );
         })}
-      </div>
-
-      <div style={{ marginTop: "auto", paddingTop: "0.75rem" }}>
-        <WhatsAppGroupButton variant="sidebar" collapsed={collapsed} />
       </div>
     </nav>
   );

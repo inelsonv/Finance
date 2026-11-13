@@ -3,7 +3,7 @@ import { Plus, Trash2, Search, X, MapPin, Phone, Pencil, Check } from "lucide-re
 import { addEntidad, deleteEntidad, updateEntidad, addTipoEntidad } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import Pagination from "./Pagination.jsx";
-import { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
+import { WhatsAppIcon } from "./WhatsAppIcon.jsx";
 
 const PAGE_SIZE = 10;
 

@@ -2,7 +2,6 @@ import React from "react";
 import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Bot, Map as MapIcon, UtensilsCrossed, CheckSquare, Target, Route } from "lucide-react";
 import { confirm } from "../lib/confirm";
 import SmartFinanceLogo from "./SmartFinanceLogo.jsx";
-import WhatsAppGroupButton from "./WhatsAppGroupButton.jsx";
 
 const OPCIONES = [
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
@@ -103,10 +102,6 @@ export default function MobileMenu({ tab, setTab, onClose, onSignOut, isOwner = 
               </button>
             );
           })}
-        </div>
-
-        <div style={{ marginTop: "auto", paddingTop: 16, paddingBottom: 10 }}>
-          <WhatsAppGroupButton variant="sidebar" onClick={onClose} />
         </div>
 
         <button

@@ -5,7 +5,7 @@ import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
 import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, setPresupuestoCeldaCompartida, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto, watchWhatsappNotifConfig, watchPresupuestoAnual, watchPresupuestoCompartido, watchEstadoPresupuestoCompartido } from "../lib/db";
 import { abrirNotificacionWhatsapp } from "../lib/whatsappNotif";
-import { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
+import { WhatsAppIcon } from "./WhatsAppIcon.jsx";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";

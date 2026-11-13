@@ -6,7 +6,7 @@ import { GASTO_CATS_FIJO } from "../lib/categorias";
 import Switch from "./Switch.jsx";
 import ThemeSelector from "./ThemeSelector.jsx";
 import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
-import WhatsAppGroupButton, { WhatsAppIcon } from "./WhatsAppGroupButton.jsx";
+import { WhatsAppIcon } from "./WhatsAppIcon.jsx";
 
 export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante, planActual, isOwner, entidades = [], prestamos = [], onNavigate }) {
   const [showPlanesModal, setShowPlanesModal] = useState(false);
@@ -1073,10 +1073,6 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
           Nota: por ahora este ajuste solo está guardado — todavía estamos migrando las pantallas de la app para que lo
           usen (empezando por el Checklist de pagos). Te avisaré a medida que cada una quede lista.
         </div>
-      </Section>
-
-      <Section icon={WhatsAppIcon} title="Comunidad y Soporte">
-        <WhatsAppGroupButton variant="card" />
       </Section>
 
       <Section icon={AlertTriangle} title="Zona de Peligro" danger>

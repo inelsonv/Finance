@@ -66,7 +66,6 @@ import Sidebar from "./components/Sidebar.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 import NotificacionesPage from "./components/NotificacionesPage.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
-import WhatsAppGroupButton from "./components/WhatsAppGroupButton.jsx";
 
 
 const THEME_KEY = "smart-finance-theme";
@@ -1117,7 +1116,6 @@ export default function App() {
                 <Trophy size={14} />
                 <span className="despensa-mono despensa-puntos-monto">${puntos}</span>
               </button>
-              <WhatsAppGroupButton variant="header" className={searchOpen ? "despensa-header-left--search-open" : ""} />
               <div className="despensa-desktop-only">
                 <NotificationBell
                   prestamos={prestamos}
