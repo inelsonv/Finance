@@ -253,6 +253,43 @@ export function generarItemsPeriodo({
   for (const p of prestamos || []) {
     if (p.estado !== "Activo" && p.estado !== "Pagado") continue;
     const saldado = p.estado === "Pagado";
+    const ovKey = `${periodo.year}-${periodo.month}-${periodo.quincena}`;
+    const tienePresupuestoOverride = Boolean(
+      p.presupuestoOverrides &&
+      Object.prototype.hasOwnProperty.call(p.presupuestoOverrides, ovKey)
+    );
+    const montoPresupuestoOverride = tienePresupuestoOverride ? Number(p.presupuestoOverrides[ovKey]) : null;
+    if (tienePresupuestoOverride && Number.isFinite(montoPresupuestoOverride)) {
+      if (montoPresupuestoOverride <= 0) {
+        continue;
+      }
+      const diaSugerido = periodo.quincena === "Q1" ? 15 : Math.min(Number(p.fechaInicio?.slice(-2)) || 30, 28);
+      list.push({
+        key: `prestamo-${p.id}`,
+        nombre: `Préstamo ${p.numero}${p.entidadName ? " · " + p.entidadName : ""} (Presupuesto)`,
+        monto: montoPresupuestoOverride,
+        icon: Landmark,
+        metodoDefault: p.metodoPago || "Transferencia",
+        esPrestamo: true,
+        prestamo: p,
+        esPrioridadDeuda: idPrioridadDeuda === `prestamo-${p.id}`,
+        prestamoId: p.id,
+        prestamoNumero: p.numero,
+        fechaCuota: fechaCuotaEnMes(periodo.year, periodo.month, diaSugerido),
+        diaCuota: diaSugerido,
+        entidadId: p.entidadId || "",
+        entidadName: p.entidadName || "",
+        cuentaDestinoNumero: p.cuentaDestinoNumero || (p.numero === "PT01" ? "0002804611" : ""),
+        cuentaDestinoBeneficiario: p.cuentaDestinoBeneficiario || (p.numero === "PT01" ? "Julian Ochoa" : ""),
+        cuentaDestinoBanco: p.cuentaDestinoBanco || (p.numero === "PT01" ? "Banco Popular" : (p.entidadName || "")),
+        cuentaDestinoTipo: p.cuentaDestinoTipo || (p.numero === "PT01" ? "Cuentas de Terceros" : ""),
+        bloqueadoPagado: saldado,
+        origenKey: null,
+        tieneOverride: false,
+        esPresupuestoOverride: true,
+      });
+      continue;
+    }
     if (p.frecuenciaCuota === "Personalizado") {
       const fechasOverride = {
         ...(p.cuotasPersonalizadasOverrides || {}),

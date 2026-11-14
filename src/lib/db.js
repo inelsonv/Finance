@@ -1988,6 +1988,18 @@ export async function quitarPrestamoCuotaPersonalizadaFechaOverride(id, fechaOri
   });
 }
 
+export async function setPrestamoPresupuestoCelda(id, year, month, quincena, amount) {
+  await updateDoc(doc(db, "prestamos", id), {
+    [`presupuestoOverrides.${year}-${month}-${quincena}`]: Number(amount) || 0,
+  });
+}
+
+export async function quitarPrestamoPresupuestoCelda(id, year, month, quincena) {
+  await updateDoc(doc(db, "prestamos", id), {
+    [`presupuestoOverrides.${year}-${month}-${quincena}`]: deleteField(),
+  });
+}
+
 export async function deletePrestamo(id) {
   await deleteDoc(doc(db, "prestamos", id));
 }

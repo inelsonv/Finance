@@ -8,6 +8,8 @@ import {
   watchCategoriasCompartidas,
   setPresupuestoCeldaCompartida,
   watchEstadoPresupuestoCompartido,
+  setPrestamoPresupuestoCelda,
+  quitarPrestamoPresupuestoCelda,
 } from "../lib/db";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { contratoActivoEnMes, calcularQuincenaEfectivaContrato } from "./Contratos.jsx";
@@ -1142,7 +1144,7 @@ export default function PresupuestoAnual({
     [renovacionesConGasto]
   );
 
-  const getCeldaPrestamo = (prestamo, mes, quincena) => {
+  const getCeldaPrestamoBase = (prestamo, mes, quincena) => {
     if (prestamo.frecuenciaCuota === "Personalizado") {
       let total = 0;
       for (const c of prestamo.cuotasPersonalizadas || []) {
@@ -1181,9 +1183,6 @@ export default function PresupuestoAnual({
           total += montoQuincena;
         }
       }
-      if (pagoRapido?.activo && pagoRapido.deudaId === `p-${prestamo.id}` && total > 0) {
-        total += calcularExtraPagoRapido(mes, quincena);
-      }
       return total;
     }
 
@@ -1198,12 +1197,26 @@ export default function PresupuestoAnual({
         total += Number(prestamo.cuota) || 0;
       }
     }
+    return total;
+  };
+
+  const getCeldaPrestamo = (prestamo, mes, quincena) => {
+    const overrideKey = `${year}-${mes}-${quincena}`;
+    const tieneOverride = Boolean(
+      prestamo.presupuestoOverrides &&
+      Object.prototype.hasOwnProperty.call(prestamo.presupuestoOverrides, overrideKey)
+    );
+    let total;
+    if (tieneOverride) {
+      const ovVal = Number(prestamo.presupuestoOverrides[overrideKey]);
+      total = Number.isFinite(ovVal) ? ovVal : getCeldaPrestamoBase(prestamo, mes, quincena);
+    } else {
+      total = getCeldaPrestamoBase(prestamo, mes, quincena);
+    }
 
     // "Pago rápido" activo para este préstamo: refleja el pago
-    // extraordinario en la celda de la quincena que está en curso ahora
-    // mismo (la única para la que tiene sentido calcular el excedente
-    // real disponible).
-    if (pagoRapido?.activo && pagoRapido.deudaId === `p-${prestamo.id}` && total > 0) {
+    // extraordinario en la celda si no hay un monto manual fijado en esa quincena.
+    if (!tieneOverride && pagoRapido?.activo && pagoRapido.deudaId === `p-${prestamo.id}` && total > 0) {
       total += calcularExtraPagoRapido(mes, quincena);
     }
 
@@ -1634,40 +1647,6 @@ export default function PresupuestoAnual({
       .reduce((sum, c) => sum + (totalPorCategoria(c.nombre) || 0), 0);
   };
 
-  const toggleGrupoSuperior = (grupo) => {
-    const catsDelGrupo = grupo.categorias || [];
-    const algunActivo = catsDelGrupo.some((c) => !desactivadasEmulacion.has(`cat:${c.nombre}`));
-    const desactivar = algunActivo;
-    const anios = [2025, 2026, 2027, 2028, 2029, 2030];
-    const anioObjetivo = Math.max(year + 1, 2027);
-
-    if (modoAnioEmulacion === "este_anio") {
-      setDesactivadasEmulacion((prev) => {
-        const next = new Set(prev);
-        catsDelGrupo.forEach((c) => {
-          if (desactivar) next.add(`cat:${c.nombre}`);
-          else next.delete(`cat:${c.nombre}`);
-        });
-        try {
-          localStorage.setItem(`smart-finance-emulacion-desactivadas-${year}`, JSON.stringify([...next]));
-        } catch (e) {}
-        return next;
-      });
-    } else if (modoAnioEmulacion === "a_partir_de_2027" || modoAnioEmulacion === "a_partir_de") {
-      anios.forEach((y) => {
-        catsDelGrupo.forEach((c) => {
-          actualizarDesactivadasParaAnio(y, `cat:${c.nombre}`, y >= anioObjetivo ? desactivar : false);
-        });
-      });
-    } else if (modoAnioEmulacion === "todos") {
-      anios.forEach((y) => {
-        catsDelGrupo.forEach((c) => {
-          actualizarDesactivadasParaAnio(y, `cat:${c.nombre}`, desactivar);
-        });
-      });
-    }
-  };
-
   const totalPorMeta = (meta) => {
     let total = 0;
     for (let m = 1; m <= 12; m++) total += totalMesMeta(meta, m);
@@ -1843,6 +1822,25 @@ export default function PresupuestoAnual({
         );
       } else {
         await setPresupuestoCelda(year, categoria, mes, quincena, validNum);
+      }
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const handleBlurPrestamo = async (prestamo, mes, quincena, value) => {
+    if (!prestamo?.id || esVistaCompartida) return;
+    const cleanStr = String(value ?? "").replace(/,/g, "").trim();
+    const num = parseFloat(cleanStr);
+    const validNum = Number.isFinite(num) && num > 0 ? num : 0;
+    const baseVal = getCeldaPrestamoBase(prestamo, mes, quincena);
+    const key = `prestamo-${prestamo.id}-${mes}-${quincena}`;
+    setSavingKey(key);
+    try {
+      if (Math.abs(validNum - baseVal) < 0.005) {
+        await quitarPrestamoPresupuestoCelda(prestamo.id, year, mes, quincena);
+      } else {
+        await setPrestamoPresupuestoCelda(prestamo.id, year, mes, quincena, validNum);
       }
     } finally {
       setSavingKey(null);
@@ -3069,14 +3067,9 @@ export default function PresupuestoAnual({
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                       }}
-                      title={`Categoría Principal: ${grupo.nombre} (${grupo.categorias.length} categorías). Clic para ${expandido ? "recoger" : "desplegar"} o usa el switch para simular.`}
+                      title={`Categoría Principal: ${grupo.nombre} (${grupo.categorias.length} categorías). Clic para ${expandido ? "recoger" : "desplegar"}.`}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        <MiniSwitch
-                          checked={algunActivo}
-                          onChange={() => toggleGrupoSuperior(grupo)}
-                          title={algunActivo ? `Desactivar todo ${grupo.nombre} de la simulación` : `Activar todo ${grupo.nombre}`}
-                        />
                         <div
                           onClick={() => toggleExpandirGrupo(grupo.nombre)}
                           style={{
@@ -3652,6 +3645,9 @@ export default function PresupuestoAnual({
               prestamosActivos.map((p, idx) => {
               const rowIdx = categorias.length + idx;
               const desactivada = desactivadasEmulacion.has(`prestamo:${p.id}`);
+              const entidad = entidades.find((e) => e.docId === p.entidadId);
+              const entidadNombre = entidad?.name || p.entidadName || "";
+              const labelPrestamo = entidadNombre ? `Préstamo ${p.numero} · ${entidadNombre}` : `Préstamo ${p.numero}`;
               return (
                 <tr
                   key={`prestamo-${p.id}`}
@@ -3681,16 +3677,13 @@ export default function PresupuestoAnual({
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                     }}
-                    title={`Calculado automáticamente desde Préstamos${(() => {
-                      const entidad = entidades.find((e) => e.docId === p.entidadId);
-                      return entidad ? ` — Entidad: ${entidad.name}` : "";
-                    })()}${desactivada ? " — Desactivado en la simulación" : ""}`}
+                    title={`${labelPrestamo} — Calculado automáticamente desde Préstamos; haz clic en cualquier quincena para presupuestar un monto específico${desactivada ? " — Desactivado en la simulación" : ""}`}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       <MiniSwitch
                         checked={!desactivada}
                         onChange={() => toggleEmulacion(`prestamo:${p.id}`)}
-                        title={desactivada ? `Activar Préstamo ${p.numero} en el presupuesto` : `Desactivar Préstamo ${p.numero} de la simulación`}
+                        title={desactivada ? `Activar ${labelPrestamo} en el presupuesto` : `Desactivar ${labelPrestamo} de la simulación`}
                       />
                       <Landmark size={10} style={{ flexShrink: 0 }} />
                       <span
@@ -3701,7 +3694,7 @@ export default function PresupuestoAnual({
                           textDecoration: desactivada ? "line-through" : "none",
                         }}
                       >
-                        Préstamo {p.numero}
+                        {labelPrestamo}
                       </span>
                       {p.dividirEnQuincenas && !desactivada && (
                         <span
@@ -3773,7 +3766,17 @@ export default function PresupuestoAnual({
                     const trimestre = obtenerTrimestreMes(i);
                     return QUINCENAS.map((q) => {
                       const val = getCeldaPrestamo(p, mes, q);
+                      const baseAuto = getCeldaPrestamoBase(p, mes, q);
+                      const overrideKey = `${year}-${mes}-${q}`;
+                      const tieneOverride = Boolean(
+                        p.presupuestoOverrides &&
+                        Object.prototype.hasOwnProperty.call(p.presupuestoOverrides, overrideKey)
+                      );
+                      const cellKey = `prestamo-${p.id}-${mes}-${q}`;
                       const esInicioTrimestre = i % 3 === 0 && q === "Q1";
+                      const tooltipPrestamo = tieneOverride
+                        ? `Editado manualmente: ${formatMoney(val)} (cálculo automático: ${baseAuto > 0 ? formatMoney(baseAuto) : "$0"})`
+                        : `Préstamo ${p.numero}: clic para editar o presupuestar en esta quincena`;
                       return (
                         <td
                           key={`${p.id}-${mes}-${q}`}
@@ -3783,15 +3786,61 @@ export default function PresupuestoAnual({
                               ? `2.5px solid ${trimestre.bordeColor}55`
                               : q === "Q1"
                               ? "1px solid var(--line-soft)"
-                            : "none",
-                            padding: "6px 4px",
-                            textAlign: "right",
-                            color: "var(--stamp)",
-                            opacity: desactivada ? 0.25 : (val ? 1 : 0.35),
-                            textDecoration: desactivada ? "line-through" : "none",
+                              : "none",
+                            padding: 0,
+                            position: "relative",
+                            background: tieneOverride ? "rgba(217, 119, 6, 0.08)" : "transparent",
                           }}
+                          title={tooltipPrestamo}
                         >
-                          {formatMoney(val) || "—"}
+                          <CeldaPresupuestoInput
+                            val={val}
+                            montoEvento={0}
+                            bloqueada={esVistaCompartida}
+                            tooltipTexto={tooltipPrestamo}
+                            savingKey={savingKey}
+                            cellKey={cellKey}
+                            cellStyle={{
+                              ...cellStyle,
+                              color: "var(--stamp)",
+                              fontWeight: tieneOverride ? 700 : 500,
+                              opacity: desactivada ? 0.35 : (val ? 1 : 0.65),
+                              textDecoration: desactivada ? "line-through" : "none",
+                            }}
+                            nota={null}
+                            onSave={(num) => handleBlurPrestamo(p, mes, q, num)}
+                          />
+                          {tieneOverride && !esVistaCompartida && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                quitarPrestamoPresupuestoCelda(p.id, year, mes, q);
+                              }}
+                              title={`Restaurar valor automático (${baseAuto > 0 ? formatMoney(baseAuto) : "$0"})`}
+                              style={{
+                                position: "absolute",
+                                top: 1,
+                                left: 2,
+                                width: 11,
+                                height: 11,
+                                padding: 0,
+                                border: "none",
+                                borderRadius: 3,
+                                background: "rgba(217, 119, 6, 0.22)",
+                                color: "var(--amber)",
+                                fontSize: 8.5,
+                                fontWeight: 800,
+                                lineHeight: 1,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              ↺
+                            </button>
+                          )}
                         </td>
                       );
                     });

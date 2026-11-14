@@ -1335,7 +1335,7 @@ export default function App() {
         )}
         {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} activos={activos} cuentas={cuentas} focusPrestamoId={highlightId} />}
         {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
-        {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} categoriasGasto={categoriasGasto} />}
+        {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} categoriasGasto={categoriasGasto} focusTarjetaId={highlightId} />}
         {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
         {tab === "contratos" && <Contratos contratos={contratos} entidades={entidades} movimientos={movimientos} />}
         {tab === "ingresos" && (
@@ -1423,6 +1423,7 @@ export default function App() {
             diasCobro={diasCobro}
             cuentas={cuentas}
             entidades={entidades}
+            onOpenDeuda={handleSearchNavigate}
           />
         )}
         {tab === "checklist-pagos" && (

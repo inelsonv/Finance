@@ -24,6 +24,14 @@ export function calcularResumenQuincena({ year, month, quincena, presupuesto, ca
   }
   for (const p of prestamos || []) {
     if (p.estado !== "Activo") continue;
+    const ovKey = `${year}-${month}-${quincena}`;
+    if (p.presupuestoOverrides && Object.prototype.hasOwnProperty.call(p.presupuestoOverrides, ovKey)) {
+      const ovMonto = Number(p.presupuestoOverrides[ovKey]);
+      if (Number.isFinite(ovMonto)) {
+        presupuestado += ovMonto;
+        continue;
+      }
+    }
     if (p.frecuenciaCuota === "Personalizado") {
       for (const c of p.cuotasPersonalizadas || []) {
         if (!c.fecha || !c.monto) continue;

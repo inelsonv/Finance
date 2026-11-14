@@ -16,6 +16,7 @@ import {
   AlertCircle,
   TrendingDown,
   DollarSign,
+  ExternalLink,
 } from "lucide-react";
 import {
   activarEstrategiaDeudas,
@@ -51,9 +52,19 @@ export default function EstrategiaDeudas({
   diasCobro,
   cuentas = [],
   entidades = [],
+  onOpenDeuda,
 }) {
   const [metodo, setMetodo] = useState(() => (estrategiaDeudas?.activo ? estrategiaDeudas.metodo : "bola"));
   const [pagoRapido, setPagoRapido] = useState({});
+
+  const irAModuloDeuda = (deuda) => {
+    if (!deuda || !onOpenDeuda) return;
+    if (deuda.tipo === "prestamo" && deuda.prestamoId) {
+      onOpenDeuda("prestamos", deuda.prestamoId);
+    } else if (deuda.tipo === "tarjeta" && deuda.tarjetaId) {
+      onOpenDeuda("tarjetas", deuda.tarjetaId);
+    }
+  };
 
   useEffect(() => {
     const unsub = watchPagoRapido(setPagoRapido, () => setPagoRapido({}));
@@ -672,7 +683,30 @@ export default function EstrategiaDeudas({
                   <strong className="despensa-mono">{formatMoney(disponibleExtra.extra)}</strong> libres.
                   {deudas[0] && (
                     <>
-                      {" "}Sugerencia: destínalos a <strong>{deudas[0].nombre}</strong>, tu deuda prioritaria según este plan.
+                      {" "}Sugerencia: destínalos a{" "}
+                      <button
+                        type="button"
+                        onClick={() => irAModuloDeuda(deudas[0])}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          color: "inherit",
+                          font: "inherit",
+                          fontWeight: 700,
+                          textDecoration: onOpenDeuda ? "underline" : "none",
+                          textUnderlineOffset: 2,
+                          cursor: onOpenDeuda ? "pointer" : "default",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                        }}
+                        title={onOpenDeuda ? `Ver ${deudas[0].nombre} en ${deudas[0].tipo === "prestamo" ? "Préstamos" : "Tarjetas"}` : undefined}
+                      >
+                        {deudas[0].nombre}
+                        {onOpenDeuda && <ExternalLink size={11} />}
+                      </button>
+                      , tu deuda prioritaria según este plan.
                     </>
                   )}
                 </div>
@@ -698,7 +732,29 @@ export default function EstrategiaDeudas({
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                 <Rocket size={14} style={{ color: pagoRapido.activo ? "var(--amber)" : "var(--ink-soft)" }} />
                 <span style={{ fontSize: 12.5, fontWeight: 700, color: pagoRapido.activo ? "var(--amber)" : "var(--ink)" }}>
-                  {pagoRapido.activo ? "Pago rápido activo" : "Pago rápido"} — {pagoRapidoInfo.deuda.nombre}
+                  {pagoRapido.activo ? "Pago rápido activo" : "Pago rápido"} —{" "}
+                  <button
+                    type="button"
+                    onClick={() => irAModuloDeuda(pagoRapidoInfo.deuda)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      color: "inherit",
+                      font: "inherit",
+                      fontWeight: 700,
+                      textDecoration: onOpenDeuda ? "underline" : "none",
+                      textUnderlineOffset: 2,
+                      cursor: onOpenDeuda ? "pointer" : "default",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                    title={onOpenDeuda ? `Ver ${pagoRapidoInfo.deuda.nombre} en ${pagoRapidoInfo.deuda.tipo === "prestamo" ? "Préstamos" : "Tarjetas"}` : undefined}
+                  >
+                    {pagoRapidoInfo.deuda.nombre}
+                    {onOpenDeuda && <ExternalLink size={12} />}
+                  </button>
                 </span>
               </div>
 
@@ -779,9 +835,20 @@ export default function EstrategiaDeudas({
               const Icon = d.icon;
               const esPrioridad = i === 0;
               const esMayorInteres = mayorTasaInteres != null && d.tasaInteres === mayorTasaInteres && d.tasaInteres > 0;
+              const destinoModuloLabel = d.tipo === "prestamo" ? "Préstamos" : "Tarjetas";
               return (
                 <div
                   key={d.id}
+                  role={onOpenDeuda ? "button" : undefined}
+                  tabIndex={onOpenDeuda ? 0 : undefined}
+                  onClick={() => irAModuloDeuda(d)}
+                  onKeyDown={(e) => {
+                    if (onOpenDeuda && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      irAModuloDeuda(d);
+                    }
+                  }}
+                  title={onOpenDeuda ? `Clic para abrir ${d.nombre} en ${destinoModuloLabel}` : undefined}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -791,6 +858,18 @@ export default function EstrategiaDeudas({
                     borderRadius: 10,
                     padding: "12px 14px",
                     flexWrap: "wrap",
+                    cursor: onOpenDeuda ? "pointer" : "default",
+                    transition: "transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!onOpenDeuda) return;
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
+                    if (!esPrioridad) e.currentTarget.style.borderColor = "var(--sage)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!onOpenDeuda) return;
+                    e.currentTarget.style.boxShadow = "none";
+                    if (!esPrioridad) e.currentTarget.style.borderColor = "var(--line)";
                   }}
                 >
                   <div
@@ -814,7 +893,12 @@ export default function EstrategiaDeudas({
                   <Icon size={16} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 180 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 13.5, fontWeight: 500 }}>{d.nombre}</span>
+                      <span style={{ fontSize: 13.5, fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        {d.nombre}
+                        {onOpenDeuda && (
+                          <ExternalLink size={12} style={{ color: "var(--ink-soft)", opacity: 0.75 }} />
+                        )}
+                      </span>
                       {esPrioridad && (
                         <span
                           className="despensa-tab-font"
@@ -846,6 +930,7 @@ export default function EstrategiaDeudas({
                       {d.subtitulo}
                       {d.tasaInteres != null && ` · ${d.tasaInteres}% interés`}
                       {d.cuotaMinima != null && ` · mín. ${d.esUSD ? "US$" + d.cuotaMinima.toLocaleString("es", { minimumFractionDigits: 2 }) : formatMoney(d.cuotaMinima)}`}
+                      {onOpenDeuda && ` · Ir a ${destinoModuloLabel}`}
                     </div>
                   </div>
 
@@ -863,7 +948,10 @@ export default function EstrategiaDeudas({
 
                     {/* Botón directo para pagar esta deuda */}
                     <button
-                      onClick={() => abrirModalPago(d)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        abrirModalPago(d);
+                      }}
                       style={{
                         display: "inline-flex",
                         alignItems: "center",

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, X, Landmark, Pencil, Check, Layers, List } from "lucide-react";
 import { addTarjeta, deleteTarjeta, updateTarjetaEstado, updateTarjeta } from "../lib/db";
 import { confirm } from "../lib/confirm";
@@ -206,7 +206,7 @@ function toEditForm(t) {
   };
 }
 
-export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasGasto }) {
+export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasGasto, focusTarjetaId }) {
   const [showForm, setShowForm] = useState(false);
   const [vistaApilada, setVistaApilada] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -216,6 +216,12 @@ export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasG
   const [editForm, setEditForm] = useState(null);
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+
+  useEffect(() => {
+    if (focusTarjetaId) {
+      setVistaApilada(false);
+    }
+  }, [focusTarjetaId]);
 
   const pagadoPorTarjeta = useMemo(() => {
     const map = {};
