@@ -255,6 +255,7 @@ export default function App() {
   const [showModalGastosNoPresupuestados, setShowModalGastosNoPresupuestados] = useState(false);
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
+  const [prestamosFiltroEndeudamiento, setPrestamosFiltroEndeudamiento] = useState(false);
   const [focusProductId, setFocusProductId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
   const [presupuestoYear, setPresupuestoYear] = useState(() => new Date().getFullYear());
@@ -358,6 +359,7 @@ export default function App() {
 
 
   const seleccionarTab = (tabId) => {
+    setPrestamosFiltroEndeudamiento(false);
     if (!esPropietario && ADMIN_ONLY_TABS.has(tabId)) {
       setTab("inicio");
       return;
@@ -1166,7 +1168,18 @@ export default function App() {
             products={products}
             metasAhorro={metasAhorro}
             activos={activos}
-            onNavigate={setTab}
+            onNavigate={(targetTab, opts) => {
+              if (targetTab === "prestamos" && opts?.soloCuotasEndeudamiento) {
+                setPrestamosFiltroEndeudamiento(true);
+                setHighlightId(null);
+                setTab("prestamos");
+                window.scrollTo({ top: 0, behavior: "auto" });
+                return;
+              }
+              setPrestamosFiltroEndeudamiento(false);
+              setTab(targetTab);
+              window.scrollTo({ top: 0, behavior: "auto" });
+            }}
             isOwner={esPropietario}
           />
         )}
@@ -1294,7 +1307,18 @@ export default function App() {
             diasCobro={diasCobro}
           />
         )}
-        {tab === "prestamos" && <Prestamos prestamos={prestamos} entidades={entidades} movimientos={movimientos} activos={activos} cuentas={cuentas} focusPrestamoId={highlightId} />}
+        {tab === "prestamos" && (
+          <Prestamos
+            prestamos={prestamos}
+            entidades={entidades}
+            movimientos={movimientos}
+            activos={activos}
+            cuentas={cuentas}
+            focusPrestamoId={highlightId}
+            soloCuotasEndeudamiento={prestamosFiltroEndeudamiento}
+            onClearFiltroEndeudamiento={() => setPrestamosFiltroEndeudamiento(false)}
+          />
+        )}
         {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
         {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} categoriasGasto={categoriasGasto} focusTarjetaId={highlightId} />}
         {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}

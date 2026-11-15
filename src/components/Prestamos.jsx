@@ -1115,7 +1115,7 @@ const emptyForm = (numero) => {
   };
 };
 
-export default function Prestamos({ prestamos, entidades, movimientos, activos, cuentas = [], focusPrestamoId }) {
+export default function Prestamos({ prestamos, entidades, movimientos, activos, cuentas = [], focusPrestamoId, soloCuotasEndeudamiento = false, onClearFiltroEndeudamiento }) {
   const [showForm, setShowForm] = useState(false);
   const [showHistorico, setShowHistorico] = useState(() => {
     try {
@@ -1235,6 +1235,37 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
 
   const prestamosActivos = useMemo(() => prestamos.filter((p) => p.estado !== "Pagado" || p.id === editingId), [prestamos, editingId]);
   const prestamosPagados = useMemo(() => prestamos.filter((p) => p.estado === "Pagado" && p.id !== editingId), [prestamos, editingId]);
+
+  const prestamosVisibles = useMemo(() => {
+    if (!soloCuotasEndeudamiento) return prestamosActivos;
+    return prestamosActivos.filter((p) => {
+      if (p.estado !== "Activo") return false;
+      const cuotasTotales =
+        p.frecuenciaCuota === "Personalizado"
+          ? (p.cuotasPersonalizadas || []).length
+          : p.plazoUnidad === "años"
+          ? (p.plazo || 0) * 12
+          : p.plazo || 0;
+      return cuotasTotales > 1 && (Number(p.cuota) || 0) > 0;
+    });
+  }, [prestamosActivos, soloCuotasEndeudamiento]);
+
+  const totalCuotasEndeudamiento = useMemo(
+    () => prestamosVisibles.reduce((s, p) => s + (Number(p.cuota) || 0), 0),
+    [prestamosVisibles]
+  );
+
+  const enfocarPrestamoEnLista = (id) => {
+    setDetallesAbiertos((prev) => ({ ...prev, [id]: true }));
+    setTimeout(() => {
+      const el = document.querySelector(`[data-record-id="${CSS.escape(id)}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("despensa-highlight");
+        setTimeout(() => el.classList.remove("despensa-highlight"), 2000);
+      }
+    }, 60);
+  };
 
   useEffect(() => {
     if (focusPrestamoId) {
@@ -1862,13 +1893,96 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         </div>
       )}
 
-      {prestamosActivos.length === 0 ? (
+      {soloCuotasEndeudamiento && (
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1.5px solid var(--stamp)",
+            borderRadius: 12,
+            padding: "12px 14px",
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: prestamosVisibles.length > 0 ? 10 : 0 }}>
+            <div style={{ minWidth: 0, flex: "1 1 200px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>
+                Deudas que conforman tus cuotas mensuales ({prestamosVisibles.length})
+              </div>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 2 }}>
+                Suma mensual en Nivel de endeudamiento:{" "}
+                <strong className="despensa-mono" style={{ color: "var(--stamp)" }}>
+                  {formatMoney(totalCuotasEndeudamiento)}
+                </strong>
+              </div>
+            </div>
+            {onClearFiltroEndeudamiento && (
+              <button
+                type="button"
+                onClick={onClearFiltroEndeudamiento}
+                style={{
+                  padding: "7px 12px",
+                  minHeight: 36,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  touchAction: "manipulation",
+                }}
+              >
+                Ver todos los préstamos
+              </button>
+            )}
+          </div>
+          {prestamosVisibles.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {prestamosVisibles.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => enfocarPrestamoEnLista(p.id)}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: 6,
+                    padding: "6px 10px",
+                    minHeight: 34,
+                    maxWidth: "100%",
+                    borderRadius: 8,
+                    border: "1px solid var(--line)",
+                    background: "var(--paper)",
+                    color: "var(--ink)",
+                    fontSize: 11.5,
+                    cursor: "pointer",
+                    touchAction: "manipulation",
+                    textAlign: "left",
+                  }}
+                >
+                  <strong className="despensa-mono" style={{ color: "var(--stamp)" }}>{p.numero}</strong>
+                  <span style={{ overflowWrap: "anywhere" }}>{p.entidadName || p.tipo || "Préstamo"}</span>
+                  <span className="despensa-mono" style={{ fontWeight: 700 }}>{formatMoney(Number(p.cuota) || 0)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {prestamosVisibles.length === 0 ? (
         <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
-          {prestamos.length === 0 ? "Todavía no registraste ningún préstamo." : "No tienes préstamos activos — revisa el histórico abajo."}
+          {soloCuotasEndeudamiento
+            ? "No tienes préstamos activos de múltiples cuotas que conformen el cálculo de endeudamiento."
+            : prestamos.length === 0
+            ? "Todavía no registraste ningún préstamo."
+            : "No tienes préstamos activos — revisa el histórico abajo."}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {prestamosActivos.map((p) => (
+          {prestamosVisibles.map((p) => (
             <div key={p.id} data-record-id={p.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
               {editingId === p.id ? (
                 <div>
@@ -2584,7 +2698,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         </div>
       )}
 
-      {prestamosPagados.length > 0 && (
+      {!soloCuotasEndeudamiento && prestamosPagados.length > 0 && (
         <div style={{ marginTop: 18 }}>
           <button
             onClick={() => {
