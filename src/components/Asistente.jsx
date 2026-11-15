@@ -1265,9 +1265,18 @@ function BannerGuardianFinanciero({ tarjetas = [], prestamos = [], onPreguntar, 
                 <strong style={{ color: Number(tarjeta6011.saldoActual) > Number(tarjeta6011.limiteCredito) ? "#dc2626" : "var(--ink)", fontFamily: "monospace", fontSize: 12 }}>
                   RD$ {(Number(tarjeta6011.saldoActual) || 0).toLocaleString("es", { minimumFractionDigits: 2 })}
                 </strong>
-                <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 700 }}>
-                  Límite RD$ {(Number(tarjeta6011.limiteCredito) || 0).toLocaleString("es")} (Sobregiro: -RD$ 1,688.32)
-                </div>
+                {(() => {
+                  const lim = Number(tarjeta6011.limiteCredito) || 0;
+                  const sal = Number(tarjeta6011.saldoActual) || 0;
+                  const sob = lim > 0 && sal > lim ? sal - lim : 0;
+                  return (
+                    <div style={{ fontSize: 10, color: sob > 0 ? "#dc2626" : "var(--sage)", fontWeight: 700 }}>
+                      {sob > 0
+                        ? `Límite RD$ ${lim.toLocaleString("es")} (Sobregiro: -RD$ ${sob.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+                        : `Límite RD$ ${lim.toLocaleString("es")} (Al día)`}
+                    </div>
+                  );
+                })()}
               </div>
               <div style={{ textAlign: "right" }}>
                 <span style={{ color: "var(--ink-soft)", display: "block", fontSize: 10.5 }}>Balance USD (6011)</span>
@@ -1275,7 +1284,9 @@ function BannerGuardianFinanciero({ tarjetas = [], prestamos = [], onPreguntar, 
                   US$ {(Number(tarjeta6011.saldoActualUSD) || 0).toLocaleString("es", { minimumFractionDigits: 2 })}
                 </strong>
                 <div style={{ fontSize: 10, color: Number(tarjeta6011.cuotasVencidasUSD) > 0 ? "#dc2626" : "var(--sage)", fontWeight: 700 }}>
-                  {Number(tarjeta6011.cuotasVencidasUSD) > 0 ? `1 cuota vencida: US$ ${Number(tarjeta6011.pagoMinimoUSD || 51.45).toFixed(2)}` : "Al día (0 vencidas) · Mín: US$ 51.45"}
+                  {Number(tarjeta6011.cuotasVencidasUSD) > 0
+                    ? `${Number(tarjeta6011.cuotasVencidasUSD)} cuota vencida: US$ ${(Number(tarjeta6011.pagoMinimoUSD) || 0).toFixed(2)}`
+                    : `Al día (${Number(tarjeta6011.cuotasVencidasUSD || 0)} vencidas) · Mín: US$ ${(Number(tarjeta6011.pagoMinimoUSD) || 0).toFixed(2)}`}
                 </div>
               </div>
             </div>
@@ -1426,15 +1437,27 @@ function TarjetaPlanDeudasChat({ tarjetas = [], prestamos = [], onNavigate, onCl
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 11.5 }}>
           <div style={{ background: "rgba(239, 68, 68, 0.05)", padding: "6px 8px", borderRadius: 7 }}>
             <span style={{ color: "var(--ink-soft)", display: "block" }}>Pesos Dominicanos</span>
-            <strong style={{ color: "#dc2626", fontSize: 12.5 }}>RD$ 50,888.32</strong>
-            <div style={{ fontSize: 10.5, color: "#dc2626" }}>Límite RD$ 41,000 (Sobregiro: -RD$ 1,688.32)</div>
-            <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>Pago Mínimo: RD$ 5,461.69</div>
+            <strong style={{ color: "#dc2626", fontSize: 12.5 }}>
+              RD$ {(Number(tarjeta6011?.saldoActual ?? 45426.63)).toLocaleString("es", { minimumFractionDigits: 2 })}
+            </strong>
+            <div style={{ fontSize: 10.5, color: "#dc2626" }}>
+              Límite RD$ {(Number(tarjeta6011?.limiteCredito ?? 41000)).toLocaleString("es")} · Disp. c/sobregiro RD$ {(Number(tarjeta6011?.disponibleConSobregiro ?? 3773.37)).toLocaleString("es", { minimumFractionDigits: 2 })}
+            </div>
+            <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>
+              Pago Mínimo: RD$ {(Number(tarjeta6011?.pagoMinimo ?? 0)).toLocaleString("es", { minimumFractionDigits: 2 })}
+            </div>
           </div>
-          <div style={{ background: "rgba(239, 68, 68, 0.05)", padding: "6px 8px", borderRadius: 7 }}>
+          <div style={{ background: "rgba(16, 185, 129, 0.06)", padding: "6px 8px", borderRadius: 7 }}>
             <span style={{ color: "var(--ink-soft)", display: "block" }}>Dólares Americanos</span>
-            <strong style={{ color: "#dc2626", fontSize: 12.5 }}>US$ 369.98</strong>
-            <div style={{ fontSize: 10.5, color: "var(--sage)", fontWeight: 700 }}>Al día (0 cuotas vencidas)</div>
-            <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>Pago Mínimo: US$ 51.45 (Límite: US$ 500)</div>
+            <strong style={{ color: "var(--ink)", fontSize: 12.5 }}>
+              US$ {(Number(tarjeta6011?.saldoActualUSD ?? 320.17)).toLocaleString("es", { minimumFractionDigits: 2 })}
+            </strong>
+            <div style={{ fontSize: 10.5, color: "var(--sage)", fontWeight: 700 }}>
+              NORM · Al día ({Number(tarjeta6011?.cuotasVencidasUSD ?? 0)} cuotas vencidas)
+            </div>
+            <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>
+              Pago Mínimo: US$ {(Number(tarjeta6011?.pagoMinimoUSD ?? 0)).toFixed(2)} (Límite: US$ {(Number(tarjeta6011?.limiteCreditoUSD ?? 500)).toLocaleString("es")})
+            </div>
           </div>
         </div>
       </div>
@@ -1444,7 +1467,7 @@ function TarjetaPlanDeudasChat({ tarjetas = [], prestamos = [], onNavigate, onCl
         <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
           <div style={{ minWidth: 20, height: 20, borderRadius: "50%", background: "#dc2626", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>1</div>
           <div style={{ color: "var(--ink)" }}>
-            <strong>Urgencia Inmediata:</strong> Cubrir el pago mínimo en USD (<strong>US$ 51.45</strong>) y amortizar el sobregiro en pesos (<strong>RD$ 1,688.32</strong> + mínimo RD$ 5,461.69) para frenar comisiones y proteger tu historial de crédito.
+            <strong>Urgencia Inmediata:</strong> Bajar el balance en pesos (<strong>RD$ {(Number(tarjeta6011?.saldoActual ?? 45426.63)).toLocaleString("es", { minimumFractionDigits: 2 })}</strong>, sobre límite de RD$ {(Number(tarjeta6011?.limiteCredito ?? 41000)).toLocaleString("es")}) y amortizar el balance en USD (<strong>US$ {(Number(tarjeta6011?.saldoActualUSD ?? 320.17)).toFixed(2)}</strong>) para frenar intereses.
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
@@ -1615,7 +1638,7 @@ function TarjetaRecorteGastosChat({ data, movimientos = [], onEnviarMensaje, onN
           </strong>
         </div>
         <div style={{ fontSize: 11.5, color: "var(--ink)", borderTop: "1px dashed var(--line-soft)", paddingTop: 6 }}>
-          🚀 <strong>Impacto directo en tus deudas:</strong> Con este recorte de {nivelRecorte}%, saldas el sobregiro de <strong>RD$ -1,688.32</strong> de la Tarjeta 6011 en menos de una quincena y aceleras tu libertad financiera en meses.
+          🚀 <strong>Impacto directo en tus deudas:</strong> Con este recorte de {nivelRecorte}%, bajas el excedente sobre tu límite en pesos de la Tarjeta 6011 en menos de una quincena y aceleras tu libertad financiera en meses.
         </div>
       </div>
 
@@ -1828,7 +1851,7 @@ function TarjetaEvaluadorGastoChat({ data, onEnviarMensaje }) {
         </div>
 
         <div style={{ fontSize: 12, color: "#dc2626", lineHeight: 1.4, fontWeight: 600 }}>
-          ⚠️ <strong>Alerta:</strong> Con un sobregiro activo en tu Tarjeta 6011 (<strong>RD$ -1,688.32</strong>) y un balance en USD de <strong>US$ 369.98</strong> (mínimo <strong>US$ 51.45</strong>, al día con 0 cuotas vencidas), gastar RD$ {Number(montoTest).toLocaleString("es")} en compras o salidas no esenciales atrasará tu recuperación y te sumará hasta 60% de intereses anuales.
+          ⚠️ <strong>Alerta:</strong> Con saldo activo en tu Tarjeta 6011 (balance en USD de <strong>US$ 320.17</strong>, pago mínimo <strong>US$ 0.00</strong>, al día con 0 cuotas vencidas), gastar RD$ {Number(montoTest).toLocaleString("es")} en compras o salidas no esenciales atrasará tu recuperación y te sumará intereses anuales.
         </div>
       </div>
 

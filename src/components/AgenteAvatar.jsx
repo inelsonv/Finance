@@ -116,7 +116,7 @@ export default function AgenteAvatar({
       badgeFondo: "#059669",
     },
     preocupado: {
-      titulo: "Preocupado: Tienes un sobregiro activo en la Tarjeta 6011 y 1 cuota vencida en USD 🚨",
+      titulo: "Preocupado: Tienes un sobregiro activo o cuotas vencidas en tus tarjetas 🚨",
       colorPrimario: "#ef4444",
       colorFondo: "#fef2f2",
       colorBorde: "#f87171",

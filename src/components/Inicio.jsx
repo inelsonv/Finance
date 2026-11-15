@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Calendar, Target, SlidersHorizontal, Eye, EyeOff, LayoutGrid, Check, Shield, WashingMachine, Refrigerator, Tv, Fan, Flame, Zap } from "lucide-react";
-import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache } from "../lib/db";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Calendar, Target, SlidersHorizontal, Eye, EyeOff, LayoutGrid, Check, Shield, WashingMachine, Refrigerator, Tv, Fan, Flame, Zap, ExternalLink } from "lucide-react";
+import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache, addMovimiento } from "../lib/db";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { fetchInflacionRD } from "../lib/inflacionRD";
 import { confirm } from "../lib/confirm";
@@ -1914,7 +1914,7 @@ async function fetchQuoteFinnhub(symbol, token) {
   }
 }
 
-function StocksCard() {
+function StocksCard({ cuentas = [], onNavigate }) {
   const [acciones, setAcciones] = useState([]);
   const [config, setConfig] = useState(undefined);
   const [cache, setCache] = useState(undefined);
@@ -1925,8 +1925,21 @@ function StocksCard() {
   const [newSymbol, setNewSymbol] = useState("");
   const [newNombre, setNewNombre] = useState("");
   const [addError, setAddError] = useState(null);
+  const [accionSeleccionada, setAccionSeleccionada] = useState(null);
+  const [cantidadCompra, setCantidadCompra] = useState("1");
+  const [precioCompraUSD, setPrecioCompraUSD] = useState("");
+  const [cuentaInversionId, setCuentaInversionId] = useState("");
+  const [fechaCompra, setFechaCompra] = useState(() => new Date().toISOString().slice(0, 10));
+  const [guardandoCompra, setGuardandoCompra] = useState(false);
+  const [errorCompra, setErrorCompra] = useState(null);
+  const [compraRegistrada, setCompraRegistrada] = useState(null);
   const lastFetchRef = useRef(0);
   const isFetchingRef = useRef(false);
+
+  const cuentasInversion = useMemo(
+    () => (cuentas || []).filter((c) => ["Inversión", "Corretaje"].includes(c.tipo)),
+    [cuentas]
+  );
 
   // Tipo de cambio USD→RD$ ya cacheado por el widget de Dólar — se
   // reutiliza aquí para mostrar el valor de cada acción también en pesos,
@@ -2064,6 +2077,63 @@ function StocksCard() {
     setNewNombre("");
   };
 
+  const abrirModalAccion = (a) => {
+    const p = prices[a.symbol];
+    setAccionSeleccionada(a);
+    setCantidadCompra("1");
+    setPrecioCompraUSD(p?.price != null ? String(Number(p.price).toFixed(2)) : "");
+    setCuentaInversionId(cuentasInversion[0]?.id || "");
+    setFechaCompra(new Date().toISOString().slice(0, 10));
+    setErrorCompra(null);
+    setCompraRegistrada(null);
+  };
+
+  const handleRegistrarCompraAccion = async () => {
+    if (!accionSeleccionada) return;
+    const qty = parseFloat(cantidadCompra);
+    const priceUSD = parseFloat(precioCompraUSD);
+    if (!Number.isFinite(qty) || qty <= 0) {
+      setErrorCompra("Ingresa una cantidad válida mayor a 0.");
+      return;
+    }
+    if (!Number.isFinite(priceUSD) || priceUSD <= 0) {
+      setErrorCompra("Ingresa un precio válido en USD mayor a 0.");
+      return;
+    }
+    const totalUSD = qty * priceUSD;
+    const totalRD = tipoCambioUSD ? Math.round(totalUSD * tipoCambioUSD * 100) / 100 : Math.round(totalUSD * 100) / 100;
+    const cuentaObj = cuentasInversion.find((c) => c.id === cuentaInversionId) || null;
+    const categoriaMov = cuentaObj?.tipo === "Corretaje" ? "Corretaje" : "Inversión";
+
+    setGuardandoCompra(true);
+    setErrorCompra(null);
+    try {
+      await addMovimiento({
+        type: cuentaObj ? categoriaMov : "Gasto",
+        category: categoriaMov,
+        amount: totalRD,
+        description: `Compra ${qty} acc. ${accionSeleccionada.symbol}${accionSeleccionada.nombre ? ` (${accionSeleccionada.nombre})` : ""} @ US$${priceUSD.toFixed(2)}`,
+        date: fechaCompra || new Date().toISOString().slice(0, 10),
+        metodoPago: "Transferencia",
+        cuentaId: cuentaObj?.id || null,
+        cuentaNombre: cuentaObj?.nombre || "",
+        entidadId: cuentaObj?.entidadId || null,
+        entidadName: cuentaObj?.entidadName || "",
+      });
+      setCompraRegistrada({
+        symbol: accionSeleccionada.symbol,
+        qty,
+        totalUSD,
+        totalRD,
+        tieneCuenta: !!cuentaObj,
+      });
+    } catch (err) {
+      setErrorCompra(err?.message || "No se pudo registrar la compra.");
+    } finally {
+      setGuardandoCompra(false);
+    }
+  };
+
   return (
     <div className="despensa-dashboard-card" style={{ padding: "1.35rem" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -2171,9 +2241,40 @@ function StocksCard() {
             const p = prices[a.symbol];
             const up = p && p.change >= 0;
             return (
-              <div key={a.id} className="despensa-acciones-card" style={{ position: "relative", padding: "10px 10px 8px", background: "var(--paper)", borderRadius: 8, border: "1px solid var(--line-soft)" }}>
+              <div
+                key={a.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => abrirModalAccion(a)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    abrirModalAccion(a);
+                  }
+                }}
+                title={`Clic para comprar o invertir en ${a.symbol}${a.nombre ? ` (${a.nombre})` : ""}`}
+                className="despensa-acciones-card"
+                style={{
+                  position: "relative",
+                  padding: "10px 10px 8px",
+                  background: "var(--paper)",
+                  borderRadius: 8,
+                  border: "1px solid var(--line-soft)",
+                  cursor: "pointer",
+                  transition: "border-color 0.15s ease, box-shadow 0.15s ease, transform 0.12s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "var(--sage)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.08)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--line-soft)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+              >
                 <button
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    e.stopPropagation();
                     if (await confirm("¿Quitar esta acción de tu lista de seguimiento?")) deleteAccion(a.id);
                   }}
                   title="Quitar"
@@ -2195,13 +2296,23 @@ function StocksCard() {
                         RD${(p.price * tipoCambioUSD).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     )}
-                    <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: up ? "var(--sage)" : "var(--stamp)", marginTop: 1 }}>
-                      {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                      {p.change != null ? `${p.change.toFixed(2)}%` : ""}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginTop: 2 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: up ? "var(--sage)" : "var(--stamp)" }}>
+                        {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                        {p.change != null ? `${p.change.toFixed(2)}%` : ""}
+                      </div>
+                      <span style={{ fontSize: 9.5, fontWeight: 600, color: "var(--sage)", display: "inline-flex", alignItems: "center", gap: 2 }}>
+                        Comprar <ExternalLink size={9} />
+                      </span>
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 6 }}>{loadingPrices ? "…" : "—"}</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+                    <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>{loadingPrices ? "…" : "—"}</span>
+                    <span style={{ fontSize: 9.5, fontWeight: 600, color: "var(--sage)", display: "inline-flex", alignItems: "center", gap: 2 }}>
+                      Comprar <ExternalLink size={9} />
+                    </span>
+                  </div>
                 )}
               </div>
             );
@@ -2209,6 +2320,268 @@ function StocksCard() {
           </div>
         </>
       )}
+
+      {accionSeleccionada && (() => {
+        const symUpper = (accionSeleccionada.symbol || "").toUpperCase();
+        const symLower = symUpper.toLowerCase();
+        const pActual = prices[accionSeleccionada.symbol];
+        const qtyNum = parseFloat(cantidadCompra) || 0;
+        const priceNum = parseFloat(precioCompraUSD) || 0;
+        const totalEstUSD = qtyNum > 0 && priceNum > 0 ? qtyNum * priceNum : 0;
+        const totalEstRD = tipoCambioUSD && totalEstUSD > 0 ? totalEstUSD * tipoCambioUSD : null;
+        const plataformasCompra = [
+          { nombre: "eToro", desc: `Operar ${symUpper} en eToro`, url: `https://www.etoro.com/markets/${symLower}` },
+          { nombre: "Robinhood", desc: `Ver y comprar ${symUpper}`, url: `https://robinhood.com/stocks/${symUpper}` },
+          { nombre: "Hapi", desc: "Invertir desde LatAm / RD", url: "https://app.hapi.trade/" },
+          { nombre: "Interactive Brokers", desc: "Portal de órdenes IBKR", url: "https://portal.interactivebrokers.com/" },
+          { nombre: "Yahoo Finance", desc: `Cotización y gráfica ${symUpper}`, url: `https://finance.yahoo.com/quote/${symUpper}` },
+        ];
+
+        return (
+          <div
+            onClick={() => !guardandoCompra && setAccionSeleccionada(null)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.55)",
+              backdropFilter: "blur(3px)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 9999,
+              padding: 16,
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: "var(--card)",
+                border: "1px solid var(--line)",
+                borderRadius: 14,
+                width: "100%",
+                maxWidth: 480,
+                maxHeight: "90vh",
+                overflowY: "auto",
+                padding: "18px 20px",
+                boxShadow: "0 20px 30px rgba(0,0,0,0.28)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className="despensa-mono" style={{ fontSize: 18, fontWeight: 700, color: "var(--ink)" }}>{symUpper}</span>
+                    {pActual?.price != null && (
+                      <span className="despensa-mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--sage)", background: "var(--sage-bg)", padding: "2px 8px", borderRadius: 6 }}>
+                        US${pActual.price.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 2 }}>
+                    {accionSeleccionada.nombre || "Acción bursátil"}
+                    {tipoCambioUSD && pActual?.price != null && ` · ≈ RD$${(pActual.price * tipoCambioUSD).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAccionSeleccionada(null)}
+                  disabled={guardandoCompra}
+                  style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer", padding: 4 }}
+                  title="Cerrar"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Opción 1: Redirigir a comprar en bróker */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                  Comprar en plataforma / bróker
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+                  {plataformasCompra.map((plat) => (
+                    <a
+                      key={plat.nombre}
+                      href={plat.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 8,
+                        padding: "9px 11px",
+                        borderRadius: 8,
+                        background: "var(--paper)",
+                        border: "1px solid var(--line)",
+                        color: "var(--ink)",
+                        textDecoration: "none",
+                        fontSize: 12,
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>{plat.nombre}</div>
+                        <div style={{ fontSize: 10, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {plat.desc}
+                        </div>
+                      </div>
+                      <ExternalLink size={13} style={{ color: "var(--sage)", flexShrink: 0 }} />
+                    </a>
+                  ))}
+                </div>
+              </div>
+
+              {/* Opción 2: Registrar compra en el módulo Inversión */}
+              <div style={{ borderTop: "1px solid var(--line-soft)", paddingTop: 14 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                  Registrar compra en tu portafolio
+                </div>
+
+                {compraRegistrada ? (
+                  <div style={{ background: "var(--sage-bg)", border: "1px solid var(--sage)", borderRadius: 10, padding: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 700, color: "var(--sage)", marginBottom: 4 }}>
+                      <CheckCircle2 size={16} /> Compra registrada ({compraRegistrada.qty} acc. {compraRegistrada.symbol})
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--ink)", marginBottom: 10 }}>
+                      Monto registrado: <strong className="despensa-mono">{tipoCambioUSD ? `RD$${compraRegistrada.totalRD.toLocaleString("es", { minimumFractionDigits: 2 })}` : `US$${compraRegistrada.totalUSD.toFixed(2)}`}</strong>
+                      {compraRegistrada.tieneCuenta ? " en tu cuenta de inversión." : " en tus movimientos."}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {onNavigate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAccionSeleccionada(null);
+                            onNavigate("inversion");
+                          }}
+                          style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: "var(--sage)", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                        >
+                          Ir a Inversión
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setAccionSeleccionada(null)}
+                        style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--card)", color: "var(--ink)", fontSize: 12, cursor: "pointer" }}
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 4 }}>Cantidad</label>
+                        <input
+                          type="number"
+                          step="0.0001"
+                          min="0"
+                          value={cantidadCompra}
+                          onChange={(e) => setCantidadCompra(e.target.value)}
+                          className="despensa-mono"
+                          style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 4 }}>Precio (US$)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={precioCompraUSD}
+                          onChange={(e) => setPrecioCompraUSD(e.target.value)}
+                          placeholder="0.00"
+                          className="despensa-mono"
+                          style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 4 }}>Cuenta de inversión</label>
+                        <select
+                          value={cuentaInversionId}
+                          onChange={(e) => setCuentaInversionId(e.target.value)}
+                          style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
+                        >
+                          <option value="">Sin cuenta específica</option>
+                          {cuentasInversion.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.nombre} ({c.tipo})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 4 }}>Fecha</label>
+                        <input
+                          type="date"
+                          value={fechaCompra}
+                          onChange={(e) => setFechaCompra(e.target.value)}
+                          className="despensa-mono"
+                          style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5 }}
+                        />
+                      </div>
+                    </div>
+
+                    {totalEstUSD > 0 && (
+                      <div style={{ fontSize: 12, color: "var(--ink-soft)", background: "var(--paper)", padding: "8px 10px", borderRadius: 8, marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>Total estimado:</span>
+                        <span className="despensa-mono" style={{ fontWeight: 700, color: "var(--ink)" }}>
+                          US${totalEstUSD.toFixed(2)}
+                          {totalEstRD != null && ` · RD$${totalEstRD.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        </span>
+                      </div>
+                    )}
+
+                    {cuentasInversion.length === 0 && onNavigate && (
+                      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 10 }}>
+                        Tip: Puedes crear una cuenta de tipo <strong style={{ color: "var(--ink)" }}>Inversión</strong> o <strong style={{ color: "var(--ink)" }}>Corretaje</strong> en{" "}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAccionSeleccionada(null);
+                            onNavigate("cuentas");
+                          }}
+                          style={{ background: "none", border: "none", padding: 0, color: "var(--sage)", fontWeight: 600, textDecoration: "underline", cursor: "pointer", fontSize: 11 }}
+                        >
+                          Cuentas
+                        </button>{" "}
+                        para llevar el saldo de tu portafolio.
+                      </div>
+                    )}
+
+                    {errorCompra && (
+                      <div style={{ fontSize: 11.5, color: "var(--stamp)", marginBottom: 8 }}>{errorCompra}</div>
+                    )}
+
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <button
+                        type="button"
+                        onClick={() => setAccionSeleccionada(null)}
+                        disabled={guardandoCompra}
+                        style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--paper)", color: "var(--ink-soft)", fontSize: 12.5, cursor: "pointer" }}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRegistrarCompraAccion}
+                        disabled={guardandoCompra}
+                        style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "var(--sage)", color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: guardandoCompra ? "not-allowed" : "pointer" }}
+                      >
+                        {guardandoCompra ? "Registrando…" : "Registrar compra en Inversión"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
@@ -3309,7 +3682,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const inflacionContent = <InflacionCard />;
   const combustibleContent = <CombustibleCard presupuesto={presupuesto} diasCobro={diasCobro} />;
   const platoSugeridoContent = <PlatoSugeridoCard products={products} onNavigate={onNavigate} />;
-  const accionesContent = <StocksCard />;
+  const accionesContent = <StocksCard cuentas={cuentas} onNavigate={onNavigate} />;
 
   const SECTION_CONTENT = {
     endeudamiento: endeudamientoContent,

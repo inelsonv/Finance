@@ -2116,63 +2116,61 @@ export async function deleteTarjeta(id) {
   await deleteDoc(doc(db, "tarjetas", id));
 }
 
-// Sincroniza o actualiza los saldos en RD$ y US$ de la Tarjeta de Crédito Local (terminación 6011)
+// Sincroniza o actualiza los saldos de la Tarjeta de Crédito Local (terminación 6011)
+// usando una etiqueta de versión de estado de cuenta para aplicarse una sola vez
+// y respetar pagos o ediciones futuras del usuario.
 export async function sincronizarTarjetaCreditoLocal() {
+  const STATEMENT_TAG = "2026-11-14-v2";
   const tarjetasSnap = await getDocs(collection(db, "tarjetas"));
   let encontrada = false;
 
-  const camposActualizados = {
-    nombre: "Tarjeta de Credito Local",
-    tipoTarjeta: "Crédito",
+  const camposStatementActualizados = {
     ultimos4: "6011",
     estado: "Activa",
-    limiteCredito: 41000,
-    saldoActual: 50888.32,
-    pagoMinimo: 5461.69,
+    estadoBanco: "NORM",
     fechaCorte: 26,
     fechaPago: 20,
     fechaVencimientoPlastico: "2029-01",
+    limiteCredito: 41000,
+    saldoActual: 45426.63,
+    pagoMinimo: 0,
+    balanceAlCorte: 45426.63,
+    disponibleConSobregiro: 3773.37,
     tieneMonedaSecundaria: true,
     limiteCreditoUSD: 500,
-    saldoActualUSD: 369.98,
-    pagoMinimoUSD: 51.45,
+    saldoActualUSD: 320.17,
+    pagoMinimoUSD: 0,
+    balanceAlCorteUSD: 318.53,
+    disponibleConSobregiroUSD: 279.83,
     cuotasVencidasUSD: 0,
     cuotasVencidas: 0,
+    syncStatementTag: STATEMENT_TAG,
   };
 
   for (const docSnap of tarjetasSnap.docs) {
     const data = docSnap.data();
     const u4 = (data.ultimos4 || "").trim();
     const nom = (data.nombre || "").toLowerCase();
-    const coincide = u4 === "6011" || nom.includes("local") || (tarjetasSnap.docs.length === 1 && (data.tipoTarjeta || "Crédito") === "Crédito");
+    const coincide =
+      u4.includes("6011") ||
+      nom.includes("6011") ||
+      nom.includes("local") ||
+      (tarjetasSnap.docs.length === 1 && (data.tipoTarjeta || "Crédito") === "Crédito");
 
     if (coincide) {
       encontrada = true;
-      const necesitaActualizar =
-        Number(data.saldoActual) !== 50888.32 ||
-        Number(data.saldoActualUSD) !== 369.98 ||
-        Number(data.limiteCredito) !== 41000 ||
-        Number(data.limiteCreditoUSD) !== 500 ||
-        Number(data.pagoMinimo) !== 5461.69 ||
-        Number(data.pagoMinimoUSD) !== 51.45 ||
-        Number(data.cuotasVencidasUSD || 0) !== 0 ||
-        Number(data.fechaCorte) !== 26 ||
-        Number(data.fechaPago) !== 20 ||
-        data.fechaVencimientoPlastico !== "2029-01" ||
-        !data.tieneMonedaSecundaria ||
-        u4 !== "6011";
-
-      if (necesitaActualizar) {
-        await updateDoc(docSnap.ref, camposActualizados);
+      if (data.syncStatementTag !== STATEMENT_TAG) {
+        await updateDoc(docSnap.ref, camposStatementActualizados);
       }
-      break;
     }
   }
 
   // Si no había ninguna tarjeta registrada en la base de datos, crearla directamente
   if (!encontrada && tarjetasSnap.empty) {
     await addDoc(collection(db, "tarjetas"), {
-      ...camposActualizados,
+      nombre: "Tarjeta de Credito Local",
+      tipoTarjeta: "Crédito",
+      ...camposStatementActualizados,
       entidadId: null,
       entidadName: "Banco",
       tasaInteres: null,

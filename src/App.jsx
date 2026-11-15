@@ -867,61 +867,22 @@ export default function App() {
     }
   }, [authorized, tarjetas]);
 
-  // Sincronización automática de saldos de la Tarjeta de Crédito Local (6011) en RD$ y US$
+  // Sincronización automática (una sola vez por versión de estado de cuenta) de la Tarjeta 6011
   const tarjeta6011Sincronizada = useRef(false);
   useEffect(() => {
     if (!authorized || tarjeta6011Sincronizada.current) return;
-    tarjeta6011Sincronizada.current = true;
-    sincronizarTarjetaCreditoLocal().catch((err) =>
-      console.error("No se pudo sincronizar saldo de la tarjeta 6011:", err)
-    );
-  }, [authorized]);
-
-  useEffect(() => {
-    if (!authorized || !tarjetas || tarjetas.length === 0) return;
-    for (const t of tarjetas) {
+    if (!tarjetas || tarjetas.length === 0) return;
+    const pendiente = tarjetas.some((t) => {
       const u4 = (t.ultimos4 || "").trim();
       const nom = (t.nombre || "").toLowerCase();
-      const match = u4 === "6011" || nom.includes("local");
-      if (match) {
-        const diffPesos = Math.abs((Number(t.saldoActual) || 0) - 50888.32) > 0.001;
-        const diffDolares = Math.abs((Number(t.saldoActualUSD) || 0) - 369.98) > 0.001;
-        const diffLimiteRD = Math.abs((Number(t.limiteCredito) || 0) - 41000) > 0.001;
-        const diffLimiteUSD = Math.abs((Number(t.limiteCreditoUSD) || 0) - 500) > 0.001;
-        const diffPagoMinRD = Math.abs((Number(t.pagoMinimo) || 0) - 5461.69) > 0.001;
-        const diffPagoMinUSD = Math.abs((Number(t.pagoMinimoUSD) || 0) - 51.45) > 0.001;
-        const diffCuotasVencidas = Number(t.cuotasVencidasUSD || 0) !== 0 || Number(t.cuotasVencidas || 0) !== 0;
-        if (
-          diffPesos ||
-          diffDolares ||
-          diffLimiteRD ||
-          diffLimiteUSD ||
-          diffPagoMinRD ||
-          diffPagoMinUSD ||
-          diffCuotasVencidas ||
-          !t.tieneMonedaSecundaria ||
-          u4 !== "6011" ||
-          Number(t.fechaCorte) !== 26 ||
-          Number(t.fechaPago) !== 20 ||
-          t.fechaVencimientoPlastico !== "2029-01"
-        ) {
-          updateTarjeta(t.id, {
-            saldoActual: 50888.32,
-            saldoActualUSD: 369.98,
-            limiteCredito: 41000,
-            limiteCreditoUSD: 500,
-            pagoMinimo: 5461.69,
-            pagoMinimoUSD: 51.45,
-            cuotasVencidasUSD: 0,
-            cuotasVencidas: 0,
-            fechaCorte: 26,
-            fechaPago: 20,
-            fechaVencimientoPlastico: "2029-01",
-            tieneMonedaSecundaria: true,
-            ultimos4: "6011",
-          }).catch((err) => console.error("Error al actualizar montos de tarjeta 6011:", err));
-        }
-      }
+      const match = u4.includes("6011") || nom.includes("6011") || nom.includes("local");
+      return match && t.syncStatementTag !== "2026-11-14-v2";
+    });
+    tarjeta6011Sincronizada.current = true;
+    if (pendiente) {
+      sincronizarTarjetaCreditoLocal().catch((err) =>
+        console.error("No se pudo sincronizar saldo de la tarjeta 6011:", err)
+      );
     }
   }, [authorized, tarjetas]);
 

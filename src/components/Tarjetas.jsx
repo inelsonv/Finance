@@ -157,18 +157,18 @@ const emptyForm = () => ({
   ultimos4: "6011",
   limiteCredito: "41000",
   tasaInteres: "",
-  pagoMinimo: "5461.69",
+  pagoMinimo: "0",
   fechaCorte: "26",
   fechaPago: "20",
   estado: "Activa",
   notas: "",
   color: "azul",
   marca: "Visa",
-  saldoActual: "50888.32",
+  saldoActual: "45426.63",
   tieneMonedaSecundaria: true,
   limiteCreditoUSD: "500",
-  pagoMinimoUSD: "51.45",
-  saldoActualUSD: "369.98",
+  pagoMinimoUSD: "0",
+  saldoActualUSD: "320.17",
   tasaTAE: "",
   montoMora: "",
   diasGracia: "22",
@@ -1023,8 +1023,11 @@ export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasG
                             </div>
                             <div style={{ fontSize: 10.5, color: excedido ? "var(--stamp)" : "var(--ink-soft)", marginTop: 4 }}>
                               {excedido
-                                ? `Sobregiro: RD$ -${Math.abs(disponible).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                ? `Sobre límite base: RD$ -${Math.abs(disponible).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                                 : `Disponible: ${formatMoney(disponible)}`}
+                              {t.disponibleConSobregiro != null && ` · Disp. c/sobregiro: RD$${Number(t.disponibleConSobregiro).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                              {t.balanceAlCorte != null && ` · Al corte: RD$${Number(t.balanceAlCorte).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                              {t.cuotasVencidas != null && ` · Vencidas: ${Number(t.cuotasVencidas)}`}
                             </div>
                           </div>
                         );
@@ -1058,7 +1061,10 @@ export default function Tarjetas({ tarjetas, entidades, movimientos, categoriasG
                                   ? `Sobregiro: US$ -${Math.abs(disponibleUSD).toLocaleString("es", { minimumFractionDigits: 2 })}`
                                   : `Disponible: US$${disponibleUSD.toLocaleString("es", { minimumFractionDigits: 2 })}`
                               )}
+                              {t.disponibleConSobregiroUSD != null && ` · Disp. c/sobregiro: US$${Number(t.disponibleConSobregiroUSD).toLocaleString("es", { minimumFractionDigits: 2 })}`}
+                              {t.balanceAlCorteUSD != null && ` · Al corte: US$${Number(t.balanceAlCorteUSD).toLocaleString("es", { minimumFractionDigits: 2 })}`}
                               {t.pagoMinimoUSD != null && ` · Pago mínimo: US$${Number(t.pagoMinimoUSD).toLocaleString("es", { minimumFractionDigits: 2 })}`}
+                              {t.cuotasVencidasUSD != null && ` · Vencidas: ${Number(t.cuotasVencidasUSD)}`}
                             </div>
                           </div>
                         );

@@ -407,7 +407,7 @@ export function analizarIntencionAccion(texto, { prestamos = [], tarjetas = [], 
   if (esPlanDeudas) {
     return {
       tipoAccion: "plan_deudas",
-      respuestaDirecta: `🛡️ **Plan de Choque Anti-Deuda del Guardián:**\n\n1. **Urgencia 0 - Tarjeta 6011:** Tu tarjeta local está sobregirada con RD$ 50,888.32 vs límite de RD$ 41,000 (sobregiro de **RD$ -1,688.32**) y tiene balance en USD de **US$ 369.98** con pago mínimo de **US$ 51.45** (al día, 0 cuotas vencidas).\n2. **Regla de ORO:** Congela de inmediato compras no esenciales con tarjeta. Todo gasto debe ser en efectivo o débito estrictamente dentro de presupuesto.\n3. **Amortización:** Cumple los mínimos y aplica cada peso ahorrado en recortes al saldo más caro (Avalancha) o al más pequeño (Bola de Nieve).`,
+      respuestaDirecta: `🛡️ **Plan de Choque Anti-Deuda del Guardián:**\n\n1. **Urgencia 0 - Tarjeta 6011:** Tu tarjeta local tiene balance en USD de **US$ 320.17** (al corte US$ 318.53, disponible con sobregiro US$ 279.83) con pago mínimo de **US$ 0.00** (estado NORM, al día, 0 cuotas vencidas) y saldo en RD$ pendiente de amortizar.\n2. **Regla de ORO:** Congela de inmediato compras no esenciales con tarjeta. Todo gasto debe ser en efectivo o débito estrictamente dentro de presupuesto.\n3. **Amortización:** Cumple los mínimos y aplica cada peso ahorrado en recortes al saldo más caro (Avalancha) o al más pequeño (Bola de Nieve).`,
     };
   }
 
@@ -457,7 +457,7 @@ export function analizarIntencionAccion(texto, { prestamos = [], tarjetas = [], 
     return {
       tipoAccion: "guardian_evaluar_gasto",
       monto: montoGasto,
-      respuestaDirecta: `🛡️ **Alerta del Guardián Financiero:**\n\nCon un sobregiro activo en tu Tarjeta 6011 (RD$ -1,688.32) y cuota pendiente en USD, ${montoGasto ? `un gasto de **RD$ ${montoGasto.toLocaleString("es")}**` : "este gasto extra"} representa un riesgo directo de alargar tu deuda.\n\n**Veredicto:** 🛑 **Pospón este gasto no esencial.** Cada peso extra debe usarse para salir del sobregiro y blindar tu tranquilidad financiera.`,
+      respuestaDirecta: `🛡️ **Alerta del Guardián Financiero:**\n\nCon deuda pendiente en tu Tarjeta 6011 (balance USD **US$ 320.17**, mínimo US$ 0.00, estado NORM), ${montoGasto ? `un gasto de **RD$ ${montoGasto.toLocaleString("es")}**` : "este gasto extra"} representa un riesgo directo de alargar tu deuda.\n\n**Veredicto:** 🛑 **Pospón este gasto no esencial.** Cada peso extra debe usarse para reducir el balance y blindar tu tranquilidad financiera.`,
     };
   }
 
