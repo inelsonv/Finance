@@ -1,9 +1,10 @@
 import React from "react";
-import { X, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Bot, Map as MapIcon, UtensilsCrossed, CheckSquare, Target, Route } from "lucide-react";
+import { X, Home, ArrowLeftRight, Wallet, Banknote, Car, Landmark, Settings, LogOut, Coins, WalletCards, HeartPulse, Bot, Map as MapIcon, UtensilsCrossed, CheckSquare, Target, Route } from "lucide-react";
 import { confirm } from "../lib/confirm";
 import SmartFinanceLogo from "./SmartFinanceLogo.jsx";
 
 const OPCIONES = [
+  { id: "inicio", label: "Inicio", icon: Home },
   { id: "movimientos", label: "Movimientos", icon: ArrowLeftRight },
   { id: "dinero-cuentas", label: "Finanzas", icon: Coins },
   { id: "presupuesto-mensual", label: "Presupuesto", icon: Wallet },

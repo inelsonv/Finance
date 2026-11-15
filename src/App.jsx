@@ -22,7 +22,7 @@ import ConfirmDialogHost from "./components/ConfirmDialogHost.jsx";
 import GlobalSearch from "./components/GlobalSearch.jsx";
 import MobileMenu from "./components/MobileMenu.jsx";
 import PullToRefresh from "./components/PullToRefresh.jsx";
-import { Menu, Trophy, Bot, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Menu, Home, Trophy, Bot, X, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { SmartFinanceMark } from "./components/SmartFinanceLogo.jsx";
 import SugeridorRecetas from "./components/SugeridorRecetas.jsx";
 import Catalogo from "./components/Catalogo.jsx";
@@ -1025,6 +1025,21 @@ export default function App() {
             >
               <Menu size={22} />
             </button>
+            {tab === "asistente" && (
+              <button
+                type="button"
+                onClick={() => {
+                  seleccionarTab("inicio");
+                  window.scrollTo({ top: 0, behavior: "auto" });
+                }}
+                className="despensa-hamburger"
+                title="Volver al inicio"
+                aria-label="Volver al inicio"
+                style={{ color: "var(--sage)" }}
+              >
+                <Home size={20} />
+              </button>
+            )}
             <h1 className="despensa-tab-font" style={{ fontSize: "clamp(15px, 4.2vw, 22px)", fontWeight: 700, margin: 0, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {TITLES[tab]}
             </h1>
