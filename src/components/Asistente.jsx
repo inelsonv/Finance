@@ -51,6 +51,7 @@ import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/ta
 import { analizarIntencionAccion, analizarIntencionGasto } from "../lib/asistenteGastoParser";
 import { SkeletonChat } from "./Skeleton";
 import AgenteAvatar from "./AgenteAvatar.jsx";
+import { ingresoMensualNeto } from "../lib/deduccionesLey";
 
 const SUGERENCIAS = [
   "🚨 ¿Cuál es mi plan de choque para salir de deudas y sobregiro?",
@@ -1553,6 +1554,312 @@ function TarjetaPlanDeudasChat({ tarjetas = [], prestamos = [], onNavigate, onCl
   );
 }
 
+function construirDetalleEndeudamiento({ prestamos = [], tarjetas = [], fuentesIngreso = [], movimientos = [], tipoCambio = null, enfoque = "nivel" }) {
+  const ingresoMensual = ingresoMensualNeto(fuentesIngreso);
+
+  const pagadoMap = {};
+  for (const p of prestamos) {
+    pagadoMap[p.id] = (movimientos || [])
+      .filter(
+        (m) =>
+          m.category === "Pago de préstamo" &&
+          (m.prestamoId === p.id || (m.prestamoNumero && p.numero && m.prestamoNumero === p.numero))
+      )
+      .reduce((s, m) => s + (Number(m.amount) || 0), 0);
+  }
+
+  const prestamosDetalle = (prestamos || [])
+    .filter((p) => {
+      if (p.estado !== "Activo") return false;
+      const cuotasTotales =
+        p.frecuenciaCuota === "Personalizado"
+          ? (p.cuotasPersonalizadas || []).length
+          : p.plazoUnidad === "años"
+          ? (p.plazo || 0) * 12
+          : p.plazo || 0;
+      return cuotasTotales > 1 && (Number(p.cuota) || 0) > 0;
+    })
+    .map((p) => {
+      const pagado = pagadoMap[p.id] || 0;
+      const pendiente = Math.max((Number(p.montoAprobado) || 0) - pagado, 0);
+      return {
+        id: p.id,
+        numero: p.numero || "Préstamo",
+        entidadName: p.entidadName || p.tipo || "Entidad",
+        tipo: p.tipo || "",
+        cuota: Number(p.cuota) || 0,
+        pendiente,
+        tasaInteres: p.tasaInteres,
+      };
+    });
+
+  const cuotaPrestamos = prestamosDetalle.reduce((s, p) => s + p.cuota, 0);
+
+  const tarjetasActivas = (tarjetas || []).filter((t) => t.estado === "Activa");
+  const tarjetasDetalle = tarjetasActivas.map((t) => {
+    const saldoRD = Number(t.saldoActual) || 0;
+    const limiteRD = Number(t.limiteCredito ?? t.limite) || 0;
+    const saldoUSD = t.tieneMonedaSecundaria && t.saldoActualUSD ? Number(t.saldoActualUSD) : 0;
+    const pagoMinRD = Number(t.pagoMinimo) || 0;
+    const deudaEqRD = saldoRD + (saldoUSD && tipoCambio ? saldoUSD * tipoCambio : 0);
+    return {
+      id: t.id,
+      nombre: t.nombre || t.banco || "Tarjeta",
+      ultimos4: t.ultimos4 || "",
+      saldoRD,
+      limiteRD,
+      saldoUSD,
+      pagoMinRD,
+      deudaEqRD,
+      enSobregiro: limiteRD > 0 && saldoRD > limiteRD,
+    };
+  });
+
+  const pagoTarjetas = tarjetasDetalle.reduce((s, t) => s + t.pagoMinRD, 0);
+  const deudaTotalTarjetas = tarjetasDetalle.reduce((s, t) => s + t.deudaEqRD, 0);
+  const compromisoMensual = cuotaPrestamos + pagoTarjetas;
+  const pct = ingresoMensual > 0 ? (compromisoMensual / ingresoMensual) * 100 : 0;
+
+  let nivelLabel = "Saludable";
+  let nivelColor = "var(--sage)";
+  let nivelBg = "var(--sage-bg)";
+  let significado =
+    "Tus cuotas fijas de deuda representan menos del 20% de tu ingreso neto mensual. Tienes buena holgura para ahorro, imprevistos e inversión.";
+  if (pct >= 50) {
+    nivelLabel = "Crítico";
+    nivelColor = "#dc2626";
+    nivelBg = "rgba(239, 68, 68, 0.12)";
+    significado =
+      "Más de la mitad de tu ingreso mensual está comprometida en cuotas fijas de deuda. Esto reduce tu liquidez disponible y te expone a sobregiros ante cualquier gasto imprevisto; la prioridad es frenar nueva deuda y amortizar las más costosas.";
+  } else if (pct >= 35) {
+    nivelLabel = "Alto";
+    nivelColor = "var(--stamp)";
+    nivelBg = "var(--stamp-bg)";
+    significado =
+      "Entre el 35% y 50% de tu ingreso neto se destina a pagar cuotas de préstamos y mínimos de tarjetas. Es manejable, pero deja poco margen: evita adquirir compromisos nuevos hasta bajar del 35%.";
+  } else if (pct >= 20) {
+    nivelLabel = "Moderado";
+    nivelColor = "#d97706";
+    nivelBg = "rgba(245, 158, 11, 0.12)";
+    significado =
+      "Tus cuotas de deuda consumen entre 20% y 35% de tu ingreso mensual. Estás en un rango controlado, aunque conviene priorizar abonos extra al saldo de mayor interés.";
+  }
+
+  return {
+    enfoque,
+    ingresoMensual,
+    cuotaPrestamos,
+    pagoTarjetas,
+    deudaTotalTarjetas,
+    compromisoMensual,
+    pct,
+    nivelLabel,
+    nivelColor,
+    nivelBg,
+    significado,
+    prestamosDetalle,
+    tarjetasDetalle,
+  };
+}
+
+function TarjetaDetalleEndeudamientoChat({ data, onNavigate, onClose }) {
+  if (!data) return null;
+  const fmt = (n) =>
+    `RD$ ${Number(n || 0).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  return (
+    <div
+      style={{
+        marginTop: 8,
+        padding: "12px 13px",
+        borderRadius: 14,
+        background: "var(--paper)",
+        border: "1px solid var(--line)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        maxWidth: "100%",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", borderBottom: "1px solid var(--line-soft)", paddingBottom: 8 }}>
+        <div>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink)" }}>
+            Detalle de tu nivel de endeudamiento
+          </div>
+          <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2 }}>
+            Compromiso mensual: <strong className="despensa-mono" style={{ color: "var(--ink)" }}>{fmt(data.compromisoMensual)}</strong> de{" "}
+            <strong className="despensa-mono">{fmt(data.ingresoMensual)}</strong>
+          </div>
+        </div>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            padding: "3px 9px",
+            borderRadius: 999,
+            background: data.nivelBg,
+            color: data.nivelColor,
+          }}
+        >
+          {Number(data.pct || 0).toFixed(1)}% · {data.nivelLabel}
+        </span>
+      </div>
+
+      <div style={{ fontSize: 12, lineHeight: 1.45, color: "var(--ink)", background: "var(--card)", padding: "9px 11px", borderRadius: 10, border: "1px solid var(--line-soft)" }}>
+        <strong>¿Qué significan estas deudas?</strong>
+        <div style={{ color: "var(--ink-soft)", marginTop: 3 }}>{data.significado}</div>
+      </div>
+
+      {/* Desglose de cuotas de préstamos */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, fontWeight: 700, color: "var(--ink)", marginBottom: 5 }}>
+          <span>Préstamos en cuotas mensuales ({data.prestamosDetalle?.length || 0})</span>
+          <span className="despensa-mono" style={{ color: "var(--stamp)" }}>{fmt(data.cuotaPrestamos)}/mes</span>
+        </div>
+        {data.prestamosDetalle?.length > 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {data.prestamosDetalle.map((p) => (
+              <div
+                key={p.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: "7px 9px",
+                  borderRadius: 8,
+                  background: "var(--card)",
+                  border: "1px solid var(--line-soft)",
+                  fontSize: 11.5,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: "var(--ink)" }}>
+                    <span className="despensa-mono" style={{ color: "var(--stamp)" }}>{p.numero}</span> · {p.entidadName}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+                    Falta por pagar: <span className="despensa-mono">{fmt(p.pendiente)}</span>
+                    {p.tasaInteres ? ` · Tasa ${p.tasaInteres}%` : ""}
+                  </div>
+                </div>
+                <div className="despensa-mono" style={{ fontWeight: 700, color: "var(--stamp)", whiteSpace: "nowrap" }}>
+                  {fmt(p.cuota)}/mes
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>No hay préstamos recurrentes activos sumando cuota.</div>
+        )}
+      </div>
+
+      {/* Desglose de tarjetas */}
+      {data.tarjetasDetalle?.length > 0 && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, fontWeight: 700, color: "var(--ink)", marginBottom: 5 }}>
+            <span>Tarjetas activas ({data.tarjetasDetalle.length})</span>
+            <span className="despensa-mono" style={{ color: "var(--stamp)" }}>Deuda: {fmt(data.deudaTotalTarjetas)}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {data.tarjetasDetalle.map((t) => (
+              <div
+                key={t.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: "7px 9px",
+                  borderRadius: 8,
+                  background: "var(--card)",
+                  border: "1px solid var(--line-soft)",
+                  fontSize: 11.5,
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, color: "var(--ink)" }}>
+                    {t.nombre}{t.ultimos4 ? ` ••••${t.ultimos4}` : ""}
+                  </div>
+                  <div style={{ fontSize: 10.5, color: t.enSobregiro ? "#dc2626" : "var(--ink-soft)" }}>
+                    {t.enSobregiro ? "Sobre límite · " : ""}
+                    Pago mín.: <span className="despensa-mono">{fmt(t.pagoMinRD)}</span>
+                    {t.saldoUSD > 0 ? ` · US$ ${t.saldoUSD.toFixed(2)}` : ""}
+                  </div>
+                </div>
+                <div className="despensa-mono" style={{ fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap" }}>
+                  {fmt(t.saldoRD)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {onNavigate && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", paddingTop: 4 }}>
+          <button
+            type="button"
+            onClick={() => {
+              onNavigate("prestamos", { soloCuotasEndeudamiento: true });
+              onClose?.();
+            }}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              color: "var(--ink)",
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Ver préstamos de cuotas
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onNavigate("tarjetas");
+              onClose?.();
+            }}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              background: "var(--card)",
+              border: "1px solid var(--line)",
+              color: "var(--ink)",
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Ver tarjetas
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onNavigate("estrategia-deudas");
+              onClose?.();
+            }}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 8,
+              background: "var(--sage)",
+              border: "none",
+              color: "#fff",
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Estrategia de deudas
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TarjetaRecorteGastosChat({ data, movimientos = [], onEnviarMensaje, onNavigate, onClose }) {
   const [nivelRecorte, setNivelRecorte] = useState(30);
 
@@ -1908,6 +2215,8 @@ export default function Asistente({
   entidades = [],
   estrategiaDeudas,
   tipoCambio,
+  consultaEndeudamientoPendiente = null,
+  onConsumirConsultaEndeudamiento,
 }) {
   const [mensajes, setMensajes] = useState([]);
   const [chats, setChats] = useState([]);
@@ -2008,9 +2317,78 @@ export default function Asistente({
     });
   }, [chatId]);
 
+  const consultaEndeudamientoProcesadaRef = useRef(null);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [mensajes, enviando, transcripcionParcial]);
+
+  useEffect(() => {
+    if (!consultaEndeudamientoPendiente || cargandoChats || cargandoMensajes) return;
+    if (chats.length > 0 && !chatId) return;
+    if (consultaEndeudamientoProcesadaRef.current === consultaEndeudamientoPendiente.id) return;
+    consultaEndeudamientoProcesadaRef.current = consultaEndeudamientoPendiente.id;
+    onConsumirConsultaEndeudamiento?.();
+
+    const detalle = construirDetalleEndeudamiento({
+      prestamos,
+      tarjetas,
+      fuentesIngreso,
+      movimientos,
+      tipoCambio,
+      enfoque: consultaEndeudamientoPendiente.enfoque || "nivel",
+    });
+
+    const preguntaUsuario =
+      consultaEndeudamientoPendiente.enfoque === "cuotas"
+        ? "¿Qué deudas conforman el monto de mis cuotas y qué significan?"
+        : consultaEndeudamientoPendiente.enfoque === "tarjetas"
+        ? "¿Qué significan el pago mínimo y la deuda total de mis tarjetas?"
+        : "¿Qué significa mi nivel de endeudamiento actual y qué deudas lo conforman?";
+
+    const fmt = (n) =>
+      `RD$ ${Number(n || 0).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const textoExplicacion =
+      `Tu nivel de endeudamiento actual es del ${detalle.pct.toFixed(1)}% (${detalle.nivelLabel}). ` +
+      `Cada mes destinas ${fmt(detalle.compromisoMensual)} de tu ingreso neto (${fmt(detalle.ingresoMensual)}) entre cuotas de préstamos (${fmt(detalle.cuotaPrestamos)}) y pagos mínimos de tarjetas (${fmt(detalle.pagoTarjetas)}).`;
+
+    const nuevosMensajes = [
+      ...mensajes,
+      { role: "user", content: preguntaUsuario },
+      { role: "assistant", content: textoExplicacion, endeudamientoData: detalle },
+    ];
+    setMensajes(nuevosMensajes);
+
+    const guardar = async () => {
+      try {
+        if (!chatId) {
+          const nuevoId = await crearAsistenteChat("Detalle de endeudamiento", nuevosMensajes);
+          chatCreadoPendiente.current = nuevoId;
+          setChatId(nuevoId);
+        } else {
+          const tituloGuardado = chats.find((chat) => chat.id === chatId)?.titulo || "Detalle de endeudamiento";
+          await guardarAsistenteChat(chatId, tituloGuardado, nuevosMensajes);
+        }
+      } catch (err) {
+        console.error("No se pudo guardar la consulta de endeudamiento en el historial:", err);
+      }
+    };
+    guardar();
+  }, [
+    consultaEndeudamientoPendiente,
+    cargandoChats,
+    cargandoMensajes,
+    prestamos,
+    tarjetas,
+    fuentesIngreso,
+    movimientos,
+    tipoCambio,
+    mensajes,
+    chatId,
+    chats,
+    onConsumirConsultaEndeudamiento,
+  ]);
 
   // Limpieza al desmontar el reconocimiento de voz
   useEffect(() => {
@@ -2944,7 +3322,7 @@ export default function Asistente({
             key={i}
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              maxWidth: m.facturaData || m.gastoData || m.prestamoData || m.ordenCompraData || m.planDeudasData || m.recorteGastosData || m.planNavidadData || m.evaluadorGastoData ? "96%" : "82%",
+              maxWidth: m.facturaData || m.gastoData || m.prestamoData || m.ordenCompraData || m.planDeudasData || m.recorteGastosData || m.planNavidadData || m.evaluadorGastoData || m.endeudamientoData ? "96%" : "82%",
               padding: "9px 13px",
               borderRadius: 14,
               fontSize: 13.5,
@@ -3051,6 +3429,14 @@ export default function Asistente({
                 onNavigate={onNavigate}
                 onClose={onClose}
                 onEnviarMensaje={enviarPregunta}
+              />
+            )}
+
+            {m.endeudamientoData && (
+              <TarjetaDetalleEndeudamientoChat
+                data={m.endeudamientoData}
+                onNavigate={onNavigate}
+                onClose={onClose}
               />
             )}
 

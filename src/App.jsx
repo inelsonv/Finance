@@ -256,6 +256,7 @@ export default function App() {
   const [checklistPeriodoInicial, setChecklistPeriodoInicial] = useState(() => leerParamsURL()?.periodo || null);
   const [highlightId, setHighlightId] = useState(null);
   const [prestamosFiltroEndeudamiento, setPrestamosFiltroEndeudamiento] = useState(false);
+  const [consultaEndeudamientoAsistente, setConsultaEndeudamientoAsistente] = useState(null);
   const [focusProductId, setFocusProductId] = useState(null);
   const [flujo, setFlujo] = useState(undefined);
   const [presupuestoYear, setPresupuestoYear] = useState(() => new Date().getFullYear());
@@ -952,13 +953,25 @@ export default function App() {
     seguros,
     ingresosPuntuales,
     eventos,
-    onNavigate: seleccionarTab,
+    onNavigate: (targetTab, opts) => {
+      if (targetTab === "prestamos" && opts?.soloCuotasEndeudamiento) {
+        setPrestamosFiltroEndeudamiento(true);
+        setHighlightId(null);
+        setTab("prestamos");
+        window.scrollTo({ top: 0, behavior: "auto" });
+        return;
+      }
+      setPrestamosFiltroEndeudamiento(false);
+      seleccionarTab(targetTab);
+    },
     ultimoPagoDeuda: notificacionAgentePago,
     products,
     ordenesCompra,
     entidades,
     estrategiaDeudas,
     tipoCambio,
+    consultaEndeudamientoPendiente: consultaEndeudamientoAsistente,
+    onConsumirConsultaEndeudamiento: () => setConsultaEndeudamientoAsistente(null),
   };
 
   return (
@@ -1169,6 +1182,20 @@ export default function App() {
             metasAhorro={metasAhorro}
             activos={activos}
             onNavigate={(targetTab, opts) => {
+              if (targetTab === "asistente-endeudamiento") {
+                setConsultaEndeudamientoAsistente({
+                  id: Date.now(),
+                  enfoque: opts?.enfoque || "nivel",
+                });
+                const esMovil = typeof window !== "undefined" && window.innerWidth <= 640;
+                if (esMovil || !asistenteFlotanteActivo) {
+                  setTab("asistente");
+                  window.scrollTo({ top: 0, behavior: "auto" });
+                } else {
+                  setShowAsistenteFlotante(true);
+                }
+                return;
+              }
               if (targetTab === "prestamos" && opts?.soloCuotasEndeudamiento) {
                 setPrestamosFiltroEndeudamiento(true);
                 setHighlightId(null);

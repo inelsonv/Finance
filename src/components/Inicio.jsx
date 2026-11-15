@@ -3555,19 +3555,37 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
         ) : (
           <>
             <GaugeChart value={pct} maxValue={100} zones={ZONES_DEUDA} marks={[0, 20, 35, 50, 100]} />
-            <div style={{ marginTop: -18, marginBottom: 6 }}>
-              <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacion.color }}>
-                {pct.toFixed(1)}%
+            <div
+              role={onNavigate ? "button" : undefined}
+              tabIndex={onNavigate ? 0 : undefined}
+              onClick={onNavigate ? () => onNavigate("asistente-endeudamiento", { enfoque: "nivel" }) : undefined}
+              onKeyDown={
+                onNavigate
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onNavigate("asistente-endeudamiento", { enfoque: "nivel" });
+                      }
+                    }
+                  : undefined
+              }
+              title={onNavigate ? "Toca para abrir el asistente y ver el detalle de estas deudas" : undefined}
+              style={{ cursor: onNavigate ? "pointer" : "default", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+            >
+              <div style={{ marginTop: -18, marginBottom: 6 }}>
+                <span className="despensa-mono" style={{ fontSize: 32, fontWeight: 700, color: clasificacion.color }}>
+                  {pct.toFixed(1)}%
+                </span>
+              </div>
+              <span
+                className="despensa-tab-font"
+                style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacion.bg, color: clasificacion.color }}
+              >
+                {clasificacion.label}
               </span>
             </div>
-            <span
-              className="despensa-tab-font"
-              style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: clasificacion.bg, color: clasificacion.color }}
-            >
-              {clasificacion.label}
-            </span>
 
-            <div className="despensa-kpi-ministats-4" style={{ borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, borderTop: "1px solid var(--line-soft)", marginTop: 20, paddingTop: 16, textAlign: "left" }}>
               <MiniStat
                 icon={Briefcase}
                 label="Ingreso"
@@ -3583,9 +3601,19 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
                 value={formatMoney(cuotaPrestamos)}
                 color="var(--stamp)"
                 compact
-                showArrow
-                onClick={onNavigate ? () => onNavigate("prestamos", { soloCuotasEndeudamiento: true }) : undefined}
-                tooltip="Ver los préstamos cuyas cuotas conforman este monto"
+                onClick={
+                  onNavigate
+                    ? () => {
+                        const esMovil = typeof window !== "undefined" && window.innerWidth <= 640;
+                        if (esMovil) {
+                          onNavigate("asistente-endeudamiento", { enfoque: "cuotas" });
+                        } else {
+                          onNavigate("prestamos", { soloCuotasEndeudamiento: true });
+                        }
+                      }
+                    : undefined
+                }
+                tooltip="Ver el detalle de los préstamos que conforman este monto"
               />
               <MiniStat
                 icon={CreditCard}
@@ -3593,8 +3621,8 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
                 value={formatMoney(pagoTarjetas)}
                 color="var(--stamp)"
                 compact
-                onClick={onNavigate ? () => onNavigate("tarjetas") : undefined}
-                tooltip="Ver tarjetas de crédito"
+                onClick={onNavigate ? () => onNavigate("asistente-endeudamiento", { enfoque: "tarjetas" }) : undefined}
+                tooltip="Ver detalle de tarjetas y significado de estas deudas"
               />
               <MiniStat
                 icon={CreditCard}
@@ -3602,8 +3630,8 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
                 value={formatMoney(deudaTotalTarjetas)}
                 color="var(--stamp)"
                 compact
-                onClick={onNavigate ? () => onNavigate("tarjetas") : undefined}
-                tooltip="Ver saldo total de tarjetas"
+                onClick={onNavigate ? () => onNavigate("asistente-endeudamiento", { enfoque: "tarjetas" }) : undefined}
+                tooltip="Ver detalle de deuda total en el asistente"
               />
             </div>
           </>
@@ -4219,16 +4247,12 @@ function InfoTooltip({ children }) {
   );
 }
 
-function MiniStat({ icon: Icon, label, value, color, compact, onClick, tooltip, showArrow }) {
+function MiniStat({ icon: Icon, label, value, color, compact, onClick, tooltip }) {
   const interactive = typeof onClick === "function";
-  const interactiveClass = interactive
-    ? `despensa-ministat-interactive${showArrow ? " despensa-ministat-highlight" : ""}`
-    : undefined;
   return (
     <div
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
-      className={interactiveClass}
       onClick={onClick}
       onKeyDown={
         interactive
@@ -4241,7 +4265,12 @@ function MiniStat({ icon: Icon, label, value, color, compact, onClick, tooltip, 
           : undefined
       }
       title={tooltip || (compact ? `${label}: ${value}` : undefined)}
-      style={{ minWidth: 0 }}
+      style={{
+        minWidth: 0,
+        cursor: interactive ? "pointer" : "default",
+        touchAction: interactive ? "manipulation" : undefined,
+        WebkitTapHighlightColor: interactive ? "transparent" : undefined,
+      }}
     >
       <div
         style={{
@@ -4259,21 +4288,11 @@ function MiniStat({ icon: Icon, label, value, color, compact, onClick, tooltip, 
         }}
       >
         <Icon size={compact ? 10 : 11} style={{ flexShrink: 0 }} />
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{label}</span>
-        {interactive && showArrow && <span style={{ fontSize: 9.5, opacity: 0.85, flexShrink: 0, color: "var(--stamp)" }}>↗</span>}
+        {label}
       </div>
       <div
         className="despensa-mono"
-        style={{
-          fontSize: compact ? 12 : 14,
-          fontWeight: 600,
-          color,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          textDecoration: interactive && showArrow ? "underline dotted" : "none",
-          textUnderlineOffset: interactive && showArrow ? 3 : undefined,
-        }}
+        style={{ fontSize: compact ? 12 : 14, fontWeight: 600, color, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
       >
         {value}
       </div>
