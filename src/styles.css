@@ -978,19 +978,58 @@ button:active {
   overflow-x: auto;
 }
 .despensa-acciones-card {
-  flex: 0 0 120px;
+  flex: 0 0 128px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.despensa-acciones-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-top: 3px;
+}
+.despensa-acciones-buy {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--sage);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
 }
 
 /* En móvil, en vez de una sola fila con scroll lateral, se acomodan en una
-   cuadrícula de 3 columnas (ej. 6 acciones = 2 filas de 3). */
+   cuadrícula de 3 columnas ajustadas sin desbordamiento horizontal. */
 @media (max-width: 640px) {
   .despensa-acciones-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
     overflow-x: visible;
   }
   .despensa-acciones-card {
     flex: none;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    padding: 9px 8px 8px !important;
+  }
+  .despensa-acciones-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    margin-top: 4px;
+  }
+  .despensa-acciones-buy {
+    font-size: 9.5px;
+  }
+}
+
+@media (max-width: 360px) {
+  .despensa-acciones-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1044,7 +1083,7 @@ button:active {
 /* Transición suave entre pestañas y vistas (evita saltos bruscos) */
 .tab-content-enter {
   animation: tabFadeSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: opacity, transform;
+  will-change: opacity;
 }
 
 @keyframes tabFadeSlideIn {

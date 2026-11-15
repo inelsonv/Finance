@@ -52,8 +52,8 @@ export default function Inversion({ cuentas, movimientos }) {
 
   return (
     <div>
-      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginBottom: 16, display: "inline-flex", gap: 6, alignItems: "baseline" }}>
-        <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>Total invertido (saldo inicial + aportes):</span>
+      <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginBottom: 16, display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 6, alignItems: "baseline", width: "100%", boxSizing: "border-box" }}>
+        <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>Total invertido (saldo inicial + aportes):</span>
         <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 600, color: "var(--sage)" }}>{formatMoney(totalGeneral)}</span>
       </div>
 
@@ -63,12 +63,12 @@ export default function Inversion({ cuentas, movimientos }) {
           const totalAportes = aportes?.total || 0;
           const totalCuenta = (c.saldoInicial || 0) + totalAportes;
           return (
-            <div key={c.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <LineChart size={14} style={{ color: "var(--sage)" }} />
-                    <span style={{ fontSize: 14, fontWeight: 500 }}>{c.nombre}</span>
+            <div key={c.id} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 14px", width: "100%", boxSizing: "border-box" }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                <div style={{ minWidth: 0, flex: "1 1 180px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <LineChart size={14} style={{ color: "var(--sage)", flexShrink: 0 }} />
+                    <span style={{ fontSize: 14, fontWeight: 500, wordBreak: "break-word" }}>{c.nombre}</span>
                     <span
                       className="despensa-mono"
                       style={{ fontSize: 10, padding: "1px 7px", borderRadius: 12, background: "var(--sage-bg)", color: "var(--sage)" }}
@@ -76,28 +76,28 @@ export default function Inversion({ cuentas, movimientos }) {
                       {c.tipo}
                     </span>
                   </div>
-                  <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 3, display: "flex", alignItems: "center", gap: 5 }}>
-                    <Landmark size={11} />
-                    {c.entidadName || "Entidad no especificada"}
+                  <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 3, display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
+                    <Landmark size={11} style={{ flexShrink: 0 }} />
+                    <span>{c.entidadName || "Entidad no especificada"}</span>
                     {c.numeroCuenta && <span className="despensa-mono"> · {c.numeroCuenta}</span>}
                   </div>
                 </div>
-                <div style={{ textAlign: "right" }}>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <div className="despensa-mono" style={{ fontSize: 17, fontWeight: 700, color: "var(--sage)" }}>{formatMoney(totalCuenta)}</div>
                   <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>total invertido</div>
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
-                <div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 10, borderTop: "1px solid var(--line-soft)", paddingTop: 8 }}>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Saldo inicial</div>
                   <div className="despensa-mono" style={{ fontSize: 13, marginTop: 2 }}>{c.saldoInicial != null ? formatMoney(c.saldoInicial) : "—"}</div>
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>Aportes registrados</div>
                   <div className="despensa-mono" style={{ fontSize: 13, marginTop: 2 }}>{formatMoney(totalAportes)}</div>
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}># Movimientos</div>
                   <div className="despensa-mono" style={{ fontSize: 13, marginTop: 2 }}>{aportes?.movimientos.length || 0}</div>
                 </div>
@@ -110,12 +110,12 @@ export default function Inversion({ cuentas, movimientos }) {
                     .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
                     .slice(0, 5)
                     .map((m, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, padding: "3px 0" }}>
-                        <span style={{ color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4 }}>
-                          <TrendingUp size={11} /> {formatDateDisplay(m.date)}
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 11.5, padding: "3px 0" }}>
+                        <span style={{ color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <TrendingUp size={11} style={{ flexShrink: 0 }} /> {formatDateDisplay(m.date)}
                           {m.description && <> · {m.description}</>}
                         </span>
-                        <span className="despensa-mono" style={{ color: "var(--sage)" }}>{formatMoney(m.amount)}</span>
+                        <span className="despensa-mono" style={{ color: "var(--sage)", flexShrink: 0 }}>{formatMoney(m.amount)}</span>
                       </div>
                     ))}
                 </div>

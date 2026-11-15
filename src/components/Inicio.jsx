@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -2282,7 +2283,7 @@ function StocksCard({ cuentas = [], onNavigate }) {
                 >
                   <X size={11} />
                 </button>
-                <div className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 700 }}>{a.symbol}</div>
+                <div className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 700, paddingRight: 16, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.symbol}</div>
                 {a.nombre && (
                   <div style={{ fontSize: 10, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {a.nombre}
@@ -2290,26 +2291,26 @@ function StocksCard({ cuentas = [], onNavigate }) {
                 )}
                 {p && p.price != null ? (
                   <>
-                    <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, marginTop: 6 }}>${p.price.toFixed(2)}</div>
+                    <div className="despensa-mono" style={{ fontSize: 15, fontWeight: 700, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>${p.price.toFixed(2)}</div>
                     {tipoCambioUSD && (
-                      <div className="despensa-mono" style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+                      <div className="despensa-mono" style={{ fontSize: 10, color: "var(--ink-soft)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         RD${(p.price * tipoCambioUSD).toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     )}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginTop: 2 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: up ? "var(--sage)" : "var(--stamp)" }}>
+                    <div className="despensa-acciones-footer">
+                      <div style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 10.5, color: up ? "var(--sage)" : "var(--stamp)", whiteSpace: "nowrap" }}>
                         {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
                         {p.change != null ? `${p.change.toFixed(2)}%` : ""}
                       </div>
-                      <span style={{ fontSize: 9.5, fontWeight: 600, color: "var(--sage)", display: "inline-flex", alignItems: "center", gap: 2 }}>
+                      <span className="despensa-acciones-buy">
                         Comprar <ExternalLink size={9} />
                       </span>
                     </div>
                   </>
                 ) : (
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+                  <div className="despensa-acciones-footer" style={{ marginTop: 6 }}>
                     <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>{loadingPrices ? "…" : "—"}</span>
-                    <span style={{ fontSize: 9.5, fontWeight: 600, color: "var(--sage)", display: "inline-flex", alignItems: "center", gap: 2 }}>
+                    <span className="despensa-acciones-buy">
                       Comprar <ExternalLink size={9} />
                     </span>
                   </div>
@@ -2337,19 +2338,26 @@ function StocksCard({ cuentas = [], onNavigate }) {
           { nombre: "Yahoo Finance", desc: `Cotización y gráfica ${symUpper}`, url: `https://finance.yahoo.com/quote/${symUpper}` },
         ];
 
-        return (
+        const modalNode = (
           <div
             onClick={() => !guardandoCompra && setAccionSeleccionada(null)}
             style={{
               position: "fixed",
-              inset: 0,
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: "100vw",
+              height: "100dvh",
               background: "rgba(0,0,0,0.55)",
               backdropFilter: "blur(3px)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               zIndex: 9999,
-              padding: 16,
+              padding: "12px",
+              boxSizing: "border-box",
+              overflowY: "auto",
             }}
           >
             <div
@@ -2359,10 +2367,12 @@ function StocksCard({ cuentas = [], onNavigate }) {
                 border: "1px solid var(--line)",
                 borderRadius: 14,
                 width: "100%",
-                maxWidth: 480,
-                maxHeight: "90vh",
+                maxWidth: 460,
+                maxHeight: "calc(100dvh - 24px)",
+                margin: "auto",
                 overflowY: "auto",
-                padding: "18px 20px",
+                padding: "16px",
+                boxSizing: "border-box",
                 boxShadow: "0 20px 30px rgba(0,0,0,0.28)",
               }}
             >
@@ -2469,8 +2479,8 @@ function StocksCard({ cuentas = [], onNavigate }) {
                   </div>
                 ) : (
                   <>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
-                      <div>
+                    <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+                      <div style={{ minWidth: 0 }}>
                         <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 4 }}>Cantidad</label>
                         <input
                           type="number"
@@ -2479,10 +2489,10 @@ function StocksCard({ cuentas = [], onNavigate }) {
                           value={cantidadCompra}
                           onChange={(e) => setCantidadCompra(e.target.value)}
                           className="despensa-mono"
-                          style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                          style={{ width: "100%", minWidth: 0, boxSizing: "border-box", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                         />
                       </div>
-                      <div>
+                      <div style={{ minWidth: 0 }}>
                         <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 4 }}>Precio (US$)</label>
                         <input
                           type="number"
@@ -2492,18 +2502,18 @@ function StocksCard({ cuentas = [], onNavigate }) {
                           onChange={(e) => setPrecioCompraUSD(e.target.value)}
                           placeholder="0.00"
                           className="despensa-mono"
-                          style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                          style={{ width: "100%", minWidth: 0, boxSizing: "border-box", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
                         />
                       </div>
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-                      <div>
+                    <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                      <div style={{ minWidth: 0 }}>
                         <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 4 }}>Cuenta de inversión</label>
                         <select
                           value={cuentaInversionId}
                           onChange={(e) => setCuentaInversionId(e.target.value)}
-                          style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
+                          style={{ width: "100%", minWidth: 0, boxSizing: "border-box", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
                         >
                           <option value="">Sin cuenta específica</option>
                           {cuentasInversion.map((c) => (
@@ -2513,14 +2523,14 @@ function StocksCard({ cuentas = [], onNavigate }) {
                           ))}
                         </select>
                       </div>
-                      <div>
+                      <div style={{ minWidth: 0 }}>
                         <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 4 }}>Fecha</label>
                         <input
                           type="date"
                           value={fechaCompra}
                           onChange={(e) => setFechaCompra(e.target.value)}
                           className="despensa-mono"
-                          style={{ width: "100%", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5 }}
+                          style={{ width: "100%", minWidth: 0, boxSizing: "border-box", padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5 }}
                         />
                       </div>
                     </div>
@@ -2580,6 +2590,7 @@ function StocksCard({ cuentas = [], onNavigate }) {
             </div>
           </div>
         );
+        return typeof document !== "undefined" ? createPortal(modalNode, document.body) : modalNode;
       })()}
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
@@ -3064,19 +3075,23 @@ function PlatoSugeridoCard({ products = [], onNavigate }) {
       </div>
 
       {/* Modal interactivo con receta completa */}
-      {modalAbierto && (
+      {modalAbierto && (() => {
+        const recipeModal = (
         <div
           onClick={() => setModalAbierto(false)}
           style={{
             position: "fixed",
             inset: 0,
+            width: "100vw",
+            height: "100dvh",
             background: "rgba(0, 0, 0, 0.65)",
             backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             zIndex: 9999,
-            padding: 16,
+            padding: 14,
+            boxSizing: "border-box",
           }}
         >
           <div
@@ -3087,7 +3102,8 @@ function PlatoSugeridoCard({ products = [], onNavigate }) {
               borderRadius: 14,
               width: "100%",
               maxWidth: 500,
-              maxHeight: "90vh",
+              maxHeight: "calc(100dvh - 28px)",
+              margin: "auto",
               overflowY: "auto",
               boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
               display: "flex",
@@ -3254,7 +3270,9 @@ function PlatoSugeridoCard({ products = [], onNavigate }) {
             </div>
           </div>
         </div>
-      )}
+        );
+        return typeof document !== "undefined" ? createPortal(recipeModal, document.body) : recipeModal;
+      })()}
     </>
   );
 }
@@ -3874,19 +3892,23 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
       )}
 
       {/* Modal para agregar y quitar módulos */}
-      {modalModulosAbierto && (
+      {modalModulosAbierto && (() => {
+        const modulosModal = (
         <div
           onClick={() => setModalModulosAbierto(false)}
           style={{
             position: "fixed",
             inset: 0,
+            width: "100vw",
+            height: "100dvh",
             background: "rgba(0, 0, 0, 0.6)",
             backdropFilter: "blur(3px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             zIndex: 9999,
-            padding: 16,
+            padding: 14,
+            boxSizing: "border-box",
           }}
         >
           <div
@@ -3897,7 +3919,8 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
               borderRadius: 14,
               width: "100%",
               maxWidth: 580,
-              maxHeight: "88vh",
+              maxHeight: "calc(100dvh - 28px)",
+              margin: "auto",
               display: "flex",
               flexDirection: "column",
               boxShadow: "0 20px 40px rgba(0,0,0,0.35)",
@@ -4090,7 +4113,9 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
             </div>
           </div>
         </div>
-      )}
+        );
+        return typeof document !== "undefined" ? createPortal(modulosModal, document.body) : modulosModal;
+      })()}
     </div>
   );
 }
