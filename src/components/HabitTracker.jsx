@@ -406,7 +406,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
       </div>
 
       <div style={{ marginBottom: 18 }}>
-        <span className="despensa-tab-font" style={{ fontSize: 17, fontWeight: 700 }}>Salud y Hábitos</span>
+        <span className="despensa-tab-font" style={{ fontSize: 17, fontWeight: 700 }}>Hábitos</span>
       </div>
 
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, marginBottom: 20, overflow: "hidden" }}>
@@ -533,6 +533,10 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
         >
           {showForm ? <X size={13} /> : <Plus size={13} />} {showForm ? "Cancelar" : "Nuevo hábito"}
         </button>
+      </div>
+
+      <div style={{ background: "var(--sage-bg)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginBottom: 14, fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.5 }}>
+        Cada hábito de salud cumplido suma <strong style={{ color: "var(--sage)" }}>5 puntos</strong> a tu saldo de recompensas. Las tareas completadas desde el Calendario suman <strong style={{ color: "var(--sage)" }}>50 puntos</strong>. Puedes canjearlos en Puntos.
       </div>
 
       {showForm && (
@@ -772,7 +776,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
                     <GripVertical size={14} />
                   </div>
                   <button
-                    onClick={() => toggleHabitoRegistro(h.id, periodoActual, h.nombre)}
+                    onClick={() => toggleHabitoRegistro(h.id, periodoActual, h.nombre, h.categoria || "Salud")}
                     title={cumplidoHoy ? `Cumplido ${etiquetaPeriodo} — toca para desmarcar` : `Marcar ${etiquetaPeriodo}`}
                     style={{
                       position: "relative",

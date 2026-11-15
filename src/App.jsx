@@ -403,7 +403,7 @@ export default function App() {
         const periodoActual = periodoDeFecha(habitoBiblia.frecuencia || "Diario", new Date());
         const yaMarcado = (habitosRegistro || []).some((r) => r.habitoId === habitoBiblia.id && r.fecha === periodoActual);
         if (!yaMarcado) {
-          toggleHabitoRegistro(habitoBiblia.id, periodoActual, habitoBiblia.nombre).catch((err) =>
+          toggleHabitoRegistro(habitoBiblia.id, periodoActual, habitoBiblia.nombre, habitoBiblia.categoria || "Salud").catch((err) =>
             console.error("No se pudo marcar el hábito de lectura bíblica:", err)
           );
         }

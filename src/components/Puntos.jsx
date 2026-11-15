@@ -401,7 +401,7 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
           </div>
         ) : puntos <= 0 ? (
           <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-            Todavía no tienes puntos acumulados. Se ganan al pagar préstamos, gastos fijos, y aportar a tus metas de ahorro.
+            Todavía no tienes puntos acumulados. Puedes ganarlos al cumplir hábitos, completar tareas, pagar préstamos o gastos fijos, y aportar a tus metas de ahorro.
           </div>
         ) : (
           <>

@@ -89,7 +89,8 @@ const NAV_ITEMS = [
   },
   { id: "entidades", label: "Entidades", icon: Landmark },
   { id: "wallet", label: "Wallet", icon: WalletIcon },
-  { id: "habitos", label: "Salud", icon: HeartPulse },
+  { id: "biblioteca", label: "Biblioteca", icon: Library },
+  { id: "habitos", label: "Hábitos", icon: HeartPulse },
   { id: "mapa-progreso", label: "Mapa de progreso", icon: MapIcon },
 ];
 
