@@ -1173,7 +1173,7 @@ function TarjetaOrdenCompraChat({
 }
 
 function BannerGuardianFinanciero({ tarjetas = [], prestamos = [], onPreguntar, onNavigate, onClose }) {
-  const [colapsado, setColapsado] = useState(false);
+  const [colapsado, setColapsado] = useState(() => (typeof window !== "undefined" ? window.innerWidth <= 640 : false));
 
   const tarjetasAlerta = (tarjetas || []).filter((t) => {
     const sRD = Number(t.saldoActual) || 0;
@@ -1189,6 +1189,7 @@ function BannerGuardianFinanciero({ tarjetas = [], prestamos = [], onPreguntar, 
   return (
     <div
       style={{
+        flexShrink: 0,
         padding: "10px 12px",
         borderRadius: 14,
         background: haySobregiro
@@ -2320,8 +2321,12 @@ export default function Asistente({
   const consultaEndeudamientoProcesadaRef = useRef(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [mensajes, enviando, transcripcionParcial]);
+    const el = scrollRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+  }, [mensajes, enviando, transcripcionParcial, cargandoMensajes, chatId]);
 
   useEffect(() => {
     if (!consultaEndeudamientoPendiente || cargandoChats || cargandoMensajes) return;
@@ -3159,8 +3164,8 @@ export default function Asistente({
   };
 
   return (
-      <div className="despensa-asistente" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)", maxHeight: 640 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+      <div className="despensa-asistente" style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 160px)", maxHeight: 640, minHeight: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexShrink: 0 }}>
         <AgenteAvatar
           tarjetas={tarjetas}
           prestamos={prestamos}
@@ -3220,13 +3225,29 @@ export default function Asistente({
           value={chatId || ""}
           onChange={(e) => { setError(null); setChatId(e.target.value); }}
           disabled={enviando || cargandoChats || cargandoMensajes || procesandoFactura}
-          style={{ width: "100%", marginBottom: 10, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 9, background: "var(--card)", color: "var(--ink)", fontSize: 12.5 }}
+          style={{ width: "100%", marginBottom: 10, padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 9, background: "var(--card)", color: "var(--ink)", fontSize: 12.5, flexShrink: 0 }}
         >
           {chats.map((chat) => <option key={chat.id} value={chat.id}>{chat.titulo || "Conversación"}</option>)}
         </select>
       )}
 
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10, paddingRight: 4 }}>
+      <div
+        ref={scrollRef}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+          WebkitOverflowScrolling: "touch",
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          paddingRight: 4,
+        }}
+      >
+        {(mensajes.length > 0 || pagoDeudaDetectado) && !cargandoMensajes && (
+          <div style={{ marginTop: "auto" }} />
+        )}
         {pagoDeudaDetectado && (
           <div
             style={{
@@ -3514,7 +3535,7 @@ export default function Asistente({
         )}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--line-soft)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--line-soft)", flexShrink: 0 }}>
         <input
           ref={fileInputRef}
           type="file"
@@ -3588,7 +3609,7 @@ export default function Asistente({
           }
           maxLength={2000}
           disabled={procesandoFactura || enviando || cargandoChats || cargandoMensajes}
-          style={{ flex: 1, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 13.5 }}
+          style={{ flex: 1, minWidth: 0, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 10, fontSize: 13.5 }}
         />
         <button
           onClick={() => enviarPregunta()}

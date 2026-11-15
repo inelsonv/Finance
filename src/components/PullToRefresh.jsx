@@ -4,13 +4,19 @@ import { RefreshCw } from "lucide-react";
 const UMBRAL = 70;
 const MAX_PULL = 110;
 
-export default function PullToRefresh() {
+export default function PullToRefresh({ disabled = false }) {
   const [pull, setPull] = useState(0);
   const [refrescando, setRefrescando] = useState(false);
   const startY = useRef(null);
   const activo = useRef(false);
 
   useEffect(() => {
+    if (disabled) {
+      setPull(0);
+      activo.current = false;
+      startY.current = null;
+      return undefined;
+    }
     const onTouchStart = (e) => {
       if (window.scrollY <= 0 && !refrescando) {
         startY.current = e.touches[0].clientY;

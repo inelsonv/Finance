@@ -1014,7 +1014,7 @@ export default function App() {
         seguros={seguros}
         checklistTodos={checklistTodos}
       />
-      <PullToRefresh />
+      <PullToRefresh disabled={tab === "asistente"} />
       <main className={`despensa-main${tab === "asistente" ? " despensa-main--assistant" : ""}`}>
         <div className="despensa-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexWrap: "nowrap", gap: 8, minWidth: 0 }}>
           <div className={`despensa-header-left${searchOpen ? " despensa-header-left--search-open" : ""}`} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, overflow: "hidden" }}>
