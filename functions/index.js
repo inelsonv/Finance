@@ -1093,6 +1093,106 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
   }
 });
 
+// ---- Registrar gasto desde Apple Pay (Atajo de iOS) ----
+// Lo llama una automatización de Atajos ("Transacción" de Wallet). Cada
+// automatización envía los últimos 4 dígitos fijos de su tarjeta. Reutiliza
+// el mismo secreto del webhook de correo. Si la tarjeta ya está en
+// config/integracionCorreo.tarjetas, se omite porque la cubre el correo.
+exports.registrarGastoDesdeAtajo = onRequest({ secrets: [emailWebhookSecret] }, async (req, res) => {
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Método no permitido" });
+    return;
+  }
+  if (req.get("x-webhook-secret") !== emailWebhookSecret.value()) {
+    res.status(401).json({ error: "No autorizado" });
+    return;
+  }
+
+  const { monto, comercio, ultimos4 } = req.body || {};
+  // El atajo envía el monto como texto (ej. "RD$ 1,250.50"); se normaliza.
+  let montoTxt = String(monto ?? "").replace(/[^\d.,]/g, "");
+  if (montoTxt.lastIndexOf(",") > montoTxt.lastIndexOf(".")) {
+    montoTxt = montoTxt.replace(/\./g, "").replace(",", ".");
+  } else {
+    montoTxt = montoTxt.replace(/,/g, "");
+  }
+  const montoNum = parseFloat(montoTxt);
+  if (!Number.isFinite(montoNum) || montoNum <= 0 || !ultimos4) {
+    res.status(400).json({ error: "Faltan datos válidos (monto o ultimos4)" });
+    return;
+  }
+
+  try {
+    const configSnap = await db.collection("config").doc("integracionCorreo").get();
+    const config = configSnap.exists() ? configSnap.data() : {};
+    if (Array.isArray(config.tarjetas) && config.tarjetas.includes(String(ultimos4))) {
+      res.status(200).json({ ok: true, omitido: true, motivo: "Tarjeta cubierta por la integración de correo" });
+      return;
+    }
+
+    const tarjetasSnap = await db.collection("tarjetas").where("ultimos4", "==", String(ultimos4)).limit(1).get();
+    if (tarjetasSnap.empty) {
+      res.status(404).json({ error: `No se encontró ninguna tarjeta terminada en ${ultimos4}` });
+      return;
+    }
+    const tarjetaDoc = tarjetasSnap.docs[0];
+    const tarjeta = tarjetaDoc.data();
+
+    // Fecha local de República Dominicana (YYYY-MM-DD)
+    const fecha = new Date().toLocaleDateString("en-CA", { timeZone: "America/Santo_Domingo" });
+    const comercioTxt = String(comercio || "").trim();
+
+    // Anti doble disparo: mismo comercio + monto + tarjeta en los últimos 2 minutos
+    const hace2min = new Date(Date.now() - 2 * 60 * 1000);
+    const recientes = await db
+      .collection("movimientos")
+      .where("createdAt", ">=", hace2min)
+      .get();
+    const repetido = recientes.docs.some((d) => {
+      const m = d.data();
+      return m.origenAutomatico === "apple-pay" && m.amount === montoNum && m.description === comercioTxt && m.tarjetaId === tarjetaDoc.id;
+    });
+    if (repetido) {
+      res.status(200).json({ ok: true, duplicado: true });
+      return;
+    }
+
+    const fechaPagoTarjeta = calcularFechaPagoTarjetaServer(tarjeta, fecha);
+
+    const movRef = await db.collection("movimientos").add({
+      type: "Gasto",
+      category: "Otros Gastos",
+      amount: montoNum,
+      description: comercioTxt,
+      date: fecha,
+      clasificacion: "Variable",
+      metodoPago: "Tarjeta de crédito",
+      tarjetaId: tarjetaDoc.id,
+      tarjetaNombre: tarjeta.nombre || "",
+      monedaTarjeta: "RDS",
+      fechaPagoTarjeta,
+      pagado: false,
+      origenAutomatico: "apple-pay",
+      createdAt: new Date(),
+    });
+
+    await db.collection("puntosHistorial").add({
+      motivo: `Gasto detectado automáticamente: ${comercioTxt || "compra"}`,
+      puntos: 10,
+      tipo: "registro",
+      movimientoId: movRef.id,
+      fecha,
+      createdAt: new Date(),
+    });
+    await db.collection("config").doc("puntos").set({ total: FieldValue.increment(10) }, { merge: true });
+
+    res.status(200).json({ ok: true, movimientoId: movRef.id, fechaPagoTarjeta });
+  } catch (err) {
+    console.error("Error registrando gasto desde Apple Pay:", err);
+    res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
 // ---- Asistente conversacional de finanzas ----
 // Recibe un resumen financiero compacto y un historial corto. Responde con
 // Groq GPT-OSS 20B; el cliente conserva las conversaciones en Firestore.
