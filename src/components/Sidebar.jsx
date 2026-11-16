@@ -24,6 +24,7 @@ import {
   HeartPulse,
   Map as MapIcon,
   Bot,
+  Library,
 } from "lucide-react";
 import SmartFinanceLogo, { SmartFinanceMark } from "./SmartFinanceLogo.jsx";
 
