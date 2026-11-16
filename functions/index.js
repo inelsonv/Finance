@@ -1006,7 +1006,7 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
   // Respeta el interruptor configurado desde la app — si está apagado, no
   // se registra nada, aunque el Apps Script siga llamando cada 15 min.
   const configSnap = await db.collection("config").doc("integracionCorreo").get();
-  const config = configSnap.exists() ? configSnap.data() : { activo: true, tarjetas: [] };
+  const config = configSnap.exists ? configSnap.data() : { activo: true, tarjetas: [] };
   const actualizarEstado = async (extra) => {
     await db
       .collection("estado")
@@ -1124,7 +1124,7 @@ exports.registrarGastoDesdeAtajo = onRequest({ secrets: [emailWebhookSecret] }, 
 
   try {
     const configSnap = await db.collection("config").doc("integracionCorreo").get();
-    const config = configSnap.exists() ? configSnap.data() : {};
+    const config = configSnap.exists ? configSnap.data() : {};
     if (Array.isArray(config.tarjetas) && config.tarjetas.includes(String(ultimos4))) {
       res.status(200).json({ ok: true, omitido: true, motivo: "Tarjeta cubierta por la integración de correo" });
       return;
