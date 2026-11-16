@@ -1134,6 +1134,32 @@ function inferirCategoriaGasto(comercio, categoriasDocs) {
   return "Otros Gastos";
 }
 
+// El Atajo puede enviar JSON ({monto, comercio, ultimos4, fecha?, idLocal?}) o
+// una línea de texto "idLocal|fecha|monto|comercio|ultimos4" (la que guarda el
+// atajo en el iPhone cuando no hay internet y reenvía después).
+function parsearCuerpoAtajo(req) {
+  let b = req.body;
+  if (Buffer.isBuffer(b)) b = b.toString("utf8");
+  if ((!b || (typeof b === "object" && Object.keys(b).length === 0)) && req.rawBody && req.rawBody.length) {
+    b = req.rawBody.toString("utf8");
+  }
+  if (typeof b === "string") {
+    const linea = b.split(/\r?\n/).find((l) => l.trim()) || "";
+    const partes = linea.split("|").map((x) => x.trim());
+    if (partes.length >= 5) {
+      return {
+        idLocal: partes[0],
+        fecha: partes[1],
+        monto: partes[2],
+        comercio: partes.slice(3, -1).join("|"),
+        ultimos4: partes[partes.length - 1],
+      };
+    }
+    return {};
+  }
+  return b || {};
+}
+
 // ---- Registrar gasto desde Apple Pay (Atajo de iOS) ----
 // Lo llama una automatización de Atajos ("Transacción" de Wallet). Cada
 // automatización envía los últimos 4 dígitos fijos de su tarjeta. Reutiliza
@@ -1149,7 +1175,7 @@ exports.registrarGastoDesdeAtajo = onRequest({ secrets: [emailWebhookSecret] }, 
     return;
   }
 
-  const { monto, comercio, ultimos4 } = req.body || {};
+  const { monto, comercio, ultimos4, fecha: fechaEntrada, idLocal: idLocalEntrada } = parsearCuerpoAtajo(req);
   // El atajo envía el monto como texto (ej. "RD$ 1,250.50"); se normaliza.
   let montoTxt = String(monto ?? "").replace(/[^\d.,]/g, "");
   if (montoTxt.lastIndexOf(",") > montoTxt.lastIndexOf(".")) {
@@ -1179,9 +1205,28 @@ exports.registrarGastoDesdeAtajo = onRequest({ secrets: [emailWebhookSecret] }, 
     const tarjetaDoc = tarjetasSnap.docs[0];
     const tarjeta = tarjetaDoc.data();
 
-    // Fecha local de República Dominicana (YYYY-MM-DD)
-    const fecha = new Date().toLocaleDateString("en-CA", { timeZone: "America/Santo_Domingo" });
+    // Fecha local de República Dominicana (YYYY-MM-DD). Si el atajo manda la fecha
+    // real de la compra (registro diferido sin internet), se usa solo si es
+    // válida, no es futura (más de 1 día) y no tiene más de 60 días.
+    const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Santo_Domingo" });
+    let fecha = hoy;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(fechaEntrada || ""))) {
+      const dif = (new Date(hoy + "T00:00:00Z") - new Date(fechaEntrada + "T00:00:00Z")) / 86400000;
+      if (Number.isFinite(dif) && dif >= -1 && dif <= 60) fecha = fechaEntrada;
+    }
     const comercioTxt = String(comercio || "").trim();
+
+    // Identificador de la compra generado en el teléfono: evita duplicados si el
+    // atajo reenvía una compra que ya había llegado.
+    const idLocal = String(idLocalEntrada || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40);
+    const movId = idLocal ? `atajo_${String(ultimos4)}_${idLocal}` : null;
+    if (movId) {
+      const yaExiste = await db.collection("movimientos").doc(movId).get();
+      if (yaExiste.exists) {
+        res.status(200).json({ ok: true, duplicado: true });
+        return;
+      }
+    }
 
     // Anti doble disparo: mismo comercio + monto + tarjeta en los últimos 2 minutos
     const hace2min = new Date(Date.now() - 2 * 60 * 1000);
@@ -1203,7 +1248,8 @@ exports.registrarGastoDesdeAtajo = onRequest({ secrets: [emailWebhookSecret] }, 
     const categoriasSnap = await db.collection("categoriasGasto").get();
     const categoria = inferirCategoriaGasto(comercioTxt, categoriasSnap.docs.map((d) => d.data()));
 
-    const movRef = await db.collection("movimientos").add({
+    const movRef = movId ? db.collection("movimientos").doc(movId) : db.collection("movimientos").doc();
+    await movRef.set({
       type: "Gasto",
       category: categoria,
       amount: montoNum,
