@@ -49,6 +49,7 @@ const MODULOS = [
   { nombre: "Catálogo", tab: "catalogo" },
   { nombre: "Órdenes de compra", tab: "ordenes-compra" },
   { nombre: "Entidades", tab: "entidades" },
+  { nombre: "Salud y Hábitos", tab: "habitos" },
   { nombre: "Configuración", tab: "configuracion" },
   { nombre: "Registrar compra (factura)", tab: "escanear-factura" },
 ];

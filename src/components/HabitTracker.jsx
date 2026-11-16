@@ -141,8 +141,28 @@ const ICONOS_HABITO = {
   piggyBank: PiggyBank,
 };
 
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+const HABITOS_SUGERIDOS = [
+  { nombre: "Oración", icono: "prayingHands", frecuencia: "Diario", categoria: "Salud", detalle: "Tiempo diario de oración" },
+  { nombre: "Consumo de agua", icono: "droplet", frecuencia: "Diario", categoria: "Salud", detalle: "Hidratación diaria recomendada" },
+  { nombre: "Lectura", icono: "book", frecuencia: "Diario", categoria: "Salud", detalle: "Lectura diaria (15-20 min)" },
+  { nombre: "Lectura de la Biblia", icono: "church", frecuencia: "Diario", categoria: "Salud", detalle: "Se marca al leer el versículo" },
+  { nombre: "Ejercicio", icono: "dumbbell", frecuencia: "Diario", categoria: "Salud", detalle: "Entrenamiento o caminata" },
+  { nombre: "Buena alimentación", icono: "salad", frecuencia: "Diario", categoria: "Salud", detalle: "Comidas nutritivas" },
+  { nombre: "Dormir 8 horas", icono: "moon", frecuencia: "Diario", categoria: "Salud", detalle: "Descanso saludable" },
+  { nombre: "Gratitud", icono: "sparkles", frecuencia: "Diario", categoria: "Salud", detalle: "Reflexión positiva del día" },
+];
+
+function normalizarNombreHabito(str) {
+  return (str || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function esHabitoAgua(h) {
+  const n = normalizarNombreHabito(h?.nombre);
+  return h?.icono === "droplet" || n.includes("agua") || n.includes("hidrat");
 }
 
 export default function HabitTracker({ habitos, habitosRegistro, datosCorporales, products = [], historialCompras = [] }) {
@@ -199,6 +219,18 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
   const imc = calcularIMC(parseFloat(peso), parseFloat(estatura));
   const imcClasificacion = clasificarIMC(imc);
 
+  const [showSugerencias, setShowSugerencias] = useState(false);
+  const [addingPreset, setAddingPreset] = useState(null);
+  const [vasosAguaHoy, setVasosAguaHoy] = useState(() => {
+    try {
+      const clave = `smart-finance-agua-${periodoDeFecha("Diario", new Date())}`;
+      const raw = localStorage.getItem(clave);
+      const parsed = raw ? parseInt(raw, 10) : 0;
+      return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+    } catch {
+      return 0;
+    }
+  });
   const [nombre, setNombre] = useState("");
   const [icono, setIcono] = useState("check");
   const [frecuencia, setFrecuencia] = useState("Diario");
@@ -207,7 +239,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
-  const hoy = new Date();
+  const hoy = useMemo(() => new Date(), []);
   const [dragId, setDragId] = useState(null);
   const [ordenLocal, setOrdenLocal] = useState(null);
 
@@ -312,19 +344,45 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
 
   const rachaMaxima = useMemo(() => {
     let max = 0;
-    const hoyStr = new Date().toISOString().slice(0, 10);
-    for (const h of habitos || []) {
+    for (const h of habitosOrdenados) {
       const fechas = fechasPorHabito[h.id] || [];
-      const r = calcularRachaHabito(fechas, h.frecuencia || "Diaria", hoyStr);
+      const r = calcularRachaHabito(fechas, h.frecuencia || "Diario", hoy);
       if (r > max) max = r;
     }
     return max;
-  }, [habitos, fechasPorHabito]);
+  }, [habitosOrdenados, fechasPorHabito, hoy]);
 
   const habitosCumplidosHoy = useMemo(() => {
-    const hoyStr = new Date().toISOString().slice(0, 10);
-    return (habitos || []).filter((h) => (fechasPorHabito[h.id] || []).includes(hoyStr)).length;
-  }, [habitos, fechasPorHabito]);
+    return habitosOrdenados.filter((h) => {
+      const periodo = periodoDeFecha(h.frecuencia || "Diario", hoy);
+      return (fechasPorHabito[h.id] || []).includes(periodo);
+    }).length;
+  }, [habitosOrdenados, fechasPorHabito, hoy]);
+
+  const nombresExistentesSet = useMemo(() => {
+    return new Set(habitosOrdenados.map((h) => normalizarNombreHabito(h.nombre)));
+  }, [habitosOrdenados]);
+
+  const metaVasosAgua = useMemo(() => {
+    if (!aguaRecomendada || aguaRecomendada <= 0) return 8;
+    return Math.max(6, Math.min(16, Math.round(aguaRecomendada / 250)));
+  }, [aguaRecomendada]);
+
+  const actualizarVasosAgua = async (delta, habitoAgua, yaCumplido) => {
+    const periodoHoy = periodoDeFecha("Diario", hoy);
+    const siguiente = Math.max(0, Math.min(20, vasosAguaHoy + delta));
+    setVasosAguaHoy(siguiente);
+    try {
+      localStorage.setItem(`smart-finance-agua-${periodoHoy}`, String(siguiente));
+    } catch {}
+    if (habitoAgua) {
+      if (siguiente >= metaVasosAgua && !yaCumplido) {
+        await toggleHabitoRegistro(habitoAgua.id, periodoHoy, habitoAgua.nombre, habitoAgua.categoria);
+      } else if (siguiente < metaVasosAgua && yaCumplido && delta < 0) {
+        await toggleHabitoRegistro(habitoAgua.id, periodoHoy, habitoAgua.nombre, habitoAgua.categoria);
+      }
+    }
+  };
 
   const handleAdd = async () => {
     if (!nombre.trim()) {
@@ -344,6 +402,30 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
       setError(err.message || String(err));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAgregarSugerido = async (preset) => {
+    if (nombresExistentesSet.has(normalizarNombreHabito(preset.nombre))) return;
+    setAddingPreset(preset.nombre);
+    try {
+      await addHabito(preset.nombre, preset.icono, preset.frecuencia, null, preset.categoria || "Salud");
+    } finally {
+      setAddingPreset(null);
+    }
+  };
+
+  const handleAgregarEsenciales = async () => {
+    const esenciales = HABITOS_SUGERIDOS.slice(0, 3); // Oración, Consumo de agua, Lectura
+    setAddingPreset("__esenciales__");
+    try {
+      for (const preset of esenciales) {
+        if (!nombresExistentesSet.has(normalizarNombreHabito(preset.nombre))) {
+          await addHabito(preset.nombre, preset.icono, preset.frecuencia, null, preset.categoria || "Salud");
+        }
+      }
+    } finally {
+      setAddingPreset(null);
     }
   };
 
@@ -400,13 +482,13 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
         <div style={{ display: "flex", alignItems: "center", gap: 5 }} title="Total de hábitos activos">
           <Heart size={21} style={{ color: "#ff4b4b", fill: "#ff4b4b" }} />
           <span style={{ fontSize: 16, fontWeight: 800, color: "#ff4b4b", fontFamily: "var(--font-mono, monospace)" }}>
-            {habitos.length}
+            {habitosOrdenados.length}
           </span>
         </div>
       </div>
 
       <div style={{ marginBottom: 18 }}>
-        <span className="despensa-tab-font" style={{ fontSize: 17, fontWeight: 700 }}>Hábitos</span>
+        <span className="despensa-tab-font" style={{ fontSize: 17, fontWeight: 700 }}>Salud y Hábitos</span>
       </div>
 
       <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, marginBottom: 20, overflow: "hidden" }}>
@@ -513,37 +595,220 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
       </div>
 
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Hábitos</span>
-        <button
-          onClick={() => setShowForm((s) => !s)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 5,
-            padding: "6px 12px",
-            fontSize: 12,
-            fontWeight: 500,
-            background: showForm ? "var(--card)" : "var(--sage)",
-            color: showForm ? "var(--ink-soft)" : "#fff",
-            border: showForm ? "1px solid var(--line)" : "none",
-            borderRadius: 8,
-            cursor: "pointer",
-          }}
-        >
-          {showForm ? <X size={13} /> : <Plus size={13} />} {showForm ? "Cancelar" : "Nuevo hábito"}
-        </button>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <div>
+          <span className="despensa-tab-font" style={{ fontSize: 15, fontWeight: 700 }}>Hábitos</span>
+          {habitosOrdenados.length > 0 && (
+            <span style={{ fontSize: 11.5, color: "var(--ink-soft)", marginLeft: 8 }}>
+              {habitosCumplidosHoy}/{habitosOrdenados.length} hoy · +5 pts c/u
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => setShowSugerencias((s) => !s)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "6px 10px",
+              fontSize: 12,
+              fontWeight: 500,
+              background: showSugerencias ? "var(--sage-bg)" : "var(--card)",
+              color: showSugerencias ? "var(--sage)" : "var(--ink-soft)",
+              border: showSugerencias ? "1px solid var(--sage)" : "1px solid var(--line)",
+              borderRadius: 8,
+              cursor: "pointer",
+            }}
+          >
+            <Sparkles size={13} /> Sugeridos
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowForm((s) => !s)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 500,
+              background: showForm ? "var(--card)" : "var(--sage)",
+              color: showForm ? "var(--ink-soft)" : "#fff",
+              border: showForm ? "1px solid var(--line)" : "none",
+              borderRadius: 8,
+              cursor: "pointer",
+            }}
+          >
+            {showForm ? <X size={13} /> : <Plus size={13} />} {showForm ? "Cancelar" : "Nuevo hábito"}
+          </button>
+        </div>
       </div>
 
-      <div style={{ background: "var(--sage-bg)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", marginBottom: 14, fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.5 }}>
-        Cada hábito de salud cumplido suma <strong style={{ color: "var(--sage)" }}>5 puntos</strong> a tu saldo de recompensas. Las tareas completadas desde el Calendario suman <strong style={{ color: "var(--sage)" }}>50 puntos</strong>. Puedes canjearlos en Puntos.
-      </div>
+      {habitosOrdenados.length > 0 && (
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            padding: "10px 12px",
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11.5, marginBottom: 6 }}>
+            <span style={{ fontWeight: 600, color: "var(--ink)" }}>
+              {habitosCumplidosHoy === habitosOrdenados.length
+                ? "¡Meta diaria completada!"
+                : "Progreso de hábitos hoy"}
+            </span>
+            <span className="despensa-mono" style={{ fontWeight: 700, color: habitosCumplidosHoy === habitosOrdenados.length ? "var(--sage)" : "var(--ink-soft)" }}>
+              {Math.round((habitosCumplidosHoy / habitosOrdenados.length) * 100)}%
+            </span>
+          </div>
+          <div style={{ width: "100%", height: 7, borderRadius: 99, background: "var(--line-soft)", overflow: "hidden" }}>
+            <div
+              style={{
+                width: `${Math.min(100, Math.round((habitosCumplidosHoy / habitosOrdenados.length) * 100))}%`,
+                height: "100%",
+                borderRadius: 99,
+                background: "var(--sage)",
+                transition: "width 0.3s ease",
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {(showSugerencias || habitosOrdenados.length === 0) && (
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            padding: 12,
+            marginBottom: 14,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: 6 }}>
+                <Sparkles size={13} style={{ color: "var(--sage)" }} />
+                Hábitos recomendados (1 clic para agregar)
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2 }}>
+                Oración, consumo de agua, lectura y bienestar diario.
+              </div>
+            </div>
+            {HABITOS_SUGERIDOS.slice(0, 3).some((p) => !nombresExistentesSet.has(normalizarNombreHabito(p.nombre))) && (
+              <button
+                type="button"
+                onClick={handleAgregarEsenciales}
+                disabled={addingPreset !== null}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: "var(--sage)",
+                  color: "#fff",
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  cursor: addingPreset !== null ? "wait" : "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                <Plus size={12} />
+                {addingPreset === "__esenciales__" ? "Agregando…" : "Agregar esenciales"}
+              </button>
+            )}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
+            {HABITOS_SUGERIDOS.map((preset) => {
+              const IconPreset = ICONOS_HABITO[preset.icono] || Check;
+              const yaExiste = nombresExistentesSet.has(normalizarNombreHabito(preset.nombre));
+              const agregando = addingPreset === preset.nombre;
+              return (
+                <button
+                  key={preset.nombre}
+                  type="button"
+                  disabled={yaExiste || addingPreset !== null}
+                  onClick={() => handleAgregarSugerido(preset)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "8px 10px",
+                    borderRadius: 9,
+                    border: yaExiste ? "1px solid var(--sage)" : "1px solid var(--line)",
+                    background: yaExiste ? "var(--sage-bg)" : "var(--paper)",
+                    color: yaExiste ? "var(--sage)" : "var(--ink)",
+                    textAlign: "left",
+                    cursor: yaExiste ? "default" : addingPreset !== null ? "wait" : "pointer",
+                    opacity: agregando ? 0.65 : 1,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      background: yaExiste ? "var(--sage)" : "var(--card)",
+                      color: yaExiste ? "#fff" : "var(--sage)",
+                      border: yaExiste ? "none" : "1px solid var(--line)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {yaExiste ? <Check size={13} /> : <IconPreset size={14} />}
+                  </div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {preset.nombre}
+                    </div>
+                    <div style={{ fontSize: 10, color: yaExiste ? "var(--sage)" : "var(--ink-soft)" }}>
+                      {yaExiste ? "Ya agregado" : agregando ? "Agregando…" : preset.frecuencia}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: 12, marginBottom: 14 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+            {HABITOS_SUGERIDOS.slice(0, 5).map((p) => (
+              <button
+                key={p.nombre}
+                type="button"
+                onClick={() => {
+                  setNombre(p.nombre);
+                  setIcono(p.icono);
+                  setFrecuencia(p.frecuencia);
+                }}
+                style={{
+                  padding: "4px 9px",
+                  borderRadius: 6,
+                  border: "1px solid var(--line)",
+                  background: "var(--paper)",
+                  color: "var(--ink-soft)",
+                  fontSize: 11,
+                  cursor: "pointer",
+                }}
+              >
+                {p.nombre}
+              </button>
+            ))}
+          </div>
           <input
             autoFocus
-            placeholder="Nombre, ej. Consumo de agua"
+            placeholder="Nombre, ej. Oración, Consumo de agua, Lectura"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
@@ -635,9 +900,9 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
         </div>
       )}
 
-      {(habitos || []).length === 0 ? (
-        <div style={{ textAlign: "center", padding: "2.5rem 1rem", color: "var(--ink-soft)", fontSize: 13 }}>
-          Todavía no tienes hábitos. Crea el primero — por ejemplo, "Buena alimentación" o "Consumo de agua".
+      {habitosOrdenados.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "1.25rem 1rem", color: "var(--ink-soft)", fontSize: 12.5 }}>
+          Elige un hábito recomendado arriba (Oración, Consumo de agua, Lectura…) o crea uno personalizado con "Nuevo hábito".
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -776,7 +1041,7 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
                     <GripVertical size={14} />
                   </div>
                   <button
-                    onClick={() => toggleHabitoRegistro(h.id, periodoActual, h.nombre, h.categoria || "Salud")}
+                    onClick={() => toggleHabitoRegistro(h.id, periodoActual, h.nombre)}
                     title={cumplidoHoy ? `Cumplido ${etiquetaPeriodo} — toca para desmarcar` : `Marcar ${etiquetaPeriodo}`}
                     style={{
                       position: "relative",
@@ -879,6 +1144,70 @@ export default function HabitTracker({ habitos, habitosRegistro, datosCorporales
                     />
                   ))}
                 </div>
+                {esHabitoAgua(h) && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      paddingTop: 8,
+                      borderTop: "1px solid var(--line-soft)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ fontSize: 11.5, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <Droplet size={13} style={{ color: "var(--sage)" }} />
+                      <span>
+                        Vasos hoy:{" "}
+                        <strong className="despensa-mono" style={{ color: "var(--ink)" }}>
+                          {vasosAguaHoy}/{metaVasosAgua}
+                        </strong>
+                        {" "}({((vasosAguaHoy * 250) / 1000).toFixed(2)}L
+                        {aguaRecomendada ? ` / meta ${(aguaRecomendada / 1000).toFixed(1)}L` : ""})
+                      </span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <button
+                        type="button"
+                        onClick={() => actualizarVasosAgua(-1, h, cumplidoHoy)}
+                        disabled={vasosAguaHoy <= 0}
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: 6,
+                          border: "1px solid var(--line)",
+                          background: "var(--paper)",
+                          color: vasosAguaHoy <= 0 ? "var(--line)" : "var(--ink)",
+                          fontWeight: 700,
+                          cursor: vasosAguaHoy <= 0 ? "default" : "pointer",
+                        }}
+                        title="Restar 1 vaso (250 ml)"
+                      >
+                        −
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => actualizarVasosAgua(1, h, cumplidoHoy)}
+                        style={{
+                          padding: "4px 10px",
+                          height: 26,
+                          borderRadius: 6,
+                          border: "none",
+                          background: "var(--sage-bg)",
+                          color: "var(--sage)",
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                        title="Sumar 1 vaso (250 ml)"
+                      >
+                        +1 vaso
+                      </button>
+                    </div>
+                  </div>
+                )}
                   </>
                 )}
               </div>

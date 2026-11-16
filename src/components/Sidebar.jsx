@@ -24,7 +24,6 @@ import {
   HeartPulse,
   Map as MapIcon,
   Bot,
-  Library,
 } from "lucide-react";
 import SmartFinanceLogo, { SmartFinanceMark } from "./SmartFinanceLogo.jsx";
 
@@ -90,8 +89,7 @@ const NAV_ITEMS = [
   },
   { id: "entidades", label: "Entidades", icon: Landmark },
   { id: "wallet", label: "Wallet", icon: WalletIcon },
-  { id: "biblioteca", label: "Biblioteca", icon: Library },
-  { id: "habitos", label: "Hábitos", icon: HeartPulse },
+  { id: "habitos", label: "Salud y Hábitos", icon: HeartPulse },
   { id: "mapa-progreso", label: "Mapa de progreso", icon: MapIcon },
 ];
 

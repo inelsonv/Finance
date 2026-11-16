@@ -10,6 +10,7 @@ import {
   X,
   ChevronRight,
   Route,
+  HeartPulse,
 } from "lucide-react";
 import QuickGasto from "./QuickGasto.jsx";
 import { useNotificaciones } from "./NotificationBell.jsx";
@@ -459,6 +460,53 @@ export default function BottomNav({
                   </div>
                   <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.35 }}>
                     Ingresos, gastos fijos, deudas, metas y excedente
+                  </div>
+                </div>
+                <ChevronRight size={18} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />
+              </button>
+
+              {/* Opción 4: Salud y Hábitos */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOpciones(false);
+                  setTab("habitos");
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "14px 14px",
+                  borderRadius: 14,
+                  border: "1px solid var(--line)",
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    background: "rgba(245, 158, 11, 0.14)",
+                    color: "var(--amber, #f59e0b)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <HeartPulse size={22} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", marginBottom: 2 }}>
+                    Salud y Hábitos
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-soft)", lineHeight: 1.35 }}>
+                    Oración, consumo de agua, lectura y rachas diarias
                   </div>
                 </div>
                 <ChevronRight size={18} style={{ color: "var(--ink-soft)", flexShrink: 0 }} />

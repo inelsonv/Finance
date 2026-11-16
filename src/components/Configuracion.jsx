@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bot, Palette, Heart, Sparkles, AlertTriangle, Trash2, Lock, Phone, Landmark, MessageSquare, Smartphone } from "lucide-react";
+import { Sun, Moon, Mail, LineChart, User as UserIcon, LogOut, Check, HandCoins, PiggyBank, Trophy, Gauge, Bot, Palette, Heart, Sparkles, AlertTriangle, Trash2, Lock, Phone, Landmark, MessageSquare } from "lucide-react";
 import { watchNotifConfig, saveNotifConfig, watchAccionesConfig, saveAccionesConfig, watchDiezmoConfig, saveDiezmoConfig, watchAhorroAutoConfig, saveAhorroAutoConfig, watchCategoriasPuntosConfig, saveCategoriasPuntosConfig, watchTopesAjusteConfig, saveTopeAjuste, watchDiasCobroConfig, saveDiasCobroConfig, watchIntegracionCorreoConfig, saveIntegracionCorreoConfig, watchIntegracionCorreoEstado, watchPerfilPersonal, savePerfilPersonal, watchActualizacionPreciosAutoConfig, saveActualizacionPreciosAutoConfig, watchReportesQuincenaConfig, saveReportesQuincenaConfig, watchUsuariosRegistrados, eliminarCuentaUsuario, watchWhatsappNotifConfig, saveWhatsappNotifConfig, updateEntidad, updatePrestamo } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { GASTO_CATS_FIJO } from "../lib/categorias";
@@ -7,7 +7,6 @@ import Switch from "./Switch.jsx";
 import ThemeSelector from "./ThemeSelector.jsx";
 import ModalPlanesSuscripcion from "./ModalPlanesSuscripcion.jsx";
 import { WhatsAppIcon } from "./WhatsAppIcon.jsx";
-import ApplePayGuia from "./ApplePayGuia.jsx";
 
 export default function Configuracion({ theme, onToggleTheme, onSelectTheme, user, onSignOut, categoriasGasto, asistenteFlotanteActivo = true, onToggleAsistenteFlotante, planActual, isOwner, entidades = [], prestamos = [], onNavigate }) {
   const [showPlanesModal, setShowPlanesModal] = useState(false);
@@ -929,10 +928,6 @@ export default function Configuracion({ theme, onToggleTheme, onSelectTheme, use
             )}
           </div>
         )}
-      </Section>
-
-      <Section icon={Smartphone} title="Registro automático desde Apple Pay">
-        <ApplePayGuia />
       </Section>
 
       <Section icon={PiggyBank} title="Modo Ahorro">

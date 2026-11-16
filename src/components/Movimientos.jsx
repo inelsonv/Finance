@@ -69,6 +69,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const [expresAmount, setExpresAmount] = useState("");
   const [expresSaving, setExpresSaving] = useState(false);
   const [page, setPage] = useState(1);
+
   const [editandoFechaId, setEditandoFechaId] = useState(null);
   const [editFecha, setEditFecha] = useState("");
   const [editMotivo, setEditMotivo] = useState("");
@@ -150,7 +151,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       setEditMontoSaving(false);
     }
   };
-  const paginated = useMemo(() => movimientos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [movimientos, page]);
+  const paginated = useMemo(
+    () => movimientos.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [movimientos, page]
+  );
 
   // Mapa de número de cuota ordinal para pagos de préstamos (calculado cronológicamente por préstamo)
   const cuotaNumeroPorMovimientoId = useMemo(() => {
@@ -459,6 +463,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       const fuente = fuentesIngreso.find((f) => f.id === form.fuenteIngresoId);
       const contrato = contratos.find((c) => c.id === form.contratoId);
       const cuenta = cuentas.find((c) => c.id === form.cuentaId);
+
       const nuevoMovRef = await addMovimiento({
         type: form.tipo === "Ingreso" ? "Ingreso" : "Gasto",
         category:

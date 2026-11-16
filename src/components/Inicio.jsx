@@ -3,8 +3,9 @@ import { createPortal } from "react-dom";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Calendar, Target, SlidersHorizontal, Eye, EyeOff, LayoutGrid, Check, Shield, WashingMachine, Refrigerator, Tv, Fan, Flame, Zap, ExternalLink } from "lucide-react";
-import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache, addMovimiento } from "../lib/db";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Calendar, Target, SlidersHorizontal, Eye, EyeOff, LayoutGrid, Check, Shield, WashingMachine, Refrigerator, Tv, Fan, Flame, Zap, ExternalLink, Droplet, Moon, Salad, Heart } from "lucide-react";
+import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache, addMovimiento, addHabito, toggleHabitoRegistro } from "../lib/db";
+import { calcularRachaHabito, periodoDeFecha } from "../lib/rachaHabito";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { fetchInflacionRD } from "../lib/inflacionRD";
 import { confirm } from "../lib/confirm";
@@ -2602,6 +2603,7 @@ const SECTION_IDS_DEFAULT = [
   "endeudamiento",
   "fondoEmergencia",
   "capacidadAhorro",
+  "habitos",
   "metas",
   "clima",
   "dolar",
@@ -2679,6 +2681,12 @@ export const MODULOS_INFO = {
     descripcion: "Receta recomendada según los ingredientes que tienes.",
     icon: UtensilsCrossed,
     categoria: "Cocina",
+  },
+  habitos: {
+    nombre: "Hábitos de hoy",
+    descripcion: "Oración, consumo de agua, lectura y rachas diarias.",
+    icon: HeartPulse,
+    categoria: "Bienestar",
   },
   acciones: {
     nombre: "Acciones e Inversiones",
@@ -3386,7 +3394,304 @@ function SortableCard({ id, onRemove, children }) {
   );
 }
 
-export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas, presupuesto, diasCobro, products = [], metasAhorro = [], activos = [], onNavigate, isOwner = false }) {
+function PrayingHandsIcon({ size = 15, ...props }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 256 256" fill="currentColor" {...props}>
+      <path d="M232.49,182.83l-37-37L158.79,24.62A17.77,17.77,0,0,0,128,18.56a17.77,17.77,0,0,0-30.79,6.06L60.46,145.88l-36.95,37a12,12,0,0,0,0,17L56.2,232.49a12,12,0,0,0,17,0l48.28-48.29a36,36,0,0,0,6.55-8.94,36,36,0,0,0,6.55,8.94l48.28,48.29a12,12,0,0,0,17,0l32.69-32.69A12,12,0,0,0,232.49,182.83Zm-165,44a4,4,0,0,1-5.66,0L29.17,194.15a4,4,0,0,1,0-5.66L44.68,173,83,211.32Zm48.29-48.28L88.68,205.66,50.34,167.32l16.48-16.49a3.92,3.92,0,0,0,1-1.67l37-122.22A9.78,9.78,0,0,1,124,29.78v129A27.81,27.81,0,0,1,115.8,178.55Zm16.2-19.8v-129a9.78,9.78,0,0,1,19.14-2.84l37,122.22a3.92,3.92,0,0,0,1,1.67l17.38,17.38-39.18,37.51L140.2,178.55A27.81,27.81,0,0,1,132,158.75Zm94.83,35.4-32.68,32.68a4,4,0,0,1-5.66,0L173,211.38l39.18-37.51,14.61,14.62A4,4,0,0,1,226.83,194.15Z" />
+    </svg>
+  );
+}
+
+const ICONOS_HABITO_INICIO = {
+  check: Check,
+  droplet: Droplet,
+  salad: Salad,
+  dumbbell: Dumbbell,
+  moon: Moon,
+  book: BookOpen,
+  sun: Sun,
+  prayingHands: PrayingHandsIcon,
+  church: Church,
+  heart: Heart,
+  sparkles: Sparkles,
+  coffee: Coffee,
+  pill: Pill,
+  piggyBank: PiggyBank,
+};
+
+function HabitosHoyCard({ habitos = [], habitosRegistro = [], onNavigate }) {
+  const [creandoBase, setCreandoBase] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
+  const hoy = useMemo(() => new Date(), []);
+
+  const habitosSalud = useMemo(() => {
+    return (habitos || [])
+      .filter((h) => h.categoria !== "Tarea")
+      .sort((a, b) => (a.orden ?? 999999) - (b.orden ?? 999999));
+  }, [habitos]);
+
+  const fechasPorHabito = useMemo(() => {
+    const map = {};
+    for (const r of habitosRegistro || []) {
+      if (!map[r.habitoId]) map[r.habitoId] = [];
+      map[r.habitoId].push(r.fecha);
+    }
+    return map;
+  }, [habitosRegistro]);
+
+  const cumplidosHoy = useMemo(() => {
+    return habitosSalud.filter((h) => {
+      const p = periodoDeFecha(h.frecuencia || "Diario", hoy);
+      return (fechasPorHabito[h.id] || []).includes(p);
+    }).length;
+  }, [habitosSalud, fechasPorHabito, hoy]);
+
+  const rachaMax = useMemo(() => {
+    let max = 0;
+    for (const h of habitosSalud) {
+      const r = calcularRachaHabito(fechasPorHabito[h.id] || [], h.frecuencia || "Diario", hoy);
+      if (r > max) max = r;
+    }
+    return max;
+  }, [habitosSalud, fechasPorHabito, hoy]);
+
+  const crearHabitosBase = async () => {
+    setCreandoBase(true);
+    try {
+      const base = [
+        { nombre: "Oración", icono: "prayingHands", frecuencia: "Diario" },
+        { nombre: "Consumo de agua", icono: "droplet", frecuencia: "Diario" },
+        { nombre: "Lectura", icono: "book", frecuencia: "Diario" },
+      ];
+      for (const item of base) {
+        await addHabito(item.nombre, item.icono, item.frecuencia, null, "Salud");
+      }
+    } finally {
+      setCreandoBase(false);
+    }
+  };
+
+  const handleToggle = async (h, periodoActual) => {
+    setTogglingId(h.id);
+    try {
+      await toggleHabitoRegistro(h.id, periodoActual, h.nombre, h.categoria);
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  return (
+    <div
+      className="despensa-dashboard-card"
+      style={{
+        padding: "1.35rem",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+      }}
+    >
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <HeartPulse size={16} style={{ color: "var(--sage)" }} />
+            <span className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600 }}>
+              Hábitos de hoy
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {rachaMax > 0 && (
+              <span
+                className="despensa-mono"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 3,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: "2px 7px",
+                  borderRadius: 12,
+                  background: "rgba(255,150,0,0.14)",
+                  color: "#ff9600",
+                }}
+                title="Racha máxima"
+              >
+                <Flame size={11} /> {rachaMax}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => onNavigate && onNavigate("habitos")}
+              style={{
+                padding: "3px 8px",
+                fontSize: 11,
+                border: "1px solid var(--line)",
+                borderRadius: 6,
+                background: "var(--paper)",
+                color: "var(--ink-soft)",
+                cursor: "pointer",
+              }}
+            >
+              Ver todos
+            </button>
+          </div>
+        </div>
+
+        {habitosSalud.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "0.75rem 0.25rem" }}>
+            <div style={{ fontSize: 12.5, color: "var(--ink-soft)", lineHeight: 1.5, marginBottom: 14 }}>
+              Lleva el control diario de tu <strong>Oración</strong>, <strong>Consumo de agua</strong>, <strong>Lectura</strong> y más para ganar puntos y mantener tu racha.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button
+                type="button"
+                onClick={crearHabitosBase}
+                disabled={creandoBase}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  padding: "9px 14px",
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  background: "var(--sage)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: creandoBase ? "wait" : "pointer",
+                }}
+              >
+                <Sparkles size={14} />
+                {creandoBase ? "Activando…" : "Activar Oración, Agua y Lectura"}
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate && onNavigate("habitos")}
+                style={{
+                  padding: "7px 12px",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  background: "var(--paper)",
+                  color: "var(--ink-soft)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                }}
+              >
+                Personalizar hábitos
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {habitosSalud.slice(0, 5).map((h) => {
+              const IconH = ICONOS_HABITO_INICIO[h.icono] || Check;
+              const freq = h.frecuencia || "Diario";
+              const periodoActual = periodoDeFecha(freq, hoy);
+              const fechas = fechasPorHabito[h.id] || [];
+              const cumplido = fechas.includes(periodoActual);
+              const racha = calcularRachaHabito(fechas, freq, hoy);
+              return (
+                <button
+                  key={h.id}
+                  type="button"
+                  disabled={togglingId === h.id}
+                  onClick={() => handleToggle(h, periodoActual)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    width: "100%",
+                    padding: "8px 10px",
+                    borderRadius: 9,
+                    border: cumplido ? "1px solid var(--sage)" : "1px solid var(--line-soft)",
+                    background: cumplido ? "var(--sage-bg)" : "var(--paper)",
+                    color: "var(--ink)",
+                    textAlign: "left",
+                    cursor: togglingId === h.id ? "wait" : "pointer",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: "50%",
+                      background: cumplido ? "var(--sage)" : "var(--card)",
+                      color: cumplido ? "#fff" : "var(--ink-soft)",
+                      border: cumplido ? "none" : "1px solid var(--line)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {cumplido ? <Check size={14} strokeWidth={3} /> : <IconH size={14} />}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        textDecoration: cumplido ? "line-through" : "none",
+                        opacity: cumplido ? 0.85 : 1,
+                      }}
+                    >
+                      {h.nombre}
+                    </div>
+                  </div>
+                  {racha > 0 && (
+                    <span className="despensa-mono" style={{ fontSize: 11, fontWeight: 700, color: "#ff9600", display: "inline-flex", alignItems: "center", gap: 2 }}>
+                      <Flame size={11} /> {racha}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {habitosSalud.length > 0 && (
+        <div
+          style={{
+            borderTop: "1px solid var(--line-soft)",
+            marginTop: 12,
+            paddingTop: 10,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            fontSize: 11,
+            color: "var(--ink-soft)",
+          }}
+        >
+          <span>
+            Completados:{" "}
+            <strong className="despensa-mono" style={{ color: cumplidosHoy === habitosSalud.length ? "var(--sage)" : "var(--ink)" }}>
+              {cumplidosHoy}/{habitosSalud.length}
+            </strong>
+          </span>
+          {habitosSalud.length > 5 ? (
+            <button
+              type="button"
+              onClick={() => onNavigate && onNavigate("habitos")}
+              style={{ background: "none", border: "none", padding: 0, color: "var(--sage)", fontWeight: 600, fontSize: 11, cursor: "pointer" }}
+            >
+              +{habitosSalud.length - 5} más →
+            </button>
+          ) : (
+            <span>+5 pts por hábito</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas, presupuesto, diasCobro, products = [], metasAhorro = [], activos = [], habitos = [], habitosRegistro = [], onNavigate, isOwner = false }) {
   const modulosDisponibles = useMemo(() => {
     if (isOwner) return SECTION_IDS_DEFAULT;
     return SECTION_IDS_DEFAULT.filter((id) => id !== "platoSugerido");
@@ -3400,7 +3705,18 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
 
   useEffect(() => {
     const unsub = watchInicioOrden((o) => {
-      const normalizado = normalizarOrden(o).filter((id) => isOwner || id !== "platoSugerido");
+      let normalizado = normalizarOrden(o).filter((id) => isOwner || id !== "platoSugerido");
+      try {
+        const yaMigrado = localStorage.getItem("smart-finance-habitos-card-v1") === "1";
+        if (!yaMigrado) {
+          localStorage.setItem("smart-finance-habitos-card-v1", "1");
+          if (Array.isArray(o) && o.length > 0 && !normalizado.includes("habitos")) {
+            normalizado = [...normalizado];
+            normalizado.splice(Math.min(3, normalizado.length), 0, "habitos");
+            saveInicioOrden(normalizado);
+          }
+        }
+      } catch {}
       setOrden(normalizado);
     }, () => {});
     return () => unsub();
@@ -3761,12 +4077,14 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const inflacionContent = <InflacionCard />;
   const combustibleContent = <CombustibleCard presupuesto={presupuesto} diasCobro={diasCobro} />;
   const platoSugeridoContent = <PlatoSugeridoCard products={products} onNavigate={onNavigate} />;
+  const habitosContent = <HabitosHoyCard habitos={habitos} habitosRegistro={habitosRegistro} onNavigate={onNavigate} />;
   const accionesContent = <StocksCard cuentas={cuentas} onNavigate={onNavigate} />;
 
   const SECTION_CONTENT = {
     endeudamiento: endeudamientoContent,
     fondoEmergencia: fondoEmergenciaContent,
     capacidadAhorro: capacidadAhorroContent,
+    habitos: habitosContent,
     metas: metasContent,
     clima: climaContent,
     dolar: dolarContent,

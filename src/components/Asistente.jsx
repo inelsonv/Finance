@@ -26,7 +26,6 @@ import {
   Mic,
   MicOff,
   Shield,
-  ShieldAlert,
   Scissors,
   Gift,
   TrendingDown,
@@ -301,6 +300,9 @@ function TarjetaGastoChat({
   const opcionesCategorias = categoriasPropias.length > 0
     ? categoriasPropias
     : [...GASTO_CATS_VARIABLE, ...GASTO_CATS_FIJO];
+  const opcionesCatConActual = opcionesCategorias.includes(categoria)
+    ? opcionesCategorias
+    : [categoria, ...opcionesCategorias];
 
   useEffect(() => {
     if (metodoPago === "Tarjeta de crédito" && !tarjetaId && tarjetasActivas.length > 0) {
@@ -338,6 +340,7 @@ function TarjetaGastoChat({
 
     setErrorLocal(null);
     const tarjeta = tarjetasActivas.find((t) => t.id === tarjetaId);
+
     onGuardar({
       monto: num,
       categoria,
@@ -568,18 +571,16 @@ function TarjetaGastoChat({
             </div>
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <span
-            style={{
-              fontWeight: 800,
-              fontSize: 15,
-              color: esCombustible ? "#d97706" : "var(--sage)",
-              fontFamily: "monospace",
-            }}
-          >
-            RD$ {monto ? (Number(monto) || 0).toLocaleString("es", { minimumFractionDigits: 2 }) : "0.00"}
-          </span>
-        </div>
+        <span
+          style={{
+            fontWeight: 800,
+            fontSize: 15,
+            color: esCombustible ? "#d97706" : "var(--sage)",
+            fontFamily: "monospace",
+          }}
+        >
+          RD$ {(Number(monto) || 0).toLocaleString("es", { minimumFractionDigits: 2 })}
+        </span>
       </div>
 
       {/* Formulario editable */}
@@ -623,7 +624,7 @@ function TarjetaGastoChat({
               background: "var(--card)",
             }}
           >
-            {opcionesCategorias.map((c) => (
+            {opcionesCatConActual.map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>
@@ -2731,13 +2732,13 @@ export default function Asistente({
         }
       }
 
-      // 3. GASTO (Combustible, Alimentación, Servicios, etc.)
+      // 3. GASTO (Combustible, Alimentación, etc.)
       else if (tipoAccion === "registrar_gasto" || resAsistente?.intencionGasto) {
         const gastoDetectado = accionFinal || resAsistente?.gasto;
         let guardadoAutomatico = false;
         let idNuevoMovimiento = null;
 
-        if (gastoDetectado && Number(gastoDetectado.monto) > 0 && gastoDetectado.autoRegistrar) {
+        if (gastoDetectado && gastoDetectado.monto > 0 && gastoDetectado.autoRegistrar) {
           try {
             const tarjeta = tarjetasActivas.find((t) => t.id === gastoDetectado.tarjetaId);
             const infoFechaPago =
@@ -3004,6 +3005,73 @@ export default function Asistente({
       setError("Error al quitar producto de la orden: " + (err.message || String(err)));
     } finally {
       setGuardandoOrdenIndex(null);
+    }
+  };
+
+  const handleGuardarGasto = async (indiceMensaje, datosAjustados) => {
+    const msg = mensajes[indiceMensaje];
+    if (!msg?.gastoData) return;
+    setGuardandoGastoIndex(indiceMensaje);
+    setError(null);
+
+    try {
+      const prevMovId = msg.gastoData.movimientoId;
+      if (prevMovId) {
+        await deleteMovimiento(prevMovId, "Modificado desde chat IA").catch(() => {});
+      }
+
+      const tarjeta = tarjetasActivas.find((t) => t.id === datosAjustados.tarjetaId);
+      const infoFechaPago =
+        datosAjustados.metodoPago === "Tarjeta de crédito" && tarjeta
+          ? calcularFechaPagoTarjeta(tarjeta, datosAjustados.fecha)?.fechaPagoStr || null
+          : null;
+
+      const nuevoMov = await addMovimiento({
+        type: "Gasto",
+        category: datosAjustados.categoria || "Otro variable",
+        amount: Number(datosAjustados.monto),
+        description: datosAjustados.descripcion || datosAjustados.categoria || "Gasto",
+        date: datosAjustados.fecha || new Date().toISOString().slice(0, 10),
+        clasificacion: datosAjustados.clasificacion || (GASTO_CATS_FIJO.includes(datosAjustados.categoria) ? "Fijo" : "Variable"),
+        metodoPago: datosAjustados.metodoPago || "Efectivo",
+        tarjetaId: datosAjustados.metodoPago === "Tarjeta de crédito" ? datosAjustados.tarjetaId || null : null,
+        tarjetaNombre: datosAjustados.metodoPago === "Tarjeta de crédito" ? datosAjustados.tarjetaNombre || tarjeta?.nombre || "" : "",
+        monedaTarjeta: datosAjustados.metodoPago === "Tarjeta de crédito" ? "RDS" : null,
+        fechaPagoTarjeta: infoFechaPago,
+        origen: "chat_ia",
+      });
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("lanzarCoheteDeuda", {
+            detail: {
+              puntos: 10,
+              mensaje: `Gasto de ${datosAjustados.categoria} registrado`,
+              forzar: true,
+            },
+          })
+        );
+      }
+
+      const copia = [...mensajes];
+      copia[indiceMensaje] = {
+        ...copia[indiceMensaje],
+        gastoData: {
+          ...copia[indiceMensaje].gastoData,
+          ...datosAjustados,
+          guardado: true,
+          movimientoId: nuevoMov.id,
+        },
+      };
+      setMensajes(copia);
+
+      if (chatId) {
+        await guardarAsistenteChat(chatId, "Chat", copia).catch(() => {});
+      }
+    } catch (err) {
+      setError("No se pudo registrar el gasto: " + (err.message || String(err)));
+    } finally {
+      setGuardandoGastoIndex(null);
     }
   };
 

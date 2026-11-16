@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Trophy, Landmark, HandCoins, PiggyBank, Gift, Check, ArrowRight, Flame, Target, CreditCard, PenLine, Volume2, VolumeX, Sparkles } from "lucide-react";
 import { canjearPuntos, revertirCanje, ajustarPuntosManual } from "../lib/db";
 import { calcularIngresoQuincenal } from "../lib/quincenaResumen";
@@ -401,7 +401,7 @@ export default function Puntos({ puntos, puntosHistorial, categoriasGasto, check
           </div>
         ) : puntos <= 0 ? (
           <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-            Todavía no tienes puntos acumulados. Puedes ganarlos al cumplir hábitos, completar tareas, pagar préstamos o gastos fijos, y aportar a tus metas de ahorro.
+            Todavía no tienes puntos acumulados. Se ganan al pagar préstamos, gastos fijos, y aportar a tus metas de ahorro.
           </div>
         ) : (
           <>

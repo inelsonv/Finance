@@ -159,7 +159,7 @@ function extraerMonto(textoNorm) {
     if (Number.isFinite(base)) return base * 1000;
   }
 
-  const numeros = [...textoNorm.matchAll(/\b(?:rd\$|\$)?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\b/g)];
+  const numeros = [...textoNorm.matchAll(/(?:rd\$|us\$|\$)?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)\b/g)];
   for (const match of numeros) {
     const valorStr = match[1].replace(/,/g, "");
     const val = parseFloat(valorStr);
@@ -461,7 +461,7 @@ export function analizarIntencionAccion(texto, { prestamos = [], tarjetas = [], 
     };
   }
 
-  // 9. DETECCIÓN GENERAL DE GASTOS (Combustible, Alimentos, Salud, Servicios, etc.)
+  // 9. DETECCIÓN GENERAL DE GASTOS (Combustible, Alimentos, etc.)
   const gastoRes = parsearGastoGeneral(limpio, n, { categoriasGasto, tarjetas });
   if (gastoRes) {
     return {
@@ -512,7 +512,7 @@ function parsearGastoGeneral(limpio, n, { categoriasGasto = [], tarjetas = [] } 
     "llené",
   ];
 
-  const esComandoRegistro = verbosRegistro.some((v) => n.startsWith(v) || n.includes(` ${v} `) || n.includes(`quiero ${v}`));
+  const esComandoRegistro = verbosRegistro.some((v) => n.startsWith(v) || n.includes(` ${v} `));
   const esReporteGasto = verbosGasto.some((v) => n.startsWith(v) || n.includes(` ${v} `) || n.includes(`ya ${v}`));
   const tienePalabraGasto = n.includes("gasto") || n.includes("gasolina") || n.includes("combustible");
 
@@ -562,11 +562,7 @@ function parsearGastoGeneral(limpio, n, { categoriasGasto = [], tarjetas = [] } 
   const esTransferencia = n.includes("transferencia") || n.includes("transferi");
   const esDebito = n.includes("debito") || n.includes("débito");
 
-  if (esTransferencia) {
-    metodoPago = "Transferencia";
-  } else if (esDebito) {
-    metodoPago = "Débito";
-  } else if (esTarjeta || tarjetasActivas.some((t) => n.includes(normalizar(t.nombre)) || (t.banco && n.includes(normalizar(t.banco))))) {
+  if (esTarjeta || tarjetasActivas.some((t) => n.includes(normalizar(t.nombre)) || (t.banco && n.includes(normalizar(t.banco))))) {
     metodoPago = "Tarjeta de crédito";
     for (const t of tarjetasActivas) {
       const nombreNorm = normalizar(t.nombre);
@@ -586,6 +582,10 @@ function parsearGastoGeneral(limpio, n, { categoriasGasto = [], tarjetas = [] } 
       tarjetaId = tarjetasActivas[0].id;
       tarjetaNombre = tarjetasActivas[0].nombre;
     }
+  } else if (esTransferencia) {
+    metodoPago = "Transferencia";
+  } else if (esDebito) {
+    metodoPago = "Débito";
   }
 
   let fecha = hoyStr();

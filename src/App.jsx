@@ -104,6 +104,7 @@ const TITLES = {
   seguros: "Seguros",
   renovaciones: "Renovaciones y Trámites",
   puntos: "Puntos",
+  habitos: "Salud y Hábitos",
   asistente: "Consultor Financiero",
   "mapa-progreso": "Mapa de progreso",
   "ordenes-compra": "Órdenes de compra",
@@ -403,7 +404,7 @@ export default function App() {
         const periodoActual = periodoDeFecha(habitoBiblia.frecuencia || "Diario", new Date());
         const yaMarcado = (habitosRegistro || []).some((r) => r.habitoId === habitoBiblia.id && r.fecha === periodoActual);
         if (!yaMarcado) {
-          toggleHabitoRegistro(habitoBiblia.id, periodoActual, habitoBiblia.nombre, habitoBiblia.categoria || "Salud").catch((err) =>
+          toggleHabitoRegistro(habitoBiblia.id, periodoActual, habitoBiblia.nombre).catch((err) =>
             console.error("No se pudo marcar el hábito de lectura bíblica:", err)
           );
         }
@@ -1196,6 +1197,9 @@ export default function App() {
             products={products}
             metasAhorro={metasAhorro}
             activos={activos}
+            habitos={habitos}
+            habitosRegistro={habitosRegistro}
+            datosCorporales={datosCorporales}
             onNavigate={(targetTab, opts) => {
               if (targetTab === "asistente-endeudamiento") {
                 setConsultaEndeudamientoAsistente({

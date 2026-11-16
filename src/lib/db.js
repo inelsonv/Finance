@@ -594,19 +594,15 @@ export async function addMovimiento({
   });
 
   // Otorga puntos automáticamente según el tipo de movimiento registrado
-  // (cumplir una obligación rígida genera puntos). No debe romper el guardado
-  // del movimiento si algo falla aquí.
-  // 1 punto = $1 peso disponible para gastos flexibles. Se otorga el 5% del
-  // monto de cada obligación cumplida (préstamo, categoría configurada como
-  // generadora de puntos, aporte a ahorro).
+  // (cumplir una obligación rígida genera puntos).
   const PORCENTAJE_PUNTOS = 0.05;
   let montoNum = 0;
   let puntosGanados = 0;
   try {
     montoNum = Number(amount) || 0;
     let montoParaPuntos = montoNum;
-    if (category === "Pago de tarjeta" && monedaTarjeta === "USD") {
-      // Convierte el pago en USD a su equivalente en pesos usando la misma
+    if ((category === "Pago de tarjeta" || type === "Gasto") && monedaTarjeta === "USD") {
+      // Convierte el consumo/pago en USD a su equivalente en pesos usando la misma
       // caché de tipo de cambio que usa la tarjeta de Dólar en Inicio.
       const tipoCambioSnap = await getDoc(doc(db, "config", "tipoCambioCache"));
       const tasaUSD = tipoCambioSnap.exists() ? tipoCambioSnap.data()?.rates?.USD : null;
@@ -632,12 +628,6 @@ export async function addMovimiento({
       }
     }
 
-    // Punto fijo, pequeño, por el simple hecho de registrar el movimiento
-    // (no depende del monto ni de la categoría) — se suma aparte de
-    // cualquier otro punto ya otorgado arriba. No aplica a Ingresos. Si se
-    // registró desde el registro rápido de móvil (no desde el Checklist ni
-    // el formulario completo), el bono es menor (1 punto en vez de 10) para
-    // no incentivar registrar muchos gastos mínimos solo por los puntos.
     if (type !== "Ingreso") {
       const puntosRegistro = origen === "rapido" ? 5 : 10;
       await otorgarPuntos("Registraste un movimiento", puntosRegistro, "registro", docRef.id);

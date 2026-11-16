@@ -12,7 +12,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const portArgIdx = process.argv.indexOf('--port');
+const argPort = portArgIdx !== -1 && process.argv[portArgIdx + 1] ? parseInt(process.argv[portArgIdx + 1], 10) : NaN;
+const port = Number.isFinite(argPort) ? argPort : (process.env.PORT ? parseInt(process.env.PORT, 10) : 3000);
 
 // Habilitar CORS para permitir llamadas tanto locales como desde GitHub Pages
 app.use((req, res, next) => {
