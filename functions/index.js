@@ -1093,6 +1093,46 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
   }
 });
 
+// ---- Categorización automática de gastos por nombre del comercio ----
+// Cada regla tiene palabras que se buscan en el comercio y palabras que se
+// buscan en el nombre de TUS categorías (colección categoriasGasto). Se usa
+// la primera regla que coincida con el comercio Y para la que exista una
+// categoría tuya; si no hay coincidencia, se usa "Otros Gastos".
+// El orden importa: las reglas más específicas van primero.
+const REGLAS_CATEGORIA = [
+  { comercio: ["smartfit", "gimnasio", "gym ", "fitness"], categoria: ["gimnasio", "deporte", "salud", "entretenimiento", "ocio"] },
+  { comercio: ["shell", "texaco", "esso", "sunix", "puma ", "isla ", "sigma", "eco petrol", "petromovil", "gasolin", "combustible", "estacion de servicio", "gas natural", "glp"], categoria: ["combustible", "gasolina"] },
+  { comercio: ["parqueo", "parking", "estacionamiento"], categoria: ["estacionamiento", "parqueo", "transporte"] },
+  { comercio: ["uber", "indrive", "cabify", "peaje", "taxi"], categoria: ["transporte"] },
+  { comercio: ["farmacia", "carol", "gbc", "pharma", "clinica", "laboratorio", "hospital", "medic"], categoria: ["salud", "medic", "farmacia"] },
+  { comercio: ["supermercado", "jumbo", "nacional", "sirena", "plaza lama", "pola", "carrefour", "bravo", "mercado", "colmado", "pricesmart"], categoria: ["supermercado", "aliment", "comida"] },
+  { comercio: ["restaurant", "pizza", "burger", "mcdonald", "kfc", "wendy", "subway", "cafe", "coffee", "starbucks", "pollo", "sushi", "comida"], categoria: ["restaurante", "comida", "aliment", "ocio"] },
+  { comercio: ["netflix", "spotify", "disney", "hbo", "prime video", "youtube", "cine", "cinema", "playstation", "steam", "apple.com", "google play"], categoria: ["entretenimiento", "ocio", "suscripc"] },
+  { comercio: ["claro", "altice", "viva ", "internet", "telefon"], categoria: ["servicio", "vivienda"] },
+  { comercio: ["tienda", "zara", "ikea", "amazon", "ferreteria", "mall"], categoria: ["compras", "ropa", "hogar"] },
+];
+
+function normalizarTexto(t) {
+  return String(t || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+// Devuelve el nombre exacto de una de tus categorías, o "Otros Gastos".
+function inferirCategoriaGasto(comercio, categoriasDocs) {
+  const nombres = (categoriasDocs || []).map((d) => d.nombre).filter(Boolean);
+  const comercioNorm = " " + normalizarTexto(comercio) + " ";
+  for (const regla of REGLAS_CATEGORIA) {
+    if (!regla.comercio.some((p) => comercioNorm.includes(normalizarTexto(p)))) continue;
+    for (const palabra of regla.categoria) {
+      const encontrada = nombres.find((n) => normalizarTexto(n).includes(palabra));
+      if (encontrada) return encontrada;
+    }
+  }
+  return "Otros Gastos";
+}
+
 // ---- Registrar gasto desde Apple Pay (Atajo de iOS) ----
 // Lo llama una automatización de Atajos ("Transacción" de Wallet). Cada
 // automatización envía los últimos 4 dígitos fijos de su tarjeta. Reutiliza
@@ -1159,9 +1199,12 @@ exports.registrarGastoDesdeAtajo = onRequest({ secrets: [emailWebhookSecret] }, 
 
     const fechaPagoTarjeta = calcularFechaPagoTarjetaServer(tarjeta, fecha);
 
+    const categoriasSnap = await db.collection("categoriasGasto").get();
+    const categoria = inferirCategoriaGasto(comercioTxt, categoriasSnap.docs.map((d) => d.data()));
+
     const movRef = await db.collection("movimientos").add({
       type: "Gasto",
-      category: "Otros Gastos",
+      category: categoria,
       amount: montoNum,
       description: comercioTxt,
       date: fecha,
@@ -1186,7 +1229,7 @@ exports.registrarGastoDesdeAtajo = onRequest({ secrets: [emailWebhookSecret] }, 
     });
     await db.collection("config").doc("puntos").set({ total: FieldValue.increment(10) }, { merge: true });
 
-    res.status(200).json({ ok: true, movimientoId: movRef.id, fechaPagoTarjeta });
+    res.status(200).json({ ok: true, movimientoId: movRef.id, fechaPagoTarjeta, categoria });
   } catch (err) {
     console.error("Error registrando gasto desde Apple Pay:", err);
     res.status(500).json({ error: err.message || String(err) });
