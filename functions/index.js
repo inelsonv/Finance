@@ -1101,15 +1101,16 @@ exports.registrarGastoDesdeCorreo = onRequest({ secrets: [emailWebhookSecret] },
 // El orden importa: las reglas más específicas van primero.
 const REGLAS_CATEGORIA = [
   { comercio: ["smartfit", "gimnasio", "gym ", "fitness"], categoria: ["gimnasio", "deporte", "salud", "entretenimiento", "ocio"] },
-  { comercio: ["shell", "texaco", "esso", "sunix", "puma ", "isla ", "sigma", "eco petrol", "petromovil", "gasolin", "combustible", "estacion de servicio", "gas natural", "glp"], categoria: ["combustible", "gasolina"] },
+  { comercio: ["shell", "texaco", "esso", "sunix", "puma ", "isla ", "sigma", "total estacion", "total pontezuela", "nativa", "next ", "eco petrol", "petromovil", "gasolin", "combustible", "estacion de servicio", "gas natural", "glp"], categoria: ["combustible", "gasolina"] },
+  { comercio: ["uber*eats", "uber eats", "ubereats", "pedidosya", "rappi"], categoria: ["restaurante", "comida", "aliment", "ocio"] },
   { comercio: ["parqueo", "parking", "estacionamiento"], categoria: ["estacionamiento", "parqueo", "transporte"] },
   { comercio: ["uber", "indrive", "cabify", "peaje", "taxi"], categoria: ["transporte"] },
   { comercio: ["farmacia", "carol", "gbc", "pharma", "clinica", "laboratorio", "hospital", "medic"], categoria: ["salud", "medic", "farmacia"] },
-  { comercio: ["supermercado", "jumbo", "nacional", "sirena", "plaza lama", "pola", "carrefour", "bravo", "mercado", "colmado", "pricesmart"], categoria: ["supermercado", "aliment", "comida"] },
-  { comercio: ["restaurant", "pizza", "burger", "mcdonald", "kfc", "wendy", "subway", "cafe", "coffee", "starbucks", "pollo", "sushi", "comida"], categoria: ["restaurante", "comida", "aliment", "ocio"] },
-  { comercio: ["netflix", "spotify", "disney", "hbo", "prime video", "youtube", "cine", "cinema", "playstation", "steam", "apple.com", "google play"], categoria: ["entretenimiento", "ocio", "suscripc"] },
+  { comercio: ["supermercado", "super plaza", "sm bravo", "jumbo", "nacional", "sirena", "plaza lama", "pola", "carrefour", "bravo", "mercado", "colmado", "pricesmart"], categoria: ["supermercado", "aliment", "comida"] },
+  { comercio: ["restaurant", "pizza", "burger", "mcdonald", "kfc", "wendy", "subway", "cafe", "coffee", "starbucks", "pollo", "sushi", "comida", "hotdog", "hot dog", "fritu", "pizzer", "presto"], categoria: ["restaurante", "comida", "aliment", "ocio"] },
+  { comercio: ["netflix", "spotify", "disney", "hbo", "prime video", "youtube", "cine", "cinema", "playstation", "steam", "apple.com", "google play", "microsoft", "google *"], categoria: ["entretenimiento", "ocio", "suscripc"] },
   { comercio: ["claro", "altice", "viva ", "internet", "telefon"], categoria: ["servicio", "vivienda"] },
-  { comercio: ["tienda", "zara", "ikea", "amazon", "ferreteria", "mall"], categoria: ["compras", "ropa", "hogar"] },
+  { comercio: ["tienda", "zara", "ikea", "amazon", "ebay", "temu", "ferreteria", "mall"], categoria: ["compras", "ropa", "hogar"] },
 ];
 
 function normalizarTexto(t) {
