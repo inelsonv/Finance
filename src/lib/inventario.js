@@ -1,28 +1,51 @@
+function parseLocalDate(dateStr) {
+  if (!dateStr) return null;
+  const parts = String(dateStr).split("-").map(Number);
+  if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  const parsed = new Date(dateStr + "T00:00:00");
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export function todayStr() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+export function diasTranscurridosDesde(fechaInicio) {
+  const inicio = parseLocalDate(fechaInicio);
+  if (!inicio) return 0;
+  const now = new Date();
+  const hoyLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diff = Math.round((hoyLocal - inicio) / 86400000);
+  return Math.max(0, diff);
+}
+
 // Calcula cuántos días de inventario le quedan a un producto con seguimiento
 // activado, basado en cuándo se registró el stock (fechaInicio +
 // unidadesDisponibles) y el consumo diario configurado.
 export function diasRestantesProducto(p) {
-  if (!p.seguimiento || !p.fechaInicio || !p.consumoDiario) return null;
-  const hoy = new Date();
-  const inicio = new Date(p.fechaInicio + "T00:00:00");
-  const diasTranscurridos = Math.floor((hoy - inicio) / 86400000);
-  const unidadesConsumidas = diasTranscurridos * p.consumoDiario;
-  const unidadesRestantes = (p.unidadesDisponibles || 0) - unidadesConsumidas;
-  return Math.floor(unidadesRestantes / p.consumoDiario);
+  if (!p?.seguimiento || !p?.fechaInicio || !p?.consumoDiario) return null;
+  const consumo = Number(p.consumoDiario);
+  if (!Number.isFinite(consumo) || consumo <= 0) return null;
+  const diasTranscurridos = diasTranscurridosDesde(p.fechaInicio);
+  const unidadesConsumidas = diasTranscurridos * consumo;
+  const unidadesRestantes = Math.max(0, (Number(p.unidadesDisponibles) || 0) - unidadesConsumidas);
+  return Math.max(0, Math.floor(unidadesRestantes / consumo));
 }
 
 // Calcula cuántas unidades exactas (ej. pastillas) quedan disponibles hoy
 export function unidadesRestantesProducto(p) {
-  if (!p.seguimiento || !p.fechaInicio || !p.consumoDiario) return null;
-  const hoy = new Date();
-  const inicio = new Date(p.fechaInicio + "T00:00:00");
-  const diasTranscurridos = Math.floor((hoy - inicio) / 86400000);
-  const unidadesConsumidas = diasTranscurridos * p.consumoDiario;
-  return Math.max(0, Math.round((p.unidadesDisponibles || 0) - unidadesConsumidas));
-}
-
-export function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  if (!p?.seguimiento || !p?.fechaInicio || !p?.consumoDiario) return null;
+  const consumo = Number(p.consumoDiario);
+  if (!Number.isFinite(consumo) || consumo <= 0) return null;
+  const diasTranscurridos = diasTranscurridosDesde(p.fechaInicio);
+  const unidadesConsumidas = diasTranscurridos * consumo;
+  return Math.max(0, Math.round(((Number(p.unidadesDisponibles) || 0) - unidadesConsumidas) * 100) / 100);
 }
 
 // Datos oficiales de Farmacia Los Hidalgos (WhatsApp Telefarmacia en R.D.)
@@ -72,6 +95,26 @@ export function construirMensajePedidoFarmacia(producto, entidad, opciones = {})
   return lineas.join("\n\n");
 }
 
+// Reasigna o corrige manualmente el inventario exacto disponible a partir de una fecha
+// (por defecto hoy). A diferencia de registrarReposicion, fija el saldo real
+// en vez de sumarlo al stock anterior.
+export function ajustarInventarioProducto(unidadesExactas, opciones = {}) {
+  const unidades = Math.max(0, Math.round((Number(unidadesExactas) || 0) * 100) / 100);
+  const fecha = opciones.fechaInicio || todayStr();
+  const result = {
+    seguimiento: true,
+    fechaInicio: fecha,
+    unidadesDisponibles: unidades,
+  };
+  if (opciones.unidadesPorPaquete != null) {
+    result.unidadesPorPaquete = Math.max(1, Number(opciones.unidadesPorPaquete) || 1);
+  }
+  if (opciones.consumoDiario != null) {
+    result.consumoDiario = Math.max(0.25, Number(opciones.consumoDiario) || 1);
+  }
+  return result;
+}
+
 // Calcula el nuevo stock al registrar una reposición (compra) de "paquetes"
 // unidades adicionales, sumando exactamente lo que quedaba disponible hoy al momento.
 export function registrarReposicion(p, paquetesComprados, opciones = {}) {
@@ -84,10 +127,11 @@ export function registrarReposicion(p, paquetesComprados, opciones = {}) {
   const paquetes = Math.max(0, Number(paquetesComprados) || 0);
   const unidadesNuevas = paquetes * unidadesPorPaq;
   const fecha = opciones.fechaInicio || todayStr();
+  const total = Math.round((unidadesActuales + unidadesNuevas) * 100) / 100;
 
   return {
     fechaInicio: fecha,
-    unidadesDisponibles: unidadesActuales + unidadesNuevas,
+    unidadesDisponibles: total,
     seguimiento: true,
     unidadesPorPaquete: unidadesPorPaq,
     consumoDiario: Number(opciones.consumoDiario) || Number(p?.consumoDiario) || 1,
