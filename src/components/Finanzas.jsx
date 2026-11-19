@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Vault, PiggyBank, LineChart, Briefcase, ArrowRight, Landmark } from "lucide-react";
+import { calcularSaldosCuentas } from "../lib/cuentasSaldo";
 
 const FRECUENCIA_FACTOR = { Semanal: 52 / 12, Quincenal: 2, Mensual: 1, Anual: 1 / 12, Único: 0 };
 
@@ -8,18 +9,15 @@ function formatMoney(n) {
   return "$" + v.toLocaleString("es", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-export default function Finanzas({ cuentas, metasAhorro, fuentesIngreso, movimientos, onNavigate }) {
+export default function Finanzas({ cuentas, metasAhorro, fuentesIngreso, movimientos, prestamos = [], onNavigate }) {
   const saldoPorCuenta = useMemo(() => {
+    const desgloses = calcularSaldosCuentas(cuentas, movimientos, prestamos);
     const map = {};
     for (const c of cuentas || []) {
-      let total = c.saldoInicial || 0;
-      for (const mv of movimientos || []) {
-        if (mv.cuentaId === c.id && mv.category === c.tipo) total += Number(mv.amount) || 0;
-      }
-      map[c.id] = total;
+      map[c.id] = desgloses[c.id]?.saldoDisponible || 0;
     }
     return map;
-  }, [cuentas, movimientos]);
+  }, [cuentas, movimientos, prestamos]);
 
   const totalesPorTipo = useMemo(() => {
     const map = { Ahorro: 0, Corriente: 0, Inversión: 0, Corretaje: 0 };

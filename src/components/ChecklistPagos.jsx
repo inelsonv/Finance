@@ -13,6 +13,7 @@ import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuinc
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { confirm } from "../lib/confirm";
 import { GASTO_CATS_FIJO } from "../lib/categorias";
+import { evaluarCuentasParaPago } from "../lib/cuentasSaldo";
 
 const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 const METODOS = ["Efectivo", "Transferencia", "Tarjeta", "Descuento Nómina", "Otro"];
@@ -99,6 +100,7 @@ export default function ChecklistPagos({
   onNavigate,
   userEmail,
   entidades = [],
+  cuentas = [],
 }) {
   const [periodo, setPeriodo] = useState(() => periodoInicial || periodoActual(diasCobro));
   const [checklist, setChecklist] = useState({});
@@ -852,7 +854,7 @@ export default function ChecklistPagos({
   // Lógica central de registrar un pago ya confirmado: marca el ítem como
   // pagado y crea el movimiento correspondiente. La usan tanto el flujo de
   // un solo ítem como el de confirmación en lote (selección múltiple).
-  const confirmarPagoItem = async (it) => {
+  const confirmarPagoItem = async (it, cuentaOrigen = null) => {
     const actual = checklist?.items?.[it.key] || {};
     const metodoPago = actual.metodoPago || it.metodoDefault || "Efectivo";
     await setChecklistItem(periodoKey, it.key, { ...actual, pagado: true, metodoPago });
@@ -871,6 +873,8 @@ export default function ChecklistPagos({
         entidadName: it.entidadName || "",
         prestamoId: it.prestamoId,
         prestamoNumero: it.prestamoNumero || "",
+        cuentaOrigenId: cuentaOrigen ? cuentaOrigen.id : null,
+        cuentaOrigenNombre: cuentaOrigen ? cuentaOrigen.nombre : "",
         origenChecklist: { periodoKey, itemKey: it.key },
       });
 
@@ -964,8 +968,21 @@ export default function ChecklistPagos({
 
     const metodo = actual.metodoPago || it.metodoDefault || "Transferencia";
     const esTransferencia = metodo === "Transferencia" || it.cuentaDestinoNumero || it.prestamoNumero === "PT01";
-    if (it.esPrestamo && esTransferencia) {
-      setModalTransferencia({ item: it });
+    if (it.esPrestamo && (esTransferencia || (cuentas && cuentas.length > 0))) {
+      const evaluacion = evaluarCuentasParaPago(
+        cuentas,
+        movimientos,
+        it.monto,
+        {
+          entidadPreferidaId: it.entidadId || it.prestamo?.entidadId || null,
+          cuentaPreferidaId: it.prestamo?.cuentaDestinoId || null,
+        },
+        prestamos
+      );
+      setModalTransferencia({
+        item: it,
+        cuentaOrigenId: evaluacion.cuentaSugeridaId || "",
+      });
       return;
     }
 
@@ -2257,6 +2274,18 @@ export default function ChecklistPagos({
         const tipoProducto = it.cuentaDestinoTipo || it.prestamo?.cuentaDestinoTipo || (esPT01 ? "Cuentas de Terceros" : "Cuentas de Terceros");
         const numeroCuenta = it.cuentaDestinoNumero || it.prestamo?.cuentaDestinoNumero || (esPT01 ? "0002804611" : "");
         const beneficiario = it.cuentaDestinoBeneficiario || it.prestamo?.cuentaDestinoBeneficiario || (esPT01 ? "Julian Ochoa" : "");
+        const evalCuentas = evaluarCuentasParaPago(
+          cuentas,
+          movimientos,
+          it.monto,
+          {
+            entidadPreferidaId: it.entidadId || it.prestamo?.entidadId || null,
+            cuentaPreferidaId: it.prestamo?.cuentaDestinoId || null,
+          },
+          prestamos
+        );
+        const cuentaOrigenSel = evalCuentas.cuentas.find((c) => c.id === modalTransferencia.cuentaOrigenId) || null;
+        const saldoInsuficiente = !!(cuentaOrigenSel && !cuentaOrigenSel.suficiente);
 
         const modalContent = (
           <div
@@ -2301,8 +2330,9 @@ export default function ChecklistPagos({
                 maxWidth: 430,
                 width: "100%",
                 margin: "auto",
-                overflow: "hidden",
-                touchAction: "none",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                touchAction: "pan-y",
                 overscrollBehavior: "contain",
                 display: "flex",
                 flexDirection: "column",
@@ -2374,7 +2404,7 @@ export default function ChecklistPagos({
                 {/* Banco y tipo */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, paddingBottom: 4, borderBottom: "1px solid rgba(59, 130, 246, 0.12)" }}>
                   <span style={{ color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4 }}>
-                    <Landmark size={12} style={{ color: "#2563eb" }} /> Banco:
+                    <Landmark size={12} style={{ color: "#2563eb" }} /> Banco destino:
                   </span>
                   <span style={{ fontWeight: 600, color: "var(--ink)" }}>
                     {banco} {tipoProducto ? `· ${tipoProducto}` : ""}
@@ -2449,7 +2479,51 @@ export default function ChecklistPagos({
                 </div>
               </div>
 
-              {/* Mensaje breve */}
+              {/* Selector de cuenta origen según fondos disponibles */}
+              {evalCuentas.cuentas.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, color: "var(--ink-soft)", fontWeight: 600, marginBottom: 4 }}>
+                    Cuenta con fondos para pagar:
+                  </div>
+                  <select
+                    value={modalTransferencia.cuentaOrigenId || ""}
+                    onChange={(e) =>
+                      setModalTransferencia((prev) => ({ ...prev, cuentaOrigenId: e.target.value }))
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "7px 9px",
+                      border: `1px solid ${saldoInsuficiente ? "var(--stamp)" : "var(--line)"}`,
+                      borderRadius: 8,
+                      fontSize: 12,
+                      background: "var(--paper)",
+                      color: "var(--ink)",
+                    }}
+                  >
+                    <option value="">Efectivo / Sin descontar de mis cuentas</option>
+                    {evalCuentas.cuentas.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre} ({c.entidadName || "Banco"}) — Disp: {formatMoney(c.saldoDisponible)} {c.suficiente ? "✓ Cubre" : `(Faltan ${formatMoney(c.faltante)})`}
+                      </option>
+                    ))}
+                  </select>
+                  {cuentaOrigenSel && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        marginTop: 4,
+                        color: cuentaOrigenSel.suficiente ? "var(--sage)" : "var(--stamp)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {cuentaOrigenSel.suficiente
+                        ? `Quedará en ${formatMoney(cuentaOrigenSel.saldoDisponible - (Number(it.monto) || 0))} después del pago.`
+                        : `Fondos insuficientes en ${cuentaOrigenSel.nombre} (${formatMoney(cuentaOrigenSel.saldoDisponible)} disponibles).`}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Mensaje breve centrado */}
               <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 14, lineHeight: 1.35, textAlign: "center" }}>
                 💡 Transfiere desde la app de tu banco y confirma al terminar para registrar el pago.
@@ -2477,10 +2551,12 @@ export default function ChecklistPagos({
                 </button>
                 <button
                   type="button"
+                  disabled={saldoInsuficiente}
                   onClick={async () => {
                     const item = modalTransferencia.item;
+                    const cta = cuentaOrigenSel;
                     setModalTransferencia(null);
-                    await confirmarPagoItem(item);
+                    await confirmarPagoItem(item, cta);
                   }}
                   style={{
                     flex: 2,
@@ -2491,12 +2567,12 @@ export default function ChecklistPagos({
                     padding: "9px 18px",
                     fontSize: 12.5,
                     fontWeight: 600,
-                    background: "var(--sage)",
+                    background: saldoInsuficiente ? "var(--line)" : "var(--sage)",
                     color: "#fff",
                     border: "none",
                     borderRadius: 8,
-                    cursor: "pointer",
-                    boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
+                    cursor: saldoInsuficiente ? "not-allowed" : "pointer",
+                    boxShadow: saldoInsuficiente ? "none" : "0 2px 8px rgba(16, 185, 129, 0.3)",
                     textAlign: "center",
                   }}
                 >

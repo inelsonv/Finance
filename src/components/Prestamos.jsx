@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw, ChevronDown, ChevronUp, Copy, ArrowLeftRight, CreditCard, Scissors, AlertTriangle } from "lucide-react";
-import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo } from "../lib/db";
+import { createPortal } from "react-dom";
+import { Plus, Trash2, X, Landmark, Calendar, Percent, Pencil, Check, MessageCircle, Car, RotateCcw, ChevronDown, ChevronUp, Copy, ArrowLeftRight, CreditCard, Scissors, AlertTriangle, Wallet, Vault } from "lucide-react";
+import { addPrestamo, deletePrestamo, updatePrestamoEstado, updatePrestamo, addMovimiento } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { calcularProyeccionPago } from "../lib/proyeccionPrestamo";
+import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
+import { calcularSaldosCuentas, evaluarCuentasParaPago } from "../lib/cuentasSaldo";
 import {
   ESCENARIOS_DIVISION,
   MODOS_ANIO_DIVISION,
@@ -1076,7 +1079,7 @@ function ModalDividirCuotaRapido({ modalDividir, setModalDividir, onGuardar }) {
   );
 }
 
-const emptyForm = (numero) => {
+const emptyForm = (numero, cuentas = []) => {
   const esPT01 = numero === "PT01";
   return {
     numero,
@@ -1107,11 +1110,14 @@ const emptyForm = (numero) => {
     frecuenciaCuota: "Mensual",
     cuotasPersonalizadas: [],
     metodoPago: "Transferencia",
+    cuentaDestinoModo: esPT01 ? "tercero" : (cuentas.length > 0 ? "propia" : "tercero"),
     cuentaDestinoId: "",
-    cuentaDestinoBanco: esPT01 ? "Banco Popular" : "Banco Popular",
+    cuentaDestinoNombre: "",
+    cuentaDestinoBanco: esPT01 ? "Banco Popular" : "",
     cuentaDestinoNumero: esPT01 ? "0002804611" : "",
     cuentaDestinoBeneficiario: esPT01 ? "Julian Ochoa" : "",
-    cuentaDestinoTipo: esPT01 ? "Cuentas de Terceros" : "Cuentas de Terceros",
+    cuentaDestinoTipo: esPT01 ? "Cuentas de Terceros" : "Cuenta de Ahorros",
+    acreditarEnCuenta: !esPT01,
   };
 };
 
@@ -1125,7 +1131,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
     return true;
   });
 
-  const [form, setForm] = useState(() => emptyForm(nextNumero(prestamos)));
+  const [form, setForm] = useState(() => emptyForm(nextNumero(prestamos), cuentas));
   const [formError, setFormError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -1138,6 +1144,8 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
   const toggleDetalles = (id) => setDetallesAbiertos((prev) => ({ ...prev, [id]: !prev[id] }));
 
   const [modalDividir, setModalDividir] = useState(null);
+  const [modalPago, setModalPago] = useState(null);
+  const [whatsappAviso, setWhatsappAviso] = useState(null);
 
   const abrirModalDividir = (p) => {
     const cuota = Number(p.cuota) || 0;
@@ -1277,7 +1285,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
   }, [focusPrestamoId, prestamos]);
 
   const openForm = () => {
-    setForm(emptyForm(nextNumero(prestamos)));
+    setForm(emptyForm(nextNumero(prestamos), cuentas));
     setFormError(null);
     setShowForm(true);
   };
@@ -1314,11 +1322,17 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       notificarWhatsapp: !!p.notificarWhatsapp,
       frecuenciaCuota: p.frecuenciaCuota || "Mensual",
       metodoPago: p.metodoPago || "Transferencia",
+      cuentaDestinoModo: p.cuentaDestinoModo || (p.cuentaDestinoId ? "propia" : "tercero"),
       cuentaDestinoId: p.cuentaDestinoId || "",
-      cuentaDestinoBanco: p.cuentaDestinoBanco || (esPT01 ? "Banco Popular" : (p.entidadName || "Banco Popular")),
+      cuentaDestinoNombre: p.cuentaDestinoNombre || "",
+      cuentaDestinoBanco: p.cuentaDestinoBanco || (esPT01 ? "Banco Popular" : (p.entidadName || "")),
       cuentaDestinoNumero: p.cuentaDestinoNumero || (esPT01 ? "0002804611" : ""),
       cuentaDestinoBeneficiario: p.cuentaDestinoBeneficiario || (esPT01 ? "Julian Ochoa" : ""),
-      cuentaDestinoTipo: p.cuentaDestinoTipo || (esPT01 ? "Cuentas de Terceros" : "Cuentas de Terceros"),
+      cuentaDestinoTipo: p.cuentaDestinoTipo || (esPT01 ? "Cuentas de Terceros" : "Cuenta de Ahorros"),
+      acreditarEnCuenta:
+        p.acreditarEnCuenta !== undefined
+          ? !!p.acreditarEnCuenta
+          : !!p.cuentaDestinoId && p.cuentaDestinoModo !== "tercero",
       cuotasPersonalizadas: p.cuotasPersonalizadas ? p.cuotasPersonalizadas.map((c) => {
         const override = fechasOverride[c.fecha];
         return {
@@ -1371,6 +1385,9 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         }
       }
 
+      const modoEdit = editForm.cuentaDestinoModo || (editForm.cuentaDestinoId ? "propia" : "tercero");
+      const cuentaSelEdit = cuentas.find((c) => c.id === editForm.cuentaDestinoId);
+
       await updatePrestamo(editingId, {
         tipo: editForm.tipo,
         entidadId: editForm.entidadId,
@@ -1400,11 +1417,14 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         notificarWhatsapp: editForm.notificarWhatsapp,
         frecuenciaCuota: editForm.frecuenciaCuota,
         metodoPago: editForm.metodoPago || "Transferencia",
+        cuentaDestinoModo: modoEdit,
         cuentaDestinoId: editForm.cuentaDestinoId || null,
-        cuentaDestinoBanco: editForm.cuentaDestinoBanco || "",
-        cuentaDestinoNumero: editForm.cuentaDestinoNumero || "",
-        cuentaDestinoBeneficiario: editForm.cuentaDestinoBeneficiario || "",
-        cuentaDestinoTipo: editForm.cuentaDestinoTipo || "",
+        cuentaDestinoNombre: cuentaSelEdit ? cuentaSelEdit.nombre : (editForm.cuentaDestinoNombre || editForm.cuentaDestinoBeneficiario || ""),
+        cuentaDestinoBanco: cuentaSelEdit ? (editForm.cuentaDestinoBanco || cuentaSelEdit.entidadName || "") : (editForm.cuentaDestinoBanco || ""),
+        cuentaDestinoNumero: cuentaSelEdit ? (editForm.cuentaDestinoNumero || cuentaSelEdit.numeroCuenta || "") : (editForm.cuentaDestinoNumero || ""),
+        cuentaDestinoBeneficiario: cuentaSelEdit ? (editForm.cuentaDestinoBeneficiario || cuentaSelEdit.nombre || "") : (editForm.cuentaDestinoBeneficiario || ""),
+        cuentaDestinoTipo: cuentaSelEdit ? (editForm.cuentaDestinoTipo || `Cuenta de ${cuentaSelEdit.tipo}`) : (editForm.cuentaDestinoTipo || ""),
+        acreditarEnCuenta: modoEdit === "propia" && !!editForm.cuentaDestinoId && !!editForm.acreditarEnCuenta,
         cuotasPersonalizadas: normalizarCuotas(editForm.cuotasPersonalizadas),
         cuotasPersonalizadasOverrides: {},
       });
@@ -1470,6 +1490,98 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
     return { pagadas, pendientes, totalPlan };
   }, [prestamosActivos, movimientos]);
 
+  const abrirModalPago = (p) => {
+    const pagado = pagadoPorPrestamo[p.id] || 0;
+    const pendiente = Math.max((Number(p.montoAprobado) || 0) - pagado, 0);
+    const cuotaDefault =
+      Number(p.cuota) > 0
+        ? pendiente > 0
+          ? Math.min(Number(p.cuota), pendiente)
+          : Number(p.cuota)
+        : pendiente;
+    const evaluacion = evaluarCuentasParaPago(
+      cuentas,
+      movimientos,
+      cuotaDefault,
+      {
+        entidadPreferidaId: p.entidadId,
+        cuentaPreferidaId: p.cuentaDestinoId,
+      },
+      prestamos
+    );
+    setModalPago({
+      prestamo: p,
+      monto: cuotaDefault > 0 ? String(cuotaDefault) : "",
+      fecha: todayStr(),
+      metodoPago: p.metodoPago || (evaluacion.cuentaSugeridaId ? "Transferencia" : "Efectivo"),
+      cuentaOrigenId: evaluacion.cuentaSugeridaId || "",
+      nota: "",
+      error: null,
+      guardando: false,
+    });
+  };
+
+  const guardarModalPago = async () => {
+    if (!modalPago || !modalPago.prestamo) return;
+    const p = modalPago.prestamo;
+    const monto = parseFloat(modalPago.monto);
+    if (!Number.isFinite(monto) || monto <= 0) {
+      setModalPago((prev) => ({ ...prev, error: "Ingresa un monto válido mayor a 0." }));
+      return;
+    }
+
+    let cuentaOrigen = null;
+    if (modalPago.cuentaOrigenId) {
+      const saldos = calcularSaldosCuentas(cuentas, movimientos, prestamos);
+      cuentaOrigen = (cuentas || []).find((c) => c.id === modalPago.cuentaOrigenId) || null;
+      const disponible = cuentaOrigen ? saldos[cuentaOrigen.id]?.saldoDisponible || 0 : 0;
+      if (disponible + 0.001 < monto) {
+        setModalPago((prev) => ({
+          ...prev,
+          error: `Fondos insuficientes en ${cuentaOrigen?.nombre || "esta cuenta"}: tienes ${formatMoney(disponible)} disponibles y el pago es de ${formatMoney(monto)}. Elige otra cuenta con fondos o selecciona "Sin cuenta registrada".`,
+        }));
+        return;
+      }
+    }
+
+    setModalPago((prev) => ({ ...prev, guardando: true, error: null }));
+    try {
+      await addMovimiento({
+        type: "Gasto",
+        category: "Pago de préstamo",
+        amount: monto,
+        description: modalPago.nota.trim() || `Pago préstamo ${p.numero}`,
+        date: modalPago.fecha || todayStr(),
+        metodoPago: modalPago.metodoPago || "Transferencia",
+        entidadId: p.entidadId || null,
+        entidadName: p.entidadName || "",
+        prestamoId: p.id,
+        prestamoNumero: p.numero || "",
+        cuentaOrigenId: cuentaOrigen ? cuentaOrigen.id : null,
+        cuentaOrigenNombre: cuentaOrigen ? cuentaOrigen.nombre : "",
+      });
+
+      lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round(monto * 0.05) });
+
+      if (p.notificarWhatsapp) {
+        const entidadPrestamo = entidades.find((e) => e.docId === p.entidadId);
+        const telefono = entidadPrestamo?.phone?.replace(/\D/g, "");
+        if (telefono) {
+          const mensaje = `Pago registrado: préstamo ${p.numero} (${p.entidadName || "sin entidad"}), monto ${formatMoney(monto)}, fecha ${modalPago.fecha || todayStr()}.`;
+          setWhatsappAviso({
+            entidadNombre: p.entidadName || "Entidad",
+            prestamoNumero: p.numero,
+            url: `https://wa.me/${telefono}?text=${encodeURIComponent(mensaje)}`,
+          });
+        }
+      }
+
+      setModalPago(null);
+    } catch (err) {
+      setModalPago((prev) => ({ ...prev, guardando: false, error: err.message || String(err) }));
+    }
+  };
+
   const handleAdd = async () => {
     const monto = parseFloat(form.montoAprobado);
     const plazo = parseFloat(form.plazo);
@@ -1482,11 +1594,26 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       setFormError("Ingresa un monto aprobado válido");
       return;
     }
+
+    const modo = form.cuentaDestinoModo || (form.cuentaDestinoId ? "propia" : "tercero");
+    if (modo === "propia") {
+      if (!form.cuentaDestinoId) {
+        setFormError("Selecciona la cuenta destino donde recibirás o asociarás el préstamo");
+        return;
+      }
+    } else {
+      if (!String(form.cuentaDestinoBanco || "").trim() || !String(form.cuentaDestinoNumero || "").trim()) {
+        setFormError("Indica el banco y número de cuenta destino para emitir el préstamo");
+        return;
+      }
+    }
+
     setSaving(true);
     setFormError(null);
     try {
       const entidad = entidades.find((e) => e.docId === form.entidadId);
       const activoSel = activos.find((a) => a.id === form.activoId);
+      const cuentaSel = cuentas.find((c) => c.id === form.cuentaDestinoId);
       const cuota = parseFloat(form.cuota);
 
       const dividir = !!form.dividirEnQuincenas && form.frecuenciaCuota === "Mensual";
@@ -1536,11 +1663,14 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
         notificarWhatsapp: form.notificarWhatsapp,
         frecuenciaCuota: form.frecuenciaCuota,
         metodoPago: form.metodoPago || "Transferencia",
-        cuentaDestinoId: form.cuentaDestinoId || null,
-        cuentaDestinoBanco: form.cuentaDestinoBanco || "",
-        cuentaDestinoNumero: form.cuentaDestinoNumero || "",
-        cuentaDestinoBeneficiario: form.cuentaDestinoBeneficiario || "",
-        cuentaDestinoTipo: form.cuentaDestinoTipo || "",
+        cuentaDestinoModo: modo,
+        cuentaDestinoId: modo === "propia" ? form.cuentaDestinoId : (form.cuentaDestinoId || null),
+        cuentaDestinoNombre: cuentaSel ? cuentaSel.nombre : (form.cuentaDestinoBeneficiario || ""),
+        cuentaDestinoBanco: cuentaSel ? (cuentaSel.entidadName || form.cuentaDestinoBanco || "") : (form.cuentaDestinoBanco || ""),
+        cuentaDestinoNumero: cuentaSel ? (cuentaSel.numeroCuenta || form.cuentaDestinoNumero || "") : (form.cuentaDestinoNumero || ""),
+        cuentaDestinoBeneficiario: cuentaSel ? (cuentaSel.nombre || "") : (form.cuentaDestinoBeneficiario || ""),
+        cuentaDestinoTipo: cuentaSel ? (`Cuenta de ${cuentaSel.tipo}`) : (form.cuentaDestinoTipo || ""),
+        acreditarEnCuenta: modo === "propia" && !!form.cuentaDestinoId && !!form.acreditarEnCuenta,
         cuotasPersonalizadas: normalizarCuotas(form.cuotasPersonalizadas),
       });
       setShowForm(false);
@@ -1846,7 +1976,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
             </div>
           )}
 
-          <SeccionCuentaDestino formState={form} setFormState={setForm} cuentas={cuentas} entidades={entidades} />
+          <SeccionCuentaDestino formState={form} setFormState={setForm} cuentas={cuentas} entidades={entidades} movimientos={movimientos} prestamos={prestamos} esNuevo />
 
           <input
             placeholder="Notas (opcional)"
@@ -2241,7 +2371,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                     </div>
                   )}
 
-                  <SeccionCuentaDestino formState={editForm} setFormState={setEditForm} cuentas={cuentas} entidades={entidades} />
+                  <SeccionCuentaDestino formState={editForm} setFormState={setEditForm} cuentas={cuentas} entidades={entidades} movimientos={movimientos} prestamos={prestamos} esNuevo={false} />
 
                   <input
                     placeholder="Notas (opcional)"
@@ -2345,6 +2475,29 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                       )}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                      {p.estado !== "Pagado" && (
+                        <button
+                          type="button"
+                          onClick={() => abrirModalPago(p)}
+                          title="Registrar pago de cuota desde una cuenta con fondos"
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 4,
+                            padding: "3px 9px",
+                            background: "var(--sage)",
+                            border: "none",
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: "#fff",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Wallet size={11} />
+                          Pagar
+                        </button>
+                      )}
                       <button
                         onClick={() => toggleDetalles(p.id)}
                         title={detallesAbiertos[p.id] ? "Ocultar detalles secundarios" : "Ver detalles (plazo, tasa, proyección e historial)"}
@@ -2476,6 +2629,25 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
                               {copiadoId === p.id ? <Check size={10} /> : <Copy size={10} />}
                               {copiadoId === p.id ? "Copiado" : "Copiar"}
                             </button>
+                          </span>
+                        )}
+
+                        {p.acreditarEnCuenta && p.cuentaDestinoNombre && (
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              fontSize: 10.5,
+                              padding: "1px 7px",
+                              borderRadius: 5,
+                              background: "var(--sage-bg)",
+                              color: "var(--sage)",
+                              fontWeight: 600,
+                            }}
+                          >
+                            <Vault size={10} />
+                            Desembolso en {p.cuentaDestinoNombre}
                           </span>
                         )}
 
@@ -2811,25 +2983,395 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
           onGuardar={guardarModalDividir}
         />
       )}
+
+      {modalPago && (
+        <ModalPagarPrestamo
+          modalPago={modalPago}
+          setModalPago={setModalPago}
+          cuentas={cuentas}
+          movimientos={movimientos}
+          prestamos={prestamos}
+          pagadoPorPrestamo={pagadoPorPrestamo}
+          onConfirmar={guardarModalPago}
+        />
+      )}
+
+      {whatsappAviso && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 18,
+            right: 18,
+            zIndex: 99999,
+            background: "var(--card)",
+            border: "1px solid var(--sage)",
+            borderRadius: 12,
+            padding: "12px 14px",
+            boxShadow: "0 10px 26px rgba(0,0,0,0.25)",
+            maxWidth: 320,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink)" }}>
+              Pago registrado · {whatsappAviso.prestamoNumero}
+            </span>
+            <button
+              type="button"
+              onClick={() => setWhatsappAviso(null)}
+              style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer", padding: 2 }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <a
+            href={whatsappAviso.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setWhatsappAviso(null)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              padding: "7px 12px",
+              borderRadius: 8,
+              background: "#25D366",
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: 600,
+              textDecoration: "none",
+            }}
+          >
+            <MessageCircle size={13} /> Enviar comprobante por WhatsApp a {whatsappAviso.entidadNombre}
+          </a>
+        </div>
+      )}
     </div>
   );
 }
 
-function SeccionCuentaDestino({ formState, setFormState, cuentas, entidades }) {
+function ModalPagarPrestamo({ modalPago, setModalPago, cuentas, movimientos, prestamos = [], pagadoPorPrestamo, onConfirmar }) {
+  const p = modalPago.prestamo;
+  const montoNum = parseFloat(modalPago.monto) || 0;
+  const pagado = pagadoPorPrestamo[p.id] || 0;
+  const pendiente = Math.max((Number(p.montoAprobado) || 0) - pagado, 0);
+
+  const evaluacion = useMemo(
+    () =>
+      evaluarCuentasParaPago(
+        cuentas,
+        movimientos,
+        montoNum,
+        {
+          entidadPreferidaId: p.entidadId,
+          cuentaPreferidaId: p.cuentaDestinoId,
+        },
+        prestamos
+      ),
+    [cuentas, movimientos, prestamos, montoNum, p.entidadId, p.cuentaDestinoId]
+  );
+
+  const cuentaSeleccionada = evaluacion.cuentas.find((c) => c.id === modalPago.cuentaOrigenId) || null;
+  const saldoInsuficiente = cuentaSeleccionada && montoNum > 0 && !cuentaSeleccionada.suficiente;
+
+  const content = (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0, 0, 0, 0.7)",
+        backdropFilter: "blur(4px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 99999,
+        padding: 16,
+        boxSizing: "border-box",
+      }}
+      onClick={() => !modalPago.guardando && setModalPago(null)}
+    >
+      <div
+        style={{
+          background: "var(--card)",
+          color: "var(--ink)",
+          border: "1px solid var(--line)",
+          borderRadius: 14,
+          padding: "16px 18px",
+          maxWidth: 460,
+          width: "100%",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          boxShadow: "0 20px 40px rgba(0, 0, 0, 0.45)",
+          boxSizing: "border-box",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--sage-bg)", color: "var(--sage)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Wallet size={15} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>
+                Pagar préstamo {p.numero}
+              </h3>
+              <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+                {p.entidadName || p.tipo} · Falta por pagar: <strong className="despensa-mono">{formatMoney(pendiente)}</strong>
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={modalPago.guardando}
+            onClick={() => setModalPago(null)}
+            style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer", padding: 4 }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>
+              Monto a pagar
+            </label>
+            <input
+              className="despensa-mono"
+              type="number"
+              step="0.01"
+              min="0"
+              value={modalPago.monto}
+              onChange={(e) => setModalPago((prev) => ({ ...prev, monto: e.target.value, error: null }))}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13.5, fontWeight: 700 }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>
+              Fecha del pago
+            </label>
+            <input
+              type="date"
+              value={modalPago.fecha}
+              onChange={(e) => setModalPago((prev) => ({ ...prev, fecha: e.target.value }))}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ display: "block", fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
+            Cuenta con fondos para realizar el pago
+          </label>
+          {evaluacion.cuentas.length === 0 ? (
+            <div style={{ fontSize: 12, color: "var(--ink-soft)", padding: "8px 10px", background: "var(--paper)", borderRadius: 8, border: "1px solid var(--line)" }}>
+              No tienes cuentas registradas aún. El pago se registrará sin descontar de una cuenta.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {evaluacion.cuentas.map((c) => {
+                const seleccionada = modalPago.cuentaOrigenId === c.id;
+                const alcanza = c.suficiente;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() =>
+                      setModalPago((prev) => ({
+                        ...prev,
+                        cuentaOrigenId: c.id,
+                        metodoPago: prev.metodoPago === "Efectivo" ? "Transferencia" : prev.metodoPago,
+                        error: null,
+                      }))
+                    }
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: `1.5px solid ${seleccionada ? (alcanza ? "var(--sage)" : "var(--stamp)") : "var(--line)"}`,
+                      background: seleccionada ? (alcanza ? "var(--sage-bg)" : "var(--stamp-bg)") : "var(--paper)",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      opacity: !alcanza && !seleccionada ? 0.78 : 1,
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>
+                        {c.nombre}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
+                        {c.entidadName || "Entidad"} · {c.tipo}
+                        {c.numeroCuenta ? ` · ${c.numeroCuenta}` : ""}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 700, color: alcanza ? "var(--sage)" : "var(--stamp)" }}>
+                        {formatMoney(c.saldoDisponible)}
+                      </div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: alcanza ? "var(--sage)" : "var(--stamp)" }}>
+                        {alcanza
+                          ? (seleccionada && montoNum > 0 ? `Quedará: ${formatMoney(c.saldoDisponible - montoNum)}` : "Fondos suficientes")
+                          : `Faltan ${formatMoney(c.faltante)}`}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setModalPago((prev) => ({
+                    ...prev,
+                    cuentaOrigenId: "",
+                    metodoPago: "Efectivo",
+                    error: null,
+                  }))
+                }
+                style={{
+                  padding: "7px 10px",
+                  borderRadius: 8,
+                  border: `1px solid ${modalPago.cuentaOrigenId === "" ? "var(--ink)" : "var(--line)"}`,
+                  background: modalPago.cuentaOrigenId === "" ? "var(--card)" : "transparent",
+                  fontSize: 11.5,
+                  color: "var(--ink-soft)",
+                  textAlign: "left",
+                  cursor: "pointer",
+                }}
+              >
+                Efectivo / Otra fuente externa (sin descontar de mis cuentas)
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: 8, marginBottom: 12 }}>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>
+              Método de pago
+            </label>
+            <select
+              value={modalPago.metodoPago}
+              onChange={(e) => setModalPago((prev) => ({ ...prev, metodoPago: e.target.value }))}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
+            >
+              {METODOS_PAGO_PRESTAMO.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>
+              Nota (opcional)
+            </label>
+            <input
+              placeholder={`Ej. Cuota préstamo ${p.numero}`}
+              value={modalPago.nota}
+              onChange={(e) => setModalPago((prev) => ({ ...prev, nota: e.target.value }))}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5 }}
+            />
+          </div>
+        </div>
+
+        {(saldoInsuficiente || modalPago.error) && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 6, background: "var(--stamp-bg)", color: "var(--stamp)", padding: "8px 10px", borderRadius: 8, fontSize: 11.5, marginBottom: 12 }}>
+            <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>
+              {modalPago.error || `La cuenta "${cuentaSeleccionada.nombre}" tiene ${formatMoney(cuentaSeleccionada.saldoDisponible)} disponibles y necesitas ${formatMoney(montoNum)}. Selecciona otra cuenta con fondos suficientes.`}
+            </span>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            disabled={modalPago.guardando}
+            onClick={() => setModalPago(null)}
+            style={{
+              flex: 1,
+              padding: "9px 14px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              background: "var(--card)",
+              color: "var(--ink-soft)",
+              border: "1px solid var(--line)",
+              borderRadius: 8,
+              cursor: "pointer",
+            }}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={modalPago.guardando || saldoInsuficiente}
+            onClick={onConfirmar}
+            style={{
+              flex: 2,
+              padding: "9px 16px",
+              fontSize: 12.5,
+              fontWeight: 600,
+              background: saldoInsuficiente ? "var(--line)" : "var(--sage)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              cursor: modalPago.guardando || saldoInsuficiente ? "not-allowed" : "pointer",
+            }}
+          >
+            {modalPago.guardando ? "Registrando…" : `Confirmar pago ${montoNum > 0 ? formatMoney(montoNum) : ""}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return typeof document !== "undefined" ? createPortal(content, document.body) : content;
+}
+
+function SeccionCuentaDestino({ formState, setFormState, cuentas, entidades, movimientos = [], prestamos = [], esNuevo = true }) {
+  const saldosPorCuenta = useMemo(
+    () => calcularSaldosCuentas(cuentas, movimientos, prestamos),
+    [cuentas, movimientos, prestamos]
+  );
+
+  const modo = formState.cuentaDestinoModo || (formState.cuentaDestinoId ? "propia" : "tercero");
+  const montoPrestamo = parseFloat(formState.montoAprobado) || 0;
+  const cuentaSeleccionada = (cuentas || []).find((c) => c.id === formState.cuentaDestinoId) || null;
+  const saldoCuentaSel = cuentaSeleccionada ? (saldosPorCuenta[cuentaSeleccionada.id]?.saldoDisponible || 0) : 0;
+
+  const cambiarModo = (nuevoModo) => {
+    setFormState((prev) => ({
+      ...prev,
+      cuentaDestinoModo: nuevoModo,
+      acreditarEnCuenta: nuevoModo === "propia" ? (prev.cuentaDestinoModo !== "propia" ? true : (prev.acreditarEnCuenta ?? true)) : false,
+    }));
+  };
+
   const handleSeleccionarCuentaRegistrada = (cuentaId) => {
     if (!cuentaId) {
-      setFormState((prev) => ({ ...prev, cuentaDestinoId: "" }));
+      setFormState((prev) => ({
+        ...prev,
+        cuentaDestinoId: "",
+        cuentaDestinoNombre: "",
+      }));
       return;
     }
     const c = (cuentas || []).find((cta) => cta.id === cuentaId);
     if (c) {
       setFormState((prev) => ({
         ...prev,
+        cuentaDestinoModo: "propia",
         cuentaDestinoId: c.id,
+        cuentaDestinoNombre: c.nombre || "",
         cuentaDestinoBanco: c.entidadName || prev.cuentaDestinoBanco || "",
         cuentaDestinoNumero: c.numeroCuenta || prev.cuentaDestinoNumero || "",
         cuentaDestinoBeneficiario: c.nombre || prev.cuentaDestinoBeneficiario || "",
-        cuentaDestinoTipo: c.tipo ? `Cuenta de ${c.tipo}` : prev.cuentaDestinoTipo || "Cuentas de Terceros",
+        cuentaDestinoTipo: c.tipo ? `Cuenta de ${c.tipo}` : prev.cuentaDestinoTipo || "Cuenta de Ahorros",
+        acreditarEnCuenta: prev.cuentaDestinoModo !== "propia" ? true : (prev.acreditarEnCuenta ?? true),
       }));
     }
   };
@@ -2844,17 +3386,53 @@ function SeccionCuentaDestino({ formState, setFormState, cuentas, entidades }) {
         background: "var(--paper)",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-        <CreditCard size={14} style={{ color: "var(--ink-soft)" }} />
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
-          Método de pago y cuenta destino
-        </span>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <CreditCard size={14} style={{ color: "var(--ink-soft)" }} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink)" }}>
+            Cuenta destino del préstamo {esNuevo ? "*" : ""}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button
+            type="button"
+            onClick={() => cambiarModo("propia")}
+            style={{
+              padding: "3px 9px",
+              fontSize: 11,
+              fontWeight: 600,
+              borderRadius: 6,
+              border: `1px solid ${modo === "propia" ? "var(--sage)" : "var(--line)"}`,
+              background: modo === "propia" ? "var(--sage-bg)" : "var(--card)",
+              color: modo === "propia" ? "var(--sage)" : "var(--ink-soft)",
+              cursor: "pointer",
+            }}
+          >
+            Mi cuenta
+          </button>
+          <button
+            type="button"
+            onClick={() => cambiarModo("tercero")}
+            style={{
+              padding: "3px 9px",
+              fontSize: 11,
+              fontWeight: 600,
+              borderRadius: 6,
+              border: `1px solid ${modo === "tercero" ? "var(--sage)" : "var(--line)"}`,
+              background: modo === "tercero" ? "var(--sage-bg)" : "var(--card)",
+              color: modo === "tercero" ? "var(--sage)" : "var(--ink-soft)",
+              cursor: "pointer",
+            }}
+          >
+            Cuenta externa / Tercero
+          </button>
+        </div>
       </div>
 
-      <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+      <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: 8, marginBottom: 8 }}>
         <div>
           <label style={{ display: "block", fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>
-            Método de pago
+            Método de desembolso / pago
           </label>
           <select
             value={formState.metodoPago || "Transferencia"}
@@ -2869,33 +3447,71 @@ function SeccionCuentaDestino({ formState, setFormState, cuentas, entidades }) {
 
         <div>
           <label style={{ display: "block", fontSize: 11, color: "var(--ink-soft)", marginBottom: 3 }}>
-            Cuenta registrada (opcional)
+            {modo === "propia" ? "Cuenta destino donde se deposita *" : "Vincular cuenta registrada (opcional)"}
           </label>
           <select
             value={formState.cuentaDestinoId || ""}
             onChange={(e) => handleSeleccionarCuentaRegistrada(e.target.value)}
             style={{ width: "100%", padding: "7px 9px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 12.5, background: "var(--card)" }}
           >
-            <option value="">Seleccionar cuenta guardada…</option>
-            {(cuentas || []).map((cta) => (
-              <option key={cta.id} value={cta.id}>
-                {cta.nombre} · {cta.entidadName || "Banco"} {cta.numeroCuenta ? `(${cta.numeroCuenta})` : ""}
-              </option>
-            ))}
+            <option value="">{modo === "propia" ? "Selecciona tu cuenta (ej. Banco Popular)…" : "Seleccionar cuenta guardada…"}</option>
+            {(cuentas || []).map((cta) => {
+              const disp = saldosPorCuenta[cta.id]?.saldoDisponible || 0;
+              return (
+                <option key={cta.id} value={cta.id}>
+                  {cta.nombre} · {cta.entidadName || "Banco"} {cta.numeroCuenta ? `(${cta.numeroCuenta})` : ""} — Disp: {formatMoney(disp)}
+                </option>
+              );
+            })}
           </select>
         </div>
       </div>
 
-      {formState.metodoPago === "Transferencia" && (
+      {modo === "propia" && (cuentas || []).length === 0 && (
+        <div style={{ fontSize: 11.5, color: "var(--stamp)", marginBottom: 6 }}>
+          No tienes cuentas registradas todavía. Agrega una en Cuentas o cambia a "Cuenta externa / Tercero".
+        </div>
+      )}
+
+      {modo === "propia" && cuentaSeleccionada && (
+        <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 7, padding: "8px 10px", marginBottom: 6 }}>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 12, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={!!formState.acreditarEnCuenta}
+              onChange={(e) => setFormState((prev) => ({ ...prev, acreditarEnCuenta: e.target.checked }))}
+              style={{ marginTop: 2 }}
+            />
+            <div>
+              <div style={{ fontWeight: 600, color: "var(--ink)" }}>
+                Acreditar el monto aprobado ({montoPrestamo > 0 ? formatMoney(montoPrestamo) : "$0.00"}) a "{cuentaSeleccionada.nombre}"
+              </div>
+              <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2 }}>
+                Saldo disponible actual: <strong className="despensa-mono">{formatMoney(saldoCuentaSel)}</strong>
+                {esNuevo && formState.acreditarEnCuenta && montoPrestamo > 0 && (
+                  <> → Nuevo saldo disponible: <strong className="despensa-mono" style={{ color: "var(--sage)" }}>{formatMoney(saldoCuentaSel + montoPrestamo)}</strong></>
+                )}
+                {!esNuevo && (
+                  <> · {formState.acreditarEnCuenta ? "El monto del préstamo se sumará al disponible de esta cuenta." : "No se acreditará al disponible de esta cuenta."}</>
+                )}
+              </div>
+            </div>
+          </label>
+        </div>
+      )}
+
+      {(modo === "tercero" || formState.metodoPago === "Transferencia") && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
           <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 2 }}>
-            Datos para la transferencia (se mostrarán como aviso al marcar el pago en el Checklist):
+            {modo === "tercero"
+              ? "Datos de la cuenta bancaria destino (obligatorio para emitir con cuenta externa):"
+              : "Datos bancarios asociados (se muestran también como referencia para pagos por transferencia):"}
           </div>
 
           <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <div>
               <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 2 }}>
-                Entidad Bancaria
+                Entidad Bancaria {modo === "tercero" ? "*" : ""}
               </label>
               <input
                 placeholder="Ej. Banco Popular"
@@ -2923,7 +3539,7 @@ function SeccionCuentaDestino({ formState, setFormState, cuentas, entidades }) {
           <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 8 }}>
             <div>
               <label style={{ display: "block", fontSize: 10.5, color: "var(--ink-soft)", marginBottom: 2 }}>
-                Número de cuenta / producto
+                Número de cuenta / producto {modo === "tercero" ? "*" : ""}
               </label>
               <input
                 className="despensa-mono"
@@ -2938,7 +3554,7 @@ function SeccionCuentaDestino({ formState, setFormState, cuentas, entidades }) {
                 Nombre del beneficiario
               </label>
               <input
-                placeholder="Ej. Julian Ochoa"
+                placeholder="Ej. Nombre del titular"
                 value={formState.cuentaDestinoBeneficiario || ""}
                 onChange={(e) => setFormState((prev) => ({ ...prev, cuentaDestinoBeneficiario: e.target.value }))}
                 style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12 }}
@@ -3029,6 +3645,7 @@ function HistorialCuotasPagadas({ prestamo, movimientos }) {
                   <span style={{ color: "var(--ink-soft)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
                     {formatDateDisplay(pago.date) || "Fecha no disponible"}
                     {pago.metodoPago ? ` · ${pago.metodoPago}` : ""}
+                    {pago.cuentaOrigenNombre ? ` · Desde: ${pago.cuentaOrigenNombre}` : ""}
                   </span>
                 </div>
                 <strong className="despensa-mono" style={{ color: "var(--sage)", whiteSpace: "nowrap" }}>{formatMoney(Number(pago.amount) || 0)}</strong>

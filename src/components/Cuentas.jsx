@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Plus, Trash2, X, Landmark, Vault, Pencil, Check } from "lucide-react";
 import { addCuenta, deleteCuenta, updateCuenta } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import { calcularSaldosCuentas, prestamoApuntaACuenta } from "../lib/cuentasSaldo";
 
 export const CUENTA_TIPOS = ["Ahorro", "Corriente", "Inversión", "Corretaje", "Otro"];
 
@@ -19,7 +20,7 @@ const emptyForm = () => ({
   notas: "",
 });
 
-export default function Cuentas({ cuentas, entidades }) {
+export default function Cuentas({ cuentas, entidades, movimientos = [], prestamos = [] }) {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
@@ -28,6 +29,33 @@ export default function Cuentas({ cuentas, entidades }) {
   const [editForm, setEditForm] = useState(null);
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+
+  const saldosPorCuenta = useMemo(
+    () => calcularSaldosCuentas(cuentas, movimientos, prestamos),
+    [cuentas, movimientos, prestamos]
+  );
+
+  const totalDisponible = useMemo(
+    () => (cuentas || []).reduce((s, c) => s + (saldosPorCuenta[c.id]?.saldoDisponible || 0), 0),
+    [cuentas, saldosPorCuenta]
+  );
+
+  const prestamosPorCuenta = useMemo(() => {
+    const map = {};
+    for (const c of cuentas || []) {
+      const vinculados = [];
+      for (const p of prestamos || []) {
+        if (!p || p.estado === "Pagado") continue;
+        if (p.cuentaDestinoId === c.id || prestamoApuntaACuenta(p, c)) {
+          vinculados.push(p.numero || "Préstamo");
+        }
+      }
+      if (vinculados.length > 0) {
+        map[c.id] = vinculados;
+      }
+    }
+    return map;
+  }, [cuentas, prestamos]);
 
   const porTipo = useMemo(() => {
     const map = {};
@@ -124,7 +152,13 @@ export default function Cuentas({ cuentas, entidades }) {
   return (
     <div>
       {cuentas.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <div style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: "5px 12px", fontSize: 12 }}>
+            <span style={{ color: "var(--ink-soft)" }}>Disponible total: </span>
+            <span className="despensa-mono" style={{ fontWeight: 700, color: totalDisponible >= 0 ? "var(--sage)" : "var(--stamp)" }}>
+              {formatMoney(totalDisponible)}
+            </span>
+          </div>
           {CUENTA_TIPOS.filter((t) => porTipo[t]).map((t) => (
             <div key={t} style={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 20, padding: "5px 12px", fontSize: 12 }}>
               <span style={{ color: "var(--ink-soft)" }}>{t}: </span>
@@ -359,13 +393,46 @@ export default function Cuentas({ cuentas, entidades }) {
                         <Landmark size={11} /> {c.entidadName}
                       </span>
                       {c.numeroCuenta && <span className="despensa-mono">{c.numeroCuenta}</span>}
+                      {prestamosPorCuenta[c.id]?.length > 0 && (
+                        <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 600 }}>
+                          · Destino {prestamosPorCuenta[c.id].join(", ")}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  {c.saldoInicial != null && (
-                    <span className="despensa-mono" style={{ fontSize: 13, color: "var(--ink-soft)", flexShrink: 0 }}>
-                      {formatMoney(c.saldoInicial)}
-                    </span>
-                  )}
+                  {(() => {
+                    const desglose = saldosPorCuenta[c.id] || {
+                      saldoInicial: Number(c.saldoInicial) || 0,
+                      creditos: 0,
+                      debitos: 0,
+                      saldoDisponible: Number(c.saldoInicial) || 0,
+                    };
+                    const huboMovs = desglose.creditos > 0 || desglose.debitos > 0;
+                    return (
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                          Disponible
+                        </div>
+                        <div
+                          className="despensa-mono"
+                          style={{
+                            fontSize: 13.5,
+                            fontWeight: 700,
+                            color: desglose.saldoDisponible > 0 ? "var(--sage)" : desglose.saldoDisponible < 0 ? "var(--stamp)" : "var(--ink-soft)",
+                          }}
+                        >
+                          {formatMoney(desglose.saldoDisponible)}
+                        </div>
+                        {huboMovs && (
+                          <div className="despensa-mono" style={{ fontSize: 10, color: "var(--ink-soft)" }}>
+                            {desglose.creditos > 0 ? `+${formatMoney(desglose.creditos)}` : ""}
+                            {desglose.creditos > 0 && desglose.debitos > 0 ? " · " : ""}
+                            {desglose.debitos > 0 ? `-${formatMoney(desglose.debitos)}` : ""}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <button
                     onClick={() => startEdit(c)}
                     title="Editar cuenta"

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Calendar, Target, SlidersHorizontal, Eye, EyeOff, LayoutGrid, Check, Shield, WashingMachine, Refrigerator, Tv, Fan, Flame, Zap, ExternalLink, Droplet, Moon, Salad, Heart } from "lucide-react";
+import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Calendar, Target, SlidersHorizontal, Eye, EyeOff, LayoutGrid, Check, Shield, WashingMachine, Refrigerator, Tv, Fan, Flame, Zap, ExternalLink, Droplet, Moon, Salad, Heart, Wallet, Landmark, Vault, ArrowRight } from "lucide-react";
 import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache, addMovimiento, addHabito, toggleHabitoRegistro } from "../lib/db";
 import { calcularRachaHabito, periodoDeFecha } from "../lib/rachaHabito";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
@@ -12,6 +12,7 @@ import { confirm } from "../lib/confirm";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import { obtenerIconoYDetalleMeta } from "../lib/metaIconos";
+import { calcularSaldosCuentas, calcularDesgloseCuenta, prestamoApuntaACuenta } from "../lib/cuentasSaldo";
 import { Skeleton } from "./Skeleton";
 
 function formatDateDisplay(dateStr) {
@@ -1384,6 +1385,7 @@ function MetasSlideCard({
   activos = [],
   cuentas = [],
   movimientos = [],
+  prestamos = [],
   fuentesIngreso = [],
   onNavigate,
 }) {
@@ -1398,16 +1400,13 @@ function MetasSlideCard({
   const currentMeta = metasActivas[safeIndex];
 
   const aportadoPorCuenta = useMemo(() => {
+    const saldos = calcularSaldosCuentas(cuentas, movimientos, prestamos);
     const map = {};
     for (const c of cuentas || []) {
-      let total = c.saldoInicial || 0;
-      for (const mv of movimientos || []) {
-        if (mv.cuentaId === c.id && mv.category === c.tipo) total += Number(mv.amount) || 0;
-      }
-      map[c.id] = total;
+      map[c.id] = saldos[c.id]?.saldoDisponible || 0;
     }
     return map;
-  }, [cuentas, movimientos]);
+  }, [cuentas, movimientos, prestamos]);
 
   const aportadoEsteMesPorCuenta = useMemo(() => {
     const now = new Date();
@@ -2599,7 +2598,230 @@ function StocksCard({ cuentas = [], onNavigate }) {
   );
 }
 
+function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [], onNavigate }) {
+  const saldosPorCuenta = useMemo(
+    () => calcularSaldosCuentas(cuentas, movimientos, prestamos),
+    [cuentas, movimientos, prestamos]
+  );
+
+  const prestamosPorCuenta = useMemo(() => {
+    const map = {};
+    for (const c of cuentas || []) {
+      const vinculados = [];
+      for (const p of prestamos || []) {
+        if (!p || p.estado === "Pagado") continue;
+        if (p.cuentaDestinoId === c.id || prestamoApuntaACuenta(p, c)) {
+          vinculados.push(p.numero || "Préstamo");
+        }
+      }
+      if (vinculados.length > 0) {
+        map[c.id] = vinculados;
+      }
+    }
+    return map;
+  }, [cuentas, prestamos]);
+
+  const totalDisponible = useMemo(
+    () => (cuentas || []).reduce((s, c) => s + (saldosPorCuenta[c.id]?.saldoDisponible || 0), 0),
+    [cuentas, saldosPorCuenta]
+  );
+
+  return (
+    <div className="despensa-dashboard-card" style={{ padding: "1.15rem 1.35rem", position: "relative" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: (cuentas || []).length > 0 ? 12 : 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: "var(--sage-bg)",
+              color: "var(--sage)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Wallet size={18} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div className="despensa-tab-font" style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>
+              Monto disponible en tus cuentas
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
+              Saldo actual disponible por cuenta (incluye desembolsos recibidos y pagos descontados)
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Total disponible
+            </div>
+            <div
+              className="despensa-mono"
+              style={{
+                fontSize: 22,
+                fontWeight: 800,
+                color: totalDisponible > 0 ? "var(--sage)" : totalDisponible < 0 ? "var(--stamp)" : "var(--ink)",
+                lineHeight: 1.15,
+              }}
+            >
+              {formatMoney(totalDisponible)}
+            </div>
+          </div>
+
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate("cuentas")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
+                padding: "6px 11px",
+                fontSize: 11.5,
+                fontWeight: 600,
+                borderRadius: 8,
+                background: "var(--paper)",
+                border: "1px solid var(--line)",
+                color: "var(--ink)",
+                cursor: "pointer",
+              }}
+            >
+              Ver cuentas <ArrowRight size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {(cuentas || []).length === 0 ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 10,
+            flexWrap: "wrap",
+            background: "var(--paper)",
+            border: "1px dashed var(--line)",
+            borderRadius: 10,
+            padding: "10px 12px",
+            fontSize: 12.5,
+            color: "var(--ink-soft)",
+          }}
+        >
+          <span>Aún no has registrado cuentas bancarias (como Banco Popular) para ver tu disponible aquí.</span>
+          {onNavigate && (
+            <button
+              type="button"
+              onClick={() => onNavigate("cuentas")}
+              style={{
+                padding: "6px 12px",
+                borderRadius: 8,
+                border: "none",
+                background: "var(--sage)",
+                color: "#fff",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              Agregar cuenta
+            </button>
+          )}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
+            gap: 8,
+          }}
+        >
+          {cuentas.map((c) => {
+            const desglose = saldosPorCuenta[c.id] || {
+              saldoInicial: Number(c.saldoInicial) || 0,
+              creditos: 0,
+              debitos: 0,
+              saldoDisponible: Number(c.saldoInicial) || 0,
+            };
+            const prestamosVinculados = prestamosPorCuenta[c.id] || [];
+            const huboMovimientos = desglose.creditos > 0 || desglose.debitos > 0;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={onNavigate ? () => onNavigate("cuentas") : undefined}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  gap: 6,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "var(--paper)",
+                  border: "1px solid var(--line)",
+                  textAlign: "left",
+                  cursor: onNavigate ? "pointer" : "default",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {c.nombre}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 1 }}>
+                      <Landmark size={10} />
+                      <span>{c.entidadName || "Banco"}</span>
+                      <span>· {c.tipo}</span>
+                      {c.numeroCuenta && <span className="despensa-mono">· {c.numeroCuenta}</span>}
+                    </div>
+                  </div>
+                  <Vault size={13} style={{ color: "var(--sage)", flexShrink: 0, marginTop: 2 }} />
+                </div>
+
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 6, paddingTop: 4, borderTop: "1px solid var(--line-soft)" }}>
+                  <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 800, color: desglose.saldoDisponible > 0 ? "var(--sage)" : desglose.saldoDisponible < 0 ? "var(--stamp)" : "var(--ink-soft)" }}>
+                    {formatMoney(desglose.saldoDisponible)}
+                  </span>
+                  {prestamosVinculados.length > 0 && (
+                    <span
+                      className="despensa-mono"
+                      style={{
+                        fontSize: 9.5,
+                        fontWeight: 700,
+                        padding: "1px 6px",
+                        borderRadius: 6,
+                        background: "var(--sage-bg)",
+                        color: "var(--sage)",
+                      }}
+                    >
+                      Destino {prestamosVinculados.join(", ")}
+                    </span>
+                  )}
+                </div>
+
+                {huboMovimientos && (
+                  <div className="despensa-mono" style={{ fontSize: 10, color: "var(--ink-soft)" }}>
+                    {desglose.creditos > 0 ? `+${formatMoney(desglose.creditos)}` : ""}
+                    {desglose.creditos > 0 && desglose.debitos > 0 ? " · " : ""}
+                    {desglose.debitos > 0 ? `-${formatMoney(desglose.debitos)}` : ""}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const SECTION_IDS_DEFAULT = [
+  "disponibleCuentas",
   "endeudamiento",
   "fondoEmergencia",
   "capacidadAhorro",
@@ -2616,6 +2838,12 @@ const SECTION_IDS_DEFAULT = [
 ];
 
 export const MODULOS_INFO = {
+  disponibleCuentas: {
+    nombre: "Disponible en cuentas",
+    descripcion: "Monto disponible en cada cuenta bancaria o de destino (ej. Banco Popular).",
+    icon: Wallet,
+    categoria: "KPIs",
+  },
   endeudamiento: {
     nombre: "Nivel de endeudamiento",
     descripcion: "Cuotas de préstamos y tarjetas frente a tus ingresos.",
@@ -3287,7 +3515,7 @@ function PlatoSugeridoCard({ products = [], onNavigate }) {
 
 function SortableCard({ id, onRemove, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const isFullWidth = id === "acciones";
+  const isFullWidth = id === "acciones" || id === "disponibleCuentas";
   const isTwoCols = id === "gastoMes";
 
   const style = {
@@ -3706,17 +3934,27 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   useEffect(() => {
     const unsub = watchInicioOrden((o) => {
       let normalizado = normalizarOrden(o).filter((id) => isOwner || id !== "platoSugerido");
+      let cambio = false;
       try {
-        const yaMigrado = localStorage.getItem("smart-finance-habitos-card-v1") === "1";
-        if (!yaMigrado) {
+        const yaMigradoHabitos = localStorage.getItem("smart-finance-habitos-card-v1") === "1";
+        if (!yaMigradoHabitos) {
           localStorage.setItem("smart-finance-habitos-card-v1", "1");
           if (Array.isArray(o) && o.length > 0 && !normalizado.includes("habitos")) {
             normalizado = [...normalizado];
             normalizado.splice(Math.min(3, normalizado.length), 0, "habitos");
-            saveInicioOrden(normalizado);
+            cambio = true;
+          }
+        }
+        const yaMigradoCuentas = localStorage.getItem("smart-finance-disponible-cuentas-v1") === "1";
+        if (!yaMigradoCuentas) {
+          localStorage.setItem("smart-finance-disponible-cuentas-v1", "1");
+          if (Array.isArray(o) && o.length > 0 && !normalizado.includes("disponibleCuentas")) {
+            normalizado = ["disponibleCuentas", ...normalizado];
+            cambio = true;
           }
         }
       } catch {}
+      if (cambio) saveInicioOrden(normalizado);
       setOrden(normalizado);
     }, () => {});
     return () => unsub();
@@ -3809,13 +4047,10 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
     const cuentasAhorro = cuentas.filter((c) => c.tipo === "Ahorro");
     let total = 0;
     for (const c of cuentasAhorro) {
-      total += c.saldoInicial || 0;
-      for (const m of movimientos) {
-        if (m.category === "Ahorro" && m.cuentaId === c.id) total += Number(m.amount) || 0;
-      }
+      total += calcularDesgloseCuenta(c, movimientos, prestamos).saldoDisponible;
     }
     return total;
-  }, [cuentas, movimientos]);
+  }, [cuentas, movimientos, prestamos]);
 
   const gastoMensualPromedio = useMemo(() => {
     const now = new Date();
@@ -4043,6 +4278,7 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
       activos={activos}
       cuentas={cuentas}
       movimientos={movimientos}
+      prestamos={prestamos}
       fuentesIngreso={fuentesIngreso}
       onNavigate={onNavigate}
     />
@@ -4080,7 +4316,17 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
   const habitosContent = <HabitosHoyCard habitos={habitos} habitosRegistro={habitosRegistro} onNavigate={onNavigate} />;
   const accionesContent = <StocksCard cuentas={cuentas} onNavigate={onNavigate} />;
 
+  const disponibleCuentasContent = (
+    <DisponibleCuentasCard
+      cuentas={cuentas}
+      movimientos={movimientos}
+      prestamos={prestamos}
+      onNavigate={onNavigate}
+    />
+  );
+
   const SECTION_CONTENT = {
+    disponibleCuentas: disponibleCuentasContent,
     endeudamiento: endeudamientoContent,
     fondoEmergencia: fondoEmergenciaContent,
     capacidadAhorro: capacidadAhorroContent,

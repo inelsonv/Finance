@@ -12,6 +12,7 @@ import { quincenaDeFecha, consumoPresupuesto, consumoPresupuestoConTarjeta } fro
 import { calcularFechaPagoTarjeta, categoriaPermitidaEnTarjeta } from "../lib/tarjetaCiclos";
 import { confirm } from "../lib/confirm";
 import { inferirCategoriaSuperior } from "../lib/categoriaSuperior";
+import { calcularSaldosCuentas, evaluarCuentasParaPago } from "../lib/cuentasSaldo";
 
 const INGRESO_CATS = ["Salario", "Negocio propio", "Otro ingreso"];
 const CUENTA_MOVIMIENTO_TIPOS = CUENTA_TIPOS.filter((t) => t !== "Otro");
@@ -51,6 +52,7 @@ const emptyForm = () => ({
   entidadId: "",
   prestamoId: "",
   cuentaId: "",
+  cuentaOrigenId: "",
   tarjetaId: "",
   membresiaId: "",
   fuenteIngresoId: "",
@@ -341,12 +343,45 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
 
   const selectedPrestamo = prestamos.find((p) => p.id === form.prestamoId);
 
+  const evaluacionCuentasPago = useMemo(
+    () =>
+      evaluarCuentasParaPago(
+        cuentas,
+        movimientos,
+        parseFloat(form.amount) || 0,
+        {
+          entidadPreferidaId: selectedPrestamo?.entidadId || form.entidadId || null,
+          cuentaPreferidaId: selectedPrestamo?.cuentaDestinoId || null,
+        },
+        prestamos
+      ),
+    [cuentas, movimientos, prestamos, form.amount, selectedPrestamo, form.entidadId]
+  );
+
+  const cuentaOrigenSeleccionada = useMemo(
+    () => evaluacionCuentasPago.cuentas.find((c) => c.id === form.cuentaOrigenId) || null,
+    [evaluacionCuentasPago.cuentas, form.cuentaOrigenId]
+  );
+
   const handleSelectPrestamo = (prestamoId) => {
     const p = prestamos.find((x) => x.id === prestamoId);
+    const montoSugerido = p && p.cuota != null ? String(p.cuota) : form.amount;
+    const evalPrestamo = evaluarCuentasParaPago(
+      cuentas,
+      movimientos,
+      parseFloat(montoSugerido) || 0,
+      {
+        entidadPreferidaId: p?.entidadId || null,
+        cuentaPreferidaId: p?.cuentaDestinoId || null,
+      },
+      prestamos
+    );
     setForm({
       ...form,
       prestamoId,
-      amount: p && p.cuota != null ? String(p.cuota) : form.amount,
+      amount: montoSugerido,
+      cuentaOrigenId: form.cuentaOrigenId || evalPrestamo.cuentaSugeridaId || "",
+      metodoPago: (form.cuentaOrigenId || evalPrestamo.cuentaSugeridaId) ? "Transferencia" : form.metodoPago,
     });
   };
 
@@ -453,6 +488,17 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       setFormError(`Selecciona la cuenta de ${form.tipo.toLowerCase()}`);
       return;
     }
+    if (form.cuentaOrigenId) {
+      const saldos = calcularSaldosCuentas(cuentas, movimientos, prestamos);
+      const ctaOrigen = cuentas.find((c) => c.id === form.cuentaOrigenId);
+      const disponible = ctaOrigen ? saldos[ctaOrigen.id]?.saldoDisponible || 0 : 0;
+      if (disponible + 0.001 < amount) {
+        setFormError(
+          `Fondos insuficientes en "${ctaOrigen?.nombre || "la cuenta"}": tienes ${formatMoney(disponible)} disponibles y el monto es ${formatMoney(amount)}. Elige otra cuenta con fondos o selecciona "Sin descontar de cuenta".`
+        );
+        return;
+      }
+    }
     setSaving(true);
     setFormError(null);
     try {
@@ -463,6 +509,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       const fuente = fuentesIngreso.find((f) => f.id === form.fuenteIngresoId);
       const contrato = contratos.find((c) => c.id === form.contratoId);
       const cuenta = cuentas.find((c) => c.id === form.cuentaId);
+      const cuentaOrigen = cuentas.find((c) => c.id === form.cuentaOrigenId);
 
       const nuevoMovRef = await addMovimiento({
         type: form.tipo === "Ingreso" ? "Ingreso" : "Gasto",
@@ -478,7 +525,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         description: form.description.trim(),
         date: form.date,
         clasificacion: form.tipo === "Gasto" ? form.clasificacion : null,
-        metodoPago: form.tipo === "Gasto" ? form.metodoPago : null,
+        metodoPago:
+          form.tipo === "Gasto" || form.tipo === "Pago de préstamo"
+            ? (form.cuentaOrigenId && form.metodoPago === "Efectivo" ? "Transferencia" : form.metodoPago)
+            : null,
         entidadId:
           form.tipo === "Pago de préstamo"
             ? prestamo?.entidadId || ""
@@ -507,8 +557,10 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
             : "",
         prestamoId: form.tipo === "Pago de préstamo" ? form.prestamoId : null,
         prestamoNumero: form.tipo === "Pago de préstamo" ? prestamo?.numero || "" : "",
-        cuentaId: isCuentaTipo ? form.cuentaId : null,
-        cuentaNombre: isCuentaTipo ? cuenta?.nombre || "" : "",
+        cuentaId: isCuentaTipo || (form.tipo === "Ingreso" && form.cuentaId) ? form.cuentaId : null,
+        cuentaNombre: isCuentaTipo || (form.tipo === "Ingreso" && form.cuentaId) ? cuenta?.nombre || "" : "",
+        cuentaOrigenId: !isCuentaTipo && form.tipo !== "Ingreso" && form.cuentaOrigenId ? form.cuentaOrigenId : null,
+        cuentaOrigenNombre: !isCuentaTipo && form.tipo !== "Ingreso" && form.cuentaOrigenId ? cuentaOrigen?.nombre || "" : "",
         tarjetaId: form.tipo === "Pago de tarjeta" || (form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito") ? form.tarjetaId : null,
         tarjetaNombre: form.tipo === "Pago de tarjeta" || (form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito") ? tarjeta?.nombre || "" : "",
         monedaTarjeta:
@@ -737,6 +789,32 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   {selectedPrestamo && selectedPrestamo.cuota != null && (
                     <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
                       Cuota registrada: <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 500 }}>{formatMoney(selectedPrestamo.cuota)}</span> (ya la pre-llenamos en el monto, puedes ajustarla)
+                    </div>
+                  )}
+                  {cuentas.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
+                        Cuenta con fondos para pagar este préstamo
+                      </div>
+                      <select
+                        value={form.cuentaOrigenId}
+                        onChange={(e) => setForm({ ...form, cuentaOrigenId: e.target.value, metodoPago: e.target.value ? "Transferencia" : "Efectivo" })}
+                        style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
+                      >
+                        <option value="">Efectivo / Sin descontar de mis cuentas</option>
+                        {evaluacionCuentasPago.cuentas.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre} ({c.entidadName || "Banco"}) — Disp: {formatMoney(c.saldoDisponible)} {c.suficiente ? "✓ Cubre pago" : `(Faltan ${formatMoney(c.faltante)})`}
+                          </option>
+                        ))}
+                      </select>
+                      {cuentaOrigenSeleccionada && (
+                        <div style={{ fontSize: 11.5, marginTop: 4, color: cuentaOrigenSeleccionada.suficiente ? "var(--sage)" : "var(--stamp)", fontWeight: 500 }}>
+                          {cuentaOrigenSeleccionada.suficiente
+                            ? `Fondos disponibles en ${cuentaOrigenSeleccionada.nombre}: ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible)}${(parseFloat(form.amount) || 0) > 0 ? ` → Quedará en ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible - (parseFloat(form.amount) || 0))}` : ""}`
+                            : `Saldo insuficiente en ${cuentaOrigenSeleccionada.nombre}: solo tienes ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible)} disponibles.`}
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
@@ -1020,6 +1098,22 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   )}
                 </>
               )}
+              {form.tipo === "Ingreso" && cuentas.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <select
+                    value={form.cuentaId}
+                    onChange={(e) => setForm({ ...form, cuentaId: e.target.value })}
+                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+                  >
+                    <option value="">Depositar en cuenta (opcional)…</option>
+                    {evaluacionCuentasPago.cuentas.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre} · {c.entidadName} (Disp: {formatMoney(c.saldoDisponible)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {form.tipo === "Ingreso" && fuentesIngresoActivas.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
                   <select
@@ -1190,11 +1284,13 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: m.type === "Ingreso" ? "var(--sage-bg)" : "var(--stamp-bg)",
-                  color: m.type === "Ingreso" ? "var(--sage)" : "var(--stamp)",
+                  background: m.type === "Ingreso" || m.type === "Desembolso" ? "var(--sage-bg)" : "var(--stamp-bg)",
+                  color: m.type === "Ingreso" || m.type === "Desembolso" ? "var(--sage)" : "var(--stamp)",
                 }}
               >
-                {m.category === "Pago de préstamo" ? (
+                {m.category === "Desembolso de préstamo" || m.type === "Desembolso" ? (
+                  <Landmark size={12} />
+                ) : m.category === "Pago de préstamo" ? (
                   <Landmark size={12} />
                 ) : m.category === "Pago de tarjeta" ? (
                   <CreditCard size={12} />
@@ -1246,6 +1342,9 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                 <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 1 }}>
                   {formatDateDisplay(m.date)}
                   {m.entidadName && <> · {m.entidadName}</>}
+                  {m.cuentaNombre && m.type === "Desembolso" && <> · Acreditado en {m.cuentaNombre}</>}
+                  {m.cuentaNombre && m.type === "Ingreso" && <> · Cuenta: {m.cuentaNombre}</>}
+                  {m.cuentaOrigenNombre && <> · Pagado desde: {m.cuentaOrigenNombre}</>}
                   {m.clasificacion && (
                     <span
                       className="despensa-mono"
@@ -1347,9 +1446,9 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
               </div>
               <span
                 className="despensa-mono"
-                style={{ fontSize: 13, fontWeight: 500, color: m.type === "Ingreso" ? "var(--sage)" : "var(--stamp)", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 4 }}
+                style={{ fontSize: 13, fontWeight: 500, color: m.type === "Ingreso" || m.type === "Desembolso" ? "var(--sage)" : "var(--stamp)", flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 4 }}
               >
-                {m.type === "Ingreso" ? "+" : "−"}{formatMoney(m.amount)}
+                {m.type === "Ingreso" || m.type === "Desembolso" ? "+" : "−"}{formatMoney(m.amount)}
                 {m.historialCambiosMonto?.length > 0 && (
                   <span title={`Monto editado ${m.historialCambiosMonto.length} vez(es)`} style={{ display: "inline-flex" }}>
                     <History size={11} style={{ color: "var(--ink-soft)" }} />

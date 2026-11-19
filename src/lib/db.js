@@ -551,6 +551,8 @@ export async function addMovimiento({
   prestamoNumero,
   cuentaId,
   cuentaNombre,
+  cuentaOrigenId,
+  cuentaOrigenNombre,
   tarjetaId,
   tarjetaNombre,
   monedaTarjeta,
@@ -578,6 +580,8 @@ export async function addMovimiento({
     prestamoNumero: prestamoNumero || "",
     cuentaId: cuentaId || null,
     cuentaNombre: cuentaNombre || "",
+    cuentaOrigenId: cuentaOrigenId || null,
+    cuentaOrigenNombre: cuentaOrigenNombre || "",
     tarjetaId: tarjetaId || null,
     tarjetaNombre: tarjetaNombre || "",
     monedaTarjeta: monedaTarjeta || null,
@@ -628,7 +632,7 @@ export async function addMovimiento({
       }
     }
 
-    if (type !== "Ingreso") {
+    if (type !== "Ingreso" && type !== "Desembolso") {
       const puntosRegistro = origen === "rapido" ? 5 : 10;
       await otorgarPuntos("Registraste un movimiento", puntosRegistro, "registro", docRef.id);
     }
@@ -1872,11 +1876,14 @@ export async function addPrestamo({
   frecuenciaCuota,
   cuotasPersonalizadas,
   metodoPago,
+  cuentaDestinoModo,
   cuentaDestinoId,
+  cuentaDestinoNombre,
   cuentaDestinoBanco,
   cuentaDestinoNumero,
   cuentaDestinoBeneficiario,
   cuentaDestinoTipo,
+  acreditarEnCuenta,
   dividirEnQuincenas,
   cuotaQ1,
   cuotaQ2,
@@ -1887,7 +1894,8 @@ export async function addPrestamo({
   modoAnioDivision,
   anioDivision,
 }) {
-  await addDoc(collection(db, "prestamos"), {
+  const debeAcreditar = !!acreditarEnCuenta && !!cuentaDestinoId && Number(montoAprobado) > 0;
+  const prestamoRef = await addDoc(collection(db, "prestamos"), {
     numero,
     tipo: tipo || "Otro",
     entidadId: entidadId || null,
@@ -1918,13 +1926,51 @@ export async function addPrestamo({
     modoAnioDivision: modoAnioDivision || "todos",
     anioDivision: anioDivision != null ? Number(anioDivision) : 2027,
     metodoPago: metodoPago || "Transferencia",
+    cuentaDestinoModo: cuentaDestinoModo || (cuentaDestinoId ? "propia" : "tercero"),
     cuentaDestinoId: cuentaDestinoId || null,
+    cuentaDestinoNombre: cuentaDestinoNombre || "",
     cuentaDestinoBanco: cuentaDestinoBanco || "",
     cuentaDestinoNumero: cuentaDestinoNumero || "",
     cuentaDestinoBeneficiario: cuentaDestinoBeneficiario || "",
     cuentaDestinoTipo: cuentaDestinoTipo || "",
+    acreditarEnCuenta: debeAcreditar,
     createdAt: serverTimestamp(),
   });
+
+  if (debeAcreditar) {
+    await addDoc(collection(db, "movimientos"), {
+      type: "Desembolso",
+      category: "Desembolso de préstamo",
+      amount: Number(montoAprobado) || 0,
+      description: `Desembolso préstamo ${numero}${entidadName ? ` · ${entidadName}` : ""}`,
+      date: fechaInicio || new Date().toISOString().slice(0, 10),
+      clasificacion: null,
+      metodoPago: metodoPago || "Transferencia",
+      entidadId: entidadId || null,
+      entidadName: entidadName || "",
+      prestamoId: prestamoRef.id,
+      prestamoNumero: numero || "",
+      cuentaId: cuentaDestinoId,
+      cuentaNombre: cuentaDestinoNombre || cuentaDestinoBeneficiario || cuentaDestinoBanco || "",
+      cuentaOrigenId: null,
+      cuentaOrigenNombre: "",
+      tarjetaId: null,
+      tarjetaNombre: "",
+      monedaTarjeta: null,
+      fechaPagoTarjeta: null,
+      pagado: null,
+      membresiaId: null,
+      membresiaNombre: "",
+      fuenteIngresoId: null,
+      fuenteIngresoNombre: "",
+      contratoId: null,
+      contratoNombre: "",
+      origenChecklist: null,
+      createdAt: serverTimestamp(),
+    });
+  }
+
+  return prestamoRef;
 }
 
 export async function updatePrestamoEstado(id, estado) {
@@ -1949,6 +1995,83 @@ export async function updatePrestamo(id, fields) {
     updates.marcadoPagadoManual = false;
   }
   await updateDoc(doc(db, "prestamos", id), updates);
+
+  if (
+    "acreditarEnCuenta" in fields ||
+    "cuentaDestinoId" in fields ||
+    "cuentaDestinoModo" in fields ||
+    "montoAprobado" in fields ||
+    "fechaInicio" in fields
+  ) {
+    try {
+      const prestamoSnap = await getDoc(doc(db, "prestamos", id));
+      const p = prestamoSnap.exists() ? prestamoSnap.data() : null;
+      if (!p) return;
+
+      const movsSnap = await getDocs(
+        query(collection(db, "movimientos"), where("prestamoId", "==", id))
+      );
+      const desembolsos = movsSnap.docs.filter(
+        (d) => d.data()?.category === "Desembolso de préstamo" || d.data()?.type === "Desembolso"
+      );
+
+      const debeAcreditar =
+        !!p.acreditarEnCuenta &&
+        !!p.cuentaDestinoId &&
+        (Number(p.montoAprobado) || 0) > 0 &&
+        p.cuentaDestinoModo !== "tercero";
+
+      if (debeAcreditar) {
+        const movPayload = {
+          type: "Desembolso",
+          category: "Desembolso de préstamo",
+          amount: Number(p.montoAprobado) || 0,
+          description: `Desembolso préstamo ${p.numero || ""}${p.entidadName ? ` · ${p.entidadName}` : ""}`.trim(),
+          date: p.fechaInicio || new Date().toISOString().slice(0, 10),
+          metodoPago: p.metodoPago || "Transferencia",
+          entidadId: p.entidadId || null,
+          entidadName: p.entidadName || "",
+          prestamoId: id,
+          prestamoNumero: p.numero || "",
+          cuentaId: p.cuentaDestinoId,
+          cuentaNombre: p.cuentaDestinoNombre || p.cuentaDestinoBeneficiario || p.cuentaDestinoBanco || "",
+        };
+
+        if (desembolsos.length > 0) {
+          await updateDoc(doc(db, "movimientos", desembolsos[0].id), movPayload);
+          for (let i = 1; i < desembolsos.length; i++) {
+            await deleteDoc(doc(db, "movimientos", desembolsos[i].id));
+          }
+        } else {
+          await addDoc(collection(db, "movimientos"), {
+            ...movPayload,
+            clasificacion: null,
+            cuentaOrigenId: null,
+            cuentaOrigenNombre: "",
+            tarjetaId: null,
+            tarjetaNombre: "",
+            monedaTarjeta: null,
+            fechaPagoTarjeta: null,
+            pagado: null,
+            membresiaId: null,
+            membresiaNombre: "",
+            fuenteIngresoId: null,
+            fuenteIngresoNombre: "",
+            contratoId: null,
+            contratoNombre: "",
+            origenChecklist: null,
+            createdAt: serverTimestamp(),
+          });
+        }
+      } else {
+        for (const d of desembolsos) {
+          await deleteDoc(doc(db, "movimientos", d.id));
+        }
+      }
+    } catch (err) {
+      console.error("No se pudo sincronizar el movimiento de desembolso del préstamo:", err);
+    }
+  }
 }
 
 // Mueve la cuota que naturalmente cae en (origenMonth, origenYear) hacia
@@ -1991,6 +2114,18 @@ export async function quitarPrestamoPresupuestoCelda(id, year, month, quincena) 
 }
 
 export async function deletePrestamo(id) {
+  try {
+    const desembolsosSnap = await getDocs(
+      query(collection(db, "movimientos"), where("prestamoId", "==", id))
+    );
+    for (const d of desembolsosSnap.docs) {
+      if (d.data()?.category === "Desembolso de préstamo") {
+        await deleteDoc(doc(db, "movimientos", d.id));
+      }
+    }
+  } catch (err) {
+    console.error("No se pudieron limpiar movimientos de desembolso del préstamo:", err);
+  }
   await deleteDoc(doc(db, "prestamos", id));
 }
 

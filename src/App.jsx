@@ -1311,7 +1311,7 @@ export default function App() {
           />
         )}
         {tab === "dinero-cuentas" && (
-          <Finanzas cuentas={cuentas} metasAhorro={metasAhorro} fuentesIngreso={fuentesIngreso} movimientos={movimientos} onNavigate={setTab} />
+          <Finanzas cuentas={cuentas} metasAhorro={metasAhorro} fuentesIngreso={fuentesIngreso} movimientos={movimientos} prestamos={prestamos} onNavigate={setTab} />
         )}
         {tab === "deudas-pagos" && (
           <PagosFijos prestamos={prestamos} tarjetas={tarjetas} membresias={membresias} contratos={contratos} movimientos={movimientos} onNavigate={setTab} />
@@ -1365,7 +1365,7 @@ export default function App() {
             onClearFiltroEndeudamiento={() => setPrestamosFiltroEndeudamiento(false)}
           />
         )}
-        {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} />}
+        {tab === "cuentas" && <Cuentas cuentas={cuentas} entidades={entidades} movimientos={movimientos} prestamos={prestamos} />}
         {tab === "tarjetas" && <Tarjetas tarjetas={tarjetas} entidades={entidades} movimientos={movimientos} categoriasGasto={categoriasGasto} focusTarjetaId={highlightId} />}
         {tab === "membresias" && <Membresias membresias={membresias} entidades={entidades} movimientos={movimientos} />}
         {tab === "contratos" && <Contratos contratos={contratos} entidades={entidades} movimientos={movimientos} />}
