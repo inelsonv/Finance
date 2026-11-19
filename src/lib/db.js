@@ -2134,14 +2134,22 @@ export function watchCuentas(onChange, onError) {
     collection(db, "cuentas"),
     (snap) => {
       const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      docs.sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      docs.sort((a, b) => {
+        const oa = Number(a.orden);
+        const ob = Number(b.orden);
+        const va = Number.isFinite(oa) && oa > 0 ? oa : Number.MAX_SAFE_INTEGER;
+        const vb = Number.isFinite(ob) && ob > 0 ? ob : Number.MAX_SAFE_INTEGER;
+        if (va !== vb) return va - vb;
+        return (a.nombre || "").localeCompare(b.nombre || "");
+      });
       onChange(docs);
     },
     (err) => onError && onError(err)
   );
 }
 
-export async function addCuenta({ nombre, tipo, entidadId, entidadName, numeroCuenta, saldoInicial, notas }) {
+export async function addCuenta({ nombre, tipo, entidadId, entidadName, numeroCuenta, saldoInicial, orden, notas }) {
+  const ordenNum = Number(orden);
   await addDoc(collection(db, "cuentas"), {
     nombre,
     tipo,
@@ -2149,6 +2157,7 @@ export async function addCuenta({ nombre, tipo, entidadId, entidadName, numeroCu
     entidadName: entidadName || "",
     numeroCuenta: numeroCuenta || "",
     saldoInicial: saldoInicial ?? null,
+    orden: Number.isFinite(ordenNum) && ordenNum > 0 ? Math.trunc(ordenNum) : null,
     notas: notas || "",
     createdAt: serverTimestamp(),
   });

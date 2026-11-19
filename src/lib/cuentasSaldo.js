@@ -172,6 +172,17 @@ function soloDigitos(txt) {
   return String(txt || "").replace(/\D/g, "");
 }
 
+export function ordenarCuentas(cuentas = []) {
+  return [...(cuentas || [])].sort((a, b) => {
+    const oa = Number(a?.orden);
+    const ob = Number(b?.orden);
+    const va = Number.isFinite(oa) && oa > 0 ? oa : Number.MAX_SAFE_INTEGER;
+    const vb = Number.isFinite(ob) && ob > 0 ? ob : Number.MAX_SAFE_INTEGER;
+    if (va !== vb) return va - vb;
+    return String(a?.nombre || "").localeCompare(String(b?.nombre || ""));
+  });
+}
+
 export function prestamoApuntaACuenta(prestamo, cuenta) {
   if (!prestamo || !cuenta?.id) return false;
   if (prestamo.acreditarEnCuenta === false) return false;

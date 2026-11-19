@@ -12,7 +12,7 @@ import { confirm } from "../lib/confirm";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import { obtenerIconoYDetalleMeta } from "../lib/metaIconos";
-import { calcularSaldosCuentas, calcularDesgloseCuenta, prestamoApuntaACuenta, obtenerTemaBanco } from "../lib/cuentasSaldo";
+import { calcularSaldosCuentas, calcularDesgloseCuenta, prestamoApuntaACuenta, obtenerTemaBanco, ordenarCuentas } from "../lib/cuentasSaldo";
 import { Skeleton } from "./Skeleton";
 
 function formatDateDisplay(dateStr) {
@@ -2618,14 +2618,16 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef({ active: false, startX: 0, startY: 0, locked: null, moved: false });
 
+  const cuentasOrdenadas = useMemo(() => ordenarCuentas(cuentas), [cuentas]);
+
   const saldosPorCuenta = useMemo(
-    () => calcularSaldosCuentas(cuentas, movimientos, prestamos),
-    [cuentas, movimientos, prestamos]
+    () => calcularSaldosCuentas(cuentasOrdenadas, movimientos, prestamos),
+    [cuentasOrdenadas, movimientos, prestamos]
   );
 
   const prestamosPorCuenta = useMemo(() => {
     const map = {};
-    for (const c of cuentas || []) {
+    for (const c of cuentasOrdenadas) {
       const vinculados = [];
       for (const p of prestamos || []) {
         if (!p || p.estado === "Pagado") continue;
@@ -2638,14 +2640,14 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
       }
     }
     return map;
-  }, [cuentas, prestamos]);
+  }, [cuentasOrdenadas, prestamos]);
 
   const totalDisponible = useMemo(
-    () => (cuentas || []).reduce((s, c) => s + (saldosPorCuenta[c.id]?.saldoDisponible || 0), 0),
-    [cuentas, saldosPorCuenta]
+    () => cuentasOrdenadas.reduce((s, c) => s + (saldosPorCuenta[c.id]?.saldoDisponible || 0), 0),
+    [cuentasOrdenadas, saldosPorCuenta]
   );
 
-  const totalCuentas = (cuentas || []).length;
+  const totalCuentas = cuentasOrdenadas.length;
   const safeIndex = totalCuentas > 0 ? Math.min(slideIndex, totalCuentas - 1) : 0;
 
   const prevSlide = () => {
@@ -2849,7 +2851,7 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
                 willChange: "transform",
               }}
             >
-              {cuentas.map((c) => {
+              {cuentasOrdenadas.map((c) => {
                 const desglose = saldosPorCuenta[c.id] || {
                   saldoInicial: Number(c.saldoInicial) || 0,
                   creditos: 0,
@@ -3032,7 +3034,7 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
 
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  {cuentas.map((c, idx) => {
+                  {cuentasOrdenadas.map((c, idx) => {
                     const activa = idx === safeIndex;
                     return (
                       <button
