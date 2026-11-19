@@ -12,7 +12,7 @@ import { confirm } from "../lib/confirm";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import { obtenerIconoYDetalleMeta } from "../lib/metaIconos";
-import { calcularSaldosCuentas, calcularDesgloseCuenta, prestamoApuntaACuenta } from "../lib/cuentasSaldo";
+import { calcularSaldosCuentas, calcularDesgloseCuenta, prestamoApuntaACuenta, obtenerTemaBanco } from "../lib/cuentasSaldo";
 import { Skeleton } from "./Skeleton";
 
 function formatDateDisplay(dateStr) {
@@ -2598,7 +2598,26 @@ function StocksCard({ cuentas = [], onNavigate }) {
   );
 }
 
+function formatearNumeroTarjetaCuenta(cuenta) {
+  const raw = String(cuenta?.numeroCuenta || "").trim();
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length >= 4) {
+    return `•••• ${digits.slice(-4)}`;
+  }
+  if (raw) return raw;
+  const nombreDigits = String(cuenta?.nombre || "").replace(/\D/g, "");
+  if (nombreDigits.length >= 4) {
+    return `•••• ${nombreDigits.slice(-4)}`;
+  }
+  return "Cuenta registrada";
+}
+
 function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [], onNavigate }) {
+  const [slideIndex, setSlideIndex] = useState(0);
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, locked: null, moved: false });
+
   const saldosPorCuenta = useMemo(
     () => calcularSaldosCuentas(cuentas, movimientos, prestamos),
     [cuentas, movimientos, prestamos]
@@ -2626,100 +2645,165 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
     [cuentas, saldosPorCuenta]
   );
 
-  return (
-    <div className="despensa-dashboard-card" style={{ padding: "1.15rem 1.35rem", position: "relative" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: (cuentas || []).length > 0 ? 12 : 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              background: "var(--sage-bg)",
-              color: "var(--sage)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Wallet size={18} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <div className="despensa-tab-font" style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>
-              Monto disponible en tus cuentas
-            </div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>
-              Saldo actual disponible por cuenta (incluye desembolsos recibidos y pagos descontados)
-            </div>
-          </div>
-        </div>
+  const totalCuentas = (cuentas || []).length;
+  const safeIndex = totalCuentas > 0 ? Math.min(slideIndex, totalCuentas - 1) : 0;
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              Total disponible
-            </div>
-            <div
+  const prevSlide = () => {
+    if (totalCuentas <= 1) return;
+    setSlideIndex((prev) => (prev > 0 ? prev - 1 : totalCuentas - 1));
+  };
+
+  const nextSlide = () => {
+    if (totalCuentas <= 1) return;
+    setSlideIndex((prev) => (prev < totalCuentas - 1 ? prev + 1 : 0));
+  };
+
+  const handlePointerDown = (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    dragRef.current = {
+      active: true,
+      startX: e.clientX,
+      startY: e.clientY,
+      locked: null,
+      moved: false,
+    };
+    setIsDragging(false);
+  };
+
+  const handlePointerMove = (e) => {
+    const st = dragRef.current;
+    if (!st.active) return;
+    const dx = e.clientX - st.startX;
+    const dy = e.clientY - st.startY;
+    if (!st.locked) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        st.locked = "x";
+        setIsDragging(true);
+        try {
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+        } catch {}
+      } else {
+        st.locked = "y";
+        st.active = false;
+        return;
+      }
+    }
+    if (st.locked === "x") {
+      e.preventDefault();
+      st.moved = true;
+      setDragX(totalCuentas <= 1 ? dx * 0.25 : dx);
+    }
+  };
+
+  const finishDrag = (e) => {
+    const st = dragRef.current;
+    if (!st.active && st.locked !== "x") return;
+    st.active = false;
+    setIsDragging(false);
+    if (st.locked === "x") {
+      try {
+        e.currentTarget.releasePointerCapture?.(e.pointerId);
+      } catch {}
+    }
+    if (!st.moved) {
+      setDragX(0);
+      return;
+    }
+    if (totalCuentas > 1) {
+      if (dragX <= -45) {
+        nextSlide();
+      } else if (dragX >= 45) {
+        prevSlide();
+      }
+    }
+    setDragX(0);
+  };
+
+  return (
+    <div
+      className="despensa-dashboard-card"
+      style={{
+        padding: "1.35rem",
+        position: "relative",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        gap: 12,
+      }}
+    >
+      {/* Cabecera */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
+          <div className="despensa-tab-font" style={{ fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>
+            Disponible en cuentas
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--ink-soft)", marginTop: 2 }}>
+            Total:{" "}
+            <strong
               className="despensa-mono"
               style={{
-                fontSize: 22,
-                fontWeight: 800,
                 color: totalDisponible > 0 ? "var(--sage)" : totalDisponible < 0 ? "var(--stamp)" : "var(--ink)",
-                lineHeight: 1.15,
+                fontVariantNumeric: "tabular-nums",
               }}
             >
               {formatMoney(totalDisponible)}
-            </div>
+            </strong>
           </div>
-
-          {onNavigate && (
-            <button
-              type="button"
-              onClick={() => onNavigate("cuentas")}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "6px 11px",
-                fontSize: 11.5,
-                fontWeight: 600,
-                borderRadius: 8,
-                background: "var(--paper)",
-                border: "1px solid var(--line)",
-                color: "var(--ink)",
-                cursor: "pointer",
-              }}
-            >
-              Ver cuentas <ArrowRight size={12} />
-            </button>
-          )}
         </div>
+
+        {onNavigate && (
+          <button
+            type="button"
+            onClick={() => onNavigate("cuentas")}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              fontSize: 11.5,
+              fontWeight: 500,
+              color: "var(--ink-soft)",
+              background: "var(--paper)",
+              border: "1px solid var(--line)",
+              borderRadius: 6,
+              padding: "4px 9px",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+            }}
+          >
+            Ver cuentas <ArrowRight size={11} />
+          </button>
+        )}
       </div>
 
-      {(cuentas || []).length === 0 ? (
+      {totalCuentas === 0 ? (
         <div
           style={{
+            flex: 1,
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            flexWrap: "wrap",
+            justifyContent: "center",
+            textAlign: "center",
+            gap: 12,
             background: "var(--paper)",
             border: "1px dashed var(--line)",
-            borderRadius: 10,
-            padding: "10px 12px",
+            borderRadius: 12,
+            padding: "20px 16px",
             fontSize: 12.5,
             color: "var(--ink-soft)",
           }}
         >
-          <span>Aún no has registrado cuentas bancarias (como Banco Popular) para ver tu disponible aquí.</span>
+          <CreditCard size={28} style={{ color: "var(--ink-soft)", opacity: 0.7 }} />
+          <div>Aún no has registrado cuentas bancarias (como Banco Popular) para ver tu disponible aquí.</div>
           {onNavigate && (
             <button
               type="button"
               onClick={() => onNavigate("cuentas")}
               style={{
-                padding: "6px 12px",
+                padding: "7px 14px",
                 borderRadius: 8,
                 border: "none",
                 background: "var(--sage)",
@@ -2734,87 +2818,293 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
           )}
         </div>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
-            gap: 8,
-          }}
-        >
-          {cuentas.map((c) => {
-            const desglose = saldosPorCuenta[c.id] || {
-              saldoInicial: Number(c.saldoInicial) || 0,
-              creditos: 0,
-              debitos: 0,
-              saldoDisponible: Number(c.saldoInicial) || 0,
-            };
-            const prestamosVinculados = prestamosPorCuenta[c.id] || [];
-            const huboMovimientos = desglose.creditos > 0 || desglose.debitos > 0;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={onNavigate ? () => onNavigate("cuentas") : undefined}
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
-                  gap: 6,
-                  padding: "10px 12px",
-                  borderRadius: 10,
-                  background: "var(--paper)",
-                  border: "1px solid var(--line)",
-                  textAlign: "left",
-                  cursor: onNavigate ? "pointer" : "default",
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {c.nombre}
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 1 }}>
-                      <Landmark size={10} />
-                      <span>{c.entidadName || "Banco"}</span>
-                      <span>· {c.tipo}</span>
-                      {c.numeroCuenta && <span className="despensa-mono">· {c.numeroCuenta}</span>}
-                    </div>
-                  </div>
-                  <Vault size={13} style={{ color: "var(--sage)", flexShrink: 0, marginTop: 2 }} />
-                </div>
+        <>
+          {/* Visor de carrusel horizontal tipo tarjeta bancaria */}
+          <div
+            role="region"
+            aria-label="Tarjetas de cuentas bancarias disponibles"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight") nextSlide();
+              if (e.key === "ArrowLeft") prevSlide();
+            }}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={finishDrag}
+            onPointerCancel={finishDrag}
+            style={{
+              overflow: "hidden",
+              borderRadius: 16,
+              touchAction: "pan-y",
+              userSelect: "none",
+              cursor: totalCuentas > 1 ? (isDragging ? "grabbing" : "grab") : "pointer",
+              outline: "none",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                transform: `translate3d(calc(-${safeIndex * 100}% + ${dragX}px), 0, 0)`,
+                transition: isDragging ? "none" : "transform 260ms cubic-bezier(0.16, 1, 0.3, 1)",
+                willChange: "transform",
+              }}
+            >
+              {cuentas.map((c) => {
+                const desglose = saldosPorCuenta[c.id] || {
+                  saldoInicial: Number(c.saldoInicial) || 0,
+                  creditos: 0,
+                  debitos: 0,
+                  saldoDisponible: Number(c.saldoInicial) || 0,
+                };
+                const prestamosVinculados = prestamosPorCuenta[c.id] || [];
+                const huboMovimientos = desglose.creditos > 0 || desglose.debitos > 0;
+                const tema = obtenerTemaBanco(c);
+                const numeroCorto = formatearNumeroTarjetaCuenta(c);
 
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 6, paddingTop: 4, borderTop: "1px solid var(--line-soft)" }}>
-                  <span className="despensa-mono" style={{ fontSize: 15, fontWeight: 800, color: desglose.saldoDisponible > 0 ? "var(--sage)" : desglose.saldoDisponible < 0 ? "var(--stamp)" : "var(--ink-soft)" }}>
-                    {formatMoney(desglose.saldoDisponible)}
-                  </span>
-                  {prestamosVinculados.length > 0 && (
-                    <span
-                      className="despensa-mono"
+                return (
+                  <div
+                    key={c.id}
+                    style={{
+                      flex: "0 0 100%",
+                      minWidth: "100%",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <div
+                      onClick={() => {
+                        if (!dragRef.current.moved && onNavigate) {
+                          onNavigate("cuentas");
+                        }
+                      }}
                       style={{
-                        fontSize: 9.5,
-                        fontWeight: 700,
-                        padding: "1px 6px",
-                        borderRadius: 6,
-                        background: "var(--sage-bg)",
-                        color: "var(--sage)",
+                        position: "relative",
+                        overflow: "hidden",
+                        borderRadius: 16,
+                        padding: "16px 18px",
+                        minHeight: 192,
+                        background: tema.bg,
+                        border: `1px solid ${tema.border}`,
+                        color: tema.text,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: 14,
+                        boxShadow: "0 10px 24px rgba(0, 0, 0, 0.25)",
                       }}
                     >
-                      Destino {prestamosVinculados.join(", ")}
-                    </span>
-                  )}
-                </div>
+                      {/* Ondas geométricas sutiles estilo tarjeta */}
+                      <div
+                        aria-hidden="true"
+                        style={{
+                          position: "absolute",
+                          top: -42,
+                          right: -36,
+                          width: 160,
+                          height: 160,
+                          borderRadius: "50%",
+                          background: tema.pattern,
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <div
+                        aria-hidden="true"
+                        style={{
+                          position: "absolute",
+                          bottom: -54,
+                          right: 24,
+                          width: 130,
+                          height: 130,
+                          borderRadius: "50%",
+                          border: `16px solid ${tema.pattern}`,
+                          pointerEvents: "none",
+                        }}
+                      />
 
-                {huboMovimientos && (
-                  <div className="despensa-mono" style={{ fontSize: 10, color: "var(--ink-soft)" }}>
-                    {desglose.creditos > 0 ? `+${formatMoney(desglose.creditos)}` : ""}
-                    {desglose.creditos > 0 && desglose.debitos > 0 ? " · " : ""}
-                    {desglose.debitos > 0 ? `-${formatMoney(desglose.debitos)}` : ""}
+                      {/* Fila superior: Banco + Chip */}
+                      <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {c.entidadName || tema.nombre}
+                          </div>
+                          <div style={{ fontSize: 11, color: tema.subtext, marginTop: 1 }}>
+                            Cuenta de {c.tipo || "Ahorro"}
+                          </div>
+                        </div>
+
+                        {/* Chip EMV */}
+                        <div
+                          aria-hidden="true"
+                          style={{
+                            width: 34,
+                            height: 24,
+                            borderRadius: 5,
+                            background: "linear-gradient(135deg, rgba(255,255,255,0.48) 0%, rgba(255,255,255,0.18) 100%)",
+                            border: "1px solid rgba(255,255,255,0.45)",
+                            flexShrink: 0,
+                          }}
+                        />
+                      </div>
+
+                      {/* Fila central: Monto disponible */}
+                      <div style={{ position: "relative" }}>
+                        <div style={{ fontSize: 11, color: tema.subtext, fontWeight: 500 }}>
+                          Saldo disponible
+                        </div>
+                        <div
+                          className="despensa-mono"
+                          style={{
+                            fontSize: 27,
+                            fontWeight: 800,
+                            letterSpacing: "-0.02em",
+                            fontVariantNumeric: "tabular-nums",
+                            lineHeight: 1.15,
+                            marginTop: 2,
+                          }}
+                        >
+                          {formatMoney(desglose.saldoDisponible)}
+                        </div>
+                        {huboMovimientos && (
+                          <div className="despensa-mono" style={{ fontSize: 11, color: tema.subtext, marginTop: 4, fontVariantNumeric: "tabular-nums" }}>
+                            {desglose.creditos > 0 ? `+${formatMoney(desglose.creditos)}` : ""}
+                            {desglose.creditos > 0 && desglose.debitos > 0 ? " · " : ""}
+                            {desglose.debitos > 0 ? `-${formatMoney(desglose.debitos)}` : ""}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Fila inferior: Nombre de cuenta / número / préstamo destino */}
+                      <div style={{ position: "relative", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {c.nombre}
+                          </div>
+                          <div className="despensa-mono" style={{ fontSize: 11, color: tema.subtext, letterSpacing: "0.06em", marginTop: 1 }}>
+                            {numeroCorto}
+                          </div>
+                        </div>
+
+                        {prestamosVinculados.length > 0 && (
+                          <div
+                            className="despensa-mono"
+                            style={{
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              color: tema.accent,
+                              whiteSpace: "nowrap",
+                              flexShrink: 0,
+                            }}
+                          >
+                            Destino {prestamosVinculados.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Controles del slide inferior */}
+          {totalCuentas > 1 ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <button
+                type="button"
+                onClick={prevSlide}
+                aria-label="Cuenta anterior"
+                title="Cuenta anterior"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  border: "1px solid var(--line)",
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <ChevronLeftIcon size={15} />
               </button>
-            );
-          })}
-        </div>
+
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  {cuentas.map((c, idx) => {
+                    const activa = idx === safeIndex;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setSlideIndex(idx)}
+                        aria-label={`Ver cuenta ${c.nombre}`}
+                        title={c.nombre}
+                        style={{
+                          width: activa ? 18 : 7,
+                          height: 7,
+                          borderRadius: 999,
+                          border: "none",
+                          padding: 0,
+                          background: activa ? "var(--sage)" : "var(--line)",
+                          cursor: "pointer",
+                          transition: "width 180ms ease, background-color 180ms ease",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="despensa-mono" style={{ fontSize: 10.5, color: "var(--ink-soft)", fontVariantNumeric: "tabular-nums" }}>
+                  {safeIndex + 1} / {totalCuentas} · Desliza para cambiar
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={nextSlide}
+                aria-label="Siguiente cuenta"
+                title="Siguiente cuenta"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  border: "1px solid var(--line)",
+                  background: "var(--paper)",
+                  color: "var(--ink)",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              >
+                <ChevronRightIcon size={15} />
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11, color: "var(--ink-soft)" }}>
+              <span>1 cuenta vinculada</span>
+              {onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate("cuentas")}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--sage)",
+                    cursor: "pointer",
+                  }}
+                >
+                  Administrar →
+                </button>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -3515,7 +3805,7 @@ function PlatoSugeridoCard({ products = [], onNavigate }) {
 
 function SortableCard({ id, onRemove, children }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-  const isFullWidth = id === "acciones" || id === "disponibleCuentas";
+  const isFullWidth = id === "acciones";
   const isTwoCols = id === "gastoMes";
 
   const style = {

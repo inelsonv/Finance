@@ -12,6 +12,162 @@ function normalizarTexto(txt) {
     .toLowerCase();
 }
 
+export function obtenerTemaBanco(cuenta) {
+  const ref = `${normalizarTexto(cuenta?.entidadName)} ${normalizarTexto(cuenta?.nombre)}`;
+  if (ref.includes("popular") && !ref.includes("asociacion popular") && !ref.includes("apap")) {
+    return {
+      nombre: "Banco Popular",
+      bg: "linear-gradient(135deg, #002b7f 0%, #0057b8 54%, #0077d4 100%)",
+      text: "#ffffff",
+      subtext: "rgba(224, 242, 254, 0.86)",
+      accent: "#7dd3fc",
+      border: "rgba(125, 211, 252, 0.35)",
+      pattern: "rgba(255, 255, 255, 0.09)",
+    };
+  }
+  if (ref.includes("banreservas") || ref.includes("reservas")) {
+    return {
+      nombre: "Banreservas",
+      bg: "linear-gradient(135deg, #072247 0%, #0d4785 56%, #1463a8 100%)",
+      text: "#ffffff",
+      subtext: "rgba(241, 245, 249, 0.86)",
+      accent: "#fbbf24",
+      border: "rgba(251, 191, 36, 0.36)",
+      pattern: "rgba(251, 191, 36, 0.11)",
+    };
+  }
+  if (ref.includes("bhd")) {
+    return {
+      nombre: "Banco BHD",
+      bg: "linear-gradient(135deg, #064e3b 0%, #047857 58%, #059669 100%)",
+      text: "#ffffff",
+      subtext: "rgba(236, 253, 245, 0.86)",
+      accent: "#6ee7b7",
+      border: "rgba(110, 231, 183, 0.34)",
+      pattern: "rgba(255, 255, 255, 0.09)",
+    };
+  }
+  if (ref.includes("scotia")) {
+    return {
+      nombre: "Scotiabank",
+      bg: "linear-gradient(135deg, #691015 0%, #b91c1c 56%, #dc2626 100%)",
+      text: "#ffffff",
+      subtext: "rgba(254, 242, 242, 0.86)",
+      accent: "#fca5a5",
+      border: "rgba(252, 165, 165, 0.34)",
+      pattern: "rgba(255, 255, 255, 0.09)",
+    };
+  }
+  if (ref.includes("santa cruz") || ref.includes("santacruz")) {
+    return {
+      nombre: "Banco Santa Cruz",
+      bg: "linear-gradient(135deg, #172554 0%, #1d4ed8 58%, #0284c7 100%)",
+      text: "#ffffff",
+      subtext: "rgba(239, 246, 255, 0.86)",
+      accent: "#fca5a5",
+      border: "rgba(147, 197, 253, 0.34)",
+      pattern: "rgba(248, 113, 113, 0.11)",
+    };
+  }
+  if (ref.includes("apap") || ref.includes("asociacion popular")) {
+    return {
+      nombre: "APAP",
+      bg: "linear-gradient(135deg, #0f3d3e 0%, #0f6b6c 58%, #0d9488 100%)",
+      text: "#ffffff",
+      subtext: "rgba(240, 253, 250, 0.86)",
+      accent: "#fcd34d",
+      border: "rgba(94, 234, 212, 0.32)",
+      pattern: "rgba(251, 191, 36, 0.09)",
+    };
+  }
+  if (ref.includes("cibao") || ref.includes("acap")) {
+    return {
+      nombre: "Asociación Cibao",
+      bg: "linear-gradient(135deg, #14532d 0%, #15803d 60%, #16a34a 100%)",
+      text: "#ffffff",
+      subtext: "rgba(240, 253, 244, 0.86)",
+      accent: "#bbf7d0",
+      border: "rgba(134, 239, 172, 0.32)",
+      pattern: "rgba(255, 255, 255, 0.08)",
+    };
+  }
+  if (ref.includes("qik")) {
+    return {
+      nombre: "Qik",
+      bg: "linear-gradient(135deg, #090d16 0%, #1e1b4b 55%, #0369a1 100%)",
+      text: "#ffffff",
+      subtext: "rgba(224, 242, 254, 0.86)",
+      accent: "#38bdf8",
+      border: "rgba(56, 189, 248, 0.36)",
+      pattern: "rgba(56, 189, 248, 0.12)",
+    };
+  }
+  if (ref.includes("banesco")) {
+    return {
+      nombre: "Banesco",
+      bg: "linear-gradient(135deg, #053b2f 0%, #0f766e 56%, #0284c7 100%)",
+      text: "#ffffff",
+      subtext: "rgba(240, 253, 250, 0.86)",
+      accent: "#5eead4",
+      border: "rgba(94, 234, 212, 0.32)",
+      pattern: "rgba(255, 255, 255, 0.08)",
+    };
+  }
+  if (ref.includes("promerica")) {
+    return {
+      nombre: "Promerica",
+      bg: "linear-gradient(135deg, #06402b 0%, #166534 58%, #15803d 100%)",
+      text: "#ffffff",
+      subtext: "rgba(240, 253, 244, 0.86)",
+      accent: "#86efac",
+      border: "rgba(134, 239, 172, 0.32)",
+      pattern: "rgba(255, 255, 255, 0.08)",
+    };
+  }
+  if (ref.includes("caribe")) {
+    return {
+      nombre: "Banco Caribe",
+      bg: "linear-gradient(135deg, #164e63 0%, #0e7490 58%, #0891b2 100%)",
+      text: "#ffffff",
+      subtext: "rgba(236, 254, 255, 0.86)",
+      accent: "#67e8f9",
+      border: "rgba(103, 232, 249, 0.32)",
+      pattern: "rgba(255, 255, 255, 0.08)",
+    };
+  }
+  if (ref.includes("ademi")) {
+    return {
+      nombre: "Banco Ademi",
+      bg: "linear-gradient(135deg, #1e293b 0%, #334155 58%, #b45309 100%)",
+      text: "#ffffff",
+      subtext: "rgba(248, 250, 252, 0.86)",
+      accent: "#fcd34d",
+      border: "rgba(252, 211, 77, 0.3)",
+      pattern: "rgba(255, 255, 255, 0.07)",
+    };
+  }
+  if (cuenta?.tipo === "Inversión" || cuenta?.tipo === "Corretaje") {
+    return {
+      nombre: cuenta?.entidadName || "Inversión",
+      bg: "linear-gradient(135deg, #18181b 0%, #27272a 58%, #3f3f46 100%)",
+      text: "#ffffff",
+      subtext: "rgba(244, 244, 245, 0.85)",
+      accent: "#e4c27a",
+      border: "rgba(228, 194, 122, 0.34)",
+      pattern: "rgba(228, 194, 122, 0.09)",
+    };
+  }
+  return {
+    nombre: cuenta?.entidadName || "Cuenta",
+    bg: "linear-gradient(135deg, #1f3a5c 0%, #2c5282 56%, #4a7fb5 100%)",
+    text: "#ffffff",
+    subtext: "rgba(239, 246, 255, 0.86)",
+    accent: "#bfdbfe",
+    border: "rgba(191, 219, 254, 0.32)",
+    pattern: "rgba(255, 255, 255, 0.08)",
+  };
+}
+
 function soloDigitos(txt) {
   return String(txt || "").replace(/\D/g, "");
 }
