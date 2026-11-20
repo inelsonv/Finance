@@ -1514,7 +1514,7 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       monto: cuotaDefault > 0 ? String(cuotaDefault) : "",
       fecha: todayStr(),
       metodoPago: p.metodoPago || (evaluacion.cuentaSugeridaId ? "Transferencia" : "Efectivo"),
-      cuentaOrigenId: evaluacion.cuentaSugeridaId || "",
+      cuentaOrigenId: (cuentas || []).length > 0 ? null : "__SIN_CUENTA__",
       nota: "",
       error: null,
       guardando: false,
@@ -1530,15 +1530,28 @@ export default function Prestamos({ prestamos, entidades, movimientos, activos, 
       return;
     }
 
+    if ((cuentas || []).length > 0 && modalPago.cuentaOrigenId == null) {
+      setModalPago((prev) => ({
+        ...prev,
+        error: "Selecciona la cuenta desde donde vienen los fondos o elige Efectivo.",
+      }));
+      return;
+    }
+
+    const cuentaOrigenIdReal =
+      modalPago.cuentaOrigenId && modalPago.cuentaOrigenId !== "__SIN_CUENTA__"
+        ? modalPago.cuentaOrigenId
+        : null;
+
     let cuentaOrigen = null;
-    if (modalPago.cuentaOrigenId) {
+    if (cuentaOrigenIdReal) {
       const saldos = calcularSaldosCuentas(cuentas, movimientos, prestamos);
-      cuentaOrigen = (cuentas || []).find((c) => c.id === modalPago.cuentaOrigenId) || null;
+      cuentaOrigen = (cuentas || []).find((c) => c.id === cuentaOrigenIdReal) || null;
       const disponible = cuentaOrigen ? saldos[cuentaOrigen.id]?.saldoDisponible || 0 : 0;
       if (disponible + 0.001 < monto) {
         setModalPago((prev) => ({
           ...prev,
-          error: `Fondos insuficientes en ${cuentaOrigen?.nombre || "esta cuenta"}: tienes ${formatMoney(disponible)} disponibles y el pago es de ${formatMoney(monto)}. Elige otra cuenta con fondos o selecciona "Sin cuenta registrada".`,
+          error: `Fondos insuficientes en ${cuentaOrigen?.nombre || "esta cuenta"}: tienes ${formatMoney(disponible)} disponibles y el pago es de ${formatMoney(monto)}. Elige otra cuenta con fondos o selecciona "Efectivo / Otra fuente externa".`,
         }));
         return;
       }
@@ -3074,7 +3087,11 @@ function ModalPagarPrestamo({ modalPago, setModalPago, cuentas, movimientos, pre
     [cuentas, movimientos, prestamos, montoNum, p.entidadId, p.cuentaDestinoId]
   );
 
-  const cuentaSeleccionada = evaluacion.cuentas.find((c) => c.id === modalPago.cuentaOrigenId) || null;
+  const cuentaSeleccionada =
+    modalPago.cuentaOrigenId && modalPago.cuentaOrigenId !== "__SIN_CUENTA__"
+      ? evaluacion.cuentas.find((c) => c.id === modalPago.cuentaOrigenId) || null
+      : null;
+  const sinCuentaElegida = evaluacion.cuentas.length > 0 && modalPago.cuentaOrigenId == null;
   const saldoInsuficiente = cuentaSeleccionada && montoNum > 0 && !cuentaSeleccionada.suficiente;
 
   const content = (
@@ -3174,6 +3191,7 @@ function ModalPagarPrestamo({ modalPago, setModalPago, cuentas, movimientos, pre
               {evaluacion.cuentas.map((c) => {
                 const seleccionada = modalPago.cuentaOrigenId === c.id;
                 const alcanza = c.suficiente;
+                const esSugerida = evaluacion.cuentaSugeridaId === c.id;
                 return (
                   <button
                     key={c.id}
@@ -3201,8 +3219,24 @@ function ModalPagarPrestamo({ modalPago, setModalPago, cuentas, movimientos, pre
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>
-                        {c.nombre}
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span>{c.nombre}</span>
+                        {esSugerida && (
+                          <span
+                            className="despensa-mono"
+                            style={{
+                              fontSize: 9.5,
+                              fontWeight: 700,
+                              padding: "1px 6px",
+                              borderRadius: 8,
+                              background: "var(--sage-bg)",
+                              color: "var(--sage)",
+                              border: "1px solid var(--sage)",
+                            }}
+                          >
+                            Sugerida
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
                         {c.entidadName || "Entidad"} · {c.tipo}
@@ -3228,7 +3262,7 @@ function ModalPagarPrestamo({ modalPago, setModalPago, cuentas, movimientos, pre
                 onClick={() =>
                   setModalPago((prev) => ({
                     ...prev,
-                    cuentaOrigenId: "",
+                    cuentaOrigenId: "__SIN_CUENTA__",
                     metodoPago: "Efectivo",
                     error: null,
                   }))
@@ -3236,16 +3270,22 @@ function ModalPagarPrestamo({ modalPago, setModalPago, cuentas, movimientos, pre
                 style={{
                   padding: "7px 10px",
                   borderRadius: 8,
-                  border: `1px solid ${modalPago.cuentaOrigenId === "" ? "var(--ink)" : "var(--line)"}`,
-                  background: modalPago.cuentaOrigenId === "" ? "var(--card)" : "transparent",
+                  border: `1.5px solid ${modalPago.cuentaOrigenId === "__SIN_CUENTA__" ? "var(--ink)" : "var(--line)"}`,
+                  background: modalPago.cuentaOrigenId === "__SIN_CUENTA__" ? "var(--card)" : "transparent",
                   fontSize: 11.5,
-                  color: "var(--ink-soft)",
+                  fontWeight: modalPago.cuentaOrigenId === "__SIN_CUENTA__" ? 600 : 400,
+                  color: modalPago.cuentaOrigenId === "__SIN_CUENTA__" ? "var(--ink)" : "var(--ink-soft)",
                   textAlign: "left",
                   cursor: "pointer",
                 }}
               >
                 Efectivo / Otra fuente externa (sin descontar de mis cuentas)
               </button>
+              {sinCuentaElegida && (
+                <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2 }}>
+                  Selecciona una cuenta bancaria con fondos o la opción de Efectivo para confirmar el pago.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -3308,18 +3348,19 @@ function ModalPagarPrestamo({ modalPago, setModalPago, cuentas, movimientos, pre
           </button>
           <button
             type="button"
-            disabled={modalPago.guardando || saldoInsuficiente}
+            disabled={modalPago.guardando || saldoInsuficiente || sinCuentaElegida}
             onClick={onConfirmar}
             style={{
               flex: 2,
               padding: "9px 16px",
               fontSize: 12.5,
               fontWeight: 600,
-              background: saldoInsuficiente ? "var(--line)" : "var(--sage)",
-              color: "#fff",
+              background: saldoInsuficiente || sinCuentaElegida ? "var(--line)" : "var(--sage)",
+              color: saldoInsuficiente || sinCuentaElegida ? "var(--ink-soft)" : "#fff",
               border: "none",
               borderRadius: 8,
-              cursor: modalPago.guardando || saldoInsuficiente ? "not-allowed" : "pointer",
+              cursor: modalPago.guardando || saldoInsuficiente || sinCuentaElegida ? "not-allowed" : "pointer",
+              opacity: saldoInsuficiente || sinCuentaElegida ? 0.75 : 1,
             }}
           >
             {modalPago.guardando ? "Registrando…" : `Confirmar pago ${montoNum > 0 ? formatMoney(montoNum) : ""}`}

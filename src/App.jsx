@@ -1013,6 +1013,7 @@ export default function App() {
         presupuesto={presupuestoAnual}
         presupuestoYear={presupuestoYear}
         seguros={seguros}
+        cuentas={cuentas}
         checklistTodos={checklistTodos}
       />
       <PullToRefresh disabled={tab === "asistente"} />
@@ -1193,6 +1194,13 @@ export default function App() {
             movimientos={movimientos}
             cuentas={cuentas}
             presupuesto={presupuestoAnual}
+            presupuestoYear={presupuestoYear}
+            categoriasGasto={categoriasGasto}
+            contratos={contratos}
+            eventos={eventos}
+            checklistTodos={checklistTodos}
+            estrategiaDeudas={estrategiaDeudas}
+            tipoCambio={tipoCambio}
             diasCobro={diasCobro}
             products={products}
             metasAhorro={metasAhorro}
@@ -1477,6 +1485,7 @@ export default function App() {
             entidades={entidades}
             cuentas={cuentas}
             contratos={contratos}
+            eventos={eventos}
           />
         )}
         {(tab === "vacaciones" || tab === "vuelos") && (
@@ -1501,6 +1510,9 @@ export default function App() {
             diasCobro={diasCobro}
             presupuestoAnual={presupuestoAnual}
             presupuestoYear={presupuestoYear}
+            cuentas={cuentas}
+            movimientos={movimientos}
+            prestamos={prestamos}
           />
         )}
         {tab === "activos" && <Activos activos={activos} mantenimientos={mantenimientos} seguros={seguros} />}
@@ -1511,7 +1523,17 @@ export default function App() {
         {tab === "renovaciones" && (
           <Renovaciones renovaciones={renovaciones} entidades={entidades} activos={activos} categoriasGasto={categoriasGasto} />
         )}
-        {esPropietario && tab === "ordenes-compra" && <OrdenesCompra ordenes={ordenesCompra} products={products} entidades={entidades} categoriasGasto={categoriasGasto} />}
+        {esPropietario && tab === "ordenes-compra" && (
+          <OrdenesCompra
+            ordenes={ordenesCompra}
+            products={products}
+            entidades={entidades}
+            categoriasGasto={categoriasGasto}
+            cuentas={cuentas}
+            movimientos={movimientos}
+            prestamos={prestamos}
+          />
+        )}
         {tab === "configuracion" && (
           <Configuracion
             theme={theme}
@@ -1529,7 +1551,16 @@ export default function App() {
             onNavigate={setTab}
           />
         )}
-        {esPropietario && tab === "escanear-factura" && <EscanearFactura products={products} ordenesCompra={ordenesCompra} />}
+        {esPropietario && tab === "escanear-factura" && (
+          <EscanearFactura
+            products={products}
+            ordenesCompra={ordenesCompra}
+            cuentas={cuentas}
+            movimientos={movimientos}
+            prestamos={prestamos}
+            tarjetas={tarjetas}
+          />
+        )}
         </div>
         </ErrorBoundary>
       </main>

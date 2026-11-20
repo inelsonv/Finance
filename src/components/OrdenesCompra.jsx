@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Trash2,
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import { addOrdenCompra, updateOrdenCompra, deleteOrdenCompra, registrarCompraProducto, deleteHistorialCompra, addMovimiento, deleteMovimiento, agregarItemABorrador } from "../lib/db";
 import { confirm } from "../lib/confirm";
+import { calcularSaldosCuentas, evaluarCuentasParaPago } from "../lib/cuentasSaldo";
 
 const ESTADO_COLORES = {
   Borrador: { bg: "var(--line-soft)", color: "var(--ink-soft)" },
@@ -67,7 +69,7 @@ function descargarCSV(orden) {
   URL.revokeObjectURL(url);
 }
 
-export default function OrdenesCompra({ ordenes, products, entidades, categoriasGasto }) {
+export default function OrdenesCompra({ ordenes, products, entidades, categoriasGasto, cuentas = [], movimientos = [], prestamos = [] }) {
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [seleccion, setSeleccion] = useState({}); // { productId: cantidad }
@@ -82,6 +84,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
   const [busy, setBusy] = useState(null);
   const [modoCompraId, setModoCompraId] = useState(null);
   const [verHistorial, setVerHistorial] = useState(false);
+  const [modalPagoOrden, setModalPagoOrden] = useState(null);
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -211,7 +214,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
     await updateOrdenCompra(orden.id, fields);
   };
 
-  const finalizarCompraPresencial = async (orden) => {
+  const finalizarCompraPresencial = async (orden, cuentaOrigen = null) => {
     setBusy(orden.id);
     try {
       const fecha = todayStr();
@@ -229,12 +232,14 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
       if (total > 0) {
         const ref = await addMovimiento({
           type: "Gasto",
-          category: "Alimentos",
+          category: orden.categoriaGasto || "Alimentos",
           amount: total,
           description: `Compra presencial - ${orden.folio}`,
           date: fecha,
           clasificacion: "Variable",
-          metodoPago: "Efectivo",
+          metodoPago: cuentaOrigen ? "Transferencia" : "Efectivo",
+          cuentaOrigenId: cuentaOrigen ? cuentaOrigen.id : null,
+          cuentaOrigenNombre: cuentaOrigen ? cuentaOrigen.nombre : "",
         });
         movimientoId = ref?.id || null;
       }
@@ -242,6 +247,116 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
     } finally {
       setBusy(null);
     }
+  };
+
+  const solicitarFinalizarCompra = async (orden, cerrarModoCompra = false) => {
+    const total = (orden.items || [])
+      .filter((it) => it.comprado)
+      .reduce((s, it) => s + (Number(it.precioUnitario) || 0) * (Number(it.cantidad) || 0), 0);
+    if (total > 0 && (cuentas || []).length > 0) {
+      setModalPagoOrden({ orden, total, cuentaOrigenId: "", cerrarModoCompra, error: null });
+      return;
+    }
+    await finalizarCompraPresencial(orden, null);
+    if (cerrarModoCompra) setModoCompraId(null);
+  };
+
+  const renderModalPagoOrden = () => {
+    if (!modalPagoOrden) return null;
+    const { orden, total, cuentaOrigenId, cerrarModoCompra, error } = modalPagoOrden;
+    const evalCuentas = evaluarCuentasParaPago(cuentas || [], movimientos || [], total, {}, prestamos || []);
+    const cuentaSel =
+      cuentaOrigenId && cuentaOrigenId !== "__SIN_CUENTA__"
+        ? evalCuentas.cuentas.find((c) => c.id === cuentaOrigenId) || null
+        : null;
+    const saldoInsuficiente = !!(cuentaSel && !cuentaSel.suficiente);
+    const deshabilitado = busy === orden.id || !cuentaOrigenId || saldoInsuficiente;
+
+    const modalEl = (
+      <div
+        onClick={() => setModalPagoOrden(null)}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{ background: "var(--card)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 14, padding: "16px 18px", maxWidth: 420, width: "100%", boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700 }}>Cuenta de origen para esta compra</div>
+            <button type="button" onClick={() => setModalPagoOrden(null)} style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer" }}>
+              <X size={16} />
+            </button>
+          </div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 10 }}>
+            {orden.folio} · Total comprado: <strong className="despensa-mono" style={{ color: "var(--ink)" }}>{formatMoney(total)}</strong>
+          </div>
+          <select
+            value={cuentaOrigenId}
+            onChange={(e) => setModalPagoOrden((prev) => ({ ...prev, cuentaOrigenId: e.target.value, error: null }))}
+            style={{ width: "100%", padding: "9px 10px", border: `1px solid ${!cuentaOrigenId ? "var(--amber)" : saldoInsuficiente ? "var(--stamp)" : "var(--line)"}`, borderRadius: 8, fontSize: 12.5, background: "var(--paper)", marginBottom: 8 }}
+          >
+            <option value="">— Selecciona la cuenta de origen —</option>
+            {evalCuentas.cuentas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre} ({c.entidadName || "Banco"}) — Disp: {formatMoney(c.saldoDisponible)} {c.suficiente ? "✓ Cubre" : `(Faltan ${formatMoney(c.faltante)})`}
+              </option>
+            ))}
+            <option value="__SIN_CUENTA__">Efectivo / Sin descontar de mis cuentas</option>
+          </select>
+          {cuentaSel && (
+            <div style={{ fontSize: 11.5, marginBottom: 8, fontWeight: 600, color: cuentaSel.suficiente ? "var(--sage)" : "var(--stamp)" }}>
+              {cuentaSel.suficiente
+                ? `Disponible: ${formatMoney(cuentaSel.saldoDisponible)} → Quedará en ${formatMoney(cuentaSel.saldoDisponible - total)}`
+                : `Saldo insuficiente en ${cuentaSel.nombre}: solo tienes ${formatMoney(cuentaSel.saldoDisponible)} disponibles.`}
+            </div>
+          )}
+          {error && <div style={{ fontSize: 11.5, color: "var(--stamp)", marginBottom: 8 }}>{error}</div>}
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button
+              type="button"
+              onClick={() => setModalPagoOrden(null)}
+              style={{ flex: 1, padding: "9px 14px", borderRadius: 8, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-soft)", fontSize: 12.5, cursor: "pointer" }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              disabled={deshabilitado}
+              onClick={async () => {
+                if (cuentaSel) {
+                  const saldos = calcularSaldosCuentas(cuentas || [], movimientos || [], prestamos || []);
+                  const disp = saldos[cuentaSel.id]?.saldoDisponible || 0;
+                  if (disp + 0.001 < total) {
+                    setModalPagoOrden((prev) => ({ ...prev, error: `Fondos insuficientes en ${cuentaSel.nombre}` }));
+                    return;
+                  }
+                }
+                const cta = cuentaSel;
+                const ord = orden;
+                const cerrar = cerrarModoCompra;
+                setModalPagoOrden(null);
+                await finalizarCompraPresencial(ord, cta);
+                if (cerrar) setModoCompraId(null);
+              }}
+              style={{
+                flex: 2,
+                padding: "9px 14px",
+                borderRadius: 8,
+                border: "none",
+                background: deshabilitado ? "var(--line)" : "var(--sage)",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: 12.5,
+                cursor: deshabilitado ? "not-allowed" : "pointer",
+              }}
+            >
+              Confirmar y finalizar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+    return typeof document !== "undefined" ? createPortal(modalEl, document.body) : modalEl;
   };
 
   const revertirCompletada = async (orden) => {
@@ -480,10 +595,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
           )}
           {ordenEnModoCompra.estado === "Compra presencial" && (
             <button
-              onClick={async () => {
-                await finalizarCompraPresencial(ordenEnModoCompra);
-                setModoCompraId(null);
-              }}
+              onClick={() => solicitarFinalizarCompra(ordenEnModoCompra, true)}
               disabled={busyThis}
               style={{
                 flex: 1,
@@ -506,6 +618,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
             </button>
           )}
         </div>
+        {renderModalPagoOrden()}
       </div>
     );
   }
@@ -955,7 +1068,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
                       <ShoppingCart size={12} /> Continuar comprando
                     </button>
                     <button
-                      onClick={() => finalizarCompraPresencial(o)}
+                      onClick={() => solicitarFinalizarCompra(o, false)}
                       disabled={busyThis}
                       style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", fontSize: 12, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 7, cursor: "pointer" }}
                     >
@@ -987,6 +1100,7 @@ export default function OrdenesCompra({ ordenes, products, entidades, categorias
           })}
         </div>
       )}
+      {renderModalPagoOrden()}
     </div>
   );
 }

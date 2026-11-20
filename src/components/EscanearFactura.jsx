@@ -2,6 +2,7 @@ import React, { useRef, useState, useMemo, useEffect } from "react";
 import { createWorker } from "tesseract.js";
 import { Camera, Check, X, Loader2, AlertTriangle, Receipt } from "lucide-react";
 import { addProduct, addMovimiento, updateProductPrice, registrarCompraProducto, updateOrdenCompra, escanearFactura } from "../lib/db";
+import { calcularSaldosCuentas, evaluarCuentasParaPago } from "../lib/cuentasSaldo";
 
 const CATEGORIES = ["Limpieza", "Higiene personal", "Alimentos", "Bebidas", "Otros"];
 
@@ -66,7 +67,7 @@ function parsearLineas(textoCrudo) {
   return resultados;
 }
 
-export default function EscanearFactura({ products, ordenesCompra = [], onNavigate }) {
+export default function EscanearFactura({ products, ordenesCompra = [], cuentas = [], movimientos = [], prestamos = [], onNavigate }) {
   const fileInputRef = useRef(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [scanning, setScanning] = useState(false);
@@ -81,6 +82,7 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
   const [tienda, setTienda] = useState("");
   const [totalFactura, setTotalFactura] = useState("");
   const [metodoPago, setMetodoPago] = useState("Efectivo");
+  const [cuentaOrigenId, setCuentaOrigenId] = useState("");
 
   const productosPorNombre = (nombre) =>
     products.find((p) => p.name.trim().toLowerCase() === nombre.trim().toLowerCase());
@@ -222,7 +224,32 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
   const totalCalculado = items.filter((it) => it.incluir).reduce((s, it) => s + (parseFloat(it.precio) || 0) * (parseFloat(it.cantidad) || 1), 0);
   const totalARegistrar = Number(totalFactura) > 0 ? Number(totalFactura) : totalCalculado;
 
+  const requiereCuentaOrigen = metodoPago !== "Tarjeta de crédito" && (cuentas || []).length > 0 && totalARegistrar > 0;
+  const evaluacionCuentas = useMemo(
+    () => evaluarCuentasParaPago(cuentas || [], movimientos || [], totalARegistrar, {}, prestamos || []),
+    [cuentas, movimientos, prestamos, totalARegistrar]
+  );
+  const cuentaOrigenSel = useMemo(() => {
+    if (!cuentaOrigenId || cuentaOrigenId === "__SIN_CUENTA__") return null;
+    return evaluacionCuentas.cuentas.find((c) => c.id === cuentaOrigenId) || null;
+  }, [evaluacionCuentas.cuentas, cuentaOrigenId]);
+
   const confirmarGuardado = async () => {
+    if (requiereCuentaOrigen && !cuentaOrigenId) {
+      setScanError("Selecciona la cuenta desde donde vienen los fondos (o elige Efectivo / Sin descontar de mis cuentas).");
+      return;
+    }
+    const cuentaOrigenIdReal =
+      requiereCuentaOrigen && cuentaOrigenId && cuentaOrigenId !== "__SIN_CUENTA__" ? cuentaOrigenId : "";
+    if (cuentaOrigenIdReal) {
+      const saldos = calcularSaldosCuentas(cuentas, movimientos || [], prestamos || []);
+      const ctaOrigen = (cuentas || []).find((c) => c.id === cuentaOrigenIdReal);
+      const disponible = ctaOrigen ? saldos[ctaOrigen.id]?.saldoDisponible || 0 : 0;
+      if (disponible + 0.001 < totalARegistrar) {
+        setScanError(`Fondos insuficientes en "${ctaOrigen?.nombre || "la cuenta"}": tienes ${formatMoney(disponible)} disponibles y el total es ${formatMoney(totalARegistrar)}.`);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const itemsOrdenActualizados = ordenActual ? [...(ordenActual.items || [])] : null;
@@ -254,6 +281,7 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
       }
 
       const nombreTienda = tienda.trim() ? ` en ${tienda.trim()}` : "";
+      const cuentaOrigenObj = cuentaOrigenIdReal ? (cuentas || []).find((c) => c.id === cuentaOrigenIdReal) : null;
       await addMovimiento({
         type: "Gasto",
         category: gastoCategoria,
@@ -261,7 +289,9 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
         description: `Compra${nombreTienda} (factura escaneada)`,
         date: fecha,
         clasificacion: "Variable",
-        metodoPago,
+        metodoPago: cuentaOrigenIdReal && metodoPago === "Efectivo" ? "Transferencia" : metodoPago,
+        cuentaOrigenId: cuentaOrigenIdReal || null,
+        cuentaOrigenNombre: cuentaOrigenObj ? cuentaOrigenObj.nombre : "",
       });
 
       if (ordenActual && itemsOrdenActualizados) {
@@ -293,6 +323,7 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
     setFecha(todayStr());
     setTotalFactura("");
     setMetodoPago("Efectivo");
+    setCuentaOrigenId("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -417,7 +448,11 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
               Método de pago
               <select
                 value={metodoPago}
-                onChange={(e) => setMetodoPago(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setMetodoPago(val);
+                  if (val === "Tarjeta de crédito") setCuentaOrigenId("");
+                }}
                 style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
               >
                 <option>Efectivo</option>
@@ -427,6 +462,47 @@ export default function EscanearFactura({ products, ordenesCompra = [], onNaviga
               </select>
             </label>
           </div>
+
+          {requiereCuentaOrigen && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink)", fontWeight: 600, marginBottom: 4 }}>
+                Cuenta desde donde vienen los fondos *
+              </div>
+              <select
+                value={cuentaOrigenId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCuentaOrigenId(val);
+                  if (val === "__SIN_CUENTA__") setMetodoPago("Efectivo");
+                  else if (val && metodoPago === "Efectivo") setMetodoPago("Transferencia");
+                  if (scanError) setScanError(null);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  border: `1px solid ${!cuentaOrigenId ? "var(--amber)" : cuentaOrigenSel && !cuentaOrigenSel.suficiente ? "var(--stamp)" : "var(--line)"}`,
+                  borderRadius: 8,
+                  fontSize: 12.5,
+                  background: "var(--card)",
+                }}
+              >
+                <option value="">— Selecciona la cuenta de origen —</option>
+                {evaluacionCuentas.cuentas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} ({c.entidadName || "Banco"}) — Disp: {formatMoney(c.saldoDisponible)} {c.suficiente ? "✓ Cubre" : `(Faltan ${formatMoney(c.faltante)})`}
+                  </option>
+                ))}
+                <option value="__SIN_CUENTA__">Efectivo / Sin descontar de mis cuentas</option>
+              </select>
+              {cuentaOrigenSel && (
+                <div style={{ fontSize: 11.5, marginTop: 4, fontWeight: 500, color: cuentaOrigenSel.suficiente ? "var(--sage)" : "var(--stamp)" }}>
+                  {cuentaOrigenSel.suficiente
+                    ? `Disponible en ${cuentaOrigenSel.nombre}: ${formatMoney(cuentaOrigenSel.saldoDisponible)} → Quedará en ${formatMoney(cuentaOrigenSel.saldoDisponible - totalARegistrar)}`
+                    : `Saldo insuficiente en ${cuentaOrigenSel.nombre}: solo tienes ${formatMoney(cuentaOrigenSel.saldoDisponible)} disponibles.`}
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>Categoría del gasto:</span>

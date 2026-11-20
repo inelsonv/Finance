@@ -69,6 +69,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const [saving, setSaving] = useState(false);
   const [expresCategory, setExpresCategory] = useState(null);
   const [expresAmount, setExpresAmount] = useState("");
+  const [expresCuentaOrigenId, setExpresCuentaOrigenId] = useState("");
+  const [expresError, setExpresError] = useState(null);
   const [expresSaving, setExpresSaving] = useState(false);
   const [page, setPage] = useState(1);
 
@@ -259,6 +261,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const openExpres = (category) => {
     setExpresCategory(category);
     setExpresAmount("");
+    setExpresCuentaOrigenId("");
+    setExpresError(null);
   };
 
   const checkPresupuesto = (category, dateStr, amount) => {
@@ -279,12 +283,44 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
   const cancelExpres = () => {
     setExpresCategory(null);
     setExpresAmount("");
+    setExpresCuentaOrigenId("");
+    setExpresError(null);
   };
+
+  const evaluacionCuentasExpres = useMemo(
+    () => evaluarCuentasParaPago(cuentas, movimientos, parseFloat(expresAmount) || 0, {}, prestamos),
+    [cuentas, movimientos, prestamos, expresAmount]
+  );
+
+  const cuentaOrigenExpresSel = useMemo(() => {
+    if (!expresCuentaOrigenId || expresCuentaOrigenId === "__SIN_CUENTA__") return null;
+    return evaluacionCuentasExpres.cuentas.find((c) => c.id === expresCuentaOrigenId) || null;
+  }, [evaluacionCuentasExpres.cuentas, expresCuentaOrigenId]);
 
   const saveExpres = async () => {
     const amount = parseFloat(expresAmount);
-    if (!Number.isFinite(amount) || amount <= 0) return;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setExpresError("Ingresa un monto válido");
+      return;
+    }
+    if (cuentas.length > 0 && !expresCuentaOrigenId) {
+      setExpresError("Selecciona la cuenta desde donde vienen los fondos (o Efectivo)");
+      return;
+    }
+    const cuentaOrigenIdReal =
+      cuentas.length > 0 && expresCuentaOrigenId && expresCuentaOrigenId !== "__SIN_CUENTA__" ? expresCuentaOrigenId : "";
+    if (cuentaOrigenIdReal) {
+      const saldos = calcularSaldosCuentas(cuentas, movimientos, prestamos);
+      const ctaOrigen = cuentas.find((c) => c.id === cuentaOrigenIdReal);
+      const disponible = ctaOrigen ? saldos[ctaOrigen.id]?.saldoDisponible || 0 : 0;
+      if (disponible + 0.001 < amount) {
+        setExpresError(`Fondos insuficientes en ${ctaOrigen?.nombre || "la cuenta"} (${formatMoney(disponible)} disponibles).`);
+        return;
+      }
+    }
+    const ctaObj = cuentaOrigenIdReal ? cuentas.find((c) => c.id === cuentaOrigenIdReal) : null;
     setExpresSaving(true);
+    setExpresError(null);
     try {
       await addMovimiento({
         type: "Gasto",
@@ -293,7 +329,9 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         description: "",
         date: todayStr(),
         clasificacion: "Variable",
-        metodoPago: "Efectivo",
+        metodoPago: cuentaOrigenIdReal ? "Transferencia" : "Efectivo",
+        cuentaOrigenId: cuentaOrigenIdReal || null,
+        cuentaOrigenNombre: ctaObj ? ctaObj.nombre : "",
       });
       checkPresupuesto(expresCategory, todayStr(), amount);
       cancelExpres();
@@ -343,6 +381,12 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
 
   const selectedPrestamo = prestamos.find((p) => p.id === form.prestamoId);
 
+  const requiereCuentaOrigen =
+    !isCuentaTipo &&
+    form.tipo !== "Ingreso" &&
+    !(form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito") &&
+    cuentas.length > 0;
+
   const evaluacionCuentasPago = useMemo(
     () =>
       evaluarCuentasParaPago(
@@ -350,38 +394,32 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         movimientos,
         parseFloat(form.amount) || 0,
         {
-          entidadPreferidaId: selectedPrestamo?.entidadId || form.entidadId || null,
+          entidadPreferidaId:
+            selectedPrestamo?.entidadId ||
+            selectedTarjeta?.entidadId ||
+            selectedMembresia?.entidadId ||
+            selectedContrato?.entidadId ||
+            form.entidadId ||
+            null,
           cuentaPreferidaId: selectedPrestamo?.cuentaDestinoId || null,
         },
         prestamos
       ),
-    [cuentas, movimientos, prestamos, form.amount, selectedPrestamo, form.entidadId]
+    [cuentas, movimientos, prestamos, form.amount, selectedPrestamo, selectedTarjeta, selectedMembresia, selectedContrato, form.entidadId]
   );
 
-  const cuentaOrigenSeleccionada = useMemo(
-    () => evaluacionCuentasPago.cuentas.find((c) => c.id === form.cuentaOrigenId) || null,
-    [evaluacionCuentasPago.cuentas, form.cuentaOrigenId]
-  );
+  const cuentaOrigenSeleccionada = useMemo(() => {
+    if (!form.cuentaOrigenId || form.cuentaOrigenId === "__SIN_CUENTA__") return null;
+    return evaluacionCuentasPago.cuentas.find((c) => c.id === form.cuentaOrigenId) || null;
+  }, [evaluacionCuentasPago.cuentas, form.cuentaOrigenId]);
 
   const handleSelectPrestamo = (prestamoId) => {
     const p = prestamos.find((x) => x.id === prestamoId);
     const montoSugerido = p && p.cuota != null ? String(p.cuota) : form.amount;
-    const evalPrestamo = evaluarCuentasParaPago(
-      cuentas,
-      movimientos,
-      parseFloat(montoSugerido) || 0,
-      {
-        entidadPreferidaId: p?.entidadId || null,
-        cuentaPreferidaId: p?.cuentaDestinoId || null,
-      },
-      prestamos
-    );
     setForm({
       ...form,
       prestamoId,
       amount: montoSugerido,
-      cuentaOrigenId: form.cuentaOrigenId || evalPrestamo.cuentaSugeridaId || "",
-      metodoPago: (form.cuentaOrigenId || evalPrestamo.cuentaSugeridaId) ? "Transferencia" : form.metodoPago,
     });
   };
 
@@ -488,13 +526,25 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       setFormError(`Selecciona la cuenta de ${form.tipo.toLowerCase()}`);
       return;
     }
-    if (form.cuentaOrigenId) {
+    if (requiereCuentaOrigen && !form.cuentaOrigenId) {
+      setFormError("Selecciona la cuenta desde donde vienen los fondos (o elige Efectivo / Sin descontar de mis cuentas)");
+      return;
+    }
+    const cuentaOrigenIdReal =
+      !isCuentaTipo &&
+      form.tipo !== "Ingreso" &&
+      !(form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito") &&
+      form.cuentaOrigenId &&
+      form.cuentaOrigenId !== "__SIN_CUENTA__"
+        ? form.cuentaOrigenId
+        : "";
+    if (cuentaOrigenIdReal) {
       const saldos = calcularSaldosCuentas(cuentas, movimientos, prestamos);
-      const ctaOrigen = cuentas.find((c) => c.id === form.cuentaOrigenId);
+      const ctaOrigen = cuentas.find((c) => c.id === cuentaOrigenIdReal);
       const disponible = ctaOrigen ? saldos[ctaOrigen.id]?.saldoDisponible || 0 : 0;
       if (disponible + 0.001 < amount) {
         setFormError(
-          `Fondos insuficientes en "${ctaOrigen?.nombre || "la cuenta"}": tienes ${formatMoney(disponible)} disponibles y el monto es ${formatMoney(amount)}. Elige otra cuenta con fondos o selecciona "Sin descontar de cuenta".`
+          `Fondos insuficientes en "${ctaOrigen?.nombre || "la cuenta"}": tienes ${formatMoney(disponible)} disponibles y el monto es ${formatMoney(amount)}. Elige otra cuenta con fondos o selecciona "Efectivo / Sin descontar de mis cuentas".`
         );
         return;
       }
@@ -509,7 +559,7 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
       const fuente = fuentesIngreso.find((f) => f.id === form.fuenteIngresoId);
       const contrato = contratos.find((c) => c.id === form.contratoId);
       const cuenta = cuentas.find((c) => c.id === form.cuentaId);
-      const cuentaOrigen = cuentas.find((c) => c.id === form.cuentaOrigenId);
+      const cuentaOrigen = cuentaOrigenIdReal ? cuentas.find((c) => c.id === cuentaOrigenIdReal) : null;
 
       const nuevoMovRef = await addMovimiento({
         type: form.tipo === "Ingreso" ? "Ingreso" : "Gasto",
@@ -527,7 +577,9 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         clasificacion: form.tipo === "Gasto" ? form.clasificacion : null,
         metodoPago:
           form.tipo === "Gasto" || form.tipo === "Pago de préstamo"
-            ? (form.cuentaOrigenId && form.metodoPago === "Efectivo" ? "Transferencia" : form.metodoPago)
+            ? (cuentaOrigenIdReal && form.metodoPago === "Efectivo" ? "Transferencia" : form.metodoPago)
+            : form.tipo === "Pago de tarjeta" || form.tipo === "Pago de membresía" || form.tipo === "Pago de servicio"
+            ? (cuentaOrigenIdReal ? "Transferencia" : "Efectivo")
             : null,
         entidadId:
           form.tipo === "Pago de préstamo"
@@ -559,8 +611,8 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         prestamoNumero: form.tipo === "Pago de préstamo" ? prestamo?.numero || "" : "",
         cuentaId: isCuentaTipo || (form.tipo === "Ingreso" && form.cuentaId) ? form.cuentaId : null,
         cuentaNombre: isCuentaTipo || (form.tipo === "Ingreso" && form.cuentaId) ? cuenta?.nombre || "" : "",
-        cuentaOrigenId: !isCuentaTipo && form.tipo !== "Ingreso" && form.cuentaOrigenId ? form.cuentaOrigenId : null,
-        cuentaOrigenNombre: !isCuentaTipo && form.tipo !== "Ingreso" && form.cuentaOrigenId ? cuentaOrigen?.nombre || "" : "",
+        cuentaOrigenId: cuentaOrigenIdReal || null,
+        cuentaOrigenNombre: cuentaOrigenIdReal ? cuentaOrigen?.nombre || "" : "",
         tarjetaId: form.tipo === "Pago de tarjeta" || (form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito") ? form.tarjetaId : null,
         tarjetaNombre: form.tipo === "Pago de tarjeta" || (form.tipo === "Gasto" && form.metodoPago === "Tarjeta de crédito") ? tarjeta?.nombre || "" : "",
         monedaTarjeta:
@@ -675,46 +727,84 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
         </div>
 
         {expresCategory && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px" }}>
-            <span style={{ fontSize: 12.5, fontWeight: 500, whiteSpace: "nowrap" }}>{expresCategory}:</span>
-            <input
-              autoFocus
-              className="despensa-mono"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="Monto"
-              value={expresAmount}
-              onChange={(e) => setExpresAmount(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && saveExpres()}
-              style={{ flex: 1, minWidth: 80, padding: "6px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13 }}
-            />
-            <button
-              onClick={saveExpres}
-              disabled={expresSaving || !expresAmount}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                padding: "6px 12px",
-                fontSize: 12.5,
-                fontWeight: 500,
-                background: "var(--sage)",
-                color: "#fff",
-                border: "none",
-                borderRadius: 7,
-                cursor: expresSaving || !expresAmount ? "not-allowed" : "pointer",
-                opacity: expresSaving || !expresAmount ? 0.6 : 1,
-              }}
-            >
-              <Check size={13} /> {expresSaving ? "…" : "Guardar"}
-            </button>
-            <button
-              onClick={cancelExpres}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer" }}
-            >
-              <X size={14} />
-            </button>
+          <div style={{ marginTop: 10, background: "var(--card)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, whiteSpace: "nowrap" }}>{expresCategory}:</span>
+              <input
+                autoFocus
+                className="despensa-mono"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="Monto"
+                value={expresAmount}
+                onChange={(e) => {
+                  setExpresAmount(e.target.value);
+                  if (expresError) setExpresError(null);
+                }}
+                onKeyDown={(e) => e.key === "Enter" && saveExpres()}
+                style={{ flex: 1, minWidth: 90, padding: "6px 10px", border: "1px solid var(--line)", borderRadius: 7, fontSize: 13 }}
+              />
+              {cuentas.length > 0 && (
+                <select
+                  value={expresCuentaOrigenId}
+                  onChange={(e) => {
+                    setExpresCuentaOrigenId(e.target.value);
+                    if (expresError) setExpresError(null);
+                  }}
+                  style={{
+                    flex: "1 1 200px",
+                    padding: "6px 8px",
+                    border: `1px solid ${!expresCuentaOrigenId ? "var(--amber)" : cuentaOrigenExpresSel && !cuentaOrigenExpresSel.suficiente ? "var(--stamp)" : "var(--line)"}`,
+                    borderRadius: 7,
+                    fontSize: 12,
+                    background: "var(--card)",
+                  }}
+                >
+                  <option value="">— Cuenta de origen * —</option>
+                  {evaluacionCuentasExpres.cuentas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre} (Disp: {formatMoney(c.saldoDisponible)}) {c.suficiente ? "✓" : `Faltan ${formatMoney(c.faltante)}`}
+                    </option>
+                  ))}
+                  <option value="__SIN_CUENTA__">Efectivo / Sin descontar de mis cuentas</option>
+                </select>
+              )}
+              <button
+                onClick={saveExpres}
+                disabled={expresSaving || !expresAmount || (cuentas.length > 0 && !expresCuentaOrigenId) || Boolean(cuentaOrigenExpresSel && !cuentaOrigenExpresSel.suficiente)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "6px 12px",
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  background: "var(--sage)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 7,
+                  cursor: expresSaving || !expresAmount || (cuentas.length > 0 && !expresCuentaOrigenId) || (cuentaOrigenExpresSel && !cuentaOrigenExpresSel.suficiente) ? "not-allowed" : "pointer",
+                  opacity: expresSaving || !expresAmount || (cuentas.length > 0 && !expresCuentaOrigenId) || (cuentaOrigenExpresSel && !cuentaOrigenExpresSel.suficiente) ? 0.6 : 1,
+                }}
+              >
+                <Check size={13} /> {expresSaving ? "…" : "Guardar"}
+              </button>
+              <button
+                onClick={cancelExpres}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, background: "transparent", color: "var(--ink-soft)", border: "none", cursor: "pointer" }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            {cuentaOrigenExpresSel && (
+              <div style={{ fontSize: 11, fontWeight: 500, color: cuentaOrigenExpresSel.suficiente ? "var(--sage)" : "var(--stamp)" }}>
+                {cuentaOrigenExpresSel.suficiente
+                  ? `Disponible en ${cuentaOrigenExpresSel.nombre}: ${formatMoney(cuentaOrigenExpresSel.saldoDisponible)}${(parseFloat(expresAmount) || 0) > 0 ? ` → Quedará en ${formatMoney(cuentaOrigenExpresSel.saldoDisponible - (parseFloat(expresAmount) || 0))}` : ""}`
+                  : `Saldo insuficiente en ${cuentaOrigenExpresSel.nombre}: solo tienes ${formatMoney(cuentaOrigenExpresSel.saldoDisponible)} disponibles.`}
+              </div>
+            )}
+            {expresError && <div style={{ fontSize: 11.5, color: "var(--stamp)", fontWeight: 600 }}>{expresError}</div>}
           </div>
         )}
       </div>
@@ -789,32 +879,6 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   {selectedPrestamo && selectedPrestamo.cuota != null && (
                     <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
                       Cuota registrada: <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 500 }}>{formatMoney(selectedPrestamo.cuota)}</span> (ya la pre-llenamos en el monto, puedes ajustarla)
-                    </div>
-                  )}
-                  {cuentas.length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 4 }}>
-                        Cuenta con fondos para pagar este préstamo
-                      </div>
-                      <select
-                        value={form.cuentaOrigenId}
-                        onChange={(e) => setForm({ ...form, cuentaOrigenId: e.target.value, metodoPago: e.target.value ? "Transferencia" : "Efectivo" })}
-                        style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
-                      >
-                        <option value="">Efectivo / Sin descontar de mis cuentas</option>
-                        {evaluacionCuentasPago.cuentas.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.nombre} ({c.entidadName || "Banco"}) — Disp: {formatMoney(c.saldoDisponible)} {c.suficiente ? "✓ Cubre pago" : `(Faltan ${formatMoney(c.faltante)})`}
-                          </option>
-                        ))}
-                      </select>
-                      {cuentaOrigenSeleccionada && (
-                        <div style={{ fontSize: 11.5, marginTop: 4, color: cuentaOrigenSeleccionada.suficiente ? "var(--sage)" : "var(--stamp)", fontWeight: 500 }}>
-                          {cuentaOrigenSeleccionada.suficiente
-                            ? `Fondos disponibles en ${cuentaOrigenSeleccionada.nombre}: ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible)}${(parseFloat(form.amount) || 0) > 0 ? ` → Quedará en ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible - (parseFloat(form.amount) || 0))}` : ""}`
-                            : `Saldo insuficiente en ${cuentaOrigenSeleccionada.nombre}: solo tienes ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible)} disponibles.`}
-                        </div>
-                      )}
                     </div>
                   )}
                 </>
@@ -1036,7 +1100,14 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
                   <div style={{ marginBottom: 8 }}>
                     <select
                       value={form.metodoPago}
-                      onChange={(e) => setForm({ ...form, metodoPago: e.target.value, tarjetaId: e.target.value === "Tarjeta de crédito" ? form.tarjetaId : "" })}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          metodoPago: e.target.value,
+                          tarjetaId: e.target.value === "Tarjeta de crédito" ? form.tarjetaId : "",
+                          cuentaOrigenId: e.target.value === "Tarjeta de crédito" ? "" : form.cuentaOrigenId,
+                        })
+                      }
                       style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
                     >
                       {METODOS_PAGO.map((m) => (
@@ -1203,6 +1274,46 @@ export default function Movimientos({ movimientos, entidades, prestamos, cuentas
               style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
             />
           </div>
+
+          {requiereCuentaOrigen && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11.5, color: "var(--ink)", fontWeight: 600, marginBottom: 4 }}>
+                Cuenta desde donde vienen los fondos *
+              </div>
+              <select
+                value={form.cuentaOrigenId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setForm({
+                    ...form,
+                    cuentaOrigenId: val,
+                    metodoPago:
+                      val === "__SIN_CUENTA__"
+                        ? "Efectivo"
+                        : val
+                        ? (form.metodoPago === "Efectivo" ? "Transferencia" : form.metodoPago)
+                        : form.metodoPago,
+                  });
+                }}
+                style={{ width: "100%", padding: "8px 10px", border: `1px solid ${!form.cuentaOrigenId ? "var(--amber)" : "var(--line)"}`, borderRadius: 8, fontSize: 12.5, background: "var(--card)" }}
+              >
+                <option value="">— Selecciona la cuenta de origen —</option>
+                {evaluacionCuentasPago.cuentas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} ({c.entidadName || "Banco"}) — Disp: {formatMoney(c.saldoDisponible)} {c.suficiente ? "✓ Cubre" : `(Faltan ${formatMoney(c.faltante)})`}
+                  </option>
+                ))}
+                <option value="__SIN_CUENTA__">Efectivo / Sin descontar de mis cuentas</option>
+              </select>
+              {cuentaOrigenSeleccionada && (
+                <div style={{ fontSize: 11.5, marginTop: 4, color: cuentaOrigenSeleccionada.suficiente ? "var(--sage)" : "var(--stamp)", fontWeight: 500 }}>
+                  {cuentaOrigenSeleccionada.suficiente
+                    ? `Fondos disponibles en ${cuentaOrigenSeleccionada.nombre}: ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible)}${(parseFloat(form.amount) || 0) > 0 ? ` → Quedará en ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible - (parseFloat(form.amount) || 0))}` : ""}`
+                    : `Saldo insuficiente en ${cuentaOrigenSeleccionada.nombre}: solo tienes ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible)} disponibles.`}
+                </div>
+              )}
+            </div>
+          )}
 
           <input
             placeholder="Descripción (opcional)"

@@ -33,6 +33,7 @@ import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
+import { evaluarCuentasParaPago, calcularSaldosCuentas } from "../lib/cuentasSaldo";
 
 function formatMoney(n) {
   const v = Number.isFinite(n) ? n : 0;
@@ -263,6 +264,24 @@ export default function EstrategiaDeudas({
     const saldoMaximo = d.esUSD ? d.saldoOriginalUSD : d.saldo;
     const esCompleto = tipoPagoModo === "completo" || montoNum >= saldoMaximo;
 
+    if ((cuentas || []).length > 0 && !cuentaId) {
+      setErrorPago("Selecciona la cuenta desde donde vienen los fondos (o elige Efectivo / Sin descontar de mis cuentas).");
+      return;
+    }
+
+    const cuentaOrigenIdReal = cuentaId && cuentaId !== "__SIN_CUENTA__" ? cuentaId : "";
+    const cuentaObj = cuentaOrigenIdReal ? cuentas?.find((c) => c.id === cuentaOrigenIdReal) : null;
+    if (cuentaOrigenIdReal) {
+      const saldos = calcularSaldosCuentas(cuentas, movimientos, prestamos);
+      const disponible = cuentaObj ? saldos[cuentaObj.id]?.saldoDisponible || 0 : 0;
+      if (disponible + 0.001 < montoNum) {
+        setErrorPago(
+          `Fondos insuficientes en "${cuentaObj?.nombre || "la cuenta"}": tienes ${formatMoney(disponible)} disponibles y el pago es de ${formatMoney(montoNum)}.`
+        );
+        return;
+      }
+    }
+
     // Disparar animación del cohete hacia la sección de puntos generados
     let clickX = window.innerWidth / 2;
     let clickY = window.innerHeight * 0.7;
@@ -274,11 +293,15 @@ export default function EstrategiaDeudas({
     const puntosEstimados = Math.round(montoNum * 0.05) + (esCompleto ? Math.round(montoNum * 0.08) : 0);
     lanzarCoheteHaciaPuntos(clickX, clickY, { puntos: puntosEstimados, forzar: true });
 
+    const metodoFinal =
+      cuentaId === "__SIN_CUENTA__"
+        ? "Efectivo"
+        : cuentaOrigenIdReal && metodoPago === "Efectivo"
+        ? "Transferencia"
+        : metodoPago;
 
     setProcesandoPago(true);
     try {
-      const cuentaObj = cuentas?.find((c) => c.id === cuentaId);
-
       if (d.tipo === "prestamo") {
         const prestamo = d.prestamoObj;
         const desc =
@@ -294,13 +317,13 @@ export default function EstrategiaDeudas({
           amount: montoNum,
           description: desc,
           date: fechaPago,
-          metodoPago,
+          metodoPago: metodoFinal,
           entidadId: prestamo.entidadId || null,
           entidadName: prestamo.entidadName || "",
           prestamoId: prestamo.id,
           prestamoNumero: prestamo.numero || "",
-          cuentaId: cuentaId || null,
-          cuentaNombre: cuentaObj?.nombre || "",
+          cuentaOrigenId: cuentaOrigenIdReal || null,
+          cuentaOrigenNombre: cuentaObj?.nombre || "",
         });
 
         // 2. Si se paga completo, asegurar que el estado del préstamo cambia a 'Pagado'
@@ -330,14 +353,14 @@ export default function EstrategiaDeudas({
           amount: montoNum,
           description: desc,
           date: fechaPago,
-          metodoPago,
+          metodoPago: metodoFinal,
           entidadId: tarjeta.entidadId || null,
           entidadName: tarjeta.entidadName || "",
           tarjetaId: tarjeta.id,
           tarjetaNombre: tarjeta.nombre || "",
           monedaTarjeta: esUSD ? "USD" : "RDS",
-          cuentaId: cuentaId || null,
-          cuentaNombre: cuentaObj?.nombre || "",
+          cuentaOrigenId: cuentaOrigenIdReal || null,
+          cuentaOrigenNombre: cuentaObj?.nombre || "",
         });
 
         // 2. Actualizar saldo actual en la tarjeta a 0 (o restar el abono)
@@ -382,6 +405,28 @@ export default function EstrategiaDeudas({
   };
 
   const deudaActivaParaModal = deudas.find((item) => item.id === deudaSeleccionadaId) || deudas[0];
+
+  const evaluacionCuentasModal = useMemo(() => {
+    const monto = parseFloat(montoPago) || 0;
+    return evaluarCuentasParaPago(
+      cuentas,
+      movimientos,
+      monto,
+      {
+        entidadPreferidaId:
+          deudaActivaParaModal?.prestamoObj?.entidadId ||
+          deudaActivaParaModal?.tarjetaObj?.entidadId ||
+          null,
+        cuentaPreferidaId: deudaActivaParaModal?.prestamoObj?.cuentaDestinoId || null,
+      },
+      prestamos
+    );
+  }, [cuentas, movimientos, prestamos, deudaActivaParaModal, montoPago]);
+
+  const cuentaOrigenSeleccionadaModal = useMemo(() => {
+    if (!cuentaId || cuentaId === "__SIN_CUENTA__") return null;
+    return evaluacionCuentasModal.cuentas.find((c) => c.id === cuentaId) || null;
+  }, [evaluacionCuentasModal.cuentas, cuentaId]);
 
   const totales = useMemo(() => {
     const saldoTotal = deudas.reduce((s, d) => s + d.saldo, 0);
@@ -1319,33 +1364,57 @@ export default function EstrategiaDeudas({
               </div>
             </div>
 
-            {/* Cuenta de Origen (opcional si hay cuentas registradas) */}
+            {/* Cuenta de Origen (obligatorio si hay cuentas registradas) */}
             {cuentas && cuentas.length > 0 && (
               <div style={{ marginBottom: 14 }}>
-                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 5 }}>
-                  Cuenta de donde sale el dinero (opcional)
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--ink)", marginBottom: 5 }}>
+                  Cuenta desde donde vienen los fondos *
                 </label>
                 <select
                   value={cuentaId}
-                  onChange={(e) => setCuentaId(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCuentaId(val);
+                    setErrorPago(null);
+                    if (val === "__SIN_CUENTA__") {
+                      setMetodoPago("Efectivo");
+                    } else if (val && metodoPago === "Efectivo") {
+                      setMetodoPago("Transferencia");
+                    }
+                  }}
                   disabled={procesandoPago}
                   style={{
                     width: "100%",
                     padding: "8px 10px",
-                    border: "1px solid var(--line)",
+                    border: `1px solid ${!cuentaId ? "var(--amber)" : "var(--line)"}`,
                     borderRadius: 8,
                     fontSize: 12.5,
                     background: "var(--paper)",
                     color: "var(--ink)",
                   }}
                 >
-                  <option value="">Sin especificar cuenta</option>
-                  {cuentas.map((c) => (
+                  <option value="">— Selecciona la cuenta de origen —</option>
+                  {evaluacionCuentasModal.cuentas.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.nombre} {c.entidadName ? `(${c.entidadName})` : ""}
+                      {c.nombre} ({c.entidadName || "Banco"}) — Disp: {formatMoney(c.saldoDisponible)} {c.suficiente ? "✓ Cubre" : `(Faltan ${formatMoney(c.faltante)})`}
                     </option>
                   ))}
+                  <option value="__SIN_CUENTA__">Efectivo / Sin descontar de mis cuentas</option>
                 </select>
+                {cuentaOrigenSeleccionadaModal && (
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      marginTop: 5,
+                      fontWeight: 500,
+                      color: cuentaOrigenSeleccionadaModal.suficiente ? "var(--sage)" : "var(--stamp)",
+                    }}
+                  >
+                    {cuentaOrigenSeleccionadaModal.suficiente
+                      ? `Disponible: ${formatMoney(cuentaOrigenSeleccionadaModal.saldoDisponible)}${(parseFloat(montoPago) || 0) > 0 ? ` → Quedará en ${formatMoney(cuentaOrigenSeleccionadaModal.saldoDisponible - (parseFloat(montoPago) || 0))}` : ""}`
+                      : `Saldo insuficiente en ${cuentaOrigenSeleccionadaModal.nombre}: solo tienes ${formatMoney(cuentaOrigenSeleccionadaModal.saldoDisponible)} disponibles.`}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1424,52 +1493,64 @@ export default function EstrategiaDeudas({
             </div>
 
             {/* Botones de Acción */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-              <button
-                type="button"
-                onClick={() => setModalPagoAbierto(false)}
-                disabled={procesandoPago}
-                style={{
-                  padding: "9px 16px",
-                  border: "1px solid var(--line)",
-                  borderRadius: 8,
-                  background: "var(--paper)",
-                  color: "var(--ink)",
-                  fontSize: 12.5,
-                  fontWeight: 500,
-                  cursor: "pointer",
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmarPago}
-                disabled={procesandoPago}
-                style={{
-                  padding: "9px 20px",
-                  border: "none",
-                  borderRadius: 8,
-                  background: "var(--amber)",
-                  color: "#18181b",
-                  fontSize: 12.5,
-                  fontWeight: 700,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  boxShadow: "0 2px 4px rgba(234, 154, 41, 0.3)",
-                }}
-              >
-                {procesandoPago ? (
-                  "Procesando pago…"
-                ) : (
-                  <>
-                    <CheckCircle2 size={15} /> Confirmar y pagar
-                  </>
-                )}
-              </button>
-            </div>
+            {(() => {
+              const sinCuenta = (cuentas || []).length > 0 && !cuentaId;
+              const saldoInsuf = !!(
+                cuentaOrigenSeleccionadaModal &&
+                (parseFloat(montoPago) || 0) > 0 &&
+                !cuentaOrigenSeleccionadaModal.suficiente
+              );
+              const deshabilitado = procesandoPago || sinCuenta || saldoInsuf;
+              return (
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => setModalPagoAbierto(false)}
+                    disabled={procesandoPago}
+                    style={{
+                      padding: "9px 16px",
+                      border: "1px solid var(--line)",
+                      borderRadius: 8,
+                      background: "var(--paper)",
+                      color: "var(--ink)",
+                      fontSize: 12.5,
+                      fontWeight: 500,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmarPago}
+                    disabled={deshabilitado}
+                    style={{
+                      padding: "9px 20px",
+                      border: "none",
+                      borderRadius: 8,
+                      background: deshabilitado ? "var(--line)" : "var(--amber)",
+                      color: deshabilitado ? "var(--ink-soft)" : "#18181b",
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: deshabilitado ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      boxShadow: deshabilitado ? "none" : "0 2px 4px rgba(234, 154, 41, 0.3)",
+                      opacity: deshabilitado ? 0.75 : 1,
+                    }}
+                  >
+                    {procesandoPago ? (
+                      "Procesando pago…"
+                    ) : (
+                      <>
+                        <CheckCircle2 size={15} /> Confirmar y pagar
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

@@ -58,6 +58,7 @@ export default function BottomNav({
   versiculoHoy,
   habitos,
   habitosRegistro,
+  cuentas = [],
   checklistTodos,
 }) {
   const [showGasto, setShowGasto] = useState(false);
@@ -541,6 +542,8 @@ export default function BottomNav({
           categoriasGasto={categoriasGasto}
           onClose={() => setShowGasto(false)}
           tarjetas={tarjetas}
+          cuentas={cuentas}
+          prestamos={prestamos}
           movimientos={movimientos}
           presupuesto={presupuesto}
           presupuestoYear={presupuestoYear}

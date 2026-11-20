@@ -4,7 +4,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from 
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Banknote, CreditCard, Briefcase, AlertTriangle, TrendingUp, TrendingDown, DollarSign, RefreshCw, LineChart, Settings, Plus, Trash2, X, PiggyBank, GripVertical, PieChart as PieChartIcon, ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon, Sun, Cloud, CloudRain, CloudLightning, CloudFog, CloudSnow, Fuel, Pencil, Receipt, SquareParking, UtensilsCrossed, Sparkles, Clock, ChefHat, CheckCircle2, Coffee, Dumbbell, Church, Wrench, Car, Scissors, HeartPulse, Stethoscope, Pill, Repeat, Wifi, Home, ShoppingBag, Shirt, GraduationCap, Baby, Dog, Gift, Plane, Bus, Music, Film, Gamepad2, BookOpen, Calendar, Target, SlidersHorizontal, Eye, EyeOff, LayoutGrid, Check, Shield, WashingMachine, Refrigerator, Tv, Fan, Flame, Zap, ExternalLink, Droplet, Moon, Salad, Heart, Wallet, Landmark, Vault, ArrowRight } from "lucide-react";
-import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache, addMovimiento, addHabito, toggleHabitoRegistro } from "../lib/db";
+import { watchAcciones, addAccion, deleteAccion, watchAccionesConfig, saveAccionesConfig, watchAccionesPrecios, saveAccionesPrecios, watchCombustibleConfig, saveCombustibleConfig, watchInicioOrden, saveInicioOrden, watchTipoCambioCache, saveTipoCambioCache, addMovimiento, addHabito, toggleHabitoRegistro, watchPagoRapido } from "../lib/db";
 import { calcularRachaHabito, periodoDeFecha } from "../lib/rachaHabito";
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { fetchInflacionRD } from "../lib/inflacionRD";
@@ -13,6 +13,7 @@ import { ingresoMensualNeto } from "../lib/deduccionesLey";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import { obtenerIconoYDetalleMeta } from "../lib/metaIconos";
 import { calcularSaldosCuentas, calcularDesgloseCuenta, prestamoApuntaACuenta, obtenerTemaBanco, ordenarCuentas } from "../lib/cuentasSaldo";
+import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
 import { Skeleton } from "./Skeleton";
 
 function formatDateDisplay(dateStr) {
@@ -2612,11 +2613,34 @@ function formatearNumeroTarjetaCuenta(cuenta) {
   return "Cuenta registrada";
 }
 
-function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [], onNavigate }) {
+function DisponibleCuentasCard({
+  cuentas = [],
+  movimientos = [],
+  prestamos = [],
+  tarjetas = [],
+  fuentesIngreso = [],
+  categoriasGasto = [],
+  presupuesto = {},
+  presupuestoYear,
+  contratos = [],
+  eventos = [],
+  checklistTodos = {},
+  estrategiaDeudas = {},
+  tipoCambio = null,
+  diasCobro = [15, 30],
+  onNavigate,
+}) {
   const [slideIndex, setSlideIndex] = useState(0);
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [verTodosCompromisos, setVerTodosCompromisos] = useState(false);
+  const [pagoRapido, setPagoRapido] = useState({});
   const dragRef = useRef({ active: false, startX: 0, startY: 0, locked: null, moved: false });
+
+  useEffect(() => {
+    const unsub = watchPagoRapido(setPagoRapido, () => setPagoRapido({}));
+    return () => unsub && unsub();
+  }, []);
 
   const cuentasOrdenadas = useMemo(() => ordenarCuentas(cuentas), [cuentas]);
 
@@ -2624,6 +2648,93 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
     () => calcularSaldosCuentas(cuentasOrdenadas, movimientos, prestamos),
     [cuentasOrdenadas, movimientos, prestamos]
   );
+
+  const periodoChecklistActual = useMemo(
+    () => periodoActualConfigurado(diasCobro),
+    [diasCobro]
+  );
+
+  const compromisosChecklist = useMemo(() => {
+    const periodo = periodoChecklistActual;
+    const pKey = `${periodo.year}-${periodo.month}-${periodo.quincena}`;
+    const checklistPeriodo = checklistTodos?.[pKey] || {};
+    const itemsPeriodo = generarItemsPeriodo({
+      periodo,
+      categoriasGasto,
+      presupuesto: !presupuestoYear || periodo.year === presupuestoYear ? presupuesto : {},
+      prestamos,
+      tarjetas,
+      contratos,
+      eventos,
+      presupuestoYear: presupuestoYear || periodo.year,
+      movimientos,
+      estrategiaDeudas,
+      tipoCambio,
+      pagoRapido,
+      fuentesIngreso,
+      checklist: checklistPeriodo,
+      diasCobro,
+    });
+
+    const principalId = cuentasOrdenadas[0]?.id || null;
+    const pendientes = [];
+    let total = 0;
+
+    for (const it of itemsPeriodo) {
+      const saved = checklistPeriodo?.items?.[it.key];
+      const pagado =
+        it.bloqueadoPagado ||
+        (saved?.pagado !== undefined ? Boolean(saved.pagado) : Boolean(it.completadoEnCalendario));
+      if (pagado) continue;
+
+      const metodo = saved?.metodoPago || it.metodoDefault || "";
+      if (metodo === "Descuento Nómina" || metodo === "Tarjeta de crédito") continue;
+      if (saved?.cuentaOrigenId && principalId && saved.cuentaOrigenId !== principalId) continue;
+
+      const montoBase = Number(it.monto) || 0;
+      const montoPendiente = it.esConsumoGradual
+        ? Math.max(montoBase - (Number(it.gastadoReal) || 0), 0)
+        : montoBase;
+      if (montoPendiente <= 0) continue;
+
+      total += montoPendiente;
+      pendientes.push({
+        key: it.key,
+        nombre: it.nombre,
+        monto: montoPendiente,
+        metodo: metodo || "Por asignar",
+        esEfectivo: metodo === "Efectivo",
+        esEvento: Boolean(it.esEvento),
+        fechaEvento: it.fechaEvento || null,
+        esPrestamo: Boolean(it.esPrestamo),
+        esTarjeta: Boolean(it.esTarjeta),
+      });
+    }
+
+    pendientes.sort((a, b) => b.monto - a.monto);
+    return {
+      periodo,
+      total,
+      items: pendientes,
+    };
+  }, [
+    periodoChecklistActual,
+    checklistTodos,
+    categoriasGasto,
+    presupuesto,
+    presupuestoYear,
+    prestamos,
+    tarjetas,
+    contratos,
+    eventos,
+    movimientos,
+    estrategiaDeudas,
+    tipoCambio,
+    pagoRapido,
+    fuentesIngreso,
+    diasCobro,
+    cuentasOrdenadas,
+  ]);
 
   const prestamosPorCuenta = useMemo(() => {
     const map = {};
@@ -2649,6 +2760,11 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
 
   const totalCuentas = cuentasOrdenadas.length;
   const safeIndex = totalCuentas > 0 ? Math.min(slideIndex, totalCuentas - 1) : 0;
+  const primeraCuentaId = cuentasOrdenadas[0]?.id || "";
+
+  useEffect(() => {
+    setSlideIndex(0);
+  }, [primeraCuentaId]);
 
   const prevSlide = () => {
     if (totalCuentas <= 1) return;
@@ -2851,7 +2967,8 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
                 willChange: "transform",
               }}
             >
-              {cuentasOrdenadas.map((c) => {
+              {cuentasOrdenadas.map((c, idxCuenta) => {
+                const esPrincipal = idxCuenta === 0;
                 const desglose = saldosPorCuenta[c.id] || {
                   saldoInicial: Number(c.saldoInicial) || 0,
                   creditos: 0,
@@ -2862,6 +2979,8 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
                 const huboMovimientos = desglose.creditos > 0 || desglose.debitos > 0;
                 const tema = obtenerTemaBanco(c);
                 const numeroCorto = formatearNumeroTarjetaCuenta(c);
+                const tieneCompromisosPrincipal = esPrincipal && compromisosChecklist.total > 0;
+                const librePrincipal = desglose.saldoDisponible - compromisosChecklist.total;
 
                 return (
                   <div
@@ -2890,7 +3009,7 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
                         display: "flex",
                         flexDirection: "column",
                         justifyContent: "space-between",
-                        gap: 14,
+                        gap: 12,
                         boxShadow: "0 10px 24px rgba(0, 0, 0, 0.25)",
                       }}
                     >
@@ -2922,11 +3041,30 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
                         }}
                       />
 
-                      {/* Fila superior: Banco + Chip */}
+                      {/* Fila superior: Banco + Principal + Chip */}
                       <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {c.entidadName || tema.nombre}
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 11.5, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {c.entidadName || tema.nombre}
+                            </span>
+                            {esPrincipal && (
+                              <span
+                                style={{
+                                  fontSize: 9.5,
+                                  fontWeight: 700,
+                                  padding: "1px 6px",
+                                  borderRadius: 6,
+                                  background: "rgba(255,255,255,0.22)",
+                                  border: "1px solid rgba(255,255,255,0.35)",
+                                  color: tema.text,
+                                  letterSpacing: "0.04em",
+                                  textTransform: "uppercase",
+                                }}
+                              >
+                                Principal
+                              </span>
+                            )}
                           </div>
                           <div style={{ fontSize: 11, color: tema.subtext, marginTop: 1 }}>
                             Cuenta de {c.tipo || "Ahorro"}
@@ -2947,7 +3085,7 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
                         />
                       </div>
 
-                      {/* Fila central: Monto disponible */}
+                      {/* Fila central: Monto disponible + comprometido si es cuenta principal */}
                       <div style={{ position: "relative" }}>
                         <div style={{ fontSize: 11, color: tema.subtext, fontWeight: 500 }}>
                           Saldo disponible
@@ -2970,6 +3108,47 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
                             {desglose.creditos > 0 ? `+${formatMoney(desglose.creditos)}` : ""}
                             {desglose.creditos > 0 && desglose.debitos > 0 ? " · " : ""}
                             {desglose.debitos > 0 ? `-${formatMoney(desglose.debitos)}` : ""}
+                          </div>
+                        )}
+                        {tieneCompromisosPrincipal && (
+                          <div
+                            style={{
+                              marginTop: 8,
+                              padding: "6px 9px",
+                              borderRadius: 9,
+                              background: "rgba(0, 0, 0, 0.24)",
+                              border: "1px solid rgba(255, 255, 255, 0.2)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: 9.5, color: tema.subtext, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                Comprometido (Checklist)
+                              </div>
+                              <div className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 700, color: "#fde68a", fontVariantNumeric: "tabular-nums" }}>
+                                -{formatMoney(compromisosChecklist.total)}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontSize: 9.5, color: tema.subtext, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                                {librePrincipal >= 0 ? "Libre real" : "Faltante"}
+                              </div>
+                              <div
+                                className="despensa-mono"
+                                style={{
+                                  fontSize: 12.5,
+                                  fontWeight: 800,
+                                  color: librePrincipal >= 0 ? "#a7f3d0" : "#fecaca",
+                                  fontVariantNumeric: "tabular-nums",
+                                }}
+                              >
+                                {formatMoney(librePrincipal)}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -3102,6 +3281,112 @@ function DisponibleCuentasCard({ cuentas = [], movimientos = [], prestamos = [],
                   }}
                 >
                   Administrar →
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Desglose de dinero comprometido desde la cuenta principal según el checklist */}
+          {safeIndex === 0 && compromisosChecklist.items.length > 0 && (
+            <div
+              style={{
+                background: "var(--paper)",
+                border: "1px solid var(--line-soft)",
+                borderRadius: 10,
+                padding: "9px 11px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink)" }}>
+                  Comprometido en checklist ({compromisosChecklist.periodo.quincena === "Q1" ? "1ra" : "2da"} quincena {MESES[compromisosChecklist.periodo.month - 1]})
+                </div>
+                {onNavigate && (
+                  <button
+                    type="button"
+                    onClick={() => onNavigate("checklist-pagos")}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      padding: 0,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "var(--sage)",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    Ver checklist →
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {(verTodosCompromisos ? compromisosChecklist.items : compromisosChecklist.items.slice(0, 4)).map((itComp) => (
+                  <div
+                    key={itComp.key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 8,
+                      fontSize: 11.5,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                      <span
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: 600,
+                          padding: "1px 5px",
+                          borderRadius: 4,
+                          background: itComp.esEfectivo ? "var(--amber-bg)" : "var(--card)",
+                          color: itComp.esEfectivo ? "var(--amber)" : "var(--ink-soft)",
+                          border: "1px solid var(--line-soft)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {itComp.metodo}
+                      </span>
+                      <span
+                        style={{
+                          color: "var(--ink)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {itComp.nombre}
+                      </span>
+                    </div>
+                    <span className="despensa-mono" style={{ fontWeight: 600, color: "var(--stamp)", flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>
+                      {formatMoney(itComp.monto)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {compromisosChecklist.items.length > 4 && (
+                <button
+                  type="button"
+                  onClick={() => setVerTodosCompromisos((prev) => !prev)}
+                  style={{
+                    alignSelf: "flex-start",
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--ink-soft)",
+                    cursor: "pointer",
+                    marginTop: 1,
+                  }}
+                >
+                  {verTodosCompromisos
+                    ? "Mostrar menos"
+                    : `Ver ${compromisosChecklist.items.length - 4} más (${compromisosChecklist.items.length} pendientes)`}
                 </button>
               )}
             </div>
@@ -4211,7 +4496,29 @@ function HabitosHoyCard({ habitos = [], habitosRegistro = [], onNavigate }) {
   );
 }
 
-export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimientos, cuentas, presupuesto, diasCobro, products = [], metasAhorro = [], activos = [], habitos = [], habitosRegistro = [], onNavigate, isOwner = false }) {
+export default function Inicio({
+  prestamos,
+  tarjetas,
+  fuentesIngreso,
+  movimientos,
+  cuentas,
+  presupuesto,
+  presupuestoYear,
+  categoriasGasto = [],
+  contratos = [],
+  eventos = [],
+  checklistTodos = {},
+  estrategiaDeudas = {},
+  tipoCambio = null,
+  diasCobro,
+  products = [],
+  metasAhorro = [],
+  activos = [],
+  habitos = [],
+  habitosRegistro = [],
+  onNavigate,
+  isOwner = false,
+}) {
   const modulosDisponibles = useMemo(() => {
     if (isOwner) return SECTION_IDS_DEFAULT;
     return SECTION_IDS_DEFAULT.filter((id) => id !== "platoSugerido");
@@ -4613,6 +4920,17 @@ export default function Inicio({ prestamos, tarjetas, fuentesIngreso, movimiento
       cuentas={cuentas}
       movimientos={movimientos}
       prestamos={prestamos}
+      tarjetas={tarjetas}
+      fuentesIngreso={fuentesIngreso}
+      categoriasGasto={categoriasGasto}
+      presupuesto={presupuesto}
+      presupuestoYear={presupuestoYear}
+      contratos={contratos}
+      eventos={eventos}
+      checklistTodos={checklistTodos}
+      estrategiaDeudas={estrategiaDeudas}
+      tipoCambio={tipoCambio}
+      diasCobro={diasCobro}
       onNavigate={onNavigate}
     />
   );

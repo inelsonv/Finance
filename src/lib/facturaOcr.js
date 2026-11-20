@@ -281,6 +281,8 @@ export async function aplicarFacturaACatalogoYMovimientos({
   metodoPago = "Tarjeta",
   categoriaGasto = "Alimentos",
   agregarNuevosAlCatalogo = true,
+  cuentaOrigenId = null,
+  cuentaOrigenNombre = "",
 }) {
   if (!facturaData || !Array.isArray(facturaData.items)) {
     throw new Error("Datos de factura inválidos");
@@ -300,6 +302,8 @@ export async function aplicarFacturaACatalogoYMovimientos({
     date: fecha,
     clasificacion: "Variable",
     metodoPago,
+    cuentaOrigenId: cuentaOrigenId || null,
+    cuentaOrigenNombre: cuentaOrigenId ? cuentaOrigenNombre || "" : "",
   });
 
   let preciosActualizados = 0;

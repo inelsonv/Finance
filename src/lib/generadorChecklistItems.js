@@ -1,9 +1,10 @@
-import { Landmark, Wallet, CreditCard, Banknote, ArrowLeftRight, HelpCircle, Briefcase, FileText } from "lucide-react";
+import { Landmark, Wallet, CreditCard, Banknote, ArrowLeftRight, HelpCircle, Briefcase, FileText, Calendar, Stethoscope, Wrench } from "lucide-react";
 import { ingresoMensualNeto } from "./deduccionesLey";
 import { calcularResumenQuincena } from "./quincenaResumen";
 import { consumoPresupuesto } from "./presupuestoConsumo";
 import { contratoActivoEnMes, calcularQuincenaEfectivaContrato } from "../components/Contratos";
 import { esCuotaDivididaEnMes } from "./prestamoDivision";
+import { clasificarFecha } from "./quincenaConfig";
 
 const MES_NOMBRES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -69,6 +70,7 @@ export function generarItemsPeriodo({
   prestamos = [],
   tarjetas = [],
   contratos = [],
+  eventos = [],
   presupuestoYear,
   movimientos = [],
   estrategiaDeudas,
@@ -80,6 +82,12 @@ export function generarItemsPeriodo({
   diasCobro = [15, 30],
 }) {
   const list = [];
+  const categoriasMap = new Map();
+  for (const c of categoriasGasto || []) {
+    if (c?.nombre) {
+      categoriasMap.set(c.nombre.trim().toLowerCase(), c);
+    }
+  }
   const presupuestoDisponible =
     (presupuesto && Object.keys(presupuesto).length > 0) ||
     !presupuestoYear ||
@@ -117,13 +125,6 @@ export function generarItemsPeriodo({
   }
 
   if (presupuestoDisponible) {
-    const categoriasMap = new Map();
-    for (const c of categoriasGasto || []) {
-      if (c?.nombre) {
-        categoriasMap.set(c.nombre.trim().toLowerCase(), c);
-      }
-    }
-
     // Reunir nombres únicos de categorias existentes en categoriasGasto y en las llaves del presupuesto
     const nombresCategoriasAProcesar = new Set();
     for (const c of categoriasGasto || []) {
@@ -242,12 +243,71 @@ export function generarItemsPeriodo({
           esContrato: true,
           contratoId: c.id,
           contratoNombre: c.nombre,
+          entidadId: c.entidadId || null,
+          entidadName: c.entidadName || "",
           clasificacion: "Fijo",
           diaPago: c.diaPago,
         });
         break;
       }
     }
+  }
+
+  // Eventos y citas agendadas en Calendario que corresponden a esta quincena
+  for (const e of eventos || []) {
+    if (!e || e.estado === "Cancelado" || !e.fecha) continue;
+    const infoEvento = clasificarFecha(e.fecha, diasCobro);
+    if (
+      !infoEvento ||
+      infoEvento.year !== periodo.year ||
+      infoEvento.month !== periodo.month ||
+      infoEvento.quincena !== periodo.quincena
+    ) {
+      continue;
+    }
+
+    const montoEvento = Number(e.montoEstimado) || 0;
+    const esCitaOServicio =
+      e.tipo === "Cita médica" ||
+      e.tipo === "Mantenimiento de vehículo" ||
+      /\b(cita|odontol[oó]g|dentist|m[eé]dic[ao]|consulta|terapia|examen|laboratorio|cirug[ií]a)\b/i.test(e.titulo || "");
+
+    if (montoEvento <= 0 && !e.categoriaGasto && !esCitaOServicio) {
+      continue;
+    }
+
+    const eventKey = `evento-${e.id}`;
+    if (checklist?.items?.[eventKey]?.eliminado === true) continue;
+
+    const catVinculada = e.categoriaGasto
+      ? categoriasMap.get(e.categoriaGasto.trim().toLowerCase())
+      : null;
+
+    const iconEvento =
+      e.tipo === "Cita médica"
+        ? Stethoscope
+        : e.tipo === "Mantenimiento de vehículo"
+          ? Wrench
+          : Calendar;
+
+    list.push({
+      key: eventKey,
+      nombre: e.titulo || e.tipo || "Evento agendado",
+      monto: montoEvento,
+      icon: iconEvento,
+      metodoDefault: catVinculada?.metodoPagoDefault || null,
+      esEvento: true,
+      eventoId: e.id,
+      evento: e,
+      fechaEvento: e.fecha,
+      horaEvento: e.hora || "",
+      tipoEvento: e.tipo || "Evento",
+      entidadId: e.entidadId || null,
+      entidadName: e.entidadName || "",
+      categoriaGasto: e.categoriaGasto || "",
+      clasificacion: catVinculada?.clasificacion || "Variable",
+      completadoEnCalendario: e.estado === "Completado",
+    });
   }
 
   for (const p of prestamos || []) {
@@ -503,6 +563,7 @@ export function generarItemsPeriodo({
       prestamos,
       movimientos,
       diasCobro,
+      eventos,
     });
     let minimoTarjetasQuincena = 0;
     for (const t of tarjetas || []) {

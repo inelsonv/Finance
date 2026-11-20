@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3, Copy, RotateCcw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, X, Landmark, Wallet, Banknote, CreditCard, ArrowLeftRight, HelpCircle, Briefcase, Mail, Send, Trash2, ChevronDown, ChevronUp, BarChart3, Copy, RotateCcw, Calendar, Clock, MapPin } from "lucide-react";
 import ModalEnviarReporteEmail from "./ModalEnviarReporteEmail.jsx";
 import { generarItemsPeriodo } from "../lib/generadorChecklistItems";
-import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, setPresupuestoCeldaCompartida, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto, watchWhatsappNotifConfig, watchPresupuestoAnual, watchPresupuestoCompartido, watchEstadoPresupuestoCompartido } from "../lib/db";
+import { watchChecklistPeriodo, setChecklistItem, addMovimiento, setPrestamoQuincenaOverride, quitarPrestamoQuincenaOverride, setPrestamoCuotaPersonalizadaFechaOverride, quitarPrestamoCuotaPersonalizadaFechaOverride, watchPagoRapido, setPresupuestoCelda, setPresupuestoCeldaCompartida, watchTransferenciasPresupuesto, moverGastoQuincena, revertirMoverGastoQuincena, updateCategoriaGasto, addCategoriaGasto, watchWhatsappNotifConfig, watchPresupuestoAnual, watchPresupuestoCompartido, watchEstadoPresupuestoCompartido, updateEvento, updateEventoEstado } from "../lib/db";
 import { abrirNotificacionWhatsapp } from "../lib/whatsappNotif";
 import { WhatsAppIcon } from "./WhatsAppIcon.jsx";
 import { lanzarCoheteHaciaPuntos } from "../lib/coheteVolando";
 import { calcularResumenQuincena } from "../lib/quincenaResumen";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
-import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuincenaConfigurado } from "../lib/quincenaConfig";
+import { periodoActualConfigurado, periodoAdyacenteConfigurado, rangoFechasQuincenaConfigurado, clasificarFecha } from "../lib/quincenaConfig";
 import { consumoPresupuesto } from "../lib/presupuestoConsumo";
 import { confirm } from "../lib/confirm";
 import { GASTO_CATS_FIJO } from "../lib/categorias";
@@ -88,6 +88,7 @@ export default function ChecklistPagos({
   prestamos,
   tarjetas,
   contratos = [],
+  eventos = [],
   presupuestoYear,
   periodoInicial,
   onConsumePeriodoInicial,
@@ -207,6 +208,7 @@ export default function ChecklistPagos({
       prestamos,
       tarjetas,
       contratos,
+      eventos,
       presupuestoYear: periodo.year,
       movimientos,
       estrategiaDeudas,
@@ -217,7 +219,7 @@ export default function ChecklistPagos({
       overridesLocales,
       diasCobro,
     });
-  }, [categoriasGasto, presupuestoEfectivo, prestamos, tarjetas, contratos, periodo, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso, checklist, overridesLocales]);
+  }, [categoriasGasto, presupuestoEfectivo, prestamos, tarjetas, contratos, eventos, periodo, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso, checklist, overridesLocales]);
 
   // Ítems presupuestados en la otra quincena del mismo mes (para aviso rápido y navegación)
   const otraQuincena = periodo.quincena === "Q1" ? "Q2" : "Q1";
@@ -229,6 +231,7 @@ export default function ChecklistPagos({
       prestamos,
       tarjetas,
       contratos,
+      eventos,
       presupuestoYear: periodo.year,
       movimientos,
       estrategiaDeudas,
@@ -239,14 +242,20 @@ export default function ChecklistPagos({
       overridesLocales,
       diasCobro,
     });
-  }, [periodo, otraQuincena, categoriasGasto, presupuestoEfectivo, prestamos, tarjetas, contratos, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso, checklist, overridesLocales]);
+  }, [periodo, otraQuincena, categoriasGasto, presupuestoEfectivo, prestamos, tarjetas, contratos, eventos, movimientos, diasCobro, estrategiaDeudas, tipoCambio, pagoRapido, fuentesIngreso, checklist, overridesLocales]);
+
+  const esItemPagado = (it) => {
+    if (it.bloqueadoPagado) return true;
+    const saved = checklist?.items?.[it.key]?.pagado;
+    return saved !== undefined ? Boolean(saved) : Boolean(it.completadoEnCalendario);
+  };
 
   const totales = useMemo(() => {
     let total = 0;
     let pagado = 0;
     for (const it of items) {
       total += it.monto;
-      if (it.bloqueadoPagado || checklist?.items?.[it.key]?.pagado) pagado += it.monto;
+      if (esItemPagado(it)) pagado += it.monto;
     }
     return { total, pagado, pendiente: total - pagado };
   }, [items, checklist]);
@@ -256,7 +265,7 @@ export default function ChecklistPagos({
     for (const it of items) {
       if (it.bloqueadoPagado) continue;
       const estado = checklist?.items?.[it.key] || {};
-      if (estado.pagado) continue;
+      if (esItemPagado(it)) continue;
       const metodo = estado.metodoPago || it.metodoDefault || "Sin definir";
       map[metodo] = (map[metodo] || 0) + it.monto;
     }
@@ -475,8 +484,8 @@ export default function ChecklistPagos({
         } catch {}
       }
 
-      // 3. Si es un rubro de presupuesto (no contrato), poner en 0 en todas las fuentes
-      if (!it.esContrato) {
+      // 3. Si es un rubro de presupuesto (no contrato ni evento de calendario), poner en 0 en todas las fuentes
+      if (!it.esContrato && !it.esEvento) {
         const lowerTarget = (nombre || "").trim().toLowerCase();
         const keysToZero = new Set([nombre, it.key, it.categoriaPresupuestoKey].filter(Boolean));
 
@@ -580,7 +589,7 @@ export default function ChecklistPagos({
 
       // 3. Si era gasto de presupuesto y tiene monto anterior, restaurar monto
       const montoARestaurar = Number(itElim?.montoEliminado) || 0;
-      if (montoARestaurar > 0 && !key.startsWith("contrato-")) {
+      if (montoARestaurar > 0 && !key.startsWith("contrato-") && !key.startsWith("evento-")) {
         const catKey = itElim?.categoriaPresupuestoKey || itElim?.nombre || key;
         await setPresupuestoCelda(periodo.year, catKey, periodo.month, periodo.quincena, montoARestaurar);
         if (infoCompartido?.tieneAcceso && infoCompartido?.titularEmail) {
@@ -755,6 +764,10 @@ export default function ChecklistPagos({
   const abrirMoverQuincena = (it) => {
     setMoviendoGastoKey(null);
     setMoviendoAbiertoKey(it.key);
+    if (it.esEvento) {
+      setDestinoFecha(it.fechaEvento || todayStr());
+      return;
+    }
     const nextMonth = periodo.month === 12
       ? { year: periodo.year + 1, month: 1 }
       : { year: periodo.year, month: periodo.month + 1 };
@@ -768,6 +781,11 @@ export default function ChecklistPagos({
     if (!destYear || !destMonth || !destDay) return;
     setMoviendoKey(it.key);
     try {
+      if (it.esEvento) {
+        await updateEvento(it.eventoId, { fecha: destinoFecha });
+        setMoviendoAbiertoKey(null);
+        return;
+      }
       if (it.cuotaPersonalizada) {
         guardarOverrideLocal(it.prestamoId, "personalizadas", it.origenKey, destinoFecha);
         try {
@@ -856,8 +874,15 @@ export default function ChecklistPagos({
   // un solo ítem como el de confirmación en lote (selección múltiple).
   const confirmarPagoItem = async (it, cuentaOrigen = null) => {
     const actual = checklist?.items?.[it.key] || {};
-    const metodoPago = actual.metodoPago || it.metodoDefault || "Efectivo";
-    await setChecklistItem(periodoKey, it.key, { ...actual, pagado: true, metodoPago });
+    const metodoBase = actual.metodoPago || it.metodoDefault || (cuentaOrigen ? "Transferencia" : "Efectivo");
+    const metodoPago = cuentaOrigen && metodoBase === "Efectivo" ? "Transferencia" : metodoBase;
+    await setChecklistItem(periodoKey, it.key, {
+      ...actual,
+      pagado: true,
+      metodoPago,
+      cuentaOrigenId: cuentaOrigen ? cuentaOrigen.id : null,
+      cuentaOrigenNombre: cuentaOrigen ? cuentaOrigen.nombre : "",
+    });
 
     if (it.esPrestamo) {
       lanzarCoheteHaciaPuntos(undefined, undefined, { puntos: Math.round((Number(it.monto) || 0) * 0.05) });
@@ -929,26 +954,38 @@ export default function ChecklistPagos({
         metodoPago,
         tarjetaId: it.tarjetaId,
         tarjetaNombre: it.tarjetaNombre || "",
+        cuentaOrigenId: cuentaOrigen ? cuentaOrigen.id : null,
+        cuentaOrigenNombre: cuentaOrigen ? cuentaOrigen.nombre : "",
         origenChecklist: { periodoKey, itemKey: it.key },
       });
     } else {
       await addMovimiento({
         type: "Gasto",
-        category: it.nombre,
+        category: it.esContrato ? "Pago de servicio" : (it.esEvento ? (it.categoriaGasto || it.nombre) : it.nombre),
         amount: it.monto,
         description: it.nombre,
         date: todayStr(),
         clasificacion: it.clasificacion || (GASTO_CATS_FIJO.includes(it.nombre) ? "Fijo" : "Variable"),
         metodoPago,
+        entidadId: it.entidadId || null,
+        entidadName: it.entidadName || "",
+        contratoId: it.esContrato ? (it.contratoId || null) : null,
+        contratoNombre: it.esContrato ? (it.contratoNombre || "") : "",
+        cuentaOrigenId: cuentaOrigen ? cuentaOrigen.id : null,
+        cuentaOrigenNombre: cuentaOrigen ? cuentaOrigen.nombre : "",
         origenChecklist: { periodoKey, itemKey: it.key },
       });
+
+      if (it.esEvento && it.eventoId) {
+        await updateEventoEstado(it.eventoId, "Completado");
+      }
 
       // Si se pagó MENOS de lo presupuestado, el resto se suma
       // automáticamente al monto ya presupuestado de la PRÓXIMA quincena
       // para esta misma categoría (ej. cita odontológica: si faltó pagar
       // parte, se espera saldarlo en la próxima cita).
       const resto = (it.montoPresupuestado || 0) - (it.monto || 0);
-      if (resto > 0 && !it.esPrestamo && !it.esTarjeta) {
+      if (resto > 0 && !it.esPrestamo && !it.esTarjeta && !it.esEvento) {
         const siguiente = periodoAdyacente(periodo, 1);
         const yaPresupuestadoSiguiente = Number(presupuesto?.[it.nombre]?.[String(siguiente.month)]?.[siguiente.quincena]) || 0;
         await setPresupuestoCelda(siguiente.year, it.nombre, siguiente.month, siguiente.quincena, yaPresupuestadoSiguiente + resto);
@@ -958,30 +995,24 @@ export default function ChecklistPagos({
 
   const toggleItem = async (it) => {
     const actual = checklist?.items?.[it.key] || {};
+    const yaPagado = esItemPagado(it);
 
-    if (actual.pagado) {
+    if (yaPagado) {
       // Desmarcar no requiere confirmación ni registra nada (el movimiento ya
       // creado, si lo hay, se puede editar/eliminar desde Movimientos).
-      setChecklistItem(periodoKey, it.key, { ...actual, pagado: false });
+      await setChecklistItem(periodoKey, it.key, { ...actual, pagado: false });
+      if (it.esEvento && it.eventoId) {
+        await updateEventoEstado(it.eventoId, "Pendiente");
+      }
       return;
     }
 
-    const metodo = actual.metodoPago || it.metodoDefault || "Transferencia";
-    const esTransferencia = metodo === "Transferencia" || it.cuentaDestinoNumero || it.prestamoNumero === "PT01";
-    if (it.esPrestamo && (esTransferencia || (cuentas && cuentas.length > 0))) {
-      const evaluacion = evaluarCuentasParaPago(
-        cuentas,
-        movimientos,
-        it.monto,
-        {
-          entidadPreferidaId: it.entidadId || it.prestamo?.entidadId || null,
-          cuentaPreferidaId: it.prestamo?.cuentaDestinoId || null,
-        },
-        prestamos
-      );
+    if ((cuentas && cuentas.length > 0) || it.esPrestamo) {
       setModalTransferencia({
         item: it,
-        cuentaOrigenId: evaluacion.cuentaSugeridaId || "",
+        itemsLote: null,
+        montoLote: Number(it.monto) || 0,
+        cuentaOrigenId: null,
       });
       return;
     }
@@ -1021,6 +1052,17 @@ export default function ChecklistPagos({
     const itemsSeleccionados = items.filter((it) => seleccionados.has(it.key));
     if (itemsSeleccionados.length === 0) return;
     const total = itemsSeleccionados.reduce((s, it) => s + (Number(it.monto) || 0), 0);
+
+    if (cuentas && cuentas.length > 0) {
+      setModalTransferencia({
+        item: null,
+        itemsLote: itemsSeleccionados,
+        montoLote: total,
+        cuentaOrigenId: null,
+      });
+      return;
+    }
+
     const confirmado = await confirm(
       `¿Confirmar el pago de ${itemsSeleccionados.length} ítem${itemsSeleccionados.length !== 1 ? "s" : ""} seleccionado${itemsSeleccionados.length !== 1 ? "s" : ""} por un total de ${formatMoney(total)}?`,
       { confirmLabel: "Confirmar pagos", danger: false }
@@ -1465,7 +1507,8 @@ export default function ChecklistPagos({
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {items.map((it) => {
-            const estado = it.bloqueadoPagado ? { pagado: true } : checklist?.items?.[it.key] || {};
+            const estadoBase = checklist?.items?.[it.key] || {};
+            const estado = { ...estadoBase, pagado: esItemPagado(it) };
             const Icon = it.icon;
 
             if (it.esConsumoGradual) {
@@ -1741,7 +1784,27 @@ export default function ChecklistPagos({
                         Prioridad
                       </span>
                     )}
-                    {it.esVariable && !it.esPrestamo && !it.esTarjeta && (
+                    {it.esEvento && (
+                      <span
+                        className="despensa-mono"
+                        title="Agendado en Calendario"
+                        style={{
+                          fontSize: 9.5,
+                          fontWeight: 700,
+                          padding: "1px 7px",
+                          borderRadius: 10,
+                          background: "rgba(59, 130, 246, 0.14)",
+                          color: "var(--blue, #3b82f6)",
+                          border: "1px solid rgba(59, 130, 246, 0.35)",
+                          textDecoration: "none",
+                          display: "inline-block",
+                          verticalAlign: "middle",
+                        }}
+                      >
+                        {it.tipoEvento || "Calendario"}
+                      </span>
+                    )}
+                    {it.esVariable && !it.esPrestamo && !it.esTarjeta && !it.esEvento && (
                       <span
                         className="despensa-mono"
                         title="Gasto variable — pago único"
@@ -1795,7 +1858,11 @@ export default function ChecklistPagos({
                         <button
                           onClick={async () => {
                             const actual = checklist?.items?.[it.key] || {};
-                            await setChecklistItem(periodoKey, it.key, { ...actual, montoOverride: Number(montoEditado) || 0 });
+                            const nuevoMonto = Number(montoEditado) || 0;
+                            await setChecklistItem(periodoKey, it.key, { ...actual, montoOverride: nuevoMonto });
+                            if (it.esEvento && it.eventoId) {
+                              await updateEvento(it.eventoId, { montoEstimado: nuevoMonto });
+                            }
                             setEditandoMontoKey(null);
                           }}
                           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", flexShrink: 0 }}
@@ -1842,10 +1909,10 @@ export default function ChecklistPagos({
                   </div>
                 </div>
 
-                {/* Fila de detalles: Vencimiento, Entidad, Datos bancarios, Monto USD */}
-                {(it.esPrestamo || it.esTarjeta || it.esVariable || it.esPagoRapido || (estado.metodoPago === "Descuento Nómina" && estado.fuenteIngresoNombre)) && (
+                {/* Fila de detalles: Vencimiento, Evento, Entidad, Datos bancarios, Monto USD */}
+                {(it.esPrestamo || it.esTarjeta || it.esEvento || it.esVariable || it.esPagoRapido || (estado.metodoPago === "Descuento Nómina" && estado.fuenteIngresoNombre)) && (
                   <div style={{ paddingLeft: 36, display: "flex", flexDirection: "column", gap: 3.5, width: "100%", boxSizing: "border-box" }}>
-                    {it.esVariable && !it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
+                    {it.esVariable && !it.esPrestamo && !it.esTarjeta && !it.esEvento && !it.bloqueadoPagado && (
                       <div>
                         <button
                           type="button"
@@ -1864,6 +1931,29 @@ export default function ChecklistPagos({
                         >
                           Ver como barra de consumo
                         </button>
+                      </div>
+                    )}
+
+                    {it.esEvento && (
+                      <div style={{ fontSize: 11, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        {it.fechaEvento && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <Calendar size={11} /> Fecha: <strong style={{ color: "var(--ink)" }}>{formatoFechaCuota(it.fechaEvento)}</strong>
+                          </span>
+                        )}
+                        {it.horaEvento && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <Clock size={11} /> {it.horaEvento}
+                          </span>
+                        )}
+                        {it.entidadName && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <MapPin size={11} /> {it.entidadName}
+                          </span>
+                        )}
+                        {it.categoriaGasto && (
+                          <span>Categoría: <strong style={{ color: "var(--ink)" }}>{it.categoriaGasto}</strong></span>
+                        )}
                       </div>
                     )}
 
@@ -1992,8 +2082,87 @@ export default function ChecklistPagos({
                       </div>
                     )}
 
+                    {/* Para eventos agendados en Calendario */}
+                    {it.esEvento && !estado.pagado && (
+                      <div>
+                        {moviendoAbiertoKey === it.key ? (
+                          <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                            <input
+                              value={destinoFecha}
+                              onChange={(e) => setDestinoFecha(e.target.value)}
+                              style={{ fontSize: 10.5, padding: "3px 5px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--paper)", color: "var(--ink)" }}
+                              type="date"
+                            />
+                            {destinoFecha && (() => {
+                              const info = clasificarFecha(destinoFecha, diasCobro);
+                              if (!info) return null;
+                              const quincenaDestino = info.quincena === "Q1" ? "1ra" : info.quincena === "Q2" ? "2da" : info.quincena;
+                              return <span style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>Se mostrará en {quincenaDestino} quincena de {MES_NOMBRES[info.month - 1]} {info.year}</span>;
+                            })()}
+                            <button
+                              onClick={() => confirmarMoverQuincena(it)}
+                              disabled={moviendoKey === it.key}
+                              style={{ fontSize: 10.5, padding: "3px 8px", background: "var(--sage)", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}
+                            >
+                              {moviendoKey === it.key ? "…" : "Confirmar"}
+                            </button>
+                            <button
+                              onClick={() => setMoviendoAbiertoKey(null)}
+                              style={{ fontSize: 10.5, padding: "3px 8px", background: "transparent", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 6, cursor: "pointer" }}
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            <button
+                              type="button"
+                              onClick={() => abrirMoverQuincena(it)}
+                              title="Cambiar la fecha de este evento en el Calendario"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                padding: "3px 8px",
+                                fontSize: 11,
+                                color: "var(--sage)",
+                                background: "var(--sage-bg)",
+                                border: "1px solid var(--sage)",
+                                borderRadius: 6,
+                                cursor: "pointer",
+                                fontWeight: 600,
+                              }}
+                            >
+                              <Calendar size={11} /> Reagendar fecha
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => eliminarGastoQuincena(it)}
+                              disabled={eliminandoGastoKey === it.key}
+                              title="Ocultar este evento del checklist de esta quincena"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: 4,
+                                padding: "3px 8px",
+                                fontSize: 11,
+                                color: "var(--stamp)",
+                                background: "var(--stamp-bg)",
+                                border: "1px solid var(--stamp)",
+                                borderRadius: 6,
+                                cursor: eliminandoGastoKey === it.key ? "wait" : "pointer",
+                                fontWeight: 600,
+                              }}
+                            >
+                              <Trash2 size={11} /> {eliminandoGastoKey === it.key ? "Eliminando…" : "Ocultar"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Para gastos fijos y rubros presupuestados */}
-                    {!it.esPrestamo && !it.esTarjeta && !it.bloqueadoPagado && (
+                    {!it.esPrestamo && !it.esTarjeta && !it.esEvento && !it.bloqueadoPagado && (
                       <div>
                         {transferenciasHaciaPeriodo.filter((t) => t.categoria === it.nombre).map((t) => (
                           <div key={t.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--sage)", background: "var(--sage-bg)", padding: "2px 7px", borderRadius: 6, marginBottom: 4 }}>
@@ -2269,23 +2438,41 @@ export default function ChecklistPagos({
 
       {modalTransferencia && (() => {
         const it = modalTransferencia.item;
-        const esPT01 = it.prestamoNumero === "PT01";
-        const banco = it.cuentaDestinoBanco || it.prestamo?.cuentaDestinoBanco || (esPT01 ? "Banco Popular" : (it.entidadName || "Banco Popular"));
-        const tipoProducto = it.cuentaDestinoTipo || it.prestamo?.cuentaDestinoTipo || (esPT01 ? "Cuentas de Terceros" : "Cuentas de Terceros");
-        const numeroCuenta = it.cuentaDestinoNumero || it.prestamo?.cuentaDestinoNumero || (esPT01 ? "0002804611" : "");
-        const beneficiario = it.cuentaDestinoBeneficiario || it.prestamo?.cuentaDestinoBeneficiario || (esPT01 ? "Julian Ochoa" : "");
+        const itemsLote = modalTransferencia.itemsLote;
+        const esLote = Array.isArray(itemsLote) && itemsLote.length > 0;
+        const esPrestamo = !esLote && Boolean(it?.esPrestamo);
+        const montoTotal = esLote
+          ? itemsLote.reduce((s, x) => s + (Number(x.monto) || 0), 0)
+          : Number(it?.monto) || 0;
+
+        const esPT01 = esPrestamo && it.prestamoNumero === "PT01";
+        const banco = esPrestamo ? (it.cuentaDestinoBanco || it.prestamo?.cuentaDestinoBanco || (esPT01 ? "Banco Popular" : (it.entidadName || "Banco Popular"))) : "";
+        const tipoProducto = esPrestamo ? (it.cuentaDestinoTipo || it.prestamo?.cuentaDestinoTipo || "Cuentas de Terceros") : "";
+        const numeroCuenta = esPrestamo ? (it.cuentaDestinoNumero || it.prestamo?.cuentaDestinoNumero || (esPT01 ? "0002804611" : "")) : "";
+        const beneficiario = esPrestamo ? (it.cuentaDestinoBeneficiario || it.prestamo?.cuentaDestinoBeneficiario || (esPT01 ? "Julian Ochoa" : "")) : "";
+
         const evalCuentas = evaluarCuentasParaPago(
           cuentas,
           movimientos,
-          it.monto,
+          montoTotal,
           {
-            entidadPreferidaId: it.entidadId || it.prestamo?.entidadId || null,
-            cuentaPreferidaId: it.prestamo?.cuentaDestinoId || null,
+            entidadPreferidaId: esLote ? null : (it?.entidadId || it?.prestamo?.entidadId || null),
+            cuentaPreferidaId: esLote ? null : (it?.prestamo?.cuentaDestinoId || null),
           },
           prestamos
         );
-        const cuentaOrigenSel = evalCuentas.cuentas.find((c) => c.id === modalTransferencia.cuentaOrigenId) || null;
+        const seleccionCuentaId = modalTransferencia.cuentaOrigenId;
+        const cuentaOrigenSel =
+          seleccionCuentaId && seleccionCuentaId !== "__SIN_CUENTA__"
+            ? evalCuentas.cuentas.find((c) => c.id === seleccionCuentaId) || null
+            : null;
+        const sinCuentaElegida = evalCuentas.cuentas.length > 0 && seleccionCuentaId == null;
         const saldoInsuficiente = !!(cuentaOrigenSel && !cuentaOrigenSel.suficiente);
+        const confirmarDeshabilitado = confirmandoLote || sinCuentaElegida || saldoInsuficiente;
+
+        const subtituloModal = esLote
+          ? `${itemsLote.length} pago${itemsLote.length !== 1 ? "s" : ""} seleccionado${itemsLote.length !== 1 ? "s" : ""}`
+          : it?.nombre || "";
 
         const modalContent = (
           <div
@@ -2327,7 +2514,7 @@ export default function ChecklistPagos({
                 border: "1px solid var(--line)",
                 borderRadius: 14,
                 padding: "16px 18px",
-                maxWidth: 430,
+                maxWidth: 440,
                 width: "100%",
                 margin: "auto",
                 maxHeight: "90vh",
@@ -2347,14 +2534,14 @@ export default function ChecklistPagos({
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                   <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(59, 130, 246, 0.12)", color: "#2563eb", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <ArrowLeftRight size={15} />
+                    {esPrestamo ? <ArrowLeftRight size={15} /> : <Wallet size={15} />}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <h3 style={{ fontSize: 14.5, fontWeight: 700, margin: 0, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      Transferencia para pago
+                      {esPrestamo ? "Transferencia para pago" : esLote ? "Aplicar pagos en lote" : "Aplicar pago"}
                     </h3>
                     <div style={{ fontSize: 11, color: "var(--ink-soft)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {it.nombre}
+                      {subtituloModal}
                     </div>
                   </div>
                 </div>
@@ -2367,7 +2554,7 @@ export default function ChecklistPagos({
                 </button>
               </div>
 
-              {/* Monto a transferir compacto */}
+              {/* Monto a pagar compacto */}
               <div
                 style={{
                   background: "var(--paper)",
@@ -2381,144 +2568,253 @@ export default function ChecklistPagos({
                 }}
               >
                 <span style={{ fontSize: 11, color: "var(--ink-soft)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                  Monto a transferir:
+                  {esPrestamo ? "Monto a transferir:" : "Monto a pagar:"}
                 </span>
                 <span className="despensa-mono" style={{ fontSize: 19, fontWeight: 800, color: "var(--ink)" }}>
-                  {formatMoney(it.monto)}
+                  {formatMoney(montoTotal)}
                 </span>
               </div>
 
-              {/* Tarjeta de datos bancarios con botones copiar integrados */}
-              <div
-                style={{
-                  background: "rgba(59, 130, 246, 0.05)",
-                  border: "1px solid rgba(59, 130, 246, 0.25)",
-                  borderRadius: 10,
-                  padding: "10px 12px",
-                  marginBottom: 10,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 7,
-                }}
-              >
-                {/* Banco y tipo */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, paddingBottom: 4, borderBottom: "1px solid rgba(59, 130, 246, 0.12)" }}>
-                  <span style={{ color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4 }}>
-                    <Landmark size={12} style={{ color: "#2563eb" }} /> Banco destino:
-                  </span>
-                  <span style={{ fontWeight: 600, color: "var(--ink)" }}>
-                    {banco} {tipoProducto ? `· ${tipoProducto}` : ""}
-                  </span>
-                </div>
-
-                {/* Cuenta */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>No. de cuenta:</div>
-                    <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", letterSpacing: "0.02em" }}>
-                      {numeroCuenta || "No registrado"}
-                    </div>
+              {/* Tarjeta de datos bancarios para préstamos */}
+              {esPrestamo && (
+                <div
+                  style={{
+                    background: "rgba(59, 130, 246, 0.05)",
+                    border: "1px solid rgba(59, 130, 246, 0.25)",
+                    borderRadius: 10,
+                    padding: "10px 12px",
+                    marginBottom: 10,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 7,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, paddingBottom: 4, borderBottom: "1px solid rgba(59, 130, 246, 0.12)" }}>
+                    <span style={{ color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 4 }}>
+                      <Landmark size={12} style={{ color: "#2563eb" }} /> Banco destino:
+                    </span>
+                    <span style={{ fontWeight: 600, color: "var(--ink)" }}>
+                      {banco} {tipoProducto ? `· ${tipoProducto}` : ""}
+                    </span>
                   </div>
-                  {numeroCuenta && (
-                    <button
-                      type="button"
-                      onClick={() => copiarTexto(numeroCuenta, "cuenta")}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        padding: "4px 9px",
-                        background: copiadoCampo === "cuenta" ? "var(--sage)" : "#2563eb",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        flexShrink: 0,
-                        transition: "all 0.15s ease",
-                      }}
-                    >
-                      {copiadoCampo === "cuenta" ? <Check size={11} /> : <Copy size={11} />}
-                      {copiadoCampo === "cuenta" ? "Copiado" : "Copiar"}
-                    </button>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>No. de cuenta:</div>
+                      <div className="despensa-mono" style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", letterSpacing: "0.02em" }}>
+                        {numeroCuenta || "No registrado"}
+                      </div>
+                    </div>
+                    {numeroCuenta && (
+                      <button
+                        type="button"
+                        onClick={() => copiarTexto(numeroCuenta, "cuenta")}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "4px 9px",
+                          background: copiadoCampo === "cuenta" ? "var(--sage)" : "#2563eb",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          flexShrink: 0,
+                          transition: "all 0.15s ease",
+                        }}
+                      >
+                        {copiadoCampo === "cuenta" ? <Check size={11} /> : <Copy size={11} />}
+                        {copiadoCampo === "cuenta" ? "Copiado" : "Copiar"}
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>Beneficiario:</div>
+                      <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {beneficiario || "No registrado"}
+                      </div>
+                    </div>
+                    {beneficiario && (
+                      <button
+                        type="button"
+                        onClick={() => copiarTexto(beneficiario, "beneficiario")}
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4,
+                          padding: "4px 9px",
+                          background: copiadoCampo === "beneficiario" ? "var(--sage)" : "var(--paper)",
+                          color: copiadoCampo === "beneficiario" ? "#fff" : "var(--ink)",
+                          border: "1px solid var(--line)",
+                          borderRadius: 6,
+                          fontSize: 11,
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {copiadoCampo === "beneficiario" ? <Check size={11} /> : <Copy size={11} />}
+                        {copiadoCampo === "beneficiario" ? "Copiado" : "Copiar"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Resumen para pagos que no son préstamos */}
+              {!esPrestamo && (
+                <div
+                  style={{
+                    background: "var(--paper)",
+                    border: "1px solid var(--line)",
+                    borderRadius: 10,
+                    padding: "9px 12px",
+                    marginBottom: 10,
+                    fontSize: 11.5,
+                    color: "var(--ink-soft)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                  }}
+                >
+                  {esLote ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, maxHeight: 110, overflowY: "auto" }}>
+                      {itemsLote.map((itemLote) => (
+                        <div key={itemLote.key} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                          <span style={{ color: "var(--ink)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            • {itemLote.nombre}
+                          </span>
+                          <span className="despensa-mono" style={{ fontWeight: 600, flexShrink: 0 }}>
+                            {formatMoney(itemLote.monto)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      {it?.esEvento && it.fechaEvento && (
+                        <div>
+                          Fecha de cita/evento: <strong style={{ color: "var(--ink)" }}>{formatoFechaCuota(it.fechaEvento)}</strong>
+                          {it.horaEvento ? ` · ${it.horaEvento}` : ""}
+                        </div>
+                      )}
+                      {it?.entidadName && (
+                        <div>
+                          Entidad / Lugar: <strong style={{ color: "var(--ink)" }}>{it.entidadName}</strong>
+                        </div>
+                      )}
+                      <div>
+                        Concepto: <strong style={{ color: "var(--ink)" }}>{it?.esEvento ? (it.categoriaGasto || it.nombre) : it?.nombre}</strong>
+                      </div>
+                    </>
                   )}
                 </div>
+              )}
 
-                {/* Beneficiario */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 10, color: "var(--ink-soft)" }}>Beneficiario:</div>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {beneficiario || "No registrado"}
-                    </div>
-                  </div>
-                  {beneficiario && (
-                    <button
-                      type="button"
-                      onClick={() => copiarTexto(beneficiario, "beneficiario")}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                        padding: "4px 9px",
-                        background: copiadoCampo === "beneficiario" ? "var(--sage)" : "var(--paper)",
-                        color: copiadoCampo === "beneficiario" ? "#fff" : "var(--ink)",
-                        border: "1px solid var(--line)",
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        cursor: "pointer",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {copiadoCampo === "beneficiario" ? <Check size={11} /> : <Copy size={11} />}
-                      {copiadoCampo === "beneficiario" ? "Copiado" : "Copiar"}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Selector de cuenta origen según fondos disponibles */}
+              {/* Selector obligatorio de cuenta origen según fondos disponibles */}
               {evalCuentas.cuentas.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, color: "var(--ink-soft)", fontWeight: 600, marginBottom: 4 }}>
-                    Cuenta con fondos para pagar:
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11.5, color: "var(--ink)", fontWeight: 700, marginBottom: 6 }}>
+                    Selecciona la cuenta de donde vienen los fondos:
                   </div>
-                  <select
-                    value={modalTransferencia.cuentaOrigenId || ""}
-                    onChange={(e) =>
-                      setModalTransferencia((prev) => ({ ...prev, cuentaOrigenId: e.target.value }))
-                    }
-                    style={{
-                      width: "100%",
-                      padding: "7px 9px",
-                      border: `1px solid ${saldoInsuficiente ? "var(--stamp)" : "var(--line)"}`,
-                      borderRadius: 8,
-                      fontSize: 12,
-                      background: "var(--paper)",
-                      color: "var(--ink)",
-                    }}
-                  >
-                    <option value="">Efectivo / Sin descontar de mis cuentas</option>
-                    {evalCuentas.cuentas.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nombre} ({c.entidadName || "Banco"}) — Disp: {formatMoney(c.saldoDisponible)} {c.suficiente ? "✓ Cubre" : `(Faltan ${formatMoney(c.faltante)})`}
-                      </option>
-                    ))}
-                  </select>
-                  {cuentaOrigenSel && (
-                    <div
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto" }}>
+                    {evalCuentas.cuentas.map((c) => {
+                      const seleccionada = seleccionCuentaId === c.id;
+                      const alcanza = c.suficiente;
+                      const esSugerida = evalCuentas.cuentaSugeridaId === c.id;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() =>
+                            setModalTransferencia((prev) => ({ ...prev, cuentaOrigenId: c.id }))
+                          }
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 8,
+                            padding: "8px 10px",
+                            borderRadius: 9,
+                            border: `1.5px solid ${seleccionada ? (alcanza ? "var(--sage)" : "var(--stamp)") : "var(--line)"}`,
+                            background: seleccionada ? (alcanza ? "var(--sage-bg)" : "var(--stamp-bg)") : "var(--paper)",
+                            cursor: "pointer",
+                            textAlign: "left",
+                            opacity: !alcanza && !seleccionada ? 0.75 : 1,
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                              <span>{c.nombre}</span>
+                              {esSugerida && (
+                                <span
+                                  className="despensa-mono"
+                                  style={{
+                                    fontSize: 9.5,
+                                    fontWeight: 700,
+                                    padding: "1px 6px",
+                                    borderRadius: 8,
+                                    background: "var(--sage-bg)",
+                                    color: "var(--sage)",
+                                    border: "1px solid var(--sage)",
+                                  }}
+                                >
+                                  Sugerida
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 10.5, color: "var(--ink-soft)" }}>
+                              {c.entidadName || "Banco"} · {c.tipo}
+                              {c.numeroCuenta ? ` · ${c.numeroCuenta}` : ""}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <div className="despensa-mono" style={{ fontSize: 12.5, fontWeight: 700, color: alcanza ? "var(--sage)" : "var(--stamp)" }}>
+                              {formatMoney(c.saldoDisponible)}
+                            </div>
+                            <div style={{ fontSize: 10, fontWeight: 600, color: alcanza ? "var(--sage)" : "var(--stamp)" }}>
+                              {alcanza
+                                ? (seleccionada && montoTotal > 0 ? `Quedará: ${formatMoney(c.saldoDisponible - montoTotal)}` : "Fondos suficientes")
+                                : `Faltan ${formatMoney(c.faltante)}`}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setModalTransferencia((prev) => ({ ...prev, cuentaOrigenId: "__SIN_CUENTA__" }))
+                      }
                       style={{
-                        fontSize: 11,
-                        marginTop: 4,
-                        color: cuentaOrigenSel.suficiente ? "var(--sage)" : "var(--stamp)",
-                        fontWeight: 600,
+                        padding: "8px 10px",
+                        borderRadius: 9,
+                        border: `1.5px solid ${seleccionCuentaId === "__SIN_CUENTA__" ? "var(--ink)" : "var(--line)"}`,
+                        background: seleccionCuentaId === "__SIN_CUENTA__" ? "var(--paper)" : "transparent",
+                        fontSize: 11.5,
+                        fontWeight: seleccionCuentaId === "__SIN_CUENTA__" ? 600 : 500,
+                        color: seleccionCuentaId === "__SIN_CUENTA__" ? "var(--ink)" : "var(--ink-soft)",
+                        textAlign: "left",
+                        cursor: "pointer",
                       }}
                     >
-                      {cuentaOrigenSel.suficiente
-                        ? `Quedará en ${formatMoney(cuentaOrigenSel.saldoDisponible - (Number(it.monto) || 0))} después del pago.`
-                        : `Fondos insuficientes en ${cuentaOrigenSel.nombre} (${formatMoney(cuentaOrigenSel.saldoDisponible)} disponibles).`}
+                      Efectivo / Otra fuente externa (sin descontar de mis cuentas)
+                    </button>
+                  </div>
+
+                  {saldoInsuficiente && (
+                    <div style={{ fontSize: 11, marginTop: 6, color: "var(--stamp)", fontWeight: 600 }}>
+                      Fondos insuficientes en {cuentaOrigenSel.nombre} ({formatMoney(cuentaOrigenSel.saldoDisponible)} disponibles). Elige otra cuenta o Efectivo.
+                    </div>
+                  )}
+                  {sinCuentaElegida && (
+                    <div style={{ fontSize: 11, marginTop: 6, color: "var(--ink-soft)" }}>
+                      Elige una cuenta bancaria con fondos o la opción de Efectivo para continuar.
                     </div>
                   )}
                 </div>
@@ -2526,7 +2822,9 @@ export default function ChecklistPagos({
 
               {/* Mensaje breve centrado */}
               <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 14, lineHeight: 1.35, textAlign: "center" }}>
-                💡 Transfiere desde la app de tu banco y confirma al terminar para registrar el pago.
+                {esPrestamo
+                  ? "💡 Transfiere desde la app de tu banco y confirma al terminar para registrar el pago."
+                  : "💡 El monto se descontará automáticamente del saldo disponible de la cuenta elegida."}
               </div>
 
               {/* Acciones compactas centralizadas */}
@@ -2551,12 +2849,25 @@ export default function ChecklistPagos({
                 </button>
                 <button
                   type="button"
-                  disabled={saldoInsuficiente}
+                  disabled={confirmarDeshabilitado}
                   onClick={async () => {
-                    const item = modalTransferencia.item;
                     const cta = cuentaOrigenSel;
+                    const lote = itemsLote;
+                    const item = it;
                     setModalTransferencia(null);
-                    await confirmarPagoItem(item, cta);
+                    if (esLote && lote) {
+                      setConfirmandoLote(true);
+                      try {
+                        for (const itemLote of lote) {
+                          await confirmarPagoItem(itemLote, cta);
+                        }
+                      } finally {
+                        setConfirmandoLote(false);
+                        salirModoSeleccion();
+                      }
+                    } else if (item) {
+                      await confirmarPagoItem(item, cta);
+                    }
                   }}
                   style={{
                     flex: 2,
@@ -2567,16 +2878,16 @@ export default function ChecklistPagos({
                     padding: "9px 18px",
                     fontSize: 12.5,
                     fontWeight: 600,
-                    background: saldoInsuficiente ? "var(--line)" : "var(--sage)",
+                    background: confirmarDeshabilitado ? "var(--line)" : "var(--sage)",
                     color: "#fff",
                     border: "none",
                     borderRadius: 8,
-                    cursor: saldoInsuficiente ? "not-allowed" : "pointer",
-                    boxShadow: saldoInsuficiente ? "none" : "0 2px 8px rgba(16, 185, 129, 0.3)",
+                    cursor: confirmarDeshabilitado ? "not-allowed" : "pointer",
+                    boxShadow: confirmarDeshabilitado ? "none" : "0 2px 8px rgba(16, 185, 129, 0.3)",
                     textAlign: "center",
                   }}
                 >
-                  <Check size={14} /> Confirmar pago realizado
+                  <Check size={14} /> {confirmandoLote ? "Confirmando…" : "Confirmar pago realizado"}
                 </button>
               </div>
             </div>
@@ -2606,6 +2917,7 @@ export default function ChecklistPagos({
         pagoRapido={pagoRapido}
         fuentesIngreso={fuentesIngreso}
         overridesLocales={overridesLocales}
+        eventos={eventos}
       />
       </div>
     </div>

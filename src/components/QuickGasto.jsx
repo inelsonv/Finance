@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import {
   X,
   Check,
@@ -47,6 +47,7 @@ import { quincenaDeFecha, consumoPresupuestoConTarjeta } from "../lib/presupuest
 import { periodoActualConfigurado } from "../lib/quincenaConfig";
 import { iconoParaCategoria } from "../lib/categoriaIconos";
 import TarjetasApiladas from "./TarjetasApiladas.jsx";
+import { calcularSaldosCuentas, evaluarCuentasParaPago } from "../lib/cuentasSaldo";
 
 const ICONOS_CATEGORIA = {
   fuel: Fuel,
@@ -103,11 +104,12 @@ function formatDateDisplay(dateStr) {
   return `${d}/${m}/${y}`;
 }
 
-export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimientos, presupuesto, presupuestoYear, diasCobro }) {
+export default function QuickGasto({ categoriasGasto, onClose, tarjetas, cuentas = [], prestamos = [], movimientos, presupuesto, presupuestoYear, diasCobro }) {
   const [categoria, setCategoria] = useState("");
   const [monto, setMonto] = useState("");
   const [metodoPago, setMetodoPago] = useState("Efectivo");
   const [tarjetaId, setTarjetaId] = useState("");
+  const [cuentaOrigenId, setCuentaOrigenId] = useState("");
   const [nota, setNota] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -132,6 +134,18 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
 
   const tarjetasActivas = (tarjetas || []).filter((t) => t.estado === "Activa" && (t.tipoTarjeta || "Crédito") === "Crédito");
 
+  const requiereCuentaOrigen = metodoPago !== "Tarjeta de crédito" && (cuentas || []).length > 0;
+
+  const evaluacionCuentas = useMemo(
+    () => evaluarCuentasParaPago(cuentas || [], movimientos || [], parseFloat(monto) || 0, {}, prestamos || []),
+    [cuentas, movimientos, prestamos, monto]
+  );
+
+  const cuentaOrigenSeleccionada = useMemo(() => {
+    if (!cuentaOrigenId || cuentaOrigenId === "__SIN_CUENTA__") return null;
+    return evaluacionCuentas.cuentas.find((c) => c.id === cuentaOrigenId) || null;
+  }, [evaluacionCuentas.cuentas, cuentaOrigenId]);
+
   const categoriasPropias = (categoriasGasto || []).map((c) => c.nombre);
   const opciones = categoriasPropias.length > 0 ? categoriasPropias : [...GASTO_CATS_VARIABLE, ...GASTO_CATS_FIJO];
 
@@ -148,6 +162,23 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
     if (metodoPago === "Tarjeta de crédito" && !tarjetaId) {
       setError("Elige con qué tarjeta pagaste");
       return;
+    }
+    if (requiereCuentaOrigen && !cuentaOrigenId) {
+      setError("Selecciona la cuenta desde donde vienen los fondos (o elige Efectivo / Sin descontar de mis cuentas)");
+      return;
+    }
+    const cuentaOrigenIdReal =
+      requiereCuentaOrigen && cuentaOrigenId && cuentaOrigenId !== "__SIN_CUENTA__" ? cuentaOrigenId : "";
+    if (cuentaOrigenIdReal) {
+      const saldos = calcularSaldosCuentas(cuentas, movimientos || [], prestamos || []);
+      const ctaOrigen = (cuentas || []).find((c) => c.id === cuentaOrigenIdReal);
+      const disponible = ctaOrigen ? saldos[ctaOrigen.id]?.saldoDisponible || 0 : 0;
+      if (disponible + 0.001 < amount) {
+        setError(
+          `Fondos insuficientes en "${ctaOrigen?.nombre || "la cuenta"}": tienes ${formatMoney(disponible)} disponibles y el gasto es de ${formatMoney(amount)}.`
+        );
+        return;
+      }
     }
     if (metodoPago === "Tarjeta de crédito" && tarjetaId) {
       const tarjetaElegida = tarjetasActivas.find((t) => t.id === tarjetaId);
@@ -186,6 +217,7 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
     setError(null);
     try {
       const tarjeta = tarjetasActivas.find((t) => t.id === tarjetaId);
+      const cuentaOrigen = cuentaOrigenIdReal ? (cuentas || []).find((c) => c.id === cuentaOrigenIdReal) : null;
       const fecha = todayStr();
       await addMovimiento({
         type: "Gasto",
@@ -194,7 +226,9 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
         description: nota.trim(),
         date: fecha,
         clasificacion: GASTO_CATS_FIJO.includes(categoria) ? "Fijo" : "Variable",
-        metodoPago,
+        metodoPago: cuentaOrigenIdReal && metodoPago === "Efectivo" ? "Transferencia" : metodoPago,
+        cuentaOrigenId: cuentaOrigenIdReal || null,
+        cuentaOrigenNombre: cuentaOrigen ? cuentaOrigen.nombre : "",
         tarjetaId: metodoPago === "Tarjeta de crédito" ? tarjetaId : null,
         tarjetaNombre: metodoPago === "Tarjeta de crédito" ? tarjeta?.nombre || "" : "",
         monedaTarjeta: metodoPago === "Tarjeta de crédito" ? "RDS" : null,
@@ -323,7 +357,12 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
                   key={m}
                   onClick={() => {
                     setMetodoPago(m);
-                    if (m !== "Tarjeta de crédito") setTarjetaId("");
+                    if (m !== "Tarjeta de crédito") {
+                      setTarjetaId("");
+                    } else {
+                      setCuentaOrigenId("");
+                    }
+                    if (error && error.includes("cuenta")) setError(null);
                   }}
                   style={{
                     padding: "6px 11px",
@@ -340,6 +379,51 @@ export default function QuickGasto({ categoriasGasto, onClose, tarjetas, movimie
                 </button>
               ))}
             </div>
+
+            {requiereCuentaOrigen && (
+              <div style={{ marginBottom: 12 }}>
+                <div className="despensa-tab-font" style={{ fontSize: 11, color: "var(--ink)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.03em", marginBottom: 6 }}>
+                  Cuenta desde donde vienen los fondos *
+                </div>
+                <select
+                  value={cuentaOrigenId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setCuentaOrigenId(val);
+                    if (val === "__SIN_CUENTA__") {
+                      setMetodoPago("Efectivo");
+                    } else if (val && metodoPago === "Efectivo") {
+                      setMetodoPago("Transferencia");
+                    }
+                    if (error) setError(null);
+                  }}
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    border: `1.5px solid ${!cuentaOrigenId ? "var(--amber)" : cuentaOrigenSeleccionada && !cuentaOrigenSeleccionada.suficiente ? "var(--stamp)" : "var(--sage)"}`,
+                    borderRadius: 9,
+                    fontSize: 13,
+                    background: "var(--paper)",
+                    color: "var(--ink)",
+                  }}
+                >
+                  <option value="">— Selecciona la cuenta de origen —</option>
+                  {evaluacionCuentas.cuentas.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nombre} ({c.entidadName || "Banco"}) — Disp: {formatMoney(c.saldoDisponible)} {c.suficiente ? "✓ Cubre" : `(Faltan ${formatMoney(c.faltante)})`}
+                    </option>
+                  ))}
+                  <option value="__SIN_CUENTA__">Efectivo / Sin descontar de mis cuentas</option>
+                </select>
+                {cuentaOrigenSeleccionada && (
+                  <div style={{ fontSize: 11.5, marginTop: 5, fontWeight: 600, color: cuentaOrigenSeleccionada.suficiente ? "var(--sage)" : "var(--stamp)" }}>
+                    {cuentaOrigenSeleccionada.suficiente
+                      ? `Disponible: ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible)}${(parseFloat(monto) || 0) > 0 ? ` → Quedará en ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible - (parseFloat(monto) || 0))}` : ""}`
+                      : `Saldo insuficiente en ${cuentaOrigenSeleccionada.nombre}: solo tienes ${formatMoney(cuentaOrigenSeleccionada.saldoDisponible)} disponibles.`}
+                  </div>
+                )}
+              </div>
+            )}
 
             {metodoPago === "Tarjeta de crédito" && (
               <div style={{ marginBottom: 12 }}>

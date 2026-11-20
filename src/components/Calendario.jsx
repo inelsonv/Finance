@@ -1,9 +1,11 @@
 import React, { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Trash2, X, Pencil, Check, Calendar, Stethoscope, Plane, Cake, Briefcase, User, MapPin, Clock, ChevronLeft, ChevronRight, CreditCard, Flag, Heart, ListTodo, Wrench, Car, Sparkles } from "lucide-react";
 import { addEvento, deleteEvento, updateEventoEstado, updateEvento, addMovimiento, toggleHabitoRegistro, addHabito, updateHabito, deleteHabito, addMantenimiento } from "../lib/db";
 import { calcularRachaHabito, periodoDeFecha } from "../lib/rachaHabito";
 import { clasificarFecha } from "../lib/quincenaConfig";
 import { confirm } from "../lib/confirm";
+import { calcularSaldosCuentas, evaluarCuentasParaPago } from "../lib/cuentasSaldo";
 
 const TIPOS = [
   "Cita médica",
@@ -182,9 +184,13 @@ export default function Calendario({
   activos = [],
   membresias = [],
   diasCobro = [15, 30],
+  cuentas = [],
+  movimientos = [],
+  prestamos = [],
 }) {
   const [cargandoFeriados, setCargandoFeriados] = useState(false);
   const [mensajeFeriados, setMensajeFeriados] = useState(null);
+  const [modalGastoEvento, setModalGastoEvento] = useState(null);
 
   // Lista de vehículos registrados en Activos para seleccionar al agendar
   const vehiculosActivos = useMemo(() => {
@@ -489,25 +495,7 @@ export default function Calendario({
     setEditError(null);
   };
 
-  const marcarCompletado = async (e) => {
-    await updateEventoEstado(e.id, "Completado");
-    if (e.categoriaGasto && e.montoEstimado) {
-      const registrar = await confirm(
-        `¿Deseas registrar un gasto de ${formatMoney(e.montoEstimado)} en "${e.categoriaGasto}" por este evento completado?`,
-        { confirmLabel: "Registrar gasto", cancelLabel: "No, gracias", danger: false }
-      );
-      if (registrar) {
-        await addMovimiento({
-          type: "Gasto",
-          category: e.categoriaGasto,
-          amount: e.montoEstimado,
-          description: e.titulo,
-          date: todayStr(),
-          clasificacion: "Variable",
-          metodoPago: "Efectivo",
-        });
-      }
-    }
+  const preguntarMantenimientoActivo = async (e) => {
     if (e.tipo === "Mantenimiento de vehículo" && (e.activoId || e.tipoMantenimiento)) {
       const guardarActivos = await confirm(
         `¿Deseas registrar este mantenimiento en la ficha de tu vehículo en Activos?`,
@@ -525,6 +513,37 @@ export default function Calendario({
         });
       }
     }
+  };
+
+  const marcarCompletado = async (e) => {
+    await updateEventoEstado(e.id, "Completado");
+    if (e.categoriaGasto && e.montoEstimado) {
+      if ((cuentas || []).length > 0) {
+        setModalGastoEvento({
+          evento: e,
+          cuentaOrigenId: "",
+          error: null,
+          saving: false,
+        });
+        return;
+      }
+      const registrar = await confirm(
+        `¿Deseas registrar un gasto de ${formatMoney(e.montoEstimado)} en "${e.categoriaGasto}" por este evento completado?`,
+        { confirmLabel: "Registrar gasto", cancelLabel: "No, gracias", danger: false }
+      );
+      if (registrar) {
+        await addMovimiento({
+          type: "Gasto",
+          category: e.categoriaGasto,
+          amount: e.montoEstimado,
+          description: e.titulo,
+          date: todayStr(),
+          clasificacion: "Variable",
+          metodoPago: "Efectivo",
+        });
+      }
+    }
+    await preguntarMantenimientoActivo(e);
   };
 
   const handleAdd = async () => {
@@ -1394,6 +1413,144 @@ export default function Calendario({
           </>
         )}
       </div>
+      {modalGastoEvento && (() => {
+        const ev = modalGastoEvento.evento;
+        const montoEv = Number(ev.montoEstimado) || 0;
+        const evalCuentas = evaluarCuentasParaPago(
+          cuentas || [],
+          movimientos || [],
+          montoEv,
+          { entidadPreferidaId: ev.entidadId || null },
+          prestamos || []
+        );
+        const selId = modalGastoEvento.cuentaOrigenId;
+        const cuentaSel =
+          selId && selId !== "__SIN_CUENTA__"
+            ? evalCuentas.cuentas.find((c) => c.id === selId) || null
+            : null;
+        const saldoInsuficiente = !!(cuentaSel && !cuentaSel.suficiente);
+        const confirmarDeshabilitado = modalGastoEvento.saving || !selId || saldoInsuficiente;
+
+        const modalContent = (
+          <div
+            onClick={async () => {
+              const evt = ev;
+              setModalGastoEvento(null);
+              await preguntarMantenimientoActivo(evt);
+            }}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 99999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: "var(--card)", color: "var(--ink)", border: "1px solid var(--line)", borderRadius: 14, padding: "16px 18px", maxWidth: 420, width: "100%", boxShadow: "0 20px 40px rgba(0,0,0,0.4)" }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <div style={{ fontSize: 14.5, fontWeight: 700 }}>Registrar gasto del evento</div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const evt = ev;
+                    setModalGastoEvento(null);
+                    await preguntarMantenimientoActivo(evt);
+                  }}
+                  style={{ background: "transparent", border: "none", color: "var(--ink-soft)", cursor: "pointer" }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 10 }}>
+                {ev.titulo} · {ev.categoriaGasto} · <strong className="despensa-mono" style={{ color: "var(--ink)" }}>{formatMoney(montoEv)}</strong>
+              </div>
+              <div style={{ fontSize: 11.5, fontWeight: 600, marginBottom: 4 }}>
+                Selecciona la cuenta desde donde vienen los fondos *
+              </div>
+              <select
+                value={selId}
+                onChange={(e) => setModalGastoEvento((prev) => ({ ...prev, cuentaOrigenId: e.target.value, error: null }))}
+                style={{ width: "100%", padding: "9px 10px", border: `1px solid ${!selId ? "var(--amber)" : saldoInsuficiente ? "var(--stamp)" : "var(--line)"}`, borderRadius: 8, fontSize: 12.5, background: "var(--paper)", marginBottom: 8 }}
+              >
+                <option value="">— Selecciona la cuenta de origen —</option>
+                {evalCuentas.cuentas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} ({c.entidadName || "Banco"}) — Disp: {formatMoney(c.saldoDisponible)} {c.suficiente ? "✓ Cubre" : `(Faltan ${formatMoney(c.faltante)})`}
+                  </option>
+                ))}
+                <option value="__SIN_CUENTA__">Efectivo / Sin descontar de mis cuentas</option>
+              </select>
+              {cuentaSel && (
+                <div style={{ fontSize: 11.5, marginBottom: 8, fontWeight: 600, color: cuentaSel.suficiente ? "var(--sage)" : "var(--stamp)" }}>
+                  {cuentaSel.suficiente
+                    ? `Disponible: ${formatMoney(cuentaSel.saldoDisponible)} → Quedará en ${formatMoney(cuentaSel.saldoDisponible - montoEv)}`
+                    : `Saldo insuficiente en ${cuentaSel.nombre}: solo tienes ${formatMoney(cuentaSel.saldoDisponible)} disponibles.`}
+                </div>
+              )}
+              {modalGastoEvento.error && <div style={{ fontSize: 11.5, color: "var(--stamp)", marginBottom: 8 }}>{modalGastoEvento.error}</div>}
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const evt = ev;
+                    setModalGastoEvento(null);
+                    await preguntarMantenimientoActivo(evt);
+                  }}
+                  style={{ flex: 1, padding: "9px 12px", borderRadius: 8, border: "1px solid var(--line)", background: "transparent", color: "var(--ink-soft)", fontSize: 12.5, cursor: "pointer" }}
+                >
+                  No registrar
+                </button>
+                <button
+                  type="button"
+                  disabled={confirmarDeshabilitado}
+                  onClick={async () => {
+                    const ctaReal = selId && selId !== "__SIN_CUENTA__" ? cuentaSel : null;
+                    if (ctaReal) {
+                      const saldos = calcularSaldosCuentas(cuentas || [], movimientos || [], prestamos || []);
+                      const disp = saldos[ctaReal.id]?.saldoDisponible || 0;
+                      if (disp + 0.001 < montoEv) {
+                        setModalGastoEvento((prev) => ({ ...prev, error: `Fondos insuficientes en ${ctaReal.nombre}` }));
+                        return;
+                      }
+                    }
+                    setModalGastoEvento((prev) => ({ ...prev, saving: true }));
+                    try {
+                      await addMovimiento({
+                        type: "Gasto",
+                        category: ev.categoriaGasto,
+                        amount: montoEv,
+                        description: ev.titulo,
+                        date: todayStr(),
+                        clasificacion: "Variable",
+                        metodoPago: ctaReal ? "Transferencia" : "Efectivo",
+                        entidadId: ev.entidadId || null,
+                        entidadName: ev.entidadName || "",
+                        cuentaOrigenId: ctaReal ? ctaReal.id : null,
+                        cuentaOrigenNombre: ctaReal ? ctaReal.nombre : "",
+                      });
+                      setModalGastoEvento(null);
+                      await preguntarMantenimientoActivo(ev);
+                    } catch (err) {
+                      setModalGastoEvento((prev) => ({ ...prev, saving: false, error: err.message || String(err) }));
+                    }
+                  }}
+                  style={{
+                    flex: 2,
+                    padding: "9px 14px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: confirmarDeshabilitado ? "var(--line)" : "var(--sage)",
+                    color: "#fff",
+                    fontWeight: 600,
+                    fontSize: 12.5,
+                    cursor: confirmarDeshabilitado ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {modalGastoEvento.saving ? "Guardando…" : "Registrar gasto"}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+        return typeof document !== "undefined" ? createPortal(modalContent, document.body) : modalContent;
+      })()}
     </div>
   );
 }

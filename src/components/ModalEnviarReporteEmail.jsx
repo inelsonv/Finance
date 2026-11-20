@@ -36,6 +36,7 @@ export default function ModalEnviarReporteEmail({
   pagoRapido = {},
   fuentesIngreso = [],
   overridesLocales = {},
+  eventos = [],
 }) {
   const [config, setConfig] = useState({ email: userEmail, activoDiasCobro: true, ultimoEnvio: null });
   const [loading, setLoading] = useState(false);
@@ -118,6 +119,7 @@ export default function ModalEnviarReporteEmail({
       checklist: checklistPeriodo,
       overridesLocales,
       diasCobro,
+      eventos,
     });
   }, [
     periodoSeleccionado,
@@ -136,6 +138,7 @@ export default function ModalEnviarReporteEmail({
     checklistPeriodo,
     overridesLocales,
     diasCobro,
+    eventos,
   ]);
 
   const totalesCalculados = useMemo(() => {

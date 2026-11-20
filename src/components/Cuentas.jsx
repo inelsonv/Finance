@@ -1,5 +1,8 @@
-import React, { useMemo, useState } from "react";
-import { Plus, Trash2, X, Landmark, Vault, Pencil, Check, ArrowUp, ArrowDown } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Plus, Trash2, X, Landmark, Vault, Pencil, Check, GripVertical } from "lucide-react";
+import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { addCuenta, deleteCuenta, updateCuenta } from "../lib/db";
 import { confirm } from "../lib/confirm";
 import { calcularSaldosCuentas, prestamoApuntaACuenta, ordenarCuentas } from "../lib/cuentasSaldo";
@@ -17,9 +20,258 @@ const emptyForm = () => ({
   entidadId: "",
   numeroCuenta: "",
   saldoInicial: "",
-  orden: "",
   notas: "",
 });
+
+function SortableCuentaRow({
+  c,
+  index,
+  isFirst,
+  showDragHandle,
+  isEditing,
+  editForm,
+  setEditForm,
+  entidades,
+  saveEdit,
+  cancelEdit,
+  editSaving,
+  editError,
+  startEdit,
+  desglose,
+  prestamosVinculados,
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: c.id, disabled: isEditing || !showDragHandle });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    padding: "10px 12px",
+    borderTop: isFirst ? "none" : "1px solid var(--line-soft)",
+    background: isDragging ? "var(--paper)" : "var(--card)",
+    opacity: isDragging ? 0.92 : 1,
+    boxShadow: isDragging ? "0 8px 24px rgba(0, 0, 0, 0.22)" : "none",
+    position: "relative",
+    zIndex: isDragging ? 20 : 1,
+  };
+
+  const huboMovs = desglose.creditos > 0 || desglose.debitos > 0;
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-record-id={c.id}
+      className="despensa-row"
+      style={style}
+    >
+      {isEditing ? (
+        <div>
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
+            <input
+              autoFocus
+              value={editForm.nombre}
+              onChange={(e) => setEditForm({ ...editForm, nombre: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+            <select
+              value={editForm.tipo}
+              onChange={(e) => setEditForm({ ...editForm, tipo: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              {CUENTA_TIPOS.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
+            <select
+              value={editForm.entidadId}
+              onChange={(e) => setEditForm({ ...editForm, entidadId: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
+            >
+              <option value="">Entidad…</option>
+              {entidades.map((e) => (
+                <option key={e.docId} value={e.docId}>{e.name}</option>
+              ))}
+            </select>
+            <input
+              placeholder="No. de cuenta (opcional)"
+              value={editForm.numeroCuenta}
+              onChange={(e) => setEditForm({ ...editForm, numeroCuenta: e.target.value })}
+              style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <input
+              className="despensa-mono"
+              type="number"
+              step="0.01"
+              placeholder="Saldo inicial (opcional)"
+              value={editForm.saldoInicial}
+              onChange={(e) => setEditForm({ ...editForm, saldoInicial: e.target.value })}
+              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+            />
+          </div>
+          <input
+            placeholder="Notas (opcional)"
+            value={editForm.notas}
+            onChange={(e) => setEditForm({ ...editForm, notas: e.target.value })}
+            style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={saveEdit}
+              disabled={editSaving}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", fontSize: 13, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: editSaving ? "not-allowed" : "pointer" }}
+            >
+              <Check size={14} /> {editSaving ? "Guardando…" : "Guardar cambios"}
+            </button>
+            <button
+              onClick={cancelEdit}
+              style={{ padding: "7px 14px", fontSize: 13, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
+            >
+              Cancelar
+            </button>
+          </div>
+          {editError && <div style={{ marginTop: 10, fontSize: 12, color: "var(--stamp)" }}>{editError}</div>}
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {showDragHandle && (
+            <button
+              type="button"
+              {...attributes}
+              {...listeners}
+              title="Arrastrar para cambiar el orden (la primera se muestra en Inicio)"
+              aria-label={`Arrastrar cuenta ${c.nombre}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 24,
+                height: 32,
+                padding: 0,
+                background: "transparent",
+                border: "none",
+                color: "var(--ink-soft)",
+                cursor: isDragging ? "grabbing" : "grab",
+                touchAction: "none",
+                flexShrink: 0,
+              }}
+            >
+              <GripVertical size={16} />
+            </button>
+          )}
+          <div
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: "50%",
+              flexShrink: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--sage-bg)",
+              color: "var(--sage)",
+            }}
+          >
+            <Vault size={15} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 500, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span>{c.nombre}</span>
+              {index === 0 && (
+                <span className="despensa-mono" style={{ fontSize: 11, color: "var(--sage)", fontWeight: 600 }}>
+                  #1 · Principal en Inicio
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <span>{c.tipo}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <Landmark size={11} /> {c.entidadName}
+              </span>
+              {c.numeroCuenta && <span className="despensa-mono">{c.numeroCuenta}</span>}
+              {prestamosVinculados.length > 0 && (
+                <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 600 }}>
+                  · Destino {prestamosVinculados.join(", ")}
+                </span>
+              )}
+            </div>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
+              Disponible
+            </div>
+            <div
+              className="despensa-mono"
+              style={{
+                fontSize: 13.5,
+                fontWeight: 700,
+                color: desglose.saldoDisponible > 0 ? "var(--sage)" : desglose.saldoDisponible < 0 ? "var(--stamp)" : "var(--ink-soft)",
+              }}
+            >
+              {formatMoney(desglose.saldoDisponible)}
+            </div>
+            {huboMovs && (
+              <div className="despensa-mono" style={{ fontSize: 10, color: "var(--ink-soft)" }}>
+                {desglose.creditos > 0 ? `+${formatMoney(desglose.creditos)}` : ""}
+                {desglose.creditos > 0 && desglose.debitos > 0 ? " · " : ""}
+                {desglose.debitos > 0 ? `-${formatMoney(desglose.debitos)}` : ""}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => startEdit(c)}
+            title="Editar cuenta"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 28,
+              height: 28,
+              background: "transparent",
+              color: "var(--ink-soft)",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            onClick={async () => {
+              if (await confirm("¿Eliminar esta cuenta?")) deleteCuenta(c.id);
+            }}
+            title="Eliminar cuenta"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 28,
+              height: 28,
+              background: "transparent",
+              color: "var(--stamp)",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Cuentas({ cuentas, entidades, movimientos = [], prestamos = [] }) {
   const [showForm, setShowForm] = useState(false);
@@ -30,8 +282,66 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
   const [editForm, setEditForm] = useState(null);
   const [editError, setEditError] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
+  const [ordenOptimistaIds, setOrdenOptimistaIds] = useState(null);
 
-  const cuentasOrdenadas = useMemo(() => ordenarCuentas(cuentas), [cuentas]);
+  const cuentasBaseOrdenadas = useMemo(() => ordenarCuentas(cuentas), [cuentas]);
+
+  useEffect(() => {
+    if (!ordenOptimistaIds) return;
+    const actualIds = cuentasBaseOrdenadas.map((c) => c.id);
+    if (
+      actualIds.length === ordenOptimistaIds.length &&
+      actualIds.every((id, idx) => id === ordenOptimistaIds[idx])
+    ) {
+      setOrdenOptimistaIds(null);
+    }
+  }, [cuentasBaseOrdenadas, ordenOptimistaIds]);
+
+  const cuentasOrdenadas = useMemo(() => {
+    if (!ordenOptimistaIds) return cuentasBaseOrdenadas;
+    const porId = new Map(cuentasBaseOrdenadas.map((c) => [c.id, c]));
+    const resultado = [];
+    for (const id of ordenOptimistaIds) {
+      const c = porId.get(id);
+      if (c) {
+        resultado.push(c);
+        porId.delete(id);
+      }
+    }
+    for (const rest of porId.values()) {
+      resultado.push(rest);
+    }
+    return resultado;
+  }, [cuentasBaseOrdenadas, ordenOptimistaIds]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = cuentasOrdenadas.findIndex((c) => c.id === active.id);
+    const newIndex = cuentasOrdenadas.findIndex((c) => c.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordenadas = arrayMove(cuentasOrdenadas, oldIndex, newIndex);
+    setOrdenOptimistaIds(reordenadas.map((c) => c.id));
+    try {
+      await Promise.all(
+        reordenadas.map((c, idx) => {
+          const nuevoOrden = idx + 1;
+          return Number(c.orden) === nuevoOrden
+            ? Promise.resolve()
+            : updateCuenta(c.id, { orden: nuevoOrden });
+        })
+      );
+    } catch (err) {
+      console.error("No se pudo guardar el orden de cuentas:", err);
+      setOrdenOptimistaIds(null);
+    }
+  };
 
   const saldosPorCuenta = useMemo(
     () => calcularSaldosCuentas(cuentasOrdenadas, movimientos, prestamos),
@@ -68,37 +378,6 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
     return map;
   }, [cuentasOrdenadas]);
 
-  const reordenarDespuesDe = async (targetId, desiredOrden) => {
-    if (!Number.isFinite(desiredOrden) || desiredOrden <= 0) return;
-    const otros = cuentasOrdenadas.filter((c) => c.id !== targetId);
-    const pos = Math.max(0, Math.min(desiredOrden - 1, otros.length));
-    const reordenada = [...otros.slice(0, pos), { id: targetId }, ...otros.slice(pos)];
-    const updates = [];
-    reordenada.forEach((item, idx) => {
-      if (item.id === targetId) return;
-      const nuevoOrden = idx + 1;
-      const tieneOrden = Number.isFinite(Number(item.orden)) && Number(item.orden) > 0;
-      if ((idx < pos || tieneOrden) && Number(item.orden) !== nuevoOrden) {
-        updates.push(updateCuenta(item.id, { orden: nuevoOrden }));
-      }
-    });
-    if (updates.length > 0) await Promise.all(updates);
-  };
-
-  const moverCuenta = async (idx, dir) => {
-    const targetIdx = idx + dir;
-    if (targetIdx < 0 || targetIdx >= cuentasOrdenadas.length) return;
-    const lista = [...cuentasOrdenadas];
-    const [movida] = lista.splice(idx, 1);
-    lista.splice(targetIdx, 0, movida);
-    await Promise.all(
-      lista.map((c, i) => {
-        const nuevoOrden = i + 1;
-        return Number(c.orden) === nuevoOrden ? Promise.resolve() : updateCuenta(c.id, { orden: nuevoOrden });
-      })
-    );
-  };
-
   const handleAdd = async () => {
     const nombre = form.nombre.trim();
     if (!nombre) {
@@ -114,15 +393,10 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
     try {
       const entidad = entidades.find((e) => e.docId === form.entidadId);
       const saldo = parseFloat(form.saldoInicial);
-      const ordenRaw = parseInt(form.orden, 10);
-      const ordenVal = Number.isFinite(ordenRaw) && ordenRaw > 0 ? ordenRaw : null;
-      if (ordenVal != null) {
-        await Promise.all(
-          cuentasOrdenadas
-            .filter((c) => Number.isFinite(Number(c.orden)) && Number(c.orden) >= ordenVal)
-            .map((c) => updateCuenta(c.id, { orden: Number(c.orden) + 1 }))
-        );
-      }
+      const maxOrden = cuentasOrdenadas.reduce((max, c, idx) => {
+        const val = Number.isFinite(Number(c.orden)) && Number(c.orden) > 0 ? Number(c.orden) : idx + 1;
+        return Math.max(max, val);
+      }, 0);
       await addCuenta({
         nombre,
         tipo: form.tipo,
@@ -130,7 +404,7 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
         entidadName: entidad ? entidad.name : "",
         numeroCuenta: form.numeroCuenta.trim(),
         saldoInicial: Number.isFinite(saldo) ? saldo : null,
-        orden: ordenVal,
+        orden: maxOrden + 1,
         notas: form.notas.trim(),
       });
       setForm(emptyForm());
@@ -150,7 +424,6 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
       entidadId: c.entidadId || "",
       numeroCuenta: c.numeroCuenta || "",
       saldoInicial: c.saldoInicial != null ? String(c.saldoInicial) : "",
-      orden: c.orden != null && Number(c.orden) > 0 ? String(c.orden) : "",
       notas: c.notas || "",
     });
     setEditError(null);
@@ -177,8 +450,6 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
     try {
       const entidad = entidades.find((e) => e.docId === editForm.entidadId);
       const saldo = parseFloat(editForm.saldoInicial);
-      const ordenRaw = parseInt(editForm.orden, 10);
-      const ordenVal = Number.isFinite(ordenRaw) && ordenRaw > 0 ? ordenRaw : null;
       await updateCuenta(editingId, {
         nombre,
         tipo: editForm.tipo,
@@ -186,12 +457,8 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
         entidadName: entidad ? entidad.name : "",
         numeroCuenta: editForm.numeroCuenta.trim(),
         saldoInicial: Number.isFinite(saldo) ? saldo : null,
-        orden: ordenVal,
         notas: editForm.notas.trim(),
       });
-      if (ordenVal != null) {
-        await reordenarDespuesDe(editingId, ordenVal);
-      }
       cancelEdit();
     } catch (err) {
       setEditError(err.message || String(err));
@@ -219,7 +486,15 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+        {cuentasOrdenadas.length > 1 ? (
+          <div style={{ fontSize: 12, color: "var(--ink-soft)", display: "flex", alignItems: "center", gap: 5 }}>
+            <GripVertical size={13} />
+            <span>Arrastra las cuentas para ordenar — la primera (#1) se muestra al frente en Inicio</span>
+          </div>
+        ) : (
+          <div />
+        )}
         <button
           onClick={() => setShowForm((s) => !s)}
           disabled={!showForm && entidades.length === 0}
@@ -290,7 +565,7 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
             />
           </div>
 
-          <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
+          <div style={{ marginBottom: 8 }}>
             <input
               className="despensa-mono"
               type="number"
@@ -298,17 +573,6 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
               placeholder="Saldo inicial (opcional)"
               value={form.saldoInicial}
               onChange={(e) => setForm({ ...form, saldoInicial: e.target.value })}
-              style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-            />
-            <input
-              className="despensa-mono"
-              type="number"
-              min="1"
-              step="1"
-              placeholder="Orden en Inicio (ej. 1)"
-              title="Número de orden para mostrarse en Inicio (1 aparece primero)"
-              value={form.orden}
-              onChange={(e) => setForm({ ...form, orden: e.target.value })}
               style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
             />
           </div>
@@ -348,261 +612,39 @@ export default function Cuentas({ cuentas, entidades, movimientos = [], prestamo
           Todavía no registraste ninguna cuenta.
         </div>
       ) : (
-        <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
-          {cuentasOrdenadas.map((c, i) => (
-            <div
-              key={c.id}
-              data-record-id={c.id}
-              className="despensa-row"
-              style={{
-                padding: "10px 12px",
-                borderTop: i === 0 ? "none" : "1px solid var(--line-soft)",
-              }}
-            >
-              {editingId === c.id ? (
-                <div>
-                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <input
-                      autoFocus
-                      value={editForm.nombre}
-                      onChange={(e) => setEditForm({ ...editForm, nombre: e.target.value })}
-                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-                    />
-                    <select
-                      value={editForm.tipo}
-                      onChange={(e) => setEditForm({ ...editForm, tipo: e.target.value })}
-                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
-                    >
-                      {CUENTA_TIPOS.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <select
-                      value={editForm.entidadId}
-                      onChange={(e) => setEditForm({ ...editForm, entidadId: e.target.value })}
-                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, background: "var(--card)" }}
-                    >
-                      <option value="">Entidad…</option>
-                      {entidades.map((e) => (
-                        <option key={e.docId} value={e.docId}>{e.name}</option>
-                      ))}
-                    </select>
-                    <input
-                      placeholder="No. de cuenta (opcional)"
-                      value={editForm.numeroCuenta}
-                      onChange={(e) => setEditForm({ ...editForm, numeroCuenta: e.target.value })}
-                      style={{ padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-                    />
-                  </div>
-                  <div className="despensa-formgrid" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 8, marginBottom: 8 }}>
-                    <input
-                      className="despensa-mono"
-                      type="number"
-                      step="0.01"
-                      placeholder="Saldo inicial (opcional)"
-                      value={editForm.saldoInicial}
-                      onChange={(e) => setEditForm({ ...editForm, saldoInicial: e.target.value })}
-                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-                    />
-                    <input
-                      className="despensa-mono"
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="Orden en Inicio (ej. 1)"
-                      title="Número de orden para mostrarse en Inicio (1 aparece primero)"
-                      value={editForm.orden}
-                      onChange={(e) => setEditForm({ ...editForm, orden: e.target.value })}
-                      style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
-                    />
-                  </div>
-                  <input
-                    placeholder="Notas (opcional)"
-                    value={editForm.notas}
-                    onChange={(e) => setEditForm({ ...editForm, notas: e.target.value })}
-                    style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13, marginBottom: 10 }}
-                  />
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      onClick={saveEdit}
-                      disabled={editSaving}
-                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", fontSize: 13, fontWeight: 500, background: "var(--sage)", color: "#fff", border: "none", borderRadius: 8, cursor: editSaving ? "not-allowed" : "pointer" }}
-                    >
-                      <Check size={14} /> {editSaving ? "Guardando…" : "Guardar cambios"}
-                    </button>
-                    <button
-                      onClick={cancelEdit}
-                      style={{ padding: "7px 14px", fontSize: 13, fontWeight: 500, background: "var(--card)", color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 8, cursor: "pointer" }}
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                  {editError && <div style={{ marginTop: 10, fontSize: 12, color: "var(--stamp)" }}>{editError}</div>}
-                </div>
-              ) : (
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div
-                    style={{
-                      width: 30,
-                      height: 30,
-                      borderRadius: "50%",
-                      flexShrink: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: "var(--sage-bg)",
-                      color: "var(--sage)",
-                    }}
-                  >
-                    <Vault size={15} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span>{c.nombre}</span>
-                      {(c.orden != null && Number(c.orden) > 0) || i === 0 ? (
-                        <span className="despensa-mono" style={{ fontSize: 11, color: i === 0 ? "var(--sage)" : "var(--ink-soft)", fontWeight: 600 }}>
-                          #{c.orden != null && Number(c.orden) > 0 ? c.orden : i + 1}{i === 0 ? " · Principal en Inicio" : ""}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 2, display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      <span>{c.tipo}</span>
-                      <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                        <Landmark size={11} /> {c.entidadName}
-                      </span>
-                      {c.numeroCuenta && <span className="despensa-mono">{c.numeroCuenta}</span>}
-                      {prestamosPorCuenta[c.id]?.length > 0 && (
-                        <span className="despensa-mono" style={{ color: "var(--sage)", fontWeight: 600 }}>
-                          · Destino {prestamosPorCuenta[c.id].join(", ")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {(() => {
-                    const desglose = saldosPorCuenta[c.id] || {
-                      saldoInicial: Number(c.saldoInicial) || 0,
-                      creditos: 0,
-                      debitos: 0,
-                      saldoDisponible: Number(c.saldoInicial) || 0,
-                    };
-                    const huboMovs = desglose.creditos > 0 || desglose.debitos > 0;
-                    return (
-                      <div style={{ textAlign: "right", flexShrink: 0 }}>
-                        <div style={{ fontSize: 10, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: "0.03em" }}>
-                          Disponible
-                        </div>
-                        <div
-                          className="despensa-mono"
-                          style={{
-                            fontSize: 13.5,
-                            fontWeight: 700,
-                            color: desglose.saldoDisponible > 0 ? "var(--sage)" : desglose.saldoDisponible < 0 ? "var(--stamp)" : "var(--ink-soft)",
-                          }}
-                        >
-                          {formatMoney(desglose.saldoDisponible)}
-                        </div>
-                        {huboMovs && (
-                          <div className="despensa-mono" style={{ fontSize: 10, color: "var(--ink-soft)" }}>
-                            {desglose.creditos > 0 ? `+${formatMoney(desglose.creditos)}` : ""}
-                            {desglose.creditos > 0 && desglose.debitos > 0 ? " · " : ""}
-                            {desglose.debitos > 0 ? `-${formatMoney(desglose.debitos)}` : ""}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {cuentasOrdenadas.length > 1 && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                      <button
-                        type="button"
-                        onClick={() => moverCuenta(i, -1)}
-                        disabled={i === 0}
-                        title="Subir orden (mostrar antes en Inicio)"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: 24,
-                          height: 28,
-                          background: "transparent",
-                          color: i === 0 ? "var(--line)" : "var(--ink-soft)",
-                          border: "none",
-                          borderRadius: 6,
-                          cursor: i === 0 ? "default" : "pointer",
-                        }}
-                      >
-                        <ArrowUp size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moverCuenta(i, 1)}
-                        disabled={i === cuentasOrdenadas.length - 1}
-                        title="Bajar orden"
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: 24,
-                          height: 28,
-                          background: "transparent",
-                          color: i === cuentasOrdenadas.length - 1 ? "var(--line)" : "var(--ink-soft)",
-                          border: "none",
-                          borderRadius: 6,
-                          cursor: i === cuentasOrdenadas.length - 1 ? "default" : "pointer",
-                        }}
-                      >
-                        <ArrowDown size={13} />
-                      </button>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => startEdit(c)}
-                    title="Editar cuenta"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 28,
-                      height: 28,
-                      background: "transparent",
-                      color: "var(--ink-soft)",
-                      border: "none",
-                      borderRadius: 6,
-                      cursor: "pointer",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (await confirm("¿Eliminar esta cuenta?")) deleteCuenta(c.id);
-                    }}
-                    title="Eliminar cuenta"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 28,
-                      height: 28,
-                      background: "transparent",
-                      color: "var(--stamp)",
-                      border: "none",
-                      borderRadius: 6,
-                      cursor: "pointer",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              )}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={cuentasOrdenadas.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+            <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
+              {cuentasOrdenadas.map((c, i) => (
+                <SortableCuentaRow
+                  key={c.id}
+                  c={c}
+                  index={i}
+                  isFirst={i === 0}
+                  showDragHandle={cuentasOrdenadas.length > 1}
+                  isEditing={editingId === c.id}
+                  editForm={editForm}
+                  setEditForm={setEditForm}
+                  entidades={entidades}
+                  saveEdit={saveEdit}
+                  cancelEdit={cancelEdit}
+                  editSaving={editSaving}
+                  editError={editError}
+                  startEdit={startEdit}
+                  desglose={saldosPorCuenta[c.id] || {
+                    saldoInicial: Number(c.saldoInicial) || 0,
+                    creditos: 0,
+                    debitos: 0,
+                    saldoDisponible: Number(c.saldoInicial) || 0,
+                  }}
+                  prestamosVinculados={prestamosPorCuenta[c.id] || []}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   );
 }
+

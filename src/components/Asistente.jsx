@@ -51,6 +51,7 @@ import { analizarIntencionAccion, analizarIntencionGasto } from "../lib/asistent
 import { SkeletonChat } from "./Skeleton";
 import AgenteAvatar from "./AgenteAvatar.jsx";
 import { ingresoMensualNeto } from "../lib/deduccionesLey";
+import { calcularSaldosCuentas, evaluarCuentasParaPago } from "../lib/cuentasSaldo";
 
 const SUGERENCIAS = [
   "🚨 ¿Cuál es mi plan de choque para salir de deudas y sobregiro?",
@@ -71,13 +72,26 @@ function TarjetaFacturaChat({
   onAbrirModulo,
   guardado,
   guardando,
+  cuentas = [],
+  movimientos = [],
+  prestamos = [],
 }) {
   const [expandido, setExpandido] = useState(false);
-  const [metodoPago, setMetodoPago] = useState("Tarjeta");
+  const [metodoPago, setMetodoPago] = useState("Tarjeta de crédito");
   const [categoriaGasto, setCategoriaGasto] = useState("Alimentos");
   const [agregarNuevos, setAgregarNuevos] = useState(true);
+  const [cuentaOrigenId, setCuentaOrigenId] = useState("");
+  const [errorFactura, setErrorFactura] = useState(null);
 
   if (!data) return null;
+
+  const requiereCuentaOrigen = metodoPago !== "Tarjeta de crédito" && metodoPago !== "Tarjeta" && (cuentas || []).length > 0;
+  const totalFacturaNum = Number(data.total) || 0;
+  const evalCuentasFactura = evaluarCuentasParaPago(cuentas || [], movimientos || [], totalFacturaNum, {}, prestamos || []);
+  const cuentaSelFactura =
+    cuentaOrigenId && cuentaOrigenId !== "__SIN_CUENTA__"
+      ? evalCuentasFactura.cuentas.find((c) => c.id === cuentaOrigenId) || null
+      : null;
 
   const items = data.items || [];
   const itemsAMostrar = expandido ? items : items.slice(0, 5);
@@ -181,10 +195,16 @@ function TarjetaFacturaChat({
               <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 2 }}>Método de pago</label>
               <select
                 value={metodoPago}
-                onChange={(e) => setMetodoPago(e.target.value)}
+                onChange={(e) => {
+                  setMetodoPago(e.target.value);
+                  if (e.target.value === "Tarjeta de crédito" || e.target.value === "Tarjeta") {
+                    setCuentaOrigenId("");
+                  }
+                  setErrorFactura(null);
+                }}
                 style={{ width: "100%", padding: "5px 6px", fontSize: 11.5, borderRadius: 6, border: "1px solid var(--line)", background: "var(--card)" }}
               >
-                <option value="Tarjeta">Tarjeta</option>
+                <option value="Tarjeta de crédito">Tarjeta de crédito</option>
                 <option value="Efectivo">Efectivo</option>
                 <option value="Transferencia">Transferencia</option>
               </select>
@@ -205,6 +225,45 @@ function TarjetaFacturaChat({
             </div>
           </div>
 
+          {requiereCuentaOrigen && (
+            <div>
+              <label style={{ fontSize: 10.5, color: "var(--ink)", display: "block", marginBottom: 2, fontWeight: 600 }}>
+                Cuenta de origen de fondos *
+              </label>
+              <select
+                value={cuentaOrigenId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setCuentaOrigenId(val);
+                  if (val === "__SIN_CUENTA__") setMetodoPago("Efectivo");
+                  else if (val && metodoPago === "Efectivo") setMetodoPago("Transferencia");
+                  setErrorFactura(null);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "5px 6px",
+                  fontSize: 11.5,
+                  borderRadius: 6,
+                  border: `1px solid ${!cuentaOrigenId ? "var(--amber)" : cuentaSelFactura && !cuentaSelFactura.suficiente ? "var(--stamp)" : "var(--line)"}`,
+                  background: "var(--card)",
+                }}
+              >
+                <option value="">— Selecciona la cuenta —</option>
+                {evalCuentasFactura.cuentas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre} (Disp: ${(c.saldoDisponible || 0).toLocaleString("es", { minimumFractionDigits: 2 })}) {c.suficiente ? "✓" : "Insuf."}
+                  </option>
+                ))}
+                <option value="__SIN_CUENTA__">Efectivo / Sin descontar de mis cuentas</option>
+              </select>
+              {cuentaSelFactura && !cuentaSelFactura.suficiente && (
+                <div style={{ fontSize: 10.5, color: "var(--stamp)", marginTop: 2 }}>
+                  Fondos insuficientes en {cuentaSelFactura.nombre}.
+                </div>
+              )}
+            </div>
+          )}
+
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11.5, color: "var(--ink-soft)", cursor: "pointer" }}>
             <input
               type="checkbox"
@@ -214,11 +273,31 @@ function TarjetaFacturaChat({
             Añadir artículos no existentes al catálogo
           </label>
 
+          {errorFactura && <div style={{ fontSize: 11, color: "var(--stamp)" }}>{errorFactura}</div>}
+
           <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
             <button
               type="button"
               disabled={guardando}
-              onClick={() => onGuardar({ metodoPago, categoriaGasto, agregarNuevos })}
+              onClick={() => {
+                if (requiereCuentaOrigen && !cuentaOrigenId) {
+                  setErrorFactura("Selecciona la cuenta desde donde vienen los fondos (o Efectivo).");
+                  return;
+                }
+                const ctaReal =
+                  requiereCuentaOrigen && cuentaOrigenId && cuentaOrigenId !== "__SIN_CUENTA__" ? cuentaSelFactura : null;
+                if (ctaReal && !ctaReal.suficiente) {
+                  setErrorFactura(`Fondos insuficientes en ${ctaReal.nombre}.`);
+                  return;
+                }
+                onGuardar({
+                  metodoPago: ctaReal && metodoPago === "Efectivo" ? "Transferencia" : metodoPago,
+                  categoriaGasto,
+                  agregarNuevos,
+                  cuentaOrigenId: ctaReal ? ctaReal.id : null,
+                  cuentaOrigenNombre: ctaReal ? ctaReal.nombre : "",
+                });
+              }}
               style={{
                 flex: 1,
                 padding: "8px 10px",
@@ -278,6 +357,9 @@ function TarjetaGastoChat({
   onDeshacer,
   tarjetas = [],
   categoriasGasto = [],
+  cuentas = [],
+  movimientos = [],
+  prestamos = [],
   onNavigate,
   onClose,
 }) {
@@ -286,6 +368,7 @@ function TarjetaGastoChat({
   const [categoria, setCategoria] = useState(data.categoria || "Combustible");
   const [metodoPago, setMetodoPago] = useState(data.metodoPago || "Efectivo");
   const [tarjetaId, setTarjetaId] = useState(data.tarjetaId || "");
+  const [cuentaOrigenId, setCuentaOrigenId] = useState(data.cuentaOrigenId || "");
   const [fecha, setFecha] = useState(data.fecha || new Date().toISOString().slice(0, 10));
   const [descripcion, setDescripcion] = useState(
     data.descripcion || (data.categoria === "Combustible" ? "Gasolina" : data.categoria || "Gasto")
@@ -295,6 +378,19 @@ function TarjetaGastoChat({
   const tarjetasActivas = (tarjetas || []).filter(
     (t) => t.estado === "Activa" && (t.tipoTarjeta || "Crédito") === "Crédito"
   );
+
+  const requiereCuentaOrigen = metodoPago !== "Tarjeta de crédito" && (cuentas || []).length > 0;
+  const evalCuentasGasto = evaluarCuentasParaPago(
+    cuentas || [],
+    movimientos || [],
+    parseFloat(monto) || 0,
+    {},
+    prestamos || []
+  );
+  const cuentaSelGasto =
+    cuentaOrigenId && cuentaOrigenId !== "__SIN_CUENTA__"
+      ? evalCuentasGasto.cuentas.find((c) => c.id === cuentaOrigenId) || null
+      : null;
 
   const categoriasPropias = (categoriasGasto || []).map((c) => c.nombre);
   const opcionesCategorias = categoriasPropias.length > 0
@@ -329,6 +425,21 @@ function TarjetaGastoChat({
       setErrorLocal("Selecciona qué tarjeta de crédito utilizaste");
       return;
     }
+    if (requiereCuentaOrigen && !cuentaOrigenId) {
+      setErrorLocal("Selecciona la cuenta desde donde vienen los fondos (o Efectivo / Sin descontar)");
+      return;
+    }
+    const cuentaOrigenIdReal =
+      requiereCuentaOrigen && cuentaOrigenId && cuentaOrigenId !== "__SIN_CUENTA__" ? cuentaOrigenId : "";
+    if (cuentaOrigenIdReal) {
+      const saldos = calcularSaldosCuentas(cuentas || [], movimientos || [], prestamos || []);
+      const ctaObj = (cuentas || []).find((c) => c.id === cuentaOrigenIdReal);
+      const disp = ctaObj ? saldos[ctaObj.id]?.saldoDisponible || 0 : 0;
+      if (disp + 0.001 < num) {
+        setErrorLocal(`Fondos insuficientes en ${ctaObj?.nombre || "la cuenta"} (disponibles: RD$ ${disp.toLocaleString("es", { minimumFractionDigits: 2 })}).`);
+        return;
+      }
+    }
 
     if (metodoPago === "Tarjeta de crédito" && tarjetaId) {
       const tarjetaElegida = tarjetasActivas.find((t) => t.id === tarjetaId);
@@ -340,12 +451,15 @@ function TarjetaGastoChat({
 
     setErrorLocal(null);
     const tarjeta = tarjetasActivas.find((t) => t.id === tarjetaId);
+    const ctaOrigenObj = cuentaOrigenIdReal ? (cuentas || []).find((c) => c.id === cuentaOrigenIdReal) : null;
 
     onGuardar({
       monto: num,
       categoria,
       clasificacion: GASTO_CATS_FIJO.includes(categoria) ? "Fijo" : "Variable",
-      metodoPago,
+      metodoPago: cuentaOrigenIdReal && metodoPago === "Efectivo" ? "Transferencia" : metodoPago,
+      cuentaOrigenId: cuentaOrigenIdReal || null,
+      cuentaOrigenNombre: ctaOrigenObj ? ctaOrigenObj.nombre : "",
       tarjetaId: metodoPago === "Tarjeta de crédito" ? tarjetaId : null,
       tarjetaNombre: metodoPago === "Tarjeta de crédito" ? tarjeta?.nombre || "" : "",
       fecha,
@@ -638,7 +752,12 @@ function TarjetaGastoChat({
           </label>
           <select
             value={metodoPago}
-            onChange={(e) => setMetodoPago(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setMetodoPago(val);
+              if (val === "Tarjeta de crédito") setCuentaOrigenId("");
+              setErrorLocal(null);
+            }}
             style={{
               width: "100%",
               padding: "6px 8px",
@@ -675,6 +794,47 @@ function TarjetaGastoChat({
           />
         </div>
       </div>
+
+      {requiereCuentaOrigen && (
+        <div>
+          <label style={{ fontSize: 10.5, color: "var(--ink)", display: "block", marginBottom: 3, fontWeight: 700 }}>
+            Cuenta desde donde vienen los fondos *
+          </label>
+          <select
+            value={cuentaOrigenId}
+            onChange={(e) => {
+              const val = e.target.value;
+              setCuentaOrigenId(val);
+              if (val === "__SIN_CUENTA__") setMetodoPago("Efectivo");
+              else if (val && metodoPago === "Efectivo") setMetodoPago("Transferencia");
+              setErrorLocal(null);
+            }}
+            style={{
+              width: "100%",
+              padding: "7px 8px",
+              fontSize: 12,
+              borderRadius: 8,
+              border: `1.5px solid ${!cuentaOrigenId ? "var(--amber)" : cuentaSelGasto && !cuentaSelGasto.suficiente ? "var(--stamp)" : "var(--sage)"}`,
+              background: "var(--card)",
+            }}
+          >
+            <option value="">— Selecciona la cuenta de origen —</option>
+            {evalCuentasGasto.cuentas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre} ({c.entidadName || "Banco"}) — Disp: RD$ {(c.saldoDisponible || 0).toLocaleString("es", { minimumFractionDigits: 2 })} {c.suficiente ? "✓" : `(Faltan RD$ ${(c.faltante || 0).toLocaleString("es", { minimumFractionDigits: 2 })})`}
+              </option>
+            ))}
+            <option value="__SIN_CUENTA__">Efectivo / Sin descontar de mis cuentas</option>
+          </select>
+          {cuentaSelGasto && (
+            <div style={{ fontSize: 10.5, marginTop: 3, fontWeight: 600, color: cuentaSelGasto.suficiente ? "#059669" : "#dc2626" }}>
+              {cuentaSelGasto.suficiente
+                ? `Disponible: RD$ ${(cuentaSelGasto.saldoDisponible || 0).toLocaleString("es", { minimumFractionDigits: 2 })}`
+                : `Saldo insuficiente en ${cuentaSelGasto.nombre}`}
+            </div>
+          )}
+        </div>
+      )}
 
       {metodoPago === "Tarjeta de crédito" && (
         <div>
@@ -786,15 +946,32 @@ function TarjetaPrestamoChat({
   guardando,
   onGuardar,
   onDeshacer,
+  cuentas = [],
+  movimientos = [],
+  prestamos = [],
   onNavigate,
   onClose,
 }) {
   const [editando, setEditando] = useState(!guardado);
   const [monto, setMonto] = useState(data.monto || "");
   const [metodoPago, setMetodoPago] = useState(data.metodoPago || "Transferencia");
+  const [cuentaOrigenId, setCuentaOrigenId] = useState(data.cuentaOrigenId || "");
   const [fecha, setFecha] = useState(data.fecha || new Date().toISOString().slice(0, 10));
   const [descripcion, setDescripcion] = useState(data.descripcion || `Pago préstamo ${data.prestamoNumero || ""}`);
   const [errorLocal, setErrorLocal] = useState(null);
+
+  const requiereCuentaOrigen = (cuentas || []).length > 0;
+  const evalCuentasPrestamo = evaluarCuentasParaPago(
+    cuentas || [],
+    movimientos || [],
+    parseFloat(monto) || 0,
+    { entidadPreferidaId: data.entidadId || null, cuentaPreferidaId: data.cuentaDestinoId || null },
+    prestamos || []
+  );
+  const cuentaSelPrestamo =
+    cuentaOrigenId && cuentaOrigenId !== "__SIN_CUENTA__"
+      ? evalCuentasPrestamo.cuentas.find((c) => c.id === cuentaOrigenId) || null
+      : null;
 
   const handleConfirmar = () => {
     const num = parseFloat(monto);
@@ -802,11 +979,29 @@ function TarjetaPrestamoChat({
       setErrorLocal("Ingresa un monto válido mayor a 0");
       return;
     }
+    if (requiereCuentaOrigen && !cuentaOrigenId) {
+      setErrorLocal("Selecciona la cuenta desde donde vienen los fondos (o Efectivo / Sin descontar)");
+      return;
+    }
+    const cuentaOrigenIdReal =
+      requiereCuentaOrigen && cuentaOrigenId && cuentaOrigenId !== "__SIN_CUENTA__" ? cuentaOrigenId : "";
+    if (cuentaOrigenIdReal) {
+      const saldos = calcularSaldosCuentas(cuentas || [], movimientos || [], prestamos || []);
+      const ctaObj = (cuentas || []).find((c) => c.id === cuentaOrigenIdReal);
+      const disp = ctaObj ? saldos[ctaObj.id]?.saldoDisponible || 0 : 0;
+      if (disp + 0.001 < num) {
+        setErrorLocal(`Fondos insuficientes en ${ctaObj?.nombre || "la cuenta"} (disponibles: RD$ ${disp.toLocaleString("es", { minimumFractionDigits: 2 })}).`);
+        return;
+      }
+    }
+    const ctaObj = cuentaOrigenIdReal ? (cuentas || []).find((c) => c.id === cuentaOrigenIdReal) : null;
     setErrorLocal(null);
     onGuardar({
       ...data,
       monto: num,
-      metodoPago,
+      metodoPago: cuentaOrigenIdReal && metodoPago === "Efectivo" ? "Transferencia" : metodoPago,
+      cuentaOrigenId: cuentaOrigenIdReal || null,
+      cuentaOrigenNombre: ctaObj ? ctaObj.nombre : "",
       fecha,
       descripcion: descripcion.trim() || `Pago préstamo ${data.prestamoNumero || ""}`,
     });
@@ -1021,6 +1216,48 @@ function TarjetaPrestamoChat({
           </select>
         </div>
       </div>
+
+      {requiereCuentaOrigen && (
+        <div>
+          <label style={{ fontSize: 10.5, color: "var(--ink)", display: "block", marginBottom: 3, fontWeight: 700 }}>
+            Cuenta desde donde vienen los fondos *
+          </label>
+          <select
+            value={cuentaOrigenId}
+            onChange={(e) => {
+              const val = e.target.value;
+              setCuentaOrigenId(val);
+              if (val === "__SIN_CUENTA__") setMetodoPago("Efectivo");
+              else if (val && metodoPago === "Efectivo") setMetodoPago("Transferencia");
+              setErrorLocal(null);
+            }}
+            style={{
+              width: "100%",
+              padding: "7px 9px",
+              fontSize: 12.5,
+              borderRadius: 8,
+              border: `1.5px solid ${!cuentaOrigenId ? "var(--amber)" : cuentaSelPrestamo && !cuentaSelPrestamo.suficiente ? "var(--stamp)" : "var(--sage)"}`,
+              background: "var(--card)",
+              color: "var(--ink)",
+            }}
+          >
+            <option value="">— Selecciona la cuenta de origen —</option>
+            {evalCuentasPrestamo.cuentas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre} ({c.entidadName || "Banco"}) — Disp: RD$ {(c.saldoDisponible || 0).toLocaleString("es", { minimumFractionDigits: 2 })} {c.suficiente ? "✓" : `(Faltan RD$ ${(c.faltante || 0).toLocaleString("es", { minimumFractionDigits: 2 })})`}
+              </option>
+            ))}
+            <option value="__SIN_CUENTA__">Efectivo / Sin descontar de mis cuentas</option>
+          </select>
+          {cuentaSelPrestamo && (
+            <div style={{ fontSize: 10.5, marginTop: 3, fontWeight: 600, color: cuentaSelPrestamo.suficiente ? "#059669" : "#dc2626" }}>
+              {cuentaSelPrestamo.suficiente
+                ? `Disponible: RD$ ${(cuentaSelPrestamo.saldoDisponible || 0).toLocaleString("es", { minimumFractionDigits: 2 })}`
+                : `Saldo insuficiente en ${cuentaSelPrestamo.nombre}`}
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
         <label style={{ fontSize: 10.5, color: "var(--ink-soft)", display: "block", marginBottom: 3, fontWeight: 600 }}>Descripción / Concepto</label>
@@ -2656,8 +2893,9 @@ export default function Asistente({
 
         let guardadoAuto = false;
         let movId = null;
+        const tieneCuentasParaElegir = (cuentas || []).length > 0;
 
-        if (montoPagar > 0 && accionFinal.autoRegistrar) {
+        if (montoPagar > 0 && accionFinal.autoRegistrar && !tieneCuentasParaElegir) {
           try {
             const nuevoMov = await addMovimiento({
               type: "Gasto",
@@ -2689,7 +2927,9 @@ export default function Asistente({
           saldoPendiente: saldoPendienteReal ?? accionFinal.saldoPendiente,
           prestamoId: prestamoObj?.id || accionFinal.prestamoId,
           prestamoNumero: prestamoObj?.numero || accionFinal.prestamoNumero,
+          entidadId: prestamoObj?.entidadId || accionFinal.entidadId,
           entidadName: prestamoObj?.entidadName || accionFinal.entidadName,
+          cuentaDestinoId: prestamoObj?.cuentaDestinoId || null,
           esTotal: esLiquidacionTotal,
           guardado: guardadoAuto,
           movimientoId: movId,
@@ -2697,6 +2937,8 @@ export default function Asistente({
 
         if (guardadoAuto) {
           textoRespuesta = `🎉 ¡Excelente decisión! He registrado el pago de **RD$ ${montoPagar.toLocaleString("es", { minimumFractionDigits: 2 })}** al préstamo **${prestamoObj?.numero || accionFinal.prestamoNumero}** (${prestamoObj?.entidadName || accionFinal.entidadName || "Préstamo"}).\n\n${esLiquidacionTotal ? "¡Has saldado esta deuda por completo! 🏆" : `Saldo pendiente restante: RD$ ${Math.max((saldoPendienteReal || 0) - montoPagar, 0).toLocaleString("es")}.`} Sumaste puntos 🚀 hacia tu libertad financiera.`;
+        } else if (tieneCuentasParaElegir) {
+          textoRespuesta = `He preparado el pago de **RD$ ${montoPagar.toLocaleString("es", { minimumFractionDigits: 2 })}** al préstamo **${prestamoObj?.numero || accionFinal.prestamoNumero}**. Selecciona desde qué cuenta salen los fondos y confirma abajo:`;
         }
       }
 
@@ -2737,8 +2979,9 @@ export default function Asistente({
         const gastoDetectado = accionFinal || resAsistente?.gasto;
         let guardadoAutomatico = false;
         let idNuevoMovimiento = null;
+        const requiereElegirCuenta = (cuentas || []).length > 0 && gastoDetectado?.metodoPago !== "Tarjeta de crédito";
 
-        if (gastoDetectado && gastoDetectado.monto > 0 && gastoDetectado.autoRegistrar) {
+        if (gastoDetectado && gastoDetectado.monto > 0 && gastoDetectado.autoRegistrar && !requiereElegirCuenta) {
           try {
             const tarjeta = tarjetasActivas.find((t) => t.id === gastoDetectado.tarjetaId);
             const infoFechaPago =
@@ -2793,8 +3036,10 @@ export default function Asistente({
 
         if (guardadoAutomatico && gastoDetectado) {
           textoRespuesta = `✅ ¡Listo! Registré tu gasto de **RD$ ${Number(gastoDetectado.monto).toLocaleString("es", { minimumFractionDigits: 2 })}** en **${gastoDetectado.categoria}** (${gastoDetectado.metodoPago}${gastoDetectado.tarjetaNombre ? ` - ${gastoDetectado.tarjetaNombre}` : ""}) para la fecha ${gastoDetectado.fecha}.\n\nYa está sumado a tus movimientos y balance financiero. Si necesitas ajustar los datos o deshacerlo, puedes hacerlo abajo:`;
-        } else if (!textoRespuesta && gastoDetectado) {
-          textoRespuesta = `He preparado el registro de tu gasto en **${gastoDetectado.categoria}** por **RD$ ${Number(gastoDetectado.monto || 0).toLocaleString("es", { minimumFractionDigits: 2 })}**. Puedes confirmar con un clic para guardarlo en tus movimientos:`;
+        } else if (gastoDetectado && (!textoRespuesta || requiereElegirCuenta)) {
+          textoRespuesta = requiereElegirCuenta
+            ? `He preparado el registro de tu gasto en **${gastoDetectado.categoria}** por **RD$ ${Number(gastoDetectado.monto || 0).toLocaleString("es", { minimumFractionDigits: 2 })}**. Selecciona la cuenta de donde salen los fondos y confirma abajo:`
+            : `He preparado el registro de tu gasto en **${gastoDetectado.categoria}** por **RD$ ${Number(gastoDetectado.monto || 0).toLocaleString("es", { minimumFractionDigits: 2 })}**. Puedes confirmar con un clic para guardarlo en tus movimientos:`;
         }
       }
 
@@ -2906,6 +3151,8 @@ export default function Asistente({
         entidadId: datosAjustados.entidadId || null,
         entidadName: datosAjustados.entidadName || "",
         metodoPago: datosAjustados.metodoPago || "Transferencia",
+        cuentaOrigenId: datosAjustados.cuentaOrigenId || null,
+        cuentaOrigenNombre: datosAjustados.cuentaOrigenNombre || "",
         origen: "chat_ia",
       });
 
@@ -3034,6 +3281,8 @@ export default function Asistente({
         date: datosAjustados.fecha || new Date().toISOString().slice(0, 10),
         clasificacion: datosAjustados.clasificacion || (GASTO_CATS_FIJO.includes(datosAjustados.categoria) ? "Fijo" : "Variable"),
         metodoPago: datosAjustados.metodoPago || "Efectivo",
+        cuentaOrigenId: datosAjustados.cuentaOrigenId || null,
+        cuentaOrigenNombre: datosAjustados.cuentaOrigenNombre || "",
         tarjetaId: datosAjustados.metodoPago === "Tarjeta de crédito" ? datosAjustados.tarjetaId || null : null,
         tarjetaNombre: datosAjustados.metodoPago === "Tarjeta de crédito" ? datosAjustados.tarjetaNombre || tarjeta?.nombre || "" : "",
         monedaTarjeta: datosAjustados.metodoPago === "Tarjeta de crédito" ? "RDS" : null,
@@ -3178,6 +3427,8 @@ export default function Asistente({
         metodoPago: opciones.metodoPago,
         categoriaGasto: opciones.categoriaGasto,
         agregarNuevosAlCatalogo: opciones.agregarNuevos,
+        cuentaOrigenId: opciones.cuentaOrigenId || null,
+        cuentaOrigenNombre: opciones.cuentaOrigenNombre || "",
       });
 
       // Dispara la animación de cohete hacia los puntos
@@ -3466,6 +3717,9 @@ export default function Asistente({
                 data={m.facturaData}
                 guardado={Boolean(m.facturaData.guardado)}
                 guardando={guardandoFacturaIndex === i}
+                cuentas={cuentas}
+                movimientos={movimientos}
+                prestamos={prestamos}
                 onGuardar={(opciones) => handleGuardarFactura(i, opciones)}
                 onAbrirModulo={() => {
                   onNavigate?.("escanear-factura");
@@ -3483,6 +3737,9 @@ export default function Asistente({
                 onDeshacer={(movId) => handleDeshacerGasto(i, movId)}
                 tarjetas={tarjetas}
                 categoriasGasto={categoriasGasto}
+                cuentas={cuentas}
+                movimientos={movimientos}
+                prestamos={prestamos}
                 onNavigate={onNavigate}
                 onClose={onClose}
               />
@@ -3495,6 +3752,9 @@ export default function Asistente({
                 guardando={guardandoPrestamoIndex === i}
                 onGuardar={(opciones) => handleGuardarPrestamo(i, opciones)}
                 onDeshacer={(movId) => handleDeshacerPrestamo(i, movId)}
+                cuentas={cuentas}
+                movimientos={movimientos}
+                prestamos={prestamos}
                 onNavigate={onNavigate}
                 onClose={onClose}
               />
